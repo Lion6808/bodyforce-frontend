@@ -1,9 +1,14 @@
-
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { createClient } from "@supabase/supabase-js";
 import { FaUser, FaClock, FaUsers, FaStar, FaExclamationTriangle } from "react-icons/fa";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { format, parseISO } from "date-fns";
+
+// Initialise Supabase client
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
+);
 
 export default function StatisticsPage() {
   const [members, setMembers] = useState([]);
@@ -13,16 +18,16 @@ export default function StatisticsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const [mRes, pRes] = await Promise.all([
-          axios.get(`${process.env.REACT_APP_API_URL}/api/members`),
-          axios.get(`${process.env.REACT_APP_API_URL}/api/presences`),
-        ]);
-        setMembers(Array.isArray(mRes.data) ? mRes.data : []);
-        setPresences(Array.isArray(pRes.data) ? pRes.data : []);
-      } catch (err) {
-        console.error("Erreur lors du chargement des données :", err);
+      const { data: membersData, error: membersError } = await supabase.from("members").select("*");
+      const { data: presencesData, error: presencesError } = await supabase.from("presences").select("*");
+
+      if (membersError || presencesError) {
+        console.error("Erreur chargement Supabase :", membersError || presencesError);
+        return;
       }
+
+      setMembers(Array.isArray(membersData) ? membersData : []);
+      setPresences(Array.isArray(presencesData) ? presencesData : []);
     };
 
     fetchData();
@@ -37,10 +42,7 @@ export default function StatisticsPage() {
         if (!p.timestamp || !p.badgeId) continue;
 
         const parsedDate = parseISO(p.timestamp);
-        if (isNaN(parsedDate)) {
-          console.warn("Date invalide ignorée :", p.timestamp);
-          continue;
-        }
+        if (isNaN(parsedDate)) continue;
 
         const hour = format(parsedDate, "HH");
         const member = members.find((m) => m.badgeId === p.badgeId);
@@ -52,108 +54,57 @@ export default function StatisticsPage() {
         hourCount[hour] = (hourCount[hour] || 0) + 1;
       }
 
-      const top10Members = Object.values(memberCount)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      const top5Hours = Object.entries(hourCount)
+      setTopMembers(Object.values(memberCount).sort((a, b) => b.count - a.count).slice(0, 10));
+      setTopHours(Object.entries(hourCount)
         .map(([hour, count]) => ({ hour, count }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
-      setTopMembers(top10Members);
-      setTopHours(top5Hours);
+        .slice(0, 5));
     }
   }, [members, presences]);
+
+  const abonnementsExpirés = members.filter(m => m.endDate && new Date(m.endDate) < new Date());
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-6 text-blue-700">Statistiques de fréquentation</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white shadow rounded p-4 flex items-center gap-4">
-          <FaUsers className="text-green-500 text-3xl" />
-          <div>
-            <div className="text-sm text-gray-500">Total Membres</div>
-            <div className="text-xl font-bold">{members.length}</div>
-          </div>
-        </div>
-        <div className="bg-white shadow rounded p-4 flex items-center gap-4">
-          <FaClock className="text-yellow-500 text-3xl" />
-          <div>
-            <div className="text-sm text-gray-500">Présences enregistrées</div>
-            <div className="text-xl font-bold">{presences.length}</div>
-          </div>
-        </div>
-        <div className="bg-white shadow rounded p-4 flex items-center gap-4">
-          <FaStar className="text-purple-500 text-3xl" />
-          <div>
-            <div className="text-sm text-gray-500">Top membres</div>
-            <div className="text-xl font-bold">{topMembers.length}</div>
-          </div>
-        </div>
-        <div className="bg-white shadow rounded p-4 flex items-center gap-4">
-          <FaClock className="text-blue-500 text-3xl" />
-          <div>
-            <div className="text-sm text-gray-500">Plages horaires populaires</div>
-            <div className="text-xl font-bold">{topHours.length}</div>
-          </div>
-        </div>
+        <StatCard icon={<FaUsers className="text-green-500 text-3xl" />} label="Total Membres" value={members.length} />
+        <StatCard icon={<FaClock className="text-yellow-500 text-3xl" />} label="Présences enregistrées" value={presences.length} />
+        <StatCard icon={<FaStar className="text-purple-500 text-3xl" />} label="Top membres" value={topMembers.length} />
+        <StatCard icon={<FaClock className="text-blue-500 text-3xl" />} label="Plages horaires populaires" value={topHours.length} />
       </div>
 
-      {/* Liste des top membres */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-2">Top 10 membres les plus présents</h3>
-        <ul className="bg-white shadow rounded p-4">
-          {members.filter(m => m.endDate && new Date(m.endDate) < new Date()).length === 0 && (
-            <li className="text-gray-500">Aucun abonnement expiré</li>
-          )}
-          {topMembers.length > 0 ? (
-            topMembers.map((m, index) => {
-              const medalIcons = [
-                <span key="gold" title="1er" className="text-yellow-500 text-xl">🥇</span>,
-                <span key="silver" title="2ème" className="text-gray-400 text-xl">🥈</span>,
-                <span key="bronze" title="3ème" className="text-orange-500 text-xl">🥉</span>
-              ];
-              return (
-                <li key={m.id} className="flex justify-between border-b py-1 items-center">
-                  <span className="flex items-center gap-2">
-                    {index < 3 && medalIcons[index]}
-                    {m.prenom || m.firstName || "?"} {m.nom || m.name || ""}
-                  </span>
-                  <span className="text-gray-600">{m.count} passages</span>
-                </li>
-              );
-            })
-          ) : (
-            <li className="text-gray-500">Aucune donnée disponible</li>
-          )}
-        </ul>
-      </div>
+      <Section title="Top 10 membres les plus présents">
+        {topMembers.length > 0 ? (
+          <ul>
+            {topMembers.map((m, index) => (
+              <li key={m.id} className="flex justify-between border-b py-1 items-center">
+                <span className="flex items-center gap-2">
+                  {index === 0 && "🥇"} {index === 1 && "🥈"} {index === 2 && "🥉"}
+                  {m.firstName} {m.name}
+                </span>
+                <span className="text-gray-600">{m.count} passages</span>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="text-gray-500">Aucune donnée disponible</p>}
+      </Section>
 
-      {/* Liste des plages horaires */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-2">Plages horaires les plus fréquentées</h3>
-        <ul className="bg-white shadow rounded p-4">
-          {members.filter(m => m.endDate && new Date(m.endDate) < new Date()).length === 0 && (
-            <li className="text-gray-500">Aucun abonnement expiré</li>
-          )}
-          {topHours.length > 0 ? (
-            topHours.map((h, idx) => (
+      <Section title="Plages horaires les plus fréquentées">
+        {topHours.length > 0 ? (
+          <ul>
+            {topHours.map((h, idx) => (
               <li key={idx} className="flex justify-between border-b py-1">
                 <span>{h.hour}h</span>
                 <span className="text-gray-600">{h.count} passages</span>
               </li>
-            ))
-          ) : (
-            <li className="text-gray-500">Aucune donnée disponible</li>
-          )}
-        </ul>
-      </div>
-    
-      {/* Histogramme des présences par heure */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-2">Présences par heure</h3>
+            ))}
+          </ul>
+        ) : <p className="text-gray-500">Aucune donnée disponible</p>}
+      </Section>
+
+      <Section title="Présences par heure">
         {topHours.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={topHours}>
@@ -164,32 +115,44 @@ export default function StatisticsPage() {
               <Bar dataKey="count" fill="#3182ce" />
             </BarChart>
           </ResponsiveContainer>
-        ) : (
-          <p className="text-gray-500">Aucune donnée disponible.</p>
-        )}
-      </div>
+        ) : <p className="text-gray-500">Aucune donnée disponible</p>}
+      </Section>
 
-      {/* Membres avec abonnements expirés */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-red-600">
-          <FaExclamationTriangle /> Abonnements expirés
-        </h3>
-        <ul className="bg-white shadow rounded p-4">
-          {members.filter(m => m.endDate && new Date(m.endDate) < new Date()).length === 0 && (
-            <li className="text-gray-500">Aucun abonnement expiré</li>
-          )}
-          {members.filter(m => {
-            const today = new Date();
-            return m.endDate && new Date(m.endDate) < today;
-          }).map(m => (
-            <li key={m.id} className="flex justify-between border-b py-1">
-              <span>{m.prenom || m.firstName || "?"} {m.nom || m.name || ""}</span>
-              <span className="text-gray-600">Fin : {m.date_fin}</span>
-            </li>
-          ))}
-        </ul>
+      <Section title="Abonnements expirés" icon={<FaExclamationTriangle className="text-red-600" />}>
+        {abonnementsExpirés.length > 0 ? (
+          <ul>
+            {abonnementsExpirés.map(m => (
+              <li key={m.id} className="flex justify-between border-b py-1">
+                <span>{m.firstName} {m.name}</span>
+                <span className="text-gray-600">Fin : {m.endDate}</span>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="text-gray-500">Aucun abonnement expiré</p>}
+      </Section>
+    </div>
+  );
+}
+
+function StatCard({ icon, label, value }) {
+  return (
+    <div className="bg-white shadow rounded p-4 flex items-center gap-4">
+      {icon}
+      <div>
+        <div className="text-sm text-gray-500">{label}</div>
+        <div className="text-xl font-bold">{value}</div>
       </div>
     </div>
   );
 }
 
+function Section({ title, icon, children }) {
+  return (
+    <div className="mb-6">
+      <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+        {icon} {title}
+      </h3>
+      <div className="bg-white shadow rounded p-4">{children}</div>
+    </div>
+  );
+}

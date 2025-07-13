@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { createClient } from "@supabase/supabase-js";
 import { isAfter } from "date-fns";
 import {
   FaUsers,
@@ -9,7 +9,11 @@ import {
   FaFemale,
 } from "react-icons/fa";
 
-const API = process.env.REACT_APP_API_URL;
+// Initialise Supabase client
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
+);
 
 function HomePage() {
   const [stats, setStats] = useState({
@@ -22,42 +26,42 @@ function HomePage() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      try {
-        const res = await axios.get(`${API}/api/members`);
-        const all = res.data || [];
-        const today = new Date();
+      const { data: members, error } = await supabase.from("members").select("*");
 
-        let actifs = 0;
-        let expirés = 0;
-        let hommes = 0;
-        let femmes = 0;
-
-        all.forEach((m) => {
-          const end = m.endDate ? new Date(m.endDate) : null;
-          if (end && isAfter(end, today)) {
-            actifs++;
-          } else {
-            expirés++;
-          }
-
-          const genre = (m.gender || "").toLowerCase();
-          if (genre === "homme" || genre === "h") {
-            hommes++;
-          } else if (genre === "femme" || genre === "f") {
-            femmes++;
-          }
-        });
-
-        setStats({
-          total: all.length,
-          actifs,
-          expirés,
-          hommes,
-          femmes,
-        });
-      } catch (err) {
-        console.error("Erreur de chargement des membres :", err.message);
+      if (error) {
+        console.error("Erreur de chargement Supabase :", error.message);
+        return;
       }
+
+      const today = new Date();
+      let actifs = 0;
+      let expirés = 0;
+      let hommes = 0;
+      let femmes = 0;
+
+      members.forEach((m) => {
+        const end = m.endDate ? new Date(m.endDate) : null;
+        if (end && isAfter(end, today)) {
+          actifs++;
+        } else {
+          expirés++;
+        }
+
+        const genre = (m.gender || "").toLowerCase();
+        if (genre === "homme" || genre === "h") {
+          hommes++;
+        } else if (genre === "femme" || genre === "f") {
+          femmes++;
+        }
+      });
+
+      setStats({
+        total: members.length,
+        actifs,
+        expirés,
+        hommes,
+        femmes,
+      });
     };
 
     fetchStats();
