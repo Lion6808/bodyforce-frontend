@@ -1,0 +1,299 @@
+import React, { useState } from "react";
+import axios from "axios";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Link,
+  useLocation,
+  Navigate,
+  useNavigate,
+} from "react-router-dom";
+import {
+  FaHome,
+  FaUserFriends,
+  FaChartBar,
+  FaCalendarAlt,
+  FaBars,
+  FaTimes,
+  FaUserCircle,
+  FaSignOutAlt,
+} from "react-icons/fa";
+
+import PlanningPage from "./pages/PlanningPage";
+import HomePage from "./pages/HomePage";
+import StatisticsPage from "./pages/StatisticsPage";
+import MembersPage from "./pages/MembersPage";
+import MemberForm from "./components/MemberForm";
+import UserManagementPage from "./pages/UserManagementPage";
+import ProfilePage from "./pages/ProfilePage";
+
+const API = process.env.REACT_APP_API_URL;
+
+import { supabase } from "./supabaseClient"; // ajoute cette ligne en haut
+
+function LoginPage({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      alert("Identifiant ou mot de passe incorrect : " + error.message);
+    } else {
+      localStorage.setItem("user", JSON.stringify(data.user));
+      onLogin(data.user);
+      navigate("/");
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center h-screen bg-blue-50">
+      <form onSubmit={handleLogin} className="bg-white p-8 rounded shadow w-80">
+        <h2 className="text-xl font-bold mb-4 text-blue-600">Connexion</h2>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full mb-2 px-3 py-2 border rounded"
+          required
+        />
+        <input
+          type="password"
+          placeholder="Mot de passe"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full mb-4 px-3 py-2 border rounded"
+          required
+        />
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-2 rounded"
+        >
+          Se connecter
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function Sidebar({ user, onLogout }) {
+  const location = useLocation();
+  const menu = [
+    { name: "Accueil", path: "/", icon: <FaHome className="text-red-500" /> },
+    { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500" /> },
+    { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500" /> },
+    { name: "Statistique", path: "/statistics", icon: <FaChartBar className="text-blue-500" /> },
+  ];
+
+  return (
+    <aside className="w-64 bg-white shadow-md p-4 flex-col items-center hidden lg:flex">
+      <h1 className="text-center text-lg font-bold text-red-600 mb-2">CLUB BODY FORCE</h1>
+      <img src="/images/logo.png" alt="Logo" className="mt-4 h-44 w-auto mb-6" />
+      <div className="mb-4 text-sm text-gray-600 flex items-center gap-2">
+        <FaUserCircle className="text-xl text-blue-600" />
+        {user?.username}
+      </div>
+      <ul className="w-full space-y-2">
+        {menu.map((item) => (
+          <li key={item.path}>
+            <Link
+              to={item.path}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-blue-100 ${location.pathname === item.path ? "bg-blue-200" : ""}`}
+            >
+              {item.icon} {item.name}
+            </Link>
+          </li>
+        ))}
+        {user?.role === "admin" && (
+          <li>
+            <Link
+              to="/admin/users"
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-purple-100 ${location.pathname === "/admin/users" ? "bg-purple-200" : ""}`}
+            >
+              <FaUserCircle className="text-purple-500" /> Utilisateurs
+            </Link>
+          </li>
+        )}
+        <li>
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 rounded-lg px-4 py-2 w-full text-left text-red-600 hover:bg-red-100"
+          >
+            <FaSignOutAlt /> Déconnexion
+          </button>
+        </li>
+      </ul>
+    </aside>
+  );
+}
+
+function MobileMenu({ isOpen, onClose, user, onLogout }) {
+  const location = useLocation();
+  const menu = [
+    { name: "Accueil", path: "/", icon: <FaHome className="text-red-500" /> },
+    { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500" /> },
+    { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500" /> },
+    { name: "Statistique", path: "/statistics", icon: <FaChartBar className="text-blue-500" /> },
+  ];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-white z-50 p-6 flex flex-col">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-lg font-bold text-red-600">CLUB BODY FORCE</h1>
+        <button onClick={onClose}>
+          <FaTimes className="text-2xl text-gray-700" />
+        </button>
+      </div>
+      <img src="/images/logo.png" alt="Logo" className="h-32 w-auto mx-auto mb-6" />
+      <div className="mb-6 text-sm text-gray-600 flex items-center gap-2 justify-center">
+        <FaUserCircle className="text-xl text-blue-600" />
+        {user?.username}
+      </div>
+      <ul className="space-y-4">
+        {menu.map((item) => (
+          <li key={item.path}>
+            <Link
+              to={item.path}
+              onClick={onClose}
+              className={`flex items-center gap-3 text-lg px-4 py-2 rounded hover:bg-blue-100 ${location.pathname === item.path ? "bg-blue-200" : ""}`}
+            >
+              {item.icon} {item.name}
+            </Link>
+          </li>
+        ))}
+        {user?.role === "admin" && (
+          <li>
+            <Link
+              to="/admin/users"
+              onClick={onClose}
+              className={`flex items-center gap-3 text-lg px-4 py-2 rounded hover:bg-purple-100 ${location.pathname === "/admin/users" ? "bg-purple-200" : ""}`}
+            >
+              <FaUserCircle className="text-purple-500" /> Utilisateurs
+            </Link>
+          </li>
+        )}
+        <li>
+          <button
+            onClick={() => {
+              onLogout();
+              onClose();
+            }}
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-red-600 hover:bg-red-100 w-full text-left"
+          >
+            <FaSignOutAlt /> Déconnexion
+          </button>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function App() {
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      const parsed = JSON.parse(stored);
+      return typeof parsed === "object" && parsed !== null ? parsed : null;
+    } catch {
+      return null;
+    }
+  });
+  const [editingMember, setEditingMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    setUser(null);
+  };
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<LoginPage onLogin={setUser} />} />
+        <Route
+          path="/*"
+          element={
+            user ? (
+              <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100">
+                <div className="lg:hidden p-2 bg-white shadow-md flex justify-between items-center">
+                  <button onClick={() => setMobileMenuOpen(true)} className="text-2xl">
+                    <FaBars />
+                  </button>
+                  <h1 className="text-lg font-bold text-red-600">CLUB BODY FORCE</h1>
+                </div>
+
+                <Sidebar user={user} onLogout={handleLogout} />
+                <MobileMenu
+                  isOpen={mobileMenuOpen}
+                  onClose={() => setMobileMenuOpen(false)}
+                  user={user}
+                  onLogout={handleLogout}
+                />
+
+                <main className="flex-1 p-4">
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route
+                      path="/members"
+                      element={
+                        <MembersPage
+                          onEdit={(member) => {
+                            setEditingMember(member);
+                            setShowForm(true);
+                          }}
+                        />
+                      }
+                    />
+                    <Route path="/planning" element={<PlanningPage />} />
+                    <Route path="/statistics" element={<StatisticsPage />} />
+                    <Route
+                      path="/admin/users"
+                      element={
+                        user?.role === "admin" ? (
+                          <UserManagementPage />
+                        ) : (
+                          <Navigate to="/" />
+                        )
+                      }
+                    />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="*" element={<Navigate to="/" />} />
+                  </Routes>
+
+                  {showForm && (
+                    <MemberForm
+                      member={editingMember}
+                      onSave={() => {
+                        setShowForm(false);
+                        setEditingMember(null);
+                      }}
+                      onCancel={() => {
+                        setShowForm(false);
+                        setEditingMember(null);
+                      }}
+                    />
+                  )}
+                </main>
+              </div>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;
