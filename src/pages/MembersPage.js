@@ -27,10 +27,10 @@ function MembersPage({ onEdit }) {
     fetchMembers();
   }, []);
 
-  let result = members.filter((m) =>
+  useEffect(() => {
+    let result = members.filter((m) =>
       `${m.name} ${m.firstName}`.toLowerCase().includes(search.toLowerCase())
-      );
-
+    );
 
     if (activeFilter === "Homme") {
       result = result.filter((m) => m.gender === "Homme");
@@ -54,7 +54,7 @@ function MembersPage({ onEdit }) {
     result.sort((a, b) => {
       const nameA = a.name?.toLowerCase() || "";
       const nameB = b.name?.toLowerCase() || "";
-      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameB);
     });
 
     setFilteredMembers(result);
@@ -126,7 +126,7 @@ function MembersPage({ onEdit }) {
   };
 
   return (
-    <div>
+    <div className="p-4">
       <h1 className="text-2xl font-bold mb-2">Liste des membres</h1>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
@@ -166,13 +166,99 @@ function MembersPage({ onEdit }) {
           className="border px-3 py-2 rounded w-full sm:w-64"
         />
       </div>
+
+      {showForm && (
+        <MemberForm
+          member={selectedMember}
+          onClose={() => {
+            setShowForm(false);
+            setSelectedMember(null);
+            fetchMembers();
+          }}
+        />
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border">
+          <thead>
+            <tr>
+              <th className="px-4 py-2 border">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.length === filteredMembers.length}
+                  onChange={toggleSelectAll}
+                />
+              </th>
+              <th
+                className="px-4 py-2 border cursor-pointer"
+                onClick={() => setSortAsc(!sortAsc)}
+              >
+                Nom {sortAsc ? "↑" : "↓"}
+              </th>
+              <th className="px-4 py-2 border">Prénom</th>
+              <th className="px-4 py-2 border">Genre</th>
+              <th className="px-4 py-2 border">Type</th>
+              <th className="px-4 py-2 border">Début</th>
+              <th className="px-4 py-2 border">Fin</th>
+              <th className="px-4 py-2 border">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredMembers.map((member) => (
+              <tr key={member.id} className="hover:bg-gray-50">
+                <td className="px-4 py-2 border">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(member.id)}
+                    onChange={() => toggleSelect(member.id)}
+                  />
+                </td>
+                <td className="px-4 py-2 border">{member.name}</td>
+                <td className="px-4 py-2 border">{member.firstName}</td>
+                <td className="px-4 py-2 border">{member.gender}</td>
+                <td className="px-4 py-2 border">
+                  <span className={`px-2 py-1 rounded ${getBadgeColor(member.type)}`}>
+                    {member.type}
+                  </span>
+                </td>
+                <td className="px-4 py-2 border">
+                  {format(parseISO(member.startDate), "dd/MM/yyyy")}
+                </td>
+                <td className="px-4 py-2 border">
+                  {format(parseISO(member.endDate), "dd/MM/yyyy")}
+                </td>
+                <td className="px-4 py-2 border flex gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedMember(member);
+                      setShowForm(true);
+                    }}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    <FaEdit />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(member.id)}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <FaTrash />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 function Widget({ title, value, onClick }) {
   return (
-    <div className="p-3 bg-white rounded shadow text-center cursor-pointer hover:bg-blue-50" onClick={onClick}>
+    <div
+      className="p-3 bg-white rounded shadow text-center cursor-pointer hover:bg-blue-50"
+      onClick={onClick}
+    >
       <div className="text-sm text-gray-500">{title}</div>
       <div className="text-xl font-bold">{value}</div>
     </div>
