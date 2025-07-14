@@ -1,304 +1,390 @@
-import React, { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient";
-import MemberForm from "../components/MemberForm";
-import { format, isBefore, parseISO } from "date-fns";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import React, { useState, useEffect, useRef } from "react";
+import Webcam from "react-webcam";
+import Modal from "react-modal";
+import { FaCamera, FaFileUpload, FaTrash, FaDownload } from "react-icons/fa";
+import { supabase } from "../supabaseClient"; // Import from supabaseClient.js
 
-function MembersPage({ onEdit }) {
-  const [members, setMembers] = useState([]);
-  const [filteredMembers, setFilteredMembers] = useState([]);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [search, setSearch] = useState("");
-  const [sortAsc, setSortAsc] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [activeFilter, setActiveFilter] = useState(null);
+// Durées d’abonnement en mois
+const subscriptionDurations = {
+  Mensuel: 1,
+  Trimestriel: 3,
+  Semestriel: 6,
+  Annuel: 12,
+  "Année civile": 12,
+};
 
-  const fetchMembers = async () => {
-    const { data, error } = await supabase.from("members").select("*");
-    if (error) {
-      console.error("Erreur récupération membres :", error.message);
-    } else {
-      setMembers(data);
-    }
-  };
+export default function MemberForm({ member, onSave, onCancel }) {
+  const [form, setForm] = useState({
+    name: "",
+    firstName: "",
+    birthdate: "",
+    gender: "Homme",
+    address: "",
+    phone: "",
+    mobile: "",
+    email: "",
+    subscriptionType: "Mensuel",
+    startDate: "",
+    endDate: "",
+    badgeId: "",
+    files: [],
+    photo: null,
+    etudiant: false,
+  });
+
+  const [webcamOpen, setWebcamOpen] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState({ loading: false, error: null, success: null });
+  const webcamRef = useRef(null);
 
   useEffect(() => {
-    fetchMembers();
-  }, []);
-
-  useEffect(() => {
-    let result = members.filter((m) =>
-      \`\${m.name} \${m.firstName}\`.toLowerCase().includes(search.toLowerCase())
-    );
-
-    if (activeFilter === "Homme") {
-      result = result.filter((m) => m.gender === "Homme");
-    } else if (activeFilter === "Femme") {
-      result = result.filter((m) => m.gender === "Femme");
-    } else if (activeFilter === "Expiré") {
-      result = result.filter((m) => isBefore(parseISO(m.endDate), new Date()));
-    } else if (activeFilter === "Récent") {
-      const now = new Date();
-      result = result.filter((m) => {
-        const date = parseISO(m.startDate);
-        return (
-          date.getMonth() === now.getMonth() &&
-          date.getFullYear() === now.getFullYear()
-        );
+    if (member) {
+      setForm({
+        ...member,
+        files: Array.isArray(member.files)
+          ? member.files
+          : typeof member.files === "string"
+            ? JSON.parse(member.files)
+            : [],
+        etudiant: !!member.etudiant,
       });
-    } else if (activeFilter === "SansCertif") {
-      result = result.filter((m) => !m.files || m.files.length === 0 || m.files === "[]");
     }
+  }, [member]);
 
-    result.sort((a, b) => {
-      const nameA = a.name?.toLowerCase() || "";
-      const nameB = b.name?.toLowerCase() || "";
-      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-    });
-
-    setFilteredMembers(result);
-  }, [members, search, sortAsc, activeFilter]);
-
-  const handleDelete = async (id) => {
-    if (window.confirm("Supprimer ce membre ?")) {
-      await supabase.from("members").delete().eq("id", id);
-      fetchMembers();
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (window.confirm("Supprimer les membres sélectionnés ?")) {
-      for (const id of selectedIds) {
-        await supabase.from("members").delete().eq("id", id);
-      }
-      setSelectedIds([]);
-      fetchMembers();
-    }
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filteredMembers.length) {
-      setSelectedIds([]);
+  useEffect(() => {
+    if (!form.startDate) return;
+    if (form.subscriptionType === "Année civile") {
+      const year = new Date(form.startDate).getFullYear();
+      setForm((f) => ({
+        ...f,
+        startDate: `${year}-01-01`,
+        endDate: `${year}-12-31`,
+      }));
     } else {
-      setSelectedIds(filteredMembers.map((m) => m.id));
+      const start = new Date(form.startDate);
+      const months = subscriptionDurations[form.subscriptionType] || 1;
+      const end = new Date(start);
+      end.setMonth(start.getMonth() + months);
+      end.setDate(end.getDate() - 1);
+      setForm((f) => ({ ...f, endDate: end.toISOString().slice(0, 10) }));
+    }
+  }, [form.subscriptionType, form.startDate]);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((f) => ({
+      ...f,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const age = form.birthdate
+    ? Math.floor((new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000))
+    : null;
+
+  const isExpired = form.endDate && new Date(form.endDate) < new Date();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      ...form,
+      files: form.files, // Pas besoin de JSON.stringify si la colonne est jsonb
+    });
+  };
+
+  const capturePhoto = async () => {
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (!imageSrc) return;
+
+    setUploadStatus({ loading: true, error: null, success: null });
+    const blob = await (await fetch(imageSrc)).blob();
+    const fileName = `photo_${Date.now()}.jpg`;
+    const { error } = await supabase.storage
+      .from("documents")
+      .upload(`photos/${fileName}`, blob, { upsert: true });
+
+    if (error) {
+      setUploadStatus({ loading: false, error: error.message, success: null });
+    } else {
+      const { data: publicUrl } = supabase.storage.from("documents").getPublicUrl(`photos/${fileName}`);
+      setForm((f) => ({ ...f, photo: publicUrl.publicUrl }));
+      setUploadStatus({ loading: false, error: null, success: "Photo enregistrée" });
+      setWebcamOpen(false);
     }
   };
 
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+  const handleFileUpload = async (e) => {
+    const files = e.target.files;
+    if (!files.length) return;
+    setUploadStatus({ loading: true, error: null, success: null });
+
+    for (const file of files) {
+      const filePath = `certificats/${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage
+        .from("documents")
+        .upload(filePath, file);
+
+      if (error) {
+        setUploadStatus({ loading: false, error: error.message, success: null });
+        return;
+      }
+      const { data: publicUrl } = supabase.storage.from("documents").getPublicUrl(filePath);
+      setForm((f) => ({
+        ...f,
+        files: [...f.files, { name: file.name, url: publicUrl.publicUrl }],
+      }));
+    }
+    setUploadStatus({ loading: false, error: null, success: "Fichiers ajoutés" });
   };
 
-  const total = members.length;
-  const maleCount = members.filter((m) => m.gender === "Homme").length;
-  const femaleCount = members.filter((m) => m.gender === "Femme").length;
-  const expiredCount = members.filter((m) =>
-    isBefore(parseISO(m.endDate), new Date())
-  ).length;
-  const noCertCount = members.filter(
-    (m) => !m.files || m.files.length === 0 || m.files === "[]"
-  ).length;
-  const recentCount = members.filter((m) => {
-    const date = parseISO(m.startDate);
-    const now = new Date();
-    return (
-      date.getMonth() === now.getMonth() &&
-      date.getFullYear() === now.getFullYear()
-    );
-  }).length;
-
-  const getBadgeColor = (type) => {
-    switch (type) {
-      case "Mensuel":
-        return "bg-green-100 text-green-800";
-      case "Trimestriel":
-        return "bg-yellow-100 text-yellow-800";
-      case "Semestriel":
-        return "bg-blue-100 text-blue-800";
-      case "Annuel":
-      case "Année civile":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+  const removeFile = async (fileToRemove) => {
+    const key = fileToRemove.url.split("/documents/")[1];
+    await supabase.storage.from("documents").remove([key]);
+    const newFiles = form.files.filter((f) => f.name !== fileToRemove.name);
+    setForm((f) => ({ ...f, files: newFiles }));
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-2">Liste des membres</h1>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
-        <Widget title="👥 Membres au total" value={total} onClick={() => setActiveFilter(null)} />
-        <Widget title="👨 Hommes" value={maleCount} onClick={() => setActiveFilter("Homme")} />
-        <Widget title="👩 Femmes" value={femaleCount} onClick={() => setActiveFilter("Femme")} />
-        <Widget title="📅 Abonnements expirés" value={expiredCount} onClick={() => setActiveFilter("Expiré")} />
-        <Widget title="✅ Inscriptions récentes" value={recentCount} onClick={() => setActiveFilter("Récent")} />
-        <Widget title="📂 Certificats manquants" value={noCertCount} onClick={() => setActiveFilter("SansCertif")} />
-      </div>
-
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
-        <div className="flex gap-2">
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-            onClick={() => {
-              setSelectedMember(null);
-              setShowForm(true);
-            }}
-          >
-            + Ajouter un membre
-          </button>
-          {selectedIds.length > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              className="bg-red-600 text-white px-4 py-2 rounded"
+    <Modal
+      isOpen={true}
+      onRequestClose={onCancel}
+      className="bg-white rounded-xl p-4 max-w-4xl w-full mx-auto mt-10 shadow-xl"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium">Nom</label>
+            <input
+              type="text"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Prénom</label>
+            <input
+              type="text"
+              name="firstName"
+              value={form.firstName}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Date de naissance</label>
+            <input
+              type="date"
+              name="birthdate"
+              value={form.birthdate}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+            />
+            {age && <span className="text-sm text-gray-500">Âge: {age} ans</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Genre</label>
+            <select
+              name="gender"
+              value={form.gender}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
             >
-              Supprimer ({selectedIds.length})
-            </button>
-          )}
-        </div>
-        <input
-          type="text"
-          placeholder="Recherche nom..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="border px-3 py-2 rounded w-full sm:w-64"
-        />
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full table-auto border-collapse bg-white shadow text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2 border">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.length === filteredMembers.length}
-                  onChange={toggleSelectAll}
-                />
-              </th>
-              <th className="p-2 border">Photo</th>
-              <th className="p-2 border cursor-pointer" onClick={() => setSortAsc(!sortAsc)}>
-                Nom {sortAsc ? "▲" : "▼"}
-              </th>
-              <th className="p-2 border">Genre</th>
-              <th className="p-2 border">Abonnement</th>
-              <th className="p-2 border">Badge</th>
-              <th className="p-2 border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredMembers.map((m) => (
-              <tr key={m.id} className="hover:bg-gray-50">
-                <td className="p-2 border text-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(m.id)}
-                    onChange={() => toggleSelect(m.id)}
-                  />
-                </td>
-                <td className="p-2 border">
-                  {m.photo ? (
-                    <img
-                      src={m.photo}
-                      alt="membre"
-                      className="w-10 h-10 object-cover rounded-full"
-                    />
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td
-                  className="p-2 border cursor-pointer"
-                  onDoubleClick={() => {
-                    setSelectedMember(m);
-                    setShowForm(true);
-                  }}
-                >
-                  {m.name} {m.firstName}
-                </td>
-                <td className="p-2 border">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    m.gender === "Femme"
-                      ? "bg-pink-100 text-pink-700"
-                      : "bg-blue-100 text-blue-700"
-                  }`}>
-                    {m.gender}
-                  </span>
-                </td>
-                <td className="p-2 border">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getBadgeColor(m.subscriptionType)}`}>
-                    {m.subscriptionType}
-                  </span>
-                </td>
-                <td className="p-2 border">{m.badgeId || "—"}</td>
-                <td className="p-2 border space-x-2 flex">
-                  <button
-                    onClick={() => {
-                      setSelectedMember(m);
-                      setShowForm(true);
-                    }}
-                    className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs"
-                  >
-                    <FaEdit />
-                    Modifier
-                  </button>
-                  <button
-                    onClick={() => handleDelete(m.id)}
-                    className="flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded text-xs"
-                  >
-                    <FaTrash />
-                    Supprimer
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div className="bg-white mt-10 rounded-xl p-4 max-w-4xl w-full shadow-xl overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Saisie Membre</h2>
-              <button
-                onClick={() => {
-                  setShowForm(false);
-                  setSelectedMember(null);
-                }}
-                className="text-gray-600 hover:text-black"
-              >
-                ✕
-              </button>
-            </div>
-            <MemberForm
-              member={selectedMember}
-              onSave={async () => {
-                setShowForm(false);
-                setSelectedMember(null);
-                fetchMembers();
-              }}
-              onCancel={() => {
-                setShowForm(false);
-                setSelectedMember(null);
-              }}
+              <option value="Homme">Homme</option>
+              <option value="Femme">Femme</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Adresse</label>
+            <input
+              type="text"
+              name="address"
+              value={form.address}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Téléphone</label>
+            <input
+              type="tel"
+              name="phone"
+              value={form.phone}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Mobile</label>
+            <input
+              type="tel"
+              name="mobile"
+              value={form.mobile}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Type d'abonnement</label>
+            <select
+              name="subscriptionType"
+              value={form.subscriptionType}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+            >
+              {Object.keys(subscriptionDurations).map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Date de début</label>
+            <input
+              type="date"
+              name="startDate"
+              value={form.startDate}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Date de fin</label>
+            <input
+              type="date"
+              name="endDate"
+              value={form.endDate}
+              readOnly
+              className="border px-3 py-2 rounded w-full bg-gray-100"
+            />
+            {isExpired && <span className="text-sm text-red-500">Expiré</span>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Badge ID</label>
+            <input
+              type="text"
+              name="badgeId"
+              value={form.badgeId}
+              onChange={handleChange}
+              className="border px-3 py-2 rounded w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Étudiant</label>
+            <input
+              type="checkbox"
+              name="etudiant"
+              checked={form.etudiant}
+              onChange={handleChange}
+              className="h-4 w-4"
             />
           </div>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium">Photo</label>
+          {form.photo && (
+            <img src={form.photo} alt="Photo" className="w-20 h-20 object-cover rounded mb-2" />
+          )}
+          <button
+            type="button"
+            onClick={() => setWebcamOpen(true)}
+            className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm"
+          >
+            <FaCamera /> Prendre une photo
+          </button>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Importer fichiers</label>
+          <input
+            type="file"
+            multiple
+            onChange={handleFileUpload}
+            className="border px-3 py-2 rounded w-full"
+          />
+          {uploadStatus.loading && <p>Chargement...</p>}
+          {uploadStatus.error && <p className="text-red-500">{uploadStatus.error}</p>}
+          {uploadStatus.success && <p className="text-green-500">{uploadStatus.success}</p>}
+          {form.files.map((file) => (
+            <div key={file.name} className="flex items-center gap-2 mt-2">
+              <a
+                href={file.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600"
+              >
+                {file.name}
+              </a>
+              <button
+                type="button"
+                onClick={() => removeFile(file)}
+                className="text-red-600"
+              >
+                <FaTrash />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2 mt-4">
+          <button
+            type="submit"
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Enregistrer
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="bg-gray-300 text-black px-4 py-2 rounded"
+          >
+            Annuler
+          </button>
+        </div>
+      </form>
+
+      {webcamOpen && (
+        <Modal
+          isOpen={true}
+          onRequestClose={() => setWebcamOpen(false)}
+          className="bg-white rounded-xl p-4 max-w-lg w-full mx-auto mt-10 shadow-xl"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center"
+        >
+          <Webcam
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            className="w-full"
+          />
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={capturePhoto}
+              className="bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              📸 Capturer
+            </button>
+            <button
+              onClick={() => setWebcamOpen(false)}
+              className="bg-gray-300 text-black px-4 py-2 rounded"
+            >
+              Annuler
+            </button>
+          </div>
+        </Modal>
       )}
-    </div>
+    </Modal>
   );
 }
-
-function Widget({ title, value, onClick }) {
-  return (
-    <div className="p-3 bg-white rounded shadow text-center cursor-pointer hover:bg-blue-50" onClick={onClick}>
-      <div className="text-sm text-gray-500">{title}</div>
-      <div className="text-xl font-bold">{value}</div>
-    </div>
-  );
-}
-
-export default MembersPage;
