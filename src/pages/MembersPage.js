@@ -27,10 +27,10 @@ function MembersPage({ onEdit }) {
     fetchMembers();
   }, []);
 
-  useEffect(() => {
-    let result = members.filter((m) =>
-      \`\${m.name} \${m.firstName}\`.toLowerCase().includes(search.toLowerCase())
-    );
+  let result = members.filter((m) =>
+      `${m.name} ${m.firstName}`.toLowerCase().includes(search.toLowerCase())
+      );
+
 
     if (activeFilter === "Homme") {
       result = result.filter((m) => m.gender === "Homme");
