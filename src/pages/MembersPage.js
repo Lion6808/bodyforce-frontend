@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
@@ -179,9 +178,5 @@ function Widget({ title, value, onClick }) {
     </div>
   );
 }
-
-
-
-
 
 export default MembersPage;
