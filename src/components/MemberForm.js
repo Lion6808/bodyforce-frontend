@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import Webcam from "react-webcam";
 import Modal from "react-modal";
-import { FaCamera, FaFileUpload, FaTrash, FaDownload } from "react-icons/fa";
-import { supabase } from "../supabaseClient"; // Import from supabaseClient.js
+import { FaCamera, FaFileUpload, FaTrash } from "react-icons/fa";
+import { supabase } from "../supabaseClient";
 
-// Durées d’abonnement en mois
 const subscriptionDurations = {
   Mensuel: 1,
   Trimestriel: 3,
@@ -43,8 +42,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-            ? JSON.parse(member.files)
-            : [],
+          ? JSON.parse(member.files)
+          : [],
         etudiant: !!member.etudiant,
       });
     }
@@ -85,10 +84,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({
-      ...form,
-      files: form.files, // Pas besoin de JSON.stringify si la colonne est jsonb
-    });
+    onSave({ ...form, files: form.files });
   };
 
   const capturePhoto = async () => {
@@ -119,10 +115,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
     for (const file of files) {
       const filePath = `certificats/${Date.now()}_${file.name}`;
-      const { error } = await supabase.storage
-        .from("documents")
-        .upload(filePath, file);
-
+      const { error } = await supabase.storage.from("documents").upload(filePath, file);
       if (error) {
         setUploadStatus({ loading: false, error: error.message, success: null });
         return;
@@ -147,104 +140,52 @@ export default function MemberForm({ member, onSave, onCancel }) {
     <Modal
       isOpen={true}
       onRequestClose={onCancel}
-      className="bg-white rounded-xl p-4 max-w-4xl w-full mx-auto mt-10 shadow-xl"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center"
+      className="relative bg-white rounded-xl p-6 w-full max-w-4xl mx-auto shadow-xl overflow-y-auto max-h-[90vh]"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center pt-10 overflow-auto"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        <h2 className="text-xl font-bold mb-4">Saisie d'un membre</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Champs classiques */}
           <div>
             <label className="block text-sm font-medium">Nom</label>
-            <input
-              type="text"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-              required
-            />
+            <input type="text" name="name" value={form.name} onChange={handleChange} required className="border px-3 py-2 rounded w-full" />
           </div>
           <div>
             <label className="block text-sm font-medium">Prénom</label>
-            <input
-              type="text"
-              name="firstName"
-              value={form.firstName}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-              required
-            />
+            <input type="text" name="firstName" value={form.firstName} onChange={handleChange} required className="border px-3 py-2 rounded w-full" />
           </div>
           <div>
             <label className="block text-sm font-medium">Date de naissance</label>
-            <input
-              type="date"
-              name="birthdate"
-              value={form.birthdate}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-            />
+            <input type="date" name="birthdate" value={form.birthdate} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
             {age && <span className="text-sm text-gray-500">Âge: {age} ans</span>}
           </div>
           <div>
             <label className="block text-sm font-medium">Genre</label>
-            <select
-              name="gender"
-              value={form.gender}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-            >
+            <select name="gender" value={form.gender} onChange={handleChange} className="border px-3 py-2 rounded w-full">
               <option value="Homme">Homme</option>
               <option value="Femme">Femme</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium">Adresse</label>
-            <input
-              type="text"
-              name="address"
-              value={form.address}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-            />
+            <input type="text" name="address" value={form.address} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
           </div>
           <div>
             <label className="block text-sm font-medium">Téléphone</label>
-            <input
-              type="tel"
-              name="phone"
-              value={form.phone}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-            />
+            <input type="tel" name="phone" value={form.phone} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
           </div>
           <div>
             <label className="block text-sm font-medium">Mobile</label>
-            <input
-              type="tel"
-              name="mobile"
-              value={form.mobile}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-            />
+            <input type="tel" name="mobile" value={form.mobile} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
           </div>
           <div>
             <label className="block text-sm font-medium">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-            />
+            <input type="email" name="email" value={form.email} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
           </div>
           <div>
             <label className="block text-sm font-medium">Type d'abonnement</label>
-            <select
-              name="subscriptionType"
-              value={form.subscriptionType}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-            >
+            <select name="subscriptionType" value={form.subscriptionType} onChange={handleChange} className="border px-3 py-2 rounded w-full">
               {Object.keys(subscriptionDurations).map((type) => (
                 <option key={type} value={type}>{type}</option>
               ))}
@@ -252,136 +193,66 @@ export default function MemberForm({ member, onSave, onCancel }) {
           </div>
           <div>
             <label className="block text-sm font-medium">Date de début</label>
-            <input
-              type="date"
-              name="startDate"
-              value={form.startDate}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-              required
-            />
+            <input type="date" name="startDate" value={form.startDate} onChange={handleChange} className="border px-3 py-2 rounded w-full" required />
           </div>
           <div>
             <label className="block text-sm font-medium">Date de fin</label>
-            <input
-              type="date"
-              name="endDate"
-              value={form.endDate}
-              readOnly
-              className="border px-3 py-2 rounded w-full bg-gray-100"
-            />
+            <input type="date" name="endDate" value={form.endDate} readOnly className="border px-3 py-2 rounded w-full bg-gray-100" />
             {isExpired && <span className="text-sm text-red-500">Expiré</span>}
           </div>
           <div>
             <label className="block text-sm font-medium">Badge ID</label>
-            <input
-              type="text"
-              name="badgeId"
-              value={form.badgeId}
-              onChange={handleChange}
-              className="border px-3 py-2 rounded w-full"
-            />
+            <input type="text" name="badgeId" value={form.badgeId} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
           </div>
           <div>
             <label className="block text-sm font-medium">Étudiant</label>
-            <input
-              type="checkbox"
-              name="etudiant"
-              checked={form.etudiant}
-              onChange={handleChange}
-              className="h-4 w-4"
-            />
+            <input type="checkbox" name="etudiant" checked={form.etudiant} onChange={handleChange} className="h-4 w-4" />
           </div>
         </div>
 
+        {/* Photo */}
         <div>
           <label className="block text-sm font-medium">Photo</label>
-          {form.photo && (
-            <img src={form.photo} alt="Photo" className="w-20 h-20 object-cover rounded mb-2" />
-          )}
-          <button
-            type="button"
-            onClick={() => setWebcamOpen(true)}
-            className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm"
-          >
+          {form.photo && <img src={form.photo} alt="Photo" className="w-20 h-20 object-cover rounded mb-2" />}
+          <button type="button" onClick={() => setWebcamOpen(true)} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
             <FaCamera /> Prendre une photo
           </button>
         </div>
 
+        {/* Fichiers */}
         <div>
           <label className="block text-sm font-medium">Importer fichiers</label>
-          <input
-            type="file"
-            multiple
-            onChange={handleFileUpload}
-            className="border px-3 py-2 rounded w-full"
-          />
+          <input type="file" multiple onChange={handleFileUpload} className="border px-3 py-2 rounded w-full" />
           {uploadStatus.loading && <p>Chargement...</p>}
           {uploadStatus.error && <p className="text-red-500">{uploadStatus.error}</p>}
           {uploadStatus.success && <p className="text-green-500">{uploadStatus.success}</p>}
           {form.files.map((file) => (
             <div key={file.name} className="flex items-center gap-2 mt-2">
-              <a
-                href={file.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-blue-600"
-              >
-                {file.name}
-              </a>
-              <button
-                type="button"
-                onClick={() => removeFile(file)}
-                className="text-red-600"
-              >
-                <FaTrash />
-              </button>
+              <a href={file.url} target="_blank" rel="noreferrer" className="text-blue-600">{file.name}</a>
+              <button type="button" onClick={() => removeFile(file)} className="text-red-600"><FaTrash /></button>
             </div>
           ))}
         </div>
 
+        {/* Boutons */}
         <div className="flex gap-2 mt-4">
-          <button
-            type="submit"
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Enregistrer
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="bg-gray-300 text-black px-4 py-2 rounded"
-          >
-            Annuler
-          </button>
+          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Enregistrer</button>
+          <button type="button" onClick={onCancel} className="bg-gray-300 text-black px-4 py-2 rounded">Annuler</button>
         </div>
       </form>
 
+      {/* Webcam modal */}
       {webcamOpen && (
         <Modal
           isOpen={true}
           onRequestClose={() => setWebcamOpen(false)}
-          className="bg-white rounded-xl p-4 max-w-lg w-full mx-auto mt-10 shadow-xl"
-          overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center"
+          className="bg-white rounded-xl p-4 max-w-lg w-full mx-auto shadow-xl"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
         >
-          <Webcam
-            ref={webcamRef}
-            screenshotFormat="image/jpeg"
-            className="w-full"
-          />
+          <Webcam ref={webcamRef} screenshotFormat="image/jpeg" className="w-full" />
           <div className="flex gap-2 mt-4">
-            <button
-              onClick={capturePhoto}
-              className="bg-blue-600 text-white px-4 py-2 rounded"
-            >
-              📸 Capturer
-            </button>
-            <button
-              onClick={() => setWebcamOpen(false)}
-              className="bg-gray-300 text-black px-4 py-2 rounded"
-            >
-              Annuler
-            </button>
+            <button onClick={capturePhoto} className="bg-blue-600 text-white px-4 py-2 rounded">📸 Capturer</button>
+            <button onClick={() => setWebcamOpen(false)} className="bg-gray-300 text-black px-4 py-2 rounded">Annuler</button>
           </div>
         </Modal>
       )}
