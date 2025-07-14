@@ -15,13 +15,18 @@ function MembersPage() {
   const [activeFilter, setActiveFilter] = useState(null);
 
   const fetchMembers = async () => {
+  try {
     const { data, error } = await supabase.from("members").select("*");
     if (error) {
-      console.error("Erreur Supabase:", error.message);
-    } else {
-      setMembers(data);
+      console.error("Erreur Supabase:", error.message, error.details, error.hint);
+      return;
     }
-  };
+    console.log("Données récupérées:", data); // Pour vérifier les données
+    setMembers(data || []); // Assure que members est toujours un tableau
+  } catch (err) {
+    console.error("Erreur inattendue:", err);
+  }
+};
 
   useEffect(() => {
     fetchMembers();
