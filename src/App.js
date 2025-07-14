@@ -154,16 +154,44 @@ function AppRoutes({ user, setUser }) {
       <Sidebar user={user} onLogout={handleLogout} />
 
       {mobileMenuOpen && (
-        <div className="fixed inset-0 bg-white z-50 p-6 flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-lg font-bold text-red-600">CLUB BODY FORCE</h1>
-            <button onClick={() => setMobileMenuOpen(false)}>
-              <FaTimes className="text-2xl text-gray-700" />
-            </button>
-          </div>
-          <Sidebar user={user} onLogout={handleLogout} />
-        </div>
+  <div className="fixed inset-0 bg-white z-50 p-6 flex flex-col">
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-lg font-bold text-red-600">CLUB BODY FORCE</h1>
+      <button onClick={() => setMobileMenuOpen(false)}>
+        <FaTimes className="text-2xl text-gray-700" />
+      </button>
+    </div>
+    <div className="space-y-4">
+      <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-lg">
+        <FaHome className="text-red-500" /> Accueil
+      </Link>
+      <Link to="/members" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-lg">
+        <FaUserFriends className="text-green-500" /> Membres
+      </Link>
+      <Link to="/planning" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-lg">
+        <FaCalendarAlt className="text-yellow-500" /> Planning
+      </Link>
+      <Link to="/statistics" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-lg">
+        <FaChartBar className="text-blue-500" /> Statistique
+      </Link>
+      {user?.user_metadata?.role === "admin" && (
+        <Link to="/admin/users" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-lg">
+          <FaUserCircle className="text-purple-500" /> Utilisateurs
+        </Link>
       )}
+      <button
+        onClick={() => {
+          setMobileMenuOpen(false);
+          handleLogout();
+        }}
+        className="flex items-center gap-2 text-red-600 text-lg"
+      >
+        <FaSignOutAlt /> Déconnexion
+      </button>
+    </div>
+  </div>
+)}
+
 
       <main className="flex-1 p-4">
         <Routes>
