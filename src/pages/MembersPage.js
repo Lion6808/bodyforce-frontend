@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
 import { FaEdit, FaTrash } from "react-icons/fa";
+import { supabase } from "../supabaseClient"; // Import Supabase client
 
 function MembersPage({ onEdit }) {
   const [members, setMembers] = useState([]);
@@ -12,14 +12,20 @@ function MembersPage({ onEdit }) {
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [activeFilter, setActiveFilter] = useState(null); // Ajout de l'état activeFilter
+  const [activeFilter, setActiveFilter] = useState(null);
 
   const fetchMembers = async () => {
     try {
-      const res = await axios.get("http://localhost:3001/api/members");
-      setMembers(res.data);
-    } catch (error) {
-      console.error("Erreur lors de la récupération des membres:", error);
+      const { data, error } = await supabase.from("members").select("*");
+      if (error) {
+        console.error("Erreur Supabase:", error.message, error.details, error.hint);
+        return;
+      }
+      console.log("Membres récupérés:", data);
+ srcs/pages/MembersPage.js:24);
+      setMembers(data || []);
+    } catch (err) {
+      console.error("Erreur inattendue:", err);
     }
   };
 
@@ -28,11 +34,12 @@ function MembersPage({ onEdit }) {
   }, []);
 
   useEffect(() => {
+    console.log("Membres bruts:", members);
+    console.log("Filtre actif:", activeFilter);
     let result = members.filter((m) =>
-      `${m.name} ${m.firstName}`.toLowerCase().includes(search.toLowerCase())
+      `${m.name || ""} ${m.firstName || ""}`.toLowerCase().includes(search.toLowerCase())
     );
 
-    // Appliquer les filtres en fonction de activeFilter
     if (activeFilter === "Homme" || activeFilter === "Femme") {
       result = result.filter((m) => m.gender === activeFilter);
     } else if (activeFilter === "Expiré") {
@@ -58,23 +65,22 @@ function MembersPage({ onEdit }) {
       return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
     });
 
+    console.log("Membres filtrés:", result);
     setFilteredMembers(result);
   }, [members, search, sortAsc, activeFilter]);
 
   const handleDelete = async (id) => {
     if (window.confirm("Supprimer ce membre ?")) {
-      await axios.delete(`http://localhost:3001/api/members/${id}`);
+      await supabase.from("members").delete().eq("id", id);
       fetchMembers();
     }
   };
 
   const handleBulkDelete = async () => {
     if (window.confirm("Supprimer les membres sélectionnés ?")) {
-      await Promise.all(
-        selectedIds.map((id) =>
-          axios.delete(`http://localhost:3001/api/members/${id}`)
-        )
-      );
+      for (const id of selectedIds) {
+        await supabase.from("members").delete().eq("id", id);
+      }
       setSelectedIds([]);
       fetchMembers();
     }
@@ -114,7 +120,7 @@ function MembersPage({ onEdit }) {
 
   const getBadgeColor = (type) => {
     switch (type) {
-      case проводится "Mensuel":
+      case "Mensuel":
         return "bg-green-100 text-green-800";
       case "Trimestriel":
         return "bg-yellow-100 text-yellow-800";
@@ -136,32 +142,32 @@ function MembersPage({ onEdit }) {
         <Widget
           title="👥 Membres au total"
           value={total}
-          onClick={() => setActiveFilter(null)} // Réinitialiser le filtre
+          onClick={() => setActiveFilter(null)}
         />
         <Widget
           title="👨 Hommes"
           value={maleCount}
-          onClick={() => setActiveFilter("Homme")} // Filtrer par Homme
+          onClick={() => setActiveFilter("Homme")}
         />
         <Widget
           title="👩 Femmes"
           value={femaleCount}
-          onClick={() => setActiveFilter("Femme")} // Filtrer par Femme
+          onClick={() => setActiveFilter("Femme")}
         />
         <Widget
           title="📅 Abonnements expirés"
           value={expiredCount}
-          onClick={() => setActiveFilter("Expiré")} // Filtrer par Expiré
+          onClick={() => setActiveFilter("Expiré")}
         />
         <Widget
           title="✅ Inscriptions récentes"
           value={recentCount}
-          onClick={() => setActiveFilter("Récent")} // Filtrer par Récent
+          onClick={() => setActiveFilter("Récent")}
         />
         <Widget
           title="📂 Certificats manquants"
           value={noCertCount}
-          onClick={() => setActiveFilter("SansCertif")} // Filtrer par SansCertif
+          onClick={() => setActiveFilter("SansCertif")}
         />
       </div>
 
@@ -312,17 +318,18 @@ function MembersPage({ onEdit }) {
             <MemberForm
               member={selectedMember}
               onSave={async (member) => {
-                if (member.id) {
-                  await axios.put(
-                    `http://localhost:3001/api/members/${member.id}`,
-                    member
-                  );
-                } else {
-                  await axios.post("http://localhost:3001/api/members", member);
+                try {
+                  if (member.id) {
+                    await supabase.from("members").update(member).eq("id", member.id);
+                  } else {
+                    await supabase.from("members").insert(member);
+                  }
+                  setShowForm(false);
+                  setSelectedMember(null);
+                  fetchMembers();
+                } catch (err) {
+                  console.error("Erreur lors de la sauvegarde:", err);
                 }
-                setShowForm(false);
-                setSelectedMember(null);
-                fetchMembers();
               }}
               onCancel={() => {
                 setShowForm(false);
