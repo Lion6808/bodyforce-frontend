@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { supabase } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
 import { FaEdit, FaTrash } from "react-icons/fa";
-import { supabase } from "../supabaseClient"; // Import Supabase client
 
 function MembersPage({ onEdit }) {
   const [members, setMembers] = useState([]);
@@ -15,17 +15,11 @@ function MembersPage({ onEdit }) {
   const [activeFilter, setActiveFilter] = useState(null);
 
   const fetchMembers = async () => {
-    try {
-      const { data, error } = await supabase.from("members").select("*");
-      if (error) {
-        console.error("Erreur Supabase:", error.message, error.details, error.hint);
-        return;
-      }
-      console.log("Membres récupérés:", data);
- srcs/pages/MembersPage.js:24);
-      setMembers(data || []);
-    } catch (err) {
-      console.error("Erreur inattendue:", err);
+    const { data, error } = await supabase.from("members").select("*");
+    if (error) {
+      console.error("Erreur récupération membres :", error.message);
+    } else {
+      setMembers(data);
     }
   };
 
@@ -34,14 +28,14 @@ function MembersPage({ onEdit }) {
   }, []);
 
   useEffect(() => {
-    console.log("Membres bruts:", members);
-    console.log("Filtre actif:", activeFilter);
     let result = members.filter((m) =>
-      `${m.name || ""} ${m.firstName || ""}`.toLowerCase().includes(search.toLowerCase())
+      \`\${m.name} \${m.firstName}\`.toLowerCase().includes(search.toLowerCase())
     );
 
-    if (activeFilter === "Homme" || activeFilter === "Femme") {
-      result = result.filter((m) => m.gender === activeFilter);
+    if (activeFilter === "Homme") {
+      result = result.filter((m) => m.gender === "Homme");
+    } else if (activeFilter === "Femme") {
+      result = result.filter((m) => m.gender === "Femme");
     } else if (activeFilter === "Expiré") {
       result = result.filter((m) => isBefore(parseISO(m.endDate), new Date()));
     } else if (activeFilter === "Récent") {
@@ -54,18 +48,15 @@ function MembersPage({ onEdit }) {
         );
       });
     } else if (activeFilter === "SansCertif") {
-      result = result.filter(
-        (m) => !m.files || m.files.length === 0 || m.files === "[]"
-      );
+      result = result.filter((m) => !m.files || m.files.length === 0 || m.files === "[]");
     }
 
     result.sort((a, b) => {
-      const nameA = a.name.toLowerCase();
-      const nameB = b.name.toLowerCase();
+      const nameA = a.name?.toLowerCase() || "";
+      const nameB = b.name?.toLowerCase() || "";
       return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
     });
 
-    console.log("Membres filtrés:", result);
     setFilteredMembers(result);
   }, [members, search, sortAsc, activeFilter]);
 
@@ -100,16 +91,16 @@ function MembersPage({ onEdit }) {
     );
   };
 
-  const total = filteredMembers.length;
-  const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
-  const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
-  const expiredCount = filteredMembers.filter((m) =>
+  const total = members.length;
+  const maleCount = members.filter((m) => m.gender === "Homme").length;
+  const femaleCount = members.filter((m) => m.gender === "Femme").length;
+  const expiredCount = members.filter((m) =>
     isBefore(parseISO(m.endDate), new Date())
   ).length;
-  const noCertCount = filteredMembers.filter(
+  const noCertCount = members.filter(
     (m) => !m.files || m.files.length === 0 || m.files === "[]"
   ).length;
-  const recentCount = filteredMembers.filter((m) => {
+  const recentCount = members.filter((m) => {
     const date = parseISO(m.startDate);
     const now = new Date();
     return (
@@ -139,36 +130,12 @@ function MembersPage({ onEdit }) {
       <h1 className="text-2xl font-bold mb-2">Liste des membres</h1>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
-        <Widget
-          title="👥 Membres au total"
-          value={total}
-          onClick={() => setActiveFilter(null)}
-        />
-        <Widget
-          title="👨 Hommes"
-          value={maleCount}
-          onClick={() => setActiveFilter("Homme")}
-        />
-        <Widget
-          title="👩 Femmes"
-          value={femaleCount}
-          onClick={() => setActiveFilter("Femme")}
-        />
-        <Widget
-          title="📅 Abonnements expirés"
-          value={expiredCount}
-          onClick={() => setActiveFilter("Expiré")}
-        />
-        <Widget
-          title="✅ Inscriptions récentes"
-          value={recentCount}
-          onClick={() => setActiveFilter("Récent")}
-        />
-        <Widget
-          title="📂 Certificats manquants"
-          value={noCertCount}
-          onClick={() => setActiveFilter("SansCertif")}
-        />
+        <Widget title="👥 Membres au total" value={total} onClick={() => setActiveFilter(null)} />
+        <Widget title="👨 Hommes" value={maleCount} onClick={() => setActiveFilter("Homme")} />
+        <Widget title="👩 Femmes" value={femaleCount} onClick={() => setActiveFilter("Femme")} />
+        <Widget title="📅 Abonnements expirés" value={expiredCount} onClick={() => setActiveFilter("Expiré")} />
+        <Widget title="✅ Inscriptions récentes" value={recentCount} onClick={() => setActiveFilter("Récent")} />
+        <Widget title="📂 Certificats manquants" value={noCertCount} onClick={() => setActiveFilter("SansCertif")} />
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
@@ -212,10 +179,7 @@ function MembersPage({ onEdit }) {
                 />
               </th>
               <th className="p-2 border">Photo</th>
-              <th
-                className="p-2 border cursor-pointer select-none"
-                onClick={() => setSortAsc(!sortAsc)}
-              >
+              <th className="p-2 border cursor-pointer" onClick={() => setSortAsc(!sortAsc)}>
                 Nom {sortAsc ? "▲" : "▼"}
               </th>
               <th className="p-2 border">Genre</th>
@@ -255,22 +219,16 @@ function MembersPage({ onEdit }) {
                   {m.name} {m.firstName}
                 </td>
                 <td className="p-2 border">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      m.gender === "Femme"
-                        ? "bg-pink-100 text-pink-700"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
-                  >
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    m.gender === "Femme"
+                      ? "bg-pink-100 text-pink-700"
+                      : "bg-blue-100 text-blue-700"
+                  }`}>
                     {m.gender}
                   </span>
                 </td>
                 <td className="p-2 border">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${getBadgeColor(
-                      m.subscriptionType
-                    )}`}
-                  >
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getBadgeColor(m.subscriptionType)}`}>
                     {m.subscriptionType}
                   </span>
                 </td>
@@ -317,19 +275,10 @@ function MembersPage({ onEdit }) {
             </div>
             <MemberForm
               member={selectedMember}
-              onSave={async (member) => {
-                try {
-                  if (member.id) {
-                    await supabase.from("members").update(member).eq("id", member.id);
-                  } else {
-                    await supabase.from("members").insert(member);
-                  }
-                  setShowForm(false);
-                  setSelectedMember(null);
-                  fetchMembers();
-                } catch (err) {
-                  console.error("Erreur lors de la sauvegarde:", err);
-                }
+              onSave={async () => {
+                setShowForm(false);
+                setSelectedMember(null);
+                fetchMembers();
               }}
               onCancel={() => {
                 setShowForm(false);
@@ -345,10 +294,7 @@ function MembersPage({ onEdit }) {
 
 function Widget({ title, value, onClick }) {
   return (
-    <div
-      className="p-3 bg-white rounded shadow text-center cursor-pointer hover:bg-gray-100"
-      onClick={onClick}
-    >
+    <div className="p-3 bg-white rounded shadow text-center cursor-pointer hover:bg-blue-50" onClick={onClick}>
       <div className="text-sm text-gray-500">{title}</div>
       <div className="text-xl font-bold">{value}</div>
     </div>
