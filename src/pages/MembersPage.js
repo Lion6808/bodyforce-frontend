@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient";
+import axios from "axios";
 import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
 import { FaEdit, FaTrash } from "react-icons/fa";
 
-function MembersPage() {
+function MembersPage({ onEdit }) {
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
@@ -12,13 +12,14 @@ function MembersPage() {
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [activeFilter, setActiveFilter] = useState(null); // Ajout de l'état activeFilter
 
   const fetchMembers = async () => {
-    const { data, error } = await supabase.from("members").select("*");
-    if (error) {
-      console.error("Erreur récupération membres :", error.message);
-    } else {
-      setMembers(data);
+    try {
+      const res = await axios.get("http://localhost:3001/api/members");
+      setMembers(res.data);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des membres:", error);
     }
   };
 
@@ -30,26 +31,50 @@ function MembersPage() {
     let result = members.filter((m) =>
       `${m.name} ${m.firstName}`.toLowerCase().includes(search.toLowerCase())
     );
+
+    // Appliquer les filtres en fonction de activeFilter
+    if (activeFilter === "Homme" || activeFilter === "Femme") {
+      result = result.filter((m) => m.gender === activeFilter);
+    } else if (activeFilter === "Expiré") {
+      result = result.filter((m) => isBefore(parseISO(m.endDate), new Date()));
+    } else if (activeFilter === "Récent") {
+      const now = new Date();
+      result = result.filter((m) => {
+        const date = parseISO(m.startDate);
+        return (
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear()
+        );
+      });
+    } else if (activeFilter === "SansCertif") {
+      result = result.filter(
+        (m) => !m.files || m.files.length === 0 || m.files === "[]"
+      );
+    }
+
     result.sort((a, b) => {
-      const nameA = a.name?.toLowerCase() || "";
-      const nameB = b.name?.toLowerCase() || "";
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
       return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
     });
+
     setFilteredMembers(result);
-  }, [members, search, sortAsc]);
+  }, [members, search, sortAsc, activeFilter]);
 
   const handleDelete = async (id) => {
     if (window.confirm("Supprimer ce membre ?")) {
-      await supabase.from("members").delete().eq("id", id);
+      await axios.delete(`http://localhost:3001/api/members/${id}`);
       fetchMembers();
     }
   };
 
   const handleBulkDelete = async () => {
     if (window.confirm("Supprimer les membres sélectionnés ?")) {
-      for (const id of selectedIds) {
-        await supabase.from("members").delete().eq("id", id);
-      }
+      await Promise.all(
+        selectedIds.map((id) =>
+          axios.delete(`http://localhost:3001/api/members/${id}`)
+        )
+      );
       setSelectedIds([]);
       fetchMembers();
     }
@@ -89,7 +114,7 @@ function MembersPage() {
 
   const getBadgeColor = (type) => {
     switch (type) {
-      case "Mensuel":
+      case проводится "Mensuel":
         return "bg-green-100 text-green-800";
       case "Trimestriel":
         return "bg-yellow-100 text-yellow-800";
@@ -108,12 +133,36 @@ function MembersPage() {
       <h1 className="text-2xl font-bold mb-2">Liste des membres</h1>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
-        <Widget title="👥 Membres au total" value={total} />
-        <Widget title="👨 Hommes" value={maleCount} />
-        <Widget title="👩 Femmes" value={femaleCount} />
-        <Widget title="📅 Abonnements expirés" value={expiredCount} />
-        <Widget title="✅ Inscriptions récentes" value={recentCount} />
-        <Widget title="📂 Certificats manquants" value={noCertCount} />
+        <Widget
+          title="👥 Membres au total"
+          value={total}
+          onClick={() => setActiveFilter(null)} // Réinitialiser le filtre
+        />
+        <Widget
+          title="👨 Hommes"
+          value={maleCount}
+          onClick={() => setActiveFilter("Homme")} // Filtrer par Homme
+        />
+        <Widget
+          title="👩 Femmes"
+          value={femaleCount}
+          onClick={() => setActiveFilter("Femme")} // Filtrer par Femme
+        />
+        <Widget
+          title="📅 Abonnements expirés"
+          value={expiredCount}
+          onClick={() => setActiveFilter("Expiré")} // Filtrer par Expiré
+        />
+        <Widget
+          title="✅ Inscriptions récentes"
+          value={recentCount}
+          onClick={() => setActiveFilter("Récent")} // Filtrer par Récent
+        />
+        <Widget
+          title="📂 Certificats manquants"
+          value={noCertCount}
+          onClick={() => setActiveFilter("SansCertif")} // Filtrer par SansCertif
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-4">
@@ -157,7 +206,10 @@ function MembersPage() {
                 />
               </th>
               <th className="p-2 border">Photo</th>
-              <th className="p-2 border cursor-pointer" onClick={() => setSortAsc(!sortAsc)}>
+              <th
+                className="p-2 border cursor-pointer select-none"
+                onClick={() => setSortAsc(!sortAsc)}
+              >
                 Nom {sortAsc ? "▲" : "▼"}
               </th>
               <th className="p-2 border">Genre</th>
@@ -197,16 +249,22 @@ function MembersPage() {
                   {m.name} {m.firstName}
                 </td>
                 <td className="p-2 border">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    m.gender === "Femme"
-                      ? "bg-pink-100 text-pink-700"
-                      : "bg-blue-100 text-blue-700"
-                  }`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      m.gender === "Femme"
+                        ? "bg-pink-100 text-pink-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
                     {m.gender}
                   </span>
                 </td>
                 <td className="p-2 border">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getBadgeColor(m.subscriptionType)}`}>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${getBadgeColor(
+                      m.subscriptionType
+                    )}`}
+                  >
                     {m.subscriptionType}
                   </span>
                 </td>
@@ -255,9 +313,12 @@ function MembersPage() {
               member={selectedMember}
               onSave={async (member) => {
                 if (member.id) {
-                  await supabase.from("members").update(member).eq("id", member.id);
+                  await axios.put(
+                    `http://localhost:3001/api/members/${member.id}`,
+                    member
+                  );
                 } else {
-                  await supabase.from("members").insert(member);
+                  await axios.post("http://localhost:3001/api/members", member);
                 }
                 setShowForm(false);
                 setSelectedMember(null);
@@ -275,9 +336,12 @@ function MembersPage() {
   );
 }
 
-function Widget({ title, value }) {
+function Widget({ title, value, onClick }) {
   return (
-    <div className="p-3 bg-white rounded shadow text-center">
+    <div
+      className="p-3 bg-white rounded shadow text-center cursor-pointer hover:bg-gray-100"
+      onClick={onClick}
+    >
       <div className="text-sm text-gray-500">{title}</div>
       <div className="text-xl font-bold">{value}</div>
     </div>
