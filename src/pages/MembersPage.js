@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from "react";
 import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import {
+  FaEdit,
+  FaTrash,
+  FaUser,
+  FaUserGraduate,
+  FaCalendarTimes,
+  FaUserClock,
+  FaUserPlus,
+} from "react-icons/fa";
 import { supabase } from "../supabaseClient";
 
 function MembersPage() {
@@ -15,16 +23,11 @@ function MembersPage() {
   const [activeFilter, setActiveFilter] = useState(null);
 
   const fetchMembers = async () => {
-    try {
-      const { data, error } = await supabase.from("members").select("*");
-      if (error) {
-        console.error("Erreur Supabase:", error.message, error.details, error.hint);
-        return;
-      }
-      console.log("Données récupérées:", data);
+    const { data, error } = await supabase.from("members").select("*");
+    if (error) {
+      console.error("Erreur Supabase:", error.message);
+    } else {
       setMembers(data || []);
-    } catch (err) {
-      console.error("Erreur inattendue:", err);
     }
   };
 
@@ -74,6 +77,16 @@ function MembersPage() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (window.confirm("Supprimer les membres sélectionnés ?")) {
+      for (const id of selectedIds) {
+        await supabase.from("members").delete().eq("id", id);
+      }
+      setSelectedIds([]);
+      fetchMembers();
+    }
+  };
+
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredMembers.length) {
       setSelectedIds([]);
@@ -87,6 +100,25 @@ function MembersPage() {
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
+
+  const total = filteredMembers.length;
+  const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
+  const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
+  const expiredCount = filteredMembers.filter((m) =>
+    isBefore(parseISO(m.endDate), new Date())
+  ).length;
+  const noCertCount = filteredMembers.filter(
+    (m) => !m.files || m.files.length === 0 || m.files === "[]"
+  ).length;
+  const recentCount = filteredMembers.filter((m) => {
+    const date = parseISO(m.startDate);
+    const now = new Date();
+    return (
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear()
+    );
+  }).length;
+  const studentCount = filteredMembers.filter((m) => m.student).length;
 
   const getBadgeColor = (type) => {
     switch (type) {
@@ -104,48 +136,112 @@ function MembersPage() {
   };
 
   return (
-    <div className="px-2 sm:px-4">
-      <h1 className="text-2xl font-bold mb-4">Liste des Membres</h1>
+    <div className="p-4 space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <StatCard icon={<FaUser />} label="Total" value={total} />
+        <StatCard icon={<FaUserClock />} label="Expirés" value={expiredCount} />
+        <StatCard icon={<FaUserPlus />} label="Récents" value={recentCount} />
+        <StatCard icon={<FaUserGraduate />} label="Étudiants" value={studentCount} />
+        <StatCard icon={<FaCalendarTimes />} label="Sans Certif" value={noCertCount} />
+        <StatCard icon={<FaUser />} label="Femmes" value={femaleCount} />
+      </div>
 
-      {/* Tableau des membres */}
-      <table className="w-full mt-6 table-auto border border-gray-200 rounded-xl">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="p-2">Nom</th>
-            <th className="p-2">Prénom</th>
-            <th className="p-2">Genre</th>
-            <th className="p-2">Abonnement</th>
-            <th className="p-2">Début</th>
-            <th className="p-2">Fin</th>
-            <th className="p-2">Actions</th>
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          type="text"
+          placeholder="Recherche..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border p-2 rounded"
+        />
+        <button onClick={() => setSortAsc(!sortAsc)} className="btn">
+          {sortAsc ? "A-Z" : "Z-A"}
+        </button>
+        {["Homme", "Femme", "Etudiant", "Expiré", "Récent", "SansCertif"].map(
+          (f) => (
+            <button
+              key={f}
+              onClick={() => setActiveFilter(f)}
+              className={`btn ${
+                activeFilter === f ? "bg-blue-500 text-white" : "bg-gray-100"
+              }`}
+            >
+              {f}
+            </button>
+          )
+        )}
+        <button onClick={() => setActiveFilter(null)} className="btn bg-gray-300">
+          Réinitialiser
+        </button>
+        <button
+          onClick={() => setShowForm(true)}
+          className="btn bg-green-500 text-white ml-auto"
+        >
+          Ajouter un membre
+        </button>
+        {selectedIds.length > 0 && (
+          <button onClick={handleBulkDelete} className="btn bg-red-500 text-white">
+            Supprimer sélection
+          </button>
+        )}
+      </div>
+
+      <table className="w-full table-auto border">
+        <thead>
+          <tr className="bg-gray-200">
+            <th>
+              <input
+                type="checkbox"
+                onChange={toggleSelectAll}
+                checked={selectedIds.length === filteredMembers.length}
+              />
+            </th>
+            <th>Nom</th>
+            <th>Prénom</th>
+            <th>Sexe</th>
+            <th>Abonnement</th>
+            <th>Début</th>
+            <th>Fin</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {filteredMembers.map((m) => (
-            <tr key={m.id} className="border-t hover:bg-gray-50">
-              <td className="p-2">{m.name}</td>
-              <td className="p-2">{m.firstName}</td>
-              <td className="p-2">{m.gender}</td>
-              <td className="p-2">
-                <span className={`px-2 py-1 rounded ${getBadgeColor(m.subscriptionType)}`}>
+            <tr key={m.id} className="border-b hover:bg-gray-50">
+              <td>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(m.id)}
+                  onChange={() => toggleSelect(m.id)}
+                />
+              </td>
+              <td>{m.name}</td>
+              <td>{m.firstName}</td>
+              <td>{m.gender}</td>
+              <td>
+                <span
+                  className={`px-2 py-1 text-sm rounded ${getBadgeColor(
+                    m.subscriptionType
+                  )}`}
+                >
                   {m.subscriptionType}
                 </span>
               </td>
-              <td className="p-2">{format(new Date(m.startDate), "dd/MM/yyyy")}</td>
-              <td className="p-2">{format(new Date(m.endDate), "dd/MM/yyyy")}</td>
-              <td className="p-2 flex gap-2">
+              <td>{m.startDate && format(parseISO(m.startDate), "dd/MM/yyyy")}</td>
+              <td>{m.endDate && format(parseISO(m.endDate), "dd/MM/yyyy")}</td>
+              <td className="flex gap-2">
                 <button
                   onClick={() => {
                     setSelectedMember(m);
                     setShowForm(true);
                   }}
-                  className="text-blue-600 hover:text-blue-800"
+                  className="btn bg-blue-500 text-white"
                 >
                   <FaEdit />
                 </button>
                 <button
                   onClick={() => handleDelete(m.id)}
-                  className="text-red-600 hover:text-red-800"
+                  className="btn bg-red-500 text-white"
                 >
                   <FaTrash />
                 </button>
@@ -155,7 +251,6 @@ function MembersPage() {
         </tbody>
       </table>
 
-      {/* Formulaire modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
           <div className="bg-white mt-10 rounded-xl p-4 max-w-4xl w-full shadow-xl overflow-y-auto max-h-[90vh]">
@@ -186,6 +281,18 @@ function MembersPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatCard({ icon, label, value }) {
+  return (
+    <div className="p-4 bg-white rounded shadow flex items-center gap-4">
+      <div className="text-3xl text-blue-500">{icon}</div>
+      <div>
+        <h3 className="text-sm text-gray-500">{label}</h3>
+        <p className="text-lg font-bold">{value}</p>
+      </div>
     </div>
   );
 }
