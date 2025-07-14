@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { isAfter } from "date-fns";
 import {
   FaUsers,
@@ -9,11 +8,7 @@ import {
   FaFemale,
 } from "react-icons/fa";
 
-// Initialise Supabase client
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-);
+import { supabase } from "../supabaseClient"; // ✅ remplacement propre
 
 function HomePage() {
   const [stats, setStats] = useState({
