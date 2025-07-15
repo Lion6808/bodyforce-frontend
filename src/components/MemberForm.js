@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import Modal from "react-modal";
-import { FaCamera, FaFileUpload, FaTrash } from "react-icons/fa";
+import { FaCamera, FaFileUpload, FaTrash, FaDownload } from "react-icons/fa";
 import { supabase } from "../supabaseClient";
 
 const subscriptionDurations = {
@@ -67,8 +67,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       setForm((f) => ({ ...f, endDate: end.toISOString().slice(0, 10) }));
     }
   }, [form.subscriptionType, form.startDate]);
-
-  const handleChange = (e) => {
+    const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((f) => ({
       ...f,
@@ -101,9 +100,34 @@ export default function MemberForm({ member, onSave, onCancel }) {
     if (error) {
       setUploadStatus({ loading: false, error: error.message, success: null });
     } else {
-      const { data: publicUrl } = supabase.storage.from("documents").getPublicUrl(`photos/${fileName}`);
-      setForm((f) => ({ ...f, photo: publicUrl.publicUrl }));
+      const { data } = supabase.storage.from("documents").getPublicUrl(`photos/${fileName}`);
+      setForm((f) => ({ ...f, photo: data.publicUrl }));
       setUploadStatus({ loading: false, error: null, success: "Photo enregistrée" });
+      setWebcamOpen(false);
+    }
+  };
+
+  const captureDocument = async () => {
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (!imageSrc) return;
+
+    setUploadStatus({ loading: true, error: null, success: null });
+    const blob = await (await fetch(imageSrc)).blob();
+    const fileName = `doc_${Date.now()}.jpg`;
+
+    const { error } = await supabase.storage
+      .from("documents")
+      .upload(`certificats/${fileName}`, blob);
+
+    if (error) {
+      setUploadStatus({ loading: false, error: error.message, success: null });
+    } else {
+      const { data } = supabase.storage.from("documents").getPublicUrl(`certificats/${fileName}`);
+      setForm((f) => ({
+        ...f,
+        files: [...f.files, { name: fileName, url: data.publicUrl }],
+      }));
+      setUploadStatus({ loading: false, error: null, success: "Fichier ajouté" });
       setWebcamOpen(false);
     }
   };
@@ -111,6 +135,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
   const handleFileUpload = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
+
     setUploadStatus({ loading: true, error: null, success: null });
 
     for (const file of files) {
@@ -120,12 +145,13 @@ export default function MemberForm({ member, onSave, onCancel }) {
         setUploadStatus({ loading: false, error: error.message, success: null });
         return;
       }
-      const { data: publicUrl } = supabase.storage.from("documents").getPublicUrl(filePath);
+      const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
       setForm((f) => ({
         ...f,
-        files: [...f.files, { name: file.name, url: publicUrl.publicUrl }],
+        files: [...f.files, { name: file.name, url: data.publicUrl }],
       }));
     }
+
     setUploadStatus({ loading: false, error: null, success: "Fichiers ajoutés" });
   };
 
@@ -135,127 +161,182 @@ export default function MemberForm({ member, onSave, onCancel }) {
     const newFiles = form.files.filter((f) => f.name !== fileToRemove.name);
     setForm((f) => ({ ...f, files: newFiles }));
   };
-
   return (
     <Modal
       isOpen={true}
       onRequestClose={onCancel}
-      className="relative bg-white rounded-xl p-6 w-full max-w-4xl mx-auto shadow-xl overflow-y-auto max-h-[90vh]"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center pt-10 overflow-auto"
+      shouldCloseOnOverlayClick={false}
+      contentLabel="Fiche Membre"
+      className="bg-white rounded-xl shadow-lg w-full max-w-5xl mx-auto mt-10 outline-none relative flex flex-col"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <h2 className="text-xl font-bold mb-4">Saisie d'un membre</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Champs classiques */}
-          <div>
-            <label className="block text-sm font-medium">Nom</label>
-            <input type="text" name="name" value={form.name} onChange={handleChange} required className="border px-3 py-2 rounded w-full" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Prénom</label>
-            <input type="text" name="firstName" value={form.firstName} onChange={handleChange} required className="border px-3 py-2 rounded w-full" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Date de naissance</label>
-            <input type="date" name="birthdate" value={form.birthdate} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
-            {age && <span className="text-sm text-gray-500">Âge: {age} ans</span>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Genre</label>
-            <select name="gender" value={form.gender} onChange={handleChange} className="border px-3 py-2 rounded w-full">
-              <option value="Homme">Homme</option>
-              <option value="Femme">Femme</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Adresse</label>
-            <input type="text" name="address" value={form.address} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Téléphone</label>
-            <input type="tel" name="phone" value={form.phone} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Mobile</label>
-            <input type="tel" name="mobile" value={form.mobile} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Email</label>
-            <input type="email" name="email" value={form.email} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Type d'abonnement</label>
-            <select name="subscriptionType" value={form.subscriptionType} onChange={handleChange} className="border px-3 py-2 rounded w-full">
-              {Object.keys(subscriptionDurations).map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Date de début</label>
-            <input type="date" name="startDate" value={form.startDate} onChange={handleChange} className="border px-3 py-2 rounded w-full" required />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Date de fin</label>
-            <input type="date" name="endDate" value={form.endDate} readOnly className="border px-3 py-2 rounded w-full bg-gray-100" />
-            {isExpired && <span className="text-sm text-red-500">Expiré</span>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Badge ID</label>
-            <input type="text" name="badgeId" value={form.badgeId} onChange={handleChange} className="border px-3 py-2 rounded w-full" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Étudiant</label>
-            <input type="checkbox" name="etudiant" checked={form.etudiant} onChange={handleChange} className="h-4 w-4" />
-          </div>
-        </div>
-
-        {/* Photo */}
-        <div>
-          <label className="block text-sm font-medium">Photo</label>
-          {form.photo && <img src={form.photo} alt="Photo" className="w-20 h-20 object-cover rounded mb-2" />}
-          <button type="button" onClick={() => setWebcamOpen(true)} className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
-            <FaCamera /> Prendre une photo
-          </button>
-        </div>
-
-        {/* Fichiers */}
-        <div>
-          <label className="block text-sm font-medium">Importer fichiers</label>
-          <input type="file" multiple onChange={handleFileUpload} className="border px-3 py-2 rounded w-full" />
-          {uploadStatus.loading && <p>Chargement...</p>}
-          {uploadStatus.error && <p className="text-red-500">{uploadStatus.error}</p>}
-          {uploadStatus.success && <p className="text-green-500">{uploadStatus.success}</p>}
-          {form.files.map((file) => (
-            <div key={file.name} className="flex items-center gap-2 mt-2">
-              <a href={file.url} target="_blank" rel="noreferrer" className="text-blue-600">{file.name}</a>
-              <button type="button" onClick={() => removeFile(file)} className="text-red-600"><FaTrash /></button>
-            </div>
-          ))}
-        </div>
-
-        {/* Boutons */}
-        <div className="flex gap-2 mt-4">
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Enregistrer</button>
-          <button type="button" onClick={onCancel} className="bg-gray-300 text-black px-4 py-2 rounded">Annuler</button>
-        </div>
-      </form>
-
-      {/* Webcam modal */}
-      {webcamOpen && (
-        <Modal
-          isOpen={true}
-          onRequestClose={() => setWebcamOpen(false)}
-          className="bg-white rounded-xl p-4 max-w-lg w-full mx-auto shadow-xl"
-          overlayClassName="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+      <div className="absolute top-4 right-6 flex gap-4 z-10">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="bg-gray-300 text-gray-800 px-4 py-1 rounded hover:bg-gray-400 transition"
         >
-          <Webcam ref={webcamRef} screenshotFormat="image/jpeg" className="w-full" />
-          <div className="flex gap-2 mt-4">
-            <button onClick={capturePhoto} className="bg-blue-600 text-white px-4 py-2 rounded">📸 Capturer</button>
-            <button onClick={() => setWebcamOpen(false)} className="bg-gray-300 text-black px-4 py-2 rounded">Annuler</button>
+          ❌ Annuler
+        </button>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition inline-flex items-center gap-2"
+        >
+          ✅ Enregistrer
+        </button>
+      </div>
+
+      <div className="p-6 pt-20 max-h-[90vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Identité */}
+          <div className="bg-gray-100 p-4 rounded">
+            <h2 className="text-xl font-semibold mb-4">Identité</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 grid grid-cols-1 gap-4">
+                <inputField label="Nom" name="name" value={form.name} onChange={handleChange} />
+                <inputField label="Prénom" name="firstName" value={form.firstName} onChange={handleChange} />
+                <inputField type="date" label="Date de naissance" name="birthdate" value={form.birthdate} onChange={handleChange} />
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Sexe</label>
+                  <select name="gender" value={form.gender} onChange={handleChange} className="w-full border p-2 rounded">
+                    <option>Homme</option>
+                    <option>Femme</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label htmlFor="etudiant" className="text-sm font-medium text-gray-700">🎓 Étudiant :</label>
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
+                    className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${form.etudiant ? "bg-green-500" : "bg-gray-300"}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${form.etudiant ? "translate-x-6" : ""}`} />
+                  </button>
+                </div>
+                {age !== null && <div className="text-sm mt-1 text-gray-700">Âge : {age} ans</div>}
+              </div>
+              <div className="flex flex-col items-center justify-start">
+                {form.photo ? (
+                  <img src={form.photo} alt="Photo" className="w-32 h-32 object-cover rounded border mb-2" />
+                ) : (
+                  <div className="w-32 h-32 flex items-center justify-center border rounded text-gray-400 mb-2">Pas de photo</div>
+                )}
+                <button type="button" onClick={() => setWebcamOpen("photo")} className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                  <FaCamera /> Photo
+                </button>
+              </div>
+            </div>
           </div>
-        </Modal>
-      )}
+
+          {/* Coordonnées */}
+          <div className="bg-green-50 p-4 rounded">
+            <h2 className="text-xl font-semibold mb-4">Coordonnées</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <inputField label="Adresse" name="address" value={form.address} onChange={handleChange} />
+              <inputField label="Email" name="email" value={form.email} onChange={handleChange} />
+              <inputField label="Téléphone" name="phone" value={form.phone} onChange={handleChange} />
+              <inputField label="Portable" name="mobile" value={form.mobile} onChange={handleChange} />
+            </div>
+          </div>
+
+          {/* Abonnement */}
+          <div className="bg-yellow-50 p-4 rounded">
+            <h2 className="text-xl font-semibold mb-4">Abonnement</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <selectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} />
+              <inputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} />
+              <inputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly />
+              {isExpired && <p className="text-red-600 text-sm">⛔ Abonnement expiré</p>}
+              <inputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} />
+            </div>
+          </div>
+
+          {/* Fichiers */}
+          <div className="bg-pink-50 p-4 rounded">
+            <h2 className="text-xl font-semibold mb-4">Documents / Certificats</h2>
+            <div className="flex flex-col md:flex-row gap-4">
+              <label htmlFor="fileUpload" className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2">
+                <FaFileUpload /> Importer un fichier
+              </label>
+              <input type="file" id="fileUpload" className="hidden" multiple onChange={handleFileUpload} />
+              <button type="button" onClick={() => setWebcamOpen("doc")} className="bg-purple-600 text-white px-4 py-2 rounded inline-flex items-center gap-2">
+                <FaCamera /> Prendre une photo (doc)
+              </button>
+            </div>
+
+            {uploadStatus.loading && <p className="text-blue-600 mt-2">Téléversement en cours...</p>}
+            {uploadStatus.error && <p className="text-red-600 mt-2">{uploadStatus.error}</p>}
+            {uploadStatus.success && <p className="text-green-600 mt-2">{uploadStatus.success}</p>}
+
+            <ul className="mt-4 space-y-2">
+              {form.files.map((file) => (
+                <li key={file.name} className="flex flex-col md:flex-row md:items-center justify-between bg-gray-100 rounded px-3 py-2 gap-2">
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl">📄</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-800">{file.name}</span>
+                      <div className="flex gap-2 mt-2">
+                        {file.url && (
+                          <>
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white text-sm px-3 py-1 rounded hover:bg-blue-700">🔗 Ouvrir</a>
+                            <a href={file.url} download={file.name} className="bg-green-600 text-white text-sm px-3 py-1 rounded hover:bg-green-700"><FaDownload /> Télécharger</a>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={() => removeFile(file)} className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm">
+                    <FaTrash /> Supprimer
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Webcam */}
+          {webcamOpen && (
+            <Modal
+              isOpen={true}
+              onRequestClose={() => setWebcamOpen(false)}
+              className="bg-white rounded-xl shadow-lg p-6 w-[700px] mx-auto mt-20 max-h-[90vh] overflow-y-auto outline-none"
+              overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50"
+            >
+              <div className="flex flex-col items-center">
+                <Webcam ref={webcamRef} audio={false} screenshotFormat="image/jpeg" videoConstraints={{ width: 640, height: 480, facingMode: "user" }} className="rounded border shadow-lg" />
+                <div className="mt-4 space-x-4">
+                  <button onClick={webcamOpen === "doc" ? captureDocument : capturePhoto} className="bg-blue-600 text-white px-4 py-2 rounded">📸 Capturer</button>
+                  <button onClick={() => setWebcamOpen(false)} className="text-red-500">Annuler</button>
+                </div>
+              </div>
+            </Modal>
+          )}
+        </form>
+      </div>
     </Modal>
   );
 }
+
+// Composants utilitaires pour alléger le JSX
+function inputField({ label, ...props }) {
+  return (
+    <div>
+      <label className="block text-sm text-gray-700 mb-1">{label}</label>
+      <input {...props} className="w-full border p-2 rounded" />
+    </div>
+  );
+}
+
+function selectField({ label, options, ...props }) {
+  return (
+    <div>
+      <label className="block text-sm text-gray-700 mb-1">{label}</label>
+      <select {...props} className="w-full border p-2 rounded">
+        {options.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
