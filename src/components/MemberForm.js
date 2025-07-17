@@ -156,12 +156,25 @@ export default function MemberForm({ member, onSave, onCancel }) {
     setUploadStatus({ loading: false, error: null, success: "Fichiers ajoutés" });
   };
 
-  const removeFile = async (fileToRemove) => {
-    const key = fileToRemove.url.split("/documents/")[1];
-    await supabase.storage.from("documents").remove([key]);
+const removeFile = async (fileToRemove) => {
+  try {
+    const pathStart = fileToRemove.url.indexOf("/documents/");
+    if (pathStart === -1) throw new Error("URL de fichier invalide");
+
+    const key = fileToRemove.url.substring(pathStart + "/documents/".length);
+
+    const { error } = await supabase.storage.from("documents").remove([key]);
+    if (error) throw error;
+
     const newFiles = form.files.filter((f) => f.name !== fileToRemove.name);
     setForm((f) => ({ ...f, files: newFiles }));
-  };
+
+  } catch (err) {
+    console.error("Erreur lors de la suppression :", err.message);
+    alert("Erreur lors de la suppression du fichier.");
+  }
+};
+
 
   return (
     <Modal
@@ -319,6 +332,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
   );
 }
 
+// Composants utilitaires
 // Composants utilitaires
 function InputField({ label, ...props }) {
   return (
