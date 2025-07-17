@@ -67,7 +67,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
       setForm((f) => ({ ...f, endDate: end.toISOString().slice(0, 10) }));
     }
   }, [form.subscriptionType, form.startDate]);
-    const handleChange = (e) => {
+
+  const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((f) => ({
       ...f,
@@ -161,6 +162,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
     const newFiles = form.files.filter((f) => f.name !== fileToRemove.name);
     setForm((f) => ({ ...f, files: newFiles }));
   };
+
   return (
     <Modal
       isOpen={true}
@@ -194,9 +196,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
             <h2 className="text-xl font-semibold mb-4">Identité</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2 grid grid-cols-1 gap-4">
-                <inputField label="Nom" name="name" value={form.name} onChange={handleChange} />
-                <inputField label="Prénom" name="firstName" value={form.firstName} onChange={handleChange} />
-                <inputField type="date" label="Date de naissance" name="birthdate" value={form.birthdate} onChange={handleChange} />
+                <InputField label="Nom" name="name" value={form.name} onChange={handleChange} />
+                <InputField label="Prénom" name="firstName" value={form.firstName} onChange={handleChange} />
+                <InputField type="date" label="Date de naissance" name="birthdate" value={form.birthdate} onChange={handleChange} />
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Sexe</label>
                   <select name="gender" value={form.gender} onChange={handleChange} className="w-full border p-2 rounded">
@@ -233,10 +235,10 @@ export default function MemberForm({ member, onSave, onCancel }) {
           <div className="bg-green-50 p-4 rounded">
             <h2 className="text-xl font-semibold mb-4">Coordonnées</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <inputField label="Adresse" name="address" value={form.address} onChange={handleChange} />
-              <inputField label="Email" name="email" value={form.email} onChange={handleChange} />
-              <inputField label="Téléphone" name="phone" value={form.phone} onChange={handleChange} />
-              <inputField label="Portable" name="mobile" value={form.mobile} onChange={handleChange} />
+              <InputField label="Adresse" name="address" value={form.address} onChange={handleChange} />
+              <InputField label="Email" name="email" value={form.email} onChange={handleChange} />
+              <InputField label="Téléphone" name="phone" value={form.phone} onChange={handleChange} />
+              <InputField label="Portable" name="mobile" value={form.mobile} onChange={handleChange} />
             </div>
           </div>
 
@@ -244,11 +246,11 @@ export default function MemberForm({ member, onSave, onCancel }) {
           <div className="bg-yellow-50 p-4 rounded">
             <h2 className="text-xl font-semibold mb-4">Abonnement</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <selectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} />
-              <inputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} />
-              <inputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly />
+              <SelectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} />
+              <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} />
+              <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly />
               {isExpired && <p className="text-red-600 text-sm">⛔ Abonnement expiré</p>}
-              <inputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} />
+              <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} />
             </div>
           </div>
 
@@ -317,8 +319,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
   );
 }
 
-// Composants utilitaires pour alléger le JSX
-function inputField({ label, ...props }) {
+// Composants utilitaires
+function InputField({ label, ...props }) {
   return (
     <div>
       <label className="block text-sm text-gray-700 mb-1">{label}</label>
@@ -327,7 +329,7 @@ function inputField({ label, ...props }) {
   );
 }
 
-function selectField({ label, options, ...props }) {
+function SelectField({ label, options, ...props }) {
   return (
     <div>
       <label className="block text-sm text-gray-700 mb-1">{label}</label>
@@ -339,4 +341,3 @@ function selectField({ label, options, ...props }) {
     </div>
   );
 }
-
