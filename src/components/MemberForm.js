@@ -158,10 +158,16 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
 const removeFile = async (fileToRemove) => {
   try {
-    const pathStart = fileToRemove.url.indexOf("/documents/");
-    if (pathStart === -1) throw new Error("URL de fichier invalide");
+    console.log("🔍 Suppression demandée :", fileToRemove);
 
-    const key = fileToRemove.url.substring(pathStart + "/documents/".length);
+    if (!fileToRemove.url || !fileToRemove.url.includes("/documents/")) {
+      console.error("❌ URL de fichier invalide :", fileToRemove.url);
+      alert("URL de fichier invalide");
+      return;
+    }
+
+    const key = fileToRemove.url.split("/documents/")[1];
+    console.log("🔑 Clé extraite pour suppression :", key);
 
     const { error } = await supabase.storage.from("documents").remove([key]);
     if (error) throw error;
@@ -169,11 +175,14 @@ const removeFile = async (fileToRemove) => {
     const newFiles = form.files.filter((f) => f.name !== fileToRemove.name);
     setForm((f) => ({ ...f, files: newFiles }));
 
+    console.log("✅ Fichier supprimé avec succès");
+
   } catch (err) {
-    console.error("Erreur lors de la suppression :", err.message);
+    console.error("❌ Erreur complète lors de la suppression :", err);
     alert("Erreur lors de la suppression du fichier.");
   }
 };
+
 
 
   return (
