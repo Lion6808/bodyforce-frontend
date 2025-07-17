@@ -183,43 +183,75 @@ export default function MemberForm({ member, onSave, onCancel }) {
     }
   };
 
-  const removeFile = async (fileToRemove) => {
+ const removeFile = async (fileToRemove) => {
   try {
+    console.log("Début de la suppression du fichier :", fileToRemove);
+
+    // Étape 1 : Extraire le chemin du fichier depuis l'URL
     const url = fileToRemove.url;
+    console.log("URL du fichier :", url);
     const fullPrefix = "/storage/v1/object/public/";
     const bucketIndex = url.indexOf(fullPrefix);
-    if (bucketIndex === -1) throw new Error("URL invalide");
+    if (bucketIndex === -1) {
+      throw new Error("URL invalide");
+    }
 
     const afterPrefix = url.substring(bucketIndex + fullPrefix.length);
+    console.log("Partie après préfixe :", afterPrefix);
     const [bucket, ...pathParts] = afterPrefix.split("/");
     const path = pathParts.join("/");
+    console.log("Bucket :", bucket, "Chemin :", path);
 
-    // 1. Supprimer dans Supabase Storage
-    const { error } = await supabase.storage.from(bucket).remove([path]);
-    if (error) throw error;
+    // Étape 2 : Supprimer le fichier dans Supabase Storage
+    const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
+    if (storageError) {
+      throw new Error(`Erreur lors de la suppression du fichier dans le stockage : ${storageError.message}`);
+    }
+    console.log("Fichier supprimé de Supabase Storage");
 
-    // 2. Supprimer localement dans React
+    // Étape 3 : Mettre à jour l'état local
     const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
+    console.log("Nouveau tableau files :", newFiles);
     setForm((f) => ({ ...f, files: newFiles }));
 
-    // 3. Mettre à jour dans Supabase si possible
+    // Étape 4 : Mettre à jour le champ `files` dans la table `members`
     if (member?.id) {
+      console.log("Mise à jour de la table members avec ID :", member.id);
       const { error: updateError } = await supabase
         .from("members")
-        .update({ files: newFiles })
+        .update({ files: JSON.stringify(newFiles) })
         .eq("id", member.id);
 
       if (updateError) {
-        console.error("Erreur lors de la mise à jour de Supabase :", updateError.message);
-        alert("Le fichier a été supprimé du stockage, mais pas du profil.");
-      } else {
-        console.log("✅ Fichier supprimé et champ `files` mis à jour dans la base");
+        console.error("Erreur lors de la mise à jour du champ `files` dans Supabase :", updateError);
+        setUploadStatus({
+          loading: false,
+          error: `Erreur lors de la mise à jour du profil : ${updateError.message}`,
+          success: null,
+        });
+        return;
       }
+      console.log("✅ Champ `files` mis à jour dans la table members");
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: "Fichier supprimé avec succès",
+      });
+    } else {
+      console.warn("Aucun ID de membre fourni, mise à jour locale uniquement");
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: "Fichier supprimé localement (membre non enregistré)",
+      });
     }
-
   } catch (err) {
     console.error("❌ Erreur complète lors de la suppression :", err);
-    alert("Erreur lors de la suppression du fichier.");
+    setUploadStatus({
+      loading: false,
+      error: `Erreur lors de la suppression du fichier : ${err.message}`,
+      success: null,
+    });
   }
 };
 
