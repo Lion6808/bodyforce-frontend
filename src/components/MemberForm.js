@@ -207,46 +207,33 @@ export default function MemberForm({ member, onSave, onCancel }) {
     if (storageError) {
       throw new Error(`Erreur lors de la suppression du fichier dans le stockage : ${storageError.message}`);
     }
-    console.log("Fichier supprimé de Supabase Storage");
+    console.log("✅ Fichier supprimé de Supabase Storage");
 
     // Étape 3 : Mettre à jour l'état local
     const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
     console.log("Nouveau tableau files :", newFiles);
     setForm((f) => ({ ...f, files: newFiles }));
 
-    // Étape 4 : Mettre à jour le champ `files` dans la table `members`
-    if (member?.id) {
-      console.log("Mise à jour de la table members avec ID :", member.id);
-      const { error: updateError } = await supabase
-        .from("members")
-        .update({ files: JSON.stringify(newFiles) })
-        .eq("id", member.id);
-
-      if (updateError) {
-        console.error("Erreur lors de la mise à jour du champ `files` dans Supabase :", updateError);
-        setUploadStatus({
-          loading: false,
-          error: `Erreur lors de la mise à jour du profil : ${updateError.message}`,
-          success: null,
-        });
-        return;
-      }
-      console.log("✅ Champ `files` mis à jour dans la table members");
+    // Étape 4 : Appeler onSave pour mettre à jour la base
+    try {
+      console.log("Appel de onSave avec :", { ...form, files: newFiles });
+      await onSave({ ...form, files: newFiles });
+      console.log("✅ Mise à jour effectuée via onSave");
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Fichier supprimé avec succès",
+        success: "Fichier supprimé et profil mis à jour",
       });
-    } else {
-      console.warn("Aucun ID de membre fourni, mise à jour locale uniquement");
+    } catch (saveError) {
+      console.error("Erreur lors de l'appel à onSave :", saveError);
       setUploadStatus({
         loading: false,
-        error: null,
-        success: "Fichier supprimé localement (membre non enregistré)",
+        error: "Le fichier a été supprimé du stockage, mais pas du profil.",
+        success: null,
       });
     }
   } catch (err) {
-    console.error("❌ Erreur complète lors de la suppression :", err);
+    console.error("❌ Erreur complète lors de la suppression :", err, err.stack);
     setUploadStatus({
       loading: false,
       error: `Erreur lors de la suppression du fichier : ${err.message}`,
