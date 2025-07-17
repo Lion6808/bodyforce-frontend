@@ -160,19 +160,24 @@ const removeFile = async (fileToRemove) => {
   try {
     console.log("🔍 Suppression demandée :", fileToRemove);
 
-    if (!fileToRemove.url || !fileToRemove.url.includes("/documents/")) {
-      console.error("❌ URL de fichier invalide :", fileToRemove.url);
-      alert("URL de fichier invalide");
-      return;
-    }
+    const url = fileToRemove.url;
+    const fullPrefix = "/storage/v1/object/public/";
 
-    const key = fileToRemove.url.split("/documents/")[1];
-    console.log("🔑 Clé extraite pour suppression :", key);
+    const bucketIndex = url.indexOf(fullPrefix);
+    if (bucketIndex === -1) throw new Error("URL invalide : bucket non trouvé");
 
-    const { error } = await supabase.storage.from("documents").remove([key]);
+    const afterPrefix = url.substring(bucketIndex + fullPrefix.length);
+    const [bucket, ...pathParts] = afterPrefix.split("/");
+    const path = pathParts.join("/");
+
+    console.log("📦 Bucket :", bucket);
+    console.log("📄 Fichier :", path);
+
+    const { error } = await supabase.storage.from(bucket).remove([path]);
     if (error) throw error;
 
-    const newFiles = form.files.filter((f) => f.name !== fileToRemove.name);
+    // Mise à jour locale
+    const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
     setForm((f) => ({ ...f, files: newFiles }));
 
     console.log("✅ Fichier supprimé avec succès");
@@ -182,6 +187,7 @@ const removeFile = async (fileToRemove) => {
     alert("Erreur lors de la suppression du fichier.");
   }
 };
+
 
 
 
