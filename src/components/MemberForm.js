@@ -72,7 +72,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-          ? JSON.parse(member.files || "[]") // Valeur par défaut pour éviter les erreurs
+          ? JSON.parse(member.files || "[]") // Gérer les cas null ou chaîne vide
           : [],
         etudiant: !!member.etudiant,
       });
@@ -114,7 +114,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ ...form, files: form.files });
+    console.log("handleSubmit appelé avec :", form);
+    onSave({ ...form, files: form.files }); // Assurer que files est un tableau
   };
 
   const handleFileUpload = async (e) => {
@@ -241,7 +242,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       // Étape 4 : Appeler onSave pour mettre à jour la base
       try {
         console.log("Appel de onSave avec :", { ...form, files: newFiles });
-        await onSave({ ...form, files: newFiles });
+        await onSave({ ...form, files: newFiles }); // Passer le tableau directement
         console.log("✅ Mise à jour effectuée via onSave");
         setUploadStatus({
           loading: false,
