@@ -184,26 +184,45 @@ export default function MemberForm({ member, onSave, onCancel }) {
   };
 
   const removeFile = async (fileToRemove) => {
-    try {
-      const url = fileToRemove.url;
-      const fullPrefix = "/storage/v1/object/public/";
-      const bucketIndex = url.indexOf(fullPrefix);
-      if (bucketIndex === -1) throw new Error("URL invalide");
+  try {
+    const url = fileToRemove.url;
+    const fullPrefix = "/storage/v1/object/public/";
+    const bucketIndex = url.indexOf(fullPrefix);
+    if (bucketIndex === -1) throw new Error("URL invalide");
 
-      const afterPrefix = url.substring(bucketIndex + fullPrefix.length);
-      const [bucket, ...pathParts] = afterPrefix.split("/");
-      const path = pathParts.join("/");
+    const afterPrefix = url.substring(bucketIndex + fullPrefix.length);
+    const [bucket, ...pathParts] = afterPrefix.split("/");
+    const path = pathParts.join("/");
 
-      const { error } = await supabase.storage.from(bucket).remove([path]);
-      if (error) throw error;
+    // 1. Supprimer dans Supabase Storage
+    const { error } = await supabase.storage.from(bucket).remove([path]);
+    if (error) throw error;
 
-      const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
-      setForm((f) => ({ ...f, files: newFiles }));
-    } catch (err) {
-      console.error("Erreur suppression fichier :", err.message);
-      alert("Erreur lors de la suppression du fichier.");
+    // 2. Supprimer localement dans React
+    const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
+    setForm((f) => ({ ...f, files: newFiles }));
+
+    // 3. Mettre à jour dans Supabase si possible
+    if (member?.id) {
+      const { error: updateError } = await supabase
+        .from("members")
+        .update({ files: newFiles })
+        .eq("id", member.id);
+
+      if (updateError) {
+        console.error("Erreur lors de la mise à jour de Supabase :", updateError.message);
+        alert("Le fichier a été supprimé du stockage, mais pas du profil.");
+      } else {
+        console.log("✅ Fichier supprimé et champ `files` mis à jour dans la base");
+      }
     }
-  };
+
+  } catch (err) {
+    console.error("❌ Erreur complète lors de la suppression :", err);
+    alert("Erreur lors de la suppression du fichier.");
+  }
+};
+
 
  return (
   <Modal
