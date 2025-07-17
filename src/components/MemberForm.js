@@ -359,3 +359,4 @@ export default function MemberForm({ member, onSave, onCancel }) {
     </div>
   </Modal>
 )
+}
