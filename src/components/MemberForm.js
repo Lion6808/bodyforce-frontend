@@ -148,8 +148,11 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const capturePhoto = async () => {
   try {
-    if (!webcamRef.current) {
-      throw new Error("Webcam non initialisée.");
+    console.log("capturePhoto appelé, webcamRef:", webcamRef.current, "webcamReady:", webcamReady);
+    if (!webcamRef.current || !webcamReady) {
+      console.error("Webcam non disponible ou non prête");
+      setUploadStatus({ loading: false, error: "Webcam non disponible ou non prête", success: null });
+      return;
     }
 
     const imageSrc = webcamRef.current.getScreenshot();
@@ -167,6 +170,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
     }
 
     const { data } = supabase.storage.from("photo").getPublicUrl(fileName);
+    console.log("✅ URL publique de la photo :", data.publicUrl);
     setForm((f) => ({ ...f, photo: data.publicUrl }));
     setUploadStatus({ loading: false, error: null, success: "Photo enregistrée" });
     setWebcamOpen(false);
@@ -175,6 +179,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
     setUploadStatus({ loading: false, error: err.message, success: null });
   }
 };
+
 
 
   const captureDocument = async () => {
