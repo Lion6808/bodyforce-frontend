@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { FaUser, FaClock, FaUsers, FaStar, FaExclamationTriangle } from "react-icons/fa";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { format, parseISO } from "date-fns";
+import {
+  FaUser, FaClock, FaUsers, FaStar, FaExclamationTriangle
+} from "react-icons/fa";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid
+} from 'recharts';
 
 // Initialise Supabase client
 const supabase = createClient(
@@ -18,8 +22,13 @@ export default function StatisticsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: membersData, error: membersError } = await supabase.from("members").select("*");
-      const { data: presencesData, error: presencesError } = await supabase.from("presences").select("*");
+      const { data: membersData, error: membersError } = await supabase
+        .from("members")
+        .select("*");
+
+      const { data: presencesData, error: presencesError } = await supabase
+        .from("presences")
+        .select("*");
 
       if (membersError || presencesError) {
         console.error("Erreur chargement Supabase :", membersError || presencesError);
@@ -41,28 +50,39 @@ export default function StatisticsPage() {
       for (const p of presences) {
         if (!p.timestamp || !p.badgeId) continue;
 
-        const parsedDate = parseISO(p.timestamp);
+        const parsedDate = new Date(p.timestamp);
         if (isNaN(parsedDate)) continue;
 
-        const hour = format(parsedDate, "HH");
+        const hour = parsedDate.getHours(); // valeur de 0 à 23
         const member = members.find((m) => m.badgeId === p.badgeId);
         if (!member) continue;
 
-        memberCount[member.id] = (memberCount[member.id] || { ...member, count: 0 });
+        if (!memberCount[member.id]) {
+          memberCount[member.id] = { ...member, count: 0 };
+        }
         memberCount[member.id].count += 1;
 
         hourCount[hour] = (hourCount[hour] || 0) + 1;
       }
 
-      setTopMembers(Object.values(memberCount).sort((a, b) => b.count - a.count).slice(0, 10));
-      setTopHours(Object.entries(hourCount)
-        .map(([hour, count]) => ({ hour, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5));
+      setTopMembers(
+        Object.values(memberCount)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10)
+      );
+
+      setTopHours(
+        Object.entries(hourCount)
+          .map(([hour, count]) => ({ hour: `${hour}h`, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5)
+      );
     }
   }, [members, presences]);
 
-  const abonnementsExpirés = members.filter(m => m.endDate && new Date(m.endDate) < new Date());
+  const abonnementsExpirés = members.filter(
+    (m) => m.endDate && new Date(m.endDate) < new Date()
+  );
 
   return (
     <div className="p-4">
@@ -88,7 +108,9 @@ export default function StatisticsPage() {
               </li>
             ))}
           </ul>
-        ) : <p className="text-gray-500">Aucune donnée disponible</p>}
+        ) : (
+          <p className="text-gray-500">Aucune donnée disponible</p>
+        )}
       </Section>
 
       <Section title="Plages horaires les plus fréquentées">
@@ -96,12 +118,14 @@ export default function StatisticsPage() {
           <ul>
             {topHours.map((h, idx) => (
               <li key={idx} className="flex justify-between border-b py-1">
-                <span>{h.hour}h</span>
+                <span>{h.hour}</span>
                 <span className="text-gray-600">{h.count} passages</span>
               </li>
             ))}
           </ul>
-        ) : <p className="text-gray-500">Aucune donnée disponible</p>}
+        ) : (
+          <p className="text-gray-500">Aucune donnée disponible</p>
+        )}
       </Section>
 
       <Section title="Présences par heure">
@@ -115,20 +139,24 @@ export default function StatisticsPage() {
               <Bar dataKey="count" fill="#3182ce" />
             </BarChart>
           </ResponsiveContainer>
-        ) : <p className="text-gray-500">Aucune donnée disponible</p>}
+        ) : (
+          <p className="text-gray-500">Aucune donnée disponible</p>
+        )}
       </Section>
 
       <Section title="Abonnements expirés" icon={<FaExclamationTriangle className="text-red-600" />}>
         {abonnementsExpirés.length > 0 ? (
           <ul>
-            {abonnementsExpirés.map(m => (
+            {abonnementsExpirés.map((m) => (
               <li key={m.id} className="flex justify-between border-b py-1">
                 <span>{m.firstName} {m.name}</span>
                 <span className="text-gray-600">Fin : {m.endDate}</span>
               </li>
             ))}
           </ul>
-        ) : <p className="text-gray-500">Aucun abonnement expiré</p>}
+        ) : (
+          <p className="text-gray-500">Aucun abonnement expiré</p>
+        )}
       </Section>
     </div>
   );
