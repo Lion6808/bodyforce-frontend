@@ -28,8 +28,7 @@ export default function StatisticsPage() {
 
       const { data: presencesData, error: presencesError } = await supabase
         .from("presences")
-        .select("*")
-        .limit(500000); // ou .range(0, 9999)
+        .select("*", { count: "exact", head: false });
 
       if (membersError || presencesError) {
         console.error("Erreur chargement Supabase :", membersError || presencesError);
@@ -63,7 +62,6 @@ export default function StatisticsPage() {
         }
         memberCount[member.badgeId].count += 1;
 
-
         hourCount[hour] = (hourCount[hour] || 0) + 1;
       }
 
@@ -72,7 +70,6 @@ export default function StatisticsPage() {
           .sort((a, b) => b.count - a.count)
           .slice(0, 10)
       );
-
 
       setTopHours(
         Object.entries(hourCount)
