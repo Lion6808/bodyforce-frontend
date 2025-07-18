@@ -57,10 +57,11 @@ export default function StatisticsPage() {
         const member = members.find((m) => m.badgeId === p.badgeId);
         if (!member) continue;
 
-        if (!memberCount[member.id]) {
-          memberCount[member.id] = { ...member, count: 0 };
+        if (!memberCount[member.badgeId]) {
+          memberCount[member.badgeId] = { ...member, count: 0 };
         }
-        memberCount[member.id].count += 1;
+        memberCount[member.badgeId].count += 1;
+
 
         hourCount[hour] = (hourCount[hour] || 0) + 1;
       }
@@ -70,6 +71,7 @@ export default function StatisticsPage() {
           .sort((a, b) => b.count - a.count)
           .slice(0, 10)
       );
+
 
       setTopHours(
         Object.entries(hourCount)
