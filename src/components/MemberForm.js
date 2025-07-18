@@ -63,6 +63,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const [webcamOpen, setWebcamOpen] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ loading: false, error: null, success: null });
+  const [webcamReady, setWebcamReady] = useState(false); // Suivi de l'état de la webcam
   const webcamRef = useRef(null);
 
   useEffect(() => {
@@ -115,7 +116,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     console.log("handleSubmit appelé avec :", { ...form, files: JSON.stringify(form.files) });
-    onSave({ ...form, files: JSON.stringify(form.files) }, true); // Passer closeModal=true
+    onSave({ ...form, files: JSON.stringify(form.files) }, true); // Fermer le modal
   };
 
   const handleFileUpload = async (e) => {
@@ -146,10 +147,10 @@ export default function MemberForm({ member, onSave, onCancel }) {
   };
 
   const capturePhoto = async () => {
-    console.log("capturePhoto appelé, webcamRef:", webcamRef.current);
-    if (!webcamRef.current) {
-      console.error("Webcam non disponible");
-      setUploadStatus({ loading: false, error: "Webcam non disponible", success: null });
+    console.log("capturePhoto appelé, webcamRef:", webcamRef.current, "webcamReady:", webcamReady);
+    if (!webcamRef.current || !webcamReady) {
+      console.error("Webcam non disponible ou non prête");
+      setUploadStatus({ loading: false, error: "Webcam non disponible ou non prête", success: null });
       return;
     }
     const imageSrc = webcamRef.current.getScreenshot();
@@ -174,6 +175,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       setForm((f) => ({ ...f, photo: data.publicUrl }));
       setUploadStatus({ loading: false, error: null, success: "Photo enregistrée" });
       setWebcamOpen(false);
+      await onSave({ ...form, photo: data.publicUrl }, false); // Mettre à jour sans fermer le modal
     } catch (err) {
       console.error("Erreur lors de la capture de la photo :", err, err.stack);
       setUploadStatus({ loading: false, error: `Erreur lors de la capture de la photo : ${err.message}`, success: null });
@@ -181,10 +183,10 @@ export default function MemberForm({ member, onSave, onCancel }) {
   };
 
   const captureDocument = async () => {
-    console.log("captureDocument appelé, webcamRef:", webcamRef.current);
-    if (!webcamRef.current) {
-      console.error("Webcam non disponible");
-      setUploadStatus({ loading: false, error: "Webcam non disponible", success: null });
+    console.log("captureDocument appelé, webcamRef:", webcamRef.current, "webcamReady:", webcamReady);
+    if (!webcamRef.current || !webcamReady) {
+      console.error("Webcam non disponible ou non prête");
+      setUploadStatus({ loading: false, error: "Webcam non disponible ou non prête", success: null });
       return;
     }
     const imageSrc = webcamRef.current.getScreenshot();
@@ -213,6 +215,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       }));
       setUploadStatus({ loading: false, error: null, success: "Fichier ajouté" });
       setWebcamOpen(false);
+      await onSave({ ...form, files: JSON.stringify([...form.files, { name: fileName, url: data.publicUrl }]) }, false); // Mettre à jour sans fermer le modal
     } catch (err) {
       console.error("Erreur lors de la capture du document :", err, err.stack);
       setUploadStatus({ loading: false, error: `Erreur lors de la capture du document : ${err.message}`, success: null });
@@ -251,7 +254,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
       try {
         console.log("Appel de onSave avec :", { ...form, files: JSON.stringify(newFiles) });
-        await onSave({ ...form, files: JSON.stringify(newFiles) }, false); // Passer closeModal=false
+        await onSave({ ...form, files: JSON.stringify(newFiles) }, false); // Ne pas fermer le modal
         console.log("✅ Mise à jour effectuée via onSave");
         setUploadStatus({
           loading: false,
@@ -337,7 +340,14 @@ export default function MemberForm({ member, onSave, onCancel }) {
                 ) : (
                   <div className="w-32 h-32 flex items-center justify-center border rounded text-gray-400 mb-2">Pas de photo</div>
                 )}
-                <button type="button" onClick={() => setWebcamOpen("photo")} className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWebcamReady(false); // Réinitialiser l'état de la webcam
+                    setWebcamOpen("photo");
+                  }}
+                  className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                >
                   <FaCamera /> Photo
                 </button>
               </div>
@@ -372,7 +382,14 @@ export default function MemberForm({ member, onSave, onCancel }) {
                 <FaFileUpload /> Importer un fichier
               </label>
               <input type="file" id="fileUpload" className="hidden" multiple onChange={handleFileUpload} />
-              <button type="button" onClick={() => setWebcamOpen("doc")} className="bg-purple-600 text-white px-4 py-2 rounded inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setWebcamReady(false); // Réinitialiser l'état de la webcam
+                  setWebcamOpen("doc");
+                }}
+                className="bg-purple-600 text-white px-4 py-2 rounded inline-flex items-center gap-2"
+              >
                 <FaCamera /> Prendre une photo (doc)
               </button>
             </div>
@@ -423,16 +440,29 @@ export default function MemberForm({ member, onSave, onCancel }) {
                   ref={webcamRef}
                   audio={false}
                   screenshotFormat="image/jpeg"
-                  videoConstraints={{ width: 640, height: 480, facingMode: "user" }}
+                  videoConstraints={{ width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }}
                   className="rounded border shadow-lg"
+                  onUserMedia={() => {
+                    console.log("Webcam activée avec succès");
+                    setWebcamReady(true);
+                  }}
                   onUserMediaError={(error) => {
                     console.error("Erreur d'accès à la webcam :", error);
                     setUploadStatus({ loading: false, error: `Erreur d'accès à la webcam : ${error}`, success: null });
+                    setWebcamReady(false);
                   }}
                 />
                 <div className="mt-4 space-x-4">
-                  <button onClick={webcamOpen === "doc" ? captureDocument : capturePhoto} className="bg-blue-600 text-white px-4 py-2 rounded">📸 Capturer</button>
-                  <button onClick={() => setWebcamOpen(false)} className="text-red-500">Annuler</button>
+                  <button
+                    onClick={webcamOpen === "doc" ? captureDocument : capturePhoto}
+                    className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
+                    disabled={!webcamReady}
+                  >
+                    📸 Capturer
+                  </button>
+                  <button onClick={() => setWebcamOpen(false)} className="text-red-500">
+                    Annuler
+                  </button>
                 </div>
               </div>
             </Modal>
