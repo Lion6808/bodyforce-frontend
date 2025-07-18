@@ -58,7 +58,7 @@ function MembersPage() {
     result.sort((a, b) => {
       const nameA = a.name?.toLowerCase() || "";
       const nameB = b.name?.toLowerCase() || "";
-      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameB);
     });
 
     setFilteredMembers(result);
@@ -294,15 +294,22 @@ function MembersPage() {
             </div>
             <MemberForm
               member={selectedMember}
-              onSave={async (member) => {
-                if (member.id) {
-                  await supabase.from("members").update(member).eq("id", member.id);
-                } else {
-                  await supabase.from("members").insert(member);
+              onSave={async (member, closeModal) => {
+                try {
+                  console.log("onSave appelé avec :", member, "closeModal:", closeModal);
+                  if (member.id) {
+                    await supabase.from("members").update(member).eq("id", member.id);
+                  } else {
+                    await supabase.from("members").insert(member);
+                  }
+                  if (closeModal) {
+                    setShowForm(false);
+                    setSelectedMember(null);
+                  }
+                  await fetchMembers();
+                } catch (error) {
+                  console.error("Erreur dans onSave :", error);
                 }
-                setShowForm(false);
-                setSelectedMember(null);
-                fetchMembers();
               }}
               onCancel={() => {
                 setShowForm(false);

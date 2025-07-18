@@ -72,7 +72,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-          ? JSON.parse(member.files || "[]") // Gérer les cas null ou chaîne vide
+          ? JSON.parse(member.files || "[]")
           : [],
         etudiant: !!member.etudiant,
       });
@@ -114,8 +114,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("handleSubmit appelé avec :", form);
-    onSave({ ...form, files: form.files }); // Assurer que files est un tableau
+    console.log("handleSubmit appelé avec :", { ...form, files: JSON.stringify(form.files) });
+    onSave({ ...form, files: JSON.stringify(form.files) }, true); // Passer closeModal=true
   };
 
   const handleFileUpload = async (e) => {
@@ -146,12 +146,16 @@ export default function MemberForm({ member, onSave, onCancel }) {
   };
 
   const capturePhoto = async () => {
+    console.log("capturePhoto appelé, webcamRef:", webcamRef.current);
     if (!webcamRef.current) {
+      console.error("Webcam non disponible");
       setUploadStatus({ loading: false, error: "Webcam non disponible", success: null });
       return;
     }
     const imageSrc = webcamRef.current.getScreenshot();
+    console.log("imageSrc:", imageSrc);
     if (!imageSrc) {
+      console.error("Impossible de capturer la photo");
       setUploadStatus({ loading: false, error: "Impossible de capturer la photo", success: null });
       return;
     }
@@ -159,28 +163,34 @@ export default function MemberForm({ member, onSave, onCancel }) {
     setUploadStatus({ loading: true, error: null, success: null });
     try {
       const blob = await (await fetch(imageSrc)).blob();
+      console.log("Blob créé:", blob);
       const fileName = sanitizeFileName(`photo_${Date.now()}.jpg`);
       const { error } = await supabase.storage.from("photo").upload(fileName, blob, { upsert: true });
       if (error) {
         throw new Error(`Erreur lors du téléversement de la photo : ${error.message}`);
       }
       const { data } = supabase.storage.from("photo").getPublicUrl(fileName);
+      console.log("URL publique de la photo:", data.publicUrl);
       setForm((f) => ({ ...f, photo: data.publicUrl }));
       setUploadStatus({ loading: false, error: null, success: "Photo enregistrée" });
       setWebcamOpen(false);
     } catch (err) {
-      console.error("Erreur lors de la capture de la photo :", err);
-      setUploadStatus({ loading: false, error: err.message, success: null });
+      console.error("Erreur lors de la capture de la photo :", err, err.stack);
+      setUploadStatus({ loading: false, error: `Erreur lors de la capture de la photo : ${err.message}`, success: null });
     }
   };
 
   const captureDocument = async () => {
+    console.log("captureDocument appelé, webcamRef:", webcamRef.current);
     if (!webcamRef.current) {
+      console.error("Webcam non disponible");
       setUploadStatus({ loading: false, error: "Webcam non disponible", success: null });
       return;
     }
     const imageSrc = webcamRef.current.getScreenshot();
+    console.log("imageSrc:", imageSrc);
     if (!imageSrc) {
+      console.error("Impossible de capturer le document");
       setUploadStatus({ loading: false, error: "Impossible de capturer le document", success: null });
       return;
     }
@@ -188,6 +198,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
     setUploadStatus({ loading: true, error: null, success: null });
     try {
       const blob = await (await fetch(imageSrc)).blob();
+      console.log("Blob créé:", blob);
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
       const { error } = await supabase.storage.from("documents").upload(filePath, blob);
@@ -195,6 +206,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
         throw new Error(`Erreur lors du téléversement du document : ${error.message}`);
       }
       const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+      console.log("URL publique du document:", data.publicUrl);
       setForm((f) => ({
         ...f,
         files: [...f.files, { name: fileName, url: data.publicUrl }],
@@ -202,17 +214,17 @@ export default function MemberForm({ member, onSave, onCancel }) {
       setUploadStatus({ loading: false, error: null, success: "Fichier ajouté" });
       setWebcamOpen(false);
     } catch (err) {
-      console.error("Erreur lors de la capture du document :", err);
-      setUploadStatus({ loading: false, error: err.message, success: null });
+      console.error("Erreur lors de la capture du document :", err, err.stack);
+      setUploadStatus({ loading: false, error: `Erreur lors de la capture du document : ${err.message}`, success: null });
     }
   };
 
   const removeFile = async (fileToRemove, event) => {
-    event?.stopPropagation(); // Empêche la propagation de l'événement de clic
+    event?.stopPropagation();
+    event?.preventDefault();
     try {
       console.log("Début de la suppression du fichier :", fileToRemove);
 
-      // Étape 1 : Extraire le chemin du fichier depuis l'URL
       const url = fileToRemove.url;
       console.log("URL du fichier :", url);
       const fullPrefix = "/storage/v1/object/public/";
@@ -227,22 +239,19 @@ export default function MemberForm({ member, onSave, onCancel }) {
       const path = pathParts.join("/");
       console.log("Bucket :", bucket, "Chemin :", path);
 
-      // Étape 2 : Supprimer le fichier dans Supabase Storage
       const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
       if (storageError) {
         throw new Error(`Erreur lors de la suppression du fichier dans le stockage : ${storageError.message}`);
       }
       console.log("✅ Fichier supprimé de Supabase Storage");
 
-      // Étape 3 : Mettre à jour l'état local
       const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
       console.log("Nouveau tableau files :", newFiles);
       setForm((f) => ({ ...f, files: newFiles }));
 
-      // Étape 4 : Appeler onSave pour mettre à jour la base
       try {
-        console.log("Appel de onSave avec :", { ...form, files: newFiles });
-        await onSave({ ...form, files: newFiles }); // Passer le tableau directement
+        console.log("Appel de onSave avec :", { ...form, files: JSON.stringify(newFiles) });
+        await onSave({ ...form, files: JSON.stringify(newFiles) }, false); // Passer closeModal=false
         console.log("✅ Mise à jour effectuée via onSave");
         setUploadStatus({
           loading: false,
@@ -272,6 +281,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       isOpen={true}
       onRequestClose={onCancel}
       shouldCloseOnOverlayClick={false}
+      shouldCloseOnEsc={false}
       contentLabel="Fiche Membre"
       className="bg-white rounded-xl shadow-lg w-full max-w-5xl mx-auto mt-10 outline-none relative flex flex-col"
       overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50"
@@ -295,7 +305,6 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
       <div className="p-6 pt-20 max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Identité */}
           <div className="bg-gray-100 p-4 rounded">
             <h2 className="text-xl font-semibold mb-4">Identité</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -335,7 +344,6 @@ export default function MemberForm({ member, onSave, onCancel }) {
             </div>
           </div>
 
-          {/* Coordonnées */}
           <div className="bg-green-50 p-4 rounded">
             <h2 className="text-xl font-semibold mb-4">Coordonnées</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -346,7 +354,6 @@ export default function MemberForm({ member, onSave, onCancel }) {
             </div>
           </div>
 
-          {/* Abonnement */}
           <div className="bg-yellow-50 p-4 rounded">
             <h2 className="text-xl font-semibold mb-4">Abonnement</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -358,7 +365,6 @@ export default function MemberForm({ member, onSave, onCancel }) {
             </div>
           </div>
 
-          {/* Fichiers */}
           <div className="bg-pink-50 p-4 rounded">
             <h2 className="text-xl font-semibold mb-4">Documents / Certificats</h2>
             <div className="flex flex-col md:flex-row gap-4">
@@ -393,7 +399,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
                     </div>
                   </div>
                   <button
-                    onClick={(e) => removeFile(file, e)} // Passer l'événement
+                    onClick={(e) => removeFile(file, e)}
                     className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
                   >
                     <FaTrash /> Supprimer
@@ -403,16 +409,27 @@ export default function MemberForm({ member, onSave, onCancel }) {
             </ul>
           </div>
 
-          {/* Webcam */}
           {webcamOpen && (
             <Modal
               isOpen={true}
               onRequestClose={() => setWebcamOpen(false)}
+              shouldCloseOnOverlayClick={false}
+              shouldCloseOnEsc={false}
               className="bg-white rounded-xl shadow-lg p-6 w-[700px] mx-auto mt-20 max-h-[90vh] overflow-y-auto outline-none"
               overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50"
             >
               <div className="flex flex-col items-center">
-                <Webcam ref={webcamRef} audio={false} screenshotFormat="image/jpeg" videoConstraints={{ width: 640, height: 480, facingMode: "user" }} className="rounded border shadow-lg" />
+                <Webcam
+                  ref={webcamRef}
+                  audio={false}
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={{ width: 640, height: 480, facingMode: "user" }}
+                  className="rounded border shadow-lg"
+                  onUserMediaError={(error) => {
+                    console.error("Erreur d'accès à la webcam :", error);
+                    setUploadStatus({ loading: false, error: `Erreur d'accès à la webcam : ${error}`, success: null });
+                  }}
+                />
                 <div className="mt-4 space-x-4">
                   <button onClick={webcamOpen === "doc" ? captureDocument : capturePhoto} className="bg-blue-600 text-white px-4 py-2 rounded">📸 Capturer</button>
                   <button onClick={() => setWebcamOpen(false)} className="text-red-500">Annuler</button>
