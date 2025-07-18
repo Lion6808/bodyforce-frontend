@@ -147,40 +147,35 @@ export default function MemberForm({ member, onSave, onCancel }) {
   };
 
   const capturePhoto = async () => {
-    console.log("capturePhoto appelé, webcamRef:", webcamRef.current, "webcamReady:", webcamReady);
-    if (!webcamRef.current || !webcamReady) {
-      console.error("Webcam non disponible ou non prête");
-      setUploadStatus({ loading: false, error: "Webcam non disponible ou non prête", success: null });
-      return;
+  try {
+    if (!webcamRef.current) {
+      throw new Error("Webcam non initialisée.");
     }
+
     const imageSrc = webcamRef.current.getScreenshot();
-    console.log("imageSrc:", imageSrc);
     if (!imageSrc) {
-      console.error("Impossible de capturer la photo");
-      setUploadStatus({ loading: false, error: "Impossible de capturer la photo", success: null });
-      return;
+      throw new Error("Aucune image capturée. Vérifiez que la webcam fonctionne.");
     }
 
     setUploadStatus({ loading: true, error: null, success: null });
-    try {
-      const blob = await (await fetch(imageSrc)).blob();
-      console.log("Blob créé:", blob);
-      const fileName = sanitizeFileName(`photo_${Date.now()}.jpg`);
-      const { error } = await supabase.storage.from("photo").upload(fileName, blob, { upsert: true });
-      if (error) {
-        throw new Error(`Erreur lors du téléversement de la photo : ${error.message}`);
-      }
-      const { data } = supabase.storage.from("photo").getPublicUrl(fileName);
-      console.log("URL publique de la photo:", data.publicUrl);
-      setForm((f) => ({ ...f, photo: data.publicUrl }));
-      setUploadStatus({ loading: false, error: null, success: "Photo enregistrée" });
-      setWebcamOpen(false);
-      await onSave({ ...form, photo: data.publicUrl }, false); // Mettre à jour sans fermer le modal
-    } catch (err) {
-      console.error("Erreur lors de la capture de la photo :", err, err.stack);
-      setUploadStatus({ loading: false, error: `Erreur lors de la capture de la photo : ${err.message}`, success: null });
+    const blob = await (await fetch(imageSrc)).blob();
+    const fileName = sanitizeFileName(`photo_${Date.now()}.jpg`);
+
+    const { error } = await supabase.storage.from("photo").upload(fileName, blob, { upsert: true });
+    if (error) {
+      throw new Error(`Erreur lors de l'envoi : ${error.message}`);
     }
-  };
+
+    const { data } = supabase.storage.from("photo").getPublicUrl(fileName);
+    setForm((f) => ({ ...f, photo: data.publicUrl }));
+    setUploadStatus({ loading: false, error: null, success: "Photo enregistrée" });
+    setWebcamOpen(false);
+  } catch (err) {
+    console.error("Erreur capture photo :", err);
+    setUploadStatus({ loading: false, error: err.message, success: null });
+  }
+};
+
 
   const captureDocument = async () => {
     console.log("captureDocument appelé, webcamRef:", webcamRef.current, "webcamReady:", webcamReady);
