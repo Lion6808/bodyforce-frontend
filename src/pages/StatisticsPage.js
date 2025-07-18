@@ -28,7 +28,8 @@ export default function StatisticsPage() {
 
       const { data: presencesData, error: presencesError } = await supabase
         .from("presences")
-        .select("*", { count: "exact", head: false });
+        .select("*")
+        .range(0, 19999);
 
       if (membersError || presencesError) {
         console.error("Erreur chargement Supabase :", membersError || presencesError);
