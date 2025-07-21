@@ -60,13 +60,14 @@ export default function MemberForm({ member, onSave, onCancel }) {
     etudiant: false,
   });
 
-  const [payments, setPayments] = useState([]);
   const [newPayment, setNewPayment] = useState({
     amount: "",
     method: "espèces",
     encaissement_prevu: "",
     commentaire: "",
+    is_paid: false, // ✅ Ajouté ici
   });
+
 
   const [webcamOpen, setWebcamOpen] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ loading: false, error: null, success: null });
@@ -80,8 +81,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-          ? JSON.parse(member.files || "[]")
-          : [],
+            ? JSON.parse(member.files || "[]")
+            : [],
         etudiant: !!member.etudiant,
       });
 
@@ -115,8 +116,10 @@ export default function MemberForm({ member, onSave, onCancel }) {
         method: newPayment.method,
         encaissement_prevu: newPayment.encaissement_prevu || null,
         commentaire: newPayment.commentaire || "",
+        is_paid: newPayment.is_paid || false, // ✅ Ajouté ici
       },
     ]);
+
 
     if (error) {
       console.error("Erreur ajout paiement :", error.message);
@@ -141,6 +144,20 @@ export default function MemberForm({ member, onSave, onCancel }) {
     }
     fetchPayments(member.id);
   };
+  const togglePaymentStatus = async (paymentId, newStatus) => {
+    const { error } = await supabase
+      .from("payments")
+      .update({ is_paid: newStatus })
+      .eq("id", paymentId);
+
+    if (error) {
+      console.error("Erreur mise à jour du statut de paiement :", error.message);
+      return;
+    }
+
+    fetchPayments(member.id); // Recharge les paiements
+  };
+
   useEffect(() => {
     if (!form.startDate) return;
     if (form.subscriptionType === "Année civile") {
@@ -463,6 +480,15 @@ export default function MemberForm({ member, onSave, onCancel }) {
                 value={newPayment.encaissement_prevu}
                 onChange={(e) => setNewPayment((p) => ({ ...p, encaissement_prevu: e.target.value }))}
               />
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={newPayment.is_paid}
+                  onChange={(e) => setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))}
+                />
+                <label className="text-sm text-gray-700">Déjà encaissé ?</label>
+              </div>
+
               <button
                 type="button"
                 onClick={handleAddPayment}
@@ -485,6 +511,15 @@ export default function MemberForm({ member, onSave, onCancel }) {
                 <li key={pay.id} className="flex justify-between items-center py-2">
                   <div className="flex flex-col text-sm">
                     <span className="font-semibold">{pay.amount.toFixed(2)} € - {pay.method}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="checkbox"
+                        checked={pay.is_paid}
+                        onChange={() => togglePaymentStatus(pay.id, !pay.is_paid)}
+                      />
+                      <label className="text-sm text-gray-700">Encaissé</label>
+                    </div>
+
                     <span className="text-gray-600">Payé le {new Date(pay.date_paiement).toLocaleDateString()}</span>
                     {pay.encaissement_prevu && (
                       <span className="text-blue-600">Encaissement prévu : {new Date(pay.encaissement_prevu).toLocaleDateString()}</span>
