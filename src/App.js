@@ -158,10 +158,13 @@ function AppRoutes({ user, setUser }) {
 
       <Sidebar user={user} onLogout={handleLogout} />
 
-      {mobileMenuOpen && (
+     {mobileMenuOpen && (
   <div className="fixed inset-0 bg-white z-50 p-6 flex flex-col">
     <div className="flex justify-between items-center mb-6">
-      <h1 className="text-lg font-bold text-red-600">CLUB BODY FORCE</h1>
+      <div className="flex items-center gap-2">
+        <img src="/images/logo.png" alt="Logo BodyForce" className="h-16 w-auto" />
+        <h1 className="text-lg font-bold text-red-600">CLUB BODY FORCE</h1>
+      </div>
       <button onClick={() => setMobileMenuOpen(false)}>
         <FaTimes className="text-2xl text-gray-700" />
       </button>
