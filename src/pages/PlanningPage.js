@@ -41,7 +41,6 @@ function PlanningPage() {
       }
       setMembers(Array.isArray(membersData) ? membersData : []);
 
-      // Récupération paginée des présences entre startDate et endDate
       let allPresences = [];
       let from = 0;
       const pageSize = 1000;
@@ -92,8 +91,7 @@ function PlanningPage() {
 
   const toLocalDate = (iso) => {
     if (!iso) return new Date();
-    const d = parseISO(iso);
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes());
+    return parseISO(iso);
   };
 
   const filteredPresences = presences.filter((p) => {
