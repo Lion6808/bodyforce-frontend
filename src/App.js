@@ -79,6 +79,11 @@ function LoginPage() {
   );
 }
 
+<div className="sm:hidden flex justify-center mt-2">
+  <img src="/logo.png" alt="Logo BodyForce" className="h-16" />
+</div>
+
+
 function Sidebar({ user, onLogout }) {
   const location = useLocation();
   const menu = [
