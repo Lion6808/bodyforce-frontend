@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { isAfter, isBefore, parseISO, isToday } from "date-fns";
+import { isAfter, isBefore, isToday, parseISO } from "date-fns";
 import {
   FaUsers,
   FaUserCheck,
   FaUserTimes,
   FaMale,
   FaFemale,
-  FaMoneyBillAlt,
+  FaMoneyBillWave,
+  FaCalendarAlt,
 } from "react-icons/fa";
-
 import { supabase } from "../supabaseClient";
 
 function HomePage() {
@@ -18,16 +18,18 @@ function HomePage() {
     expirés: 0,
     hommes: 0,
     femmes: 0,
+    expirésNoms: [],
   });
 
-  const [paiementsAttente, setPaiementsAttente] = useState([]);
+  const [paiementsNonPayés, setPaiementsNonPayés] = useState([]);
+  const [paiementsAVenir, setPaiementsAVenir] = useState([]);
 
   useEffect(() => {
     const fetchStats = async () => {
       const { data: members, error } = await supabase.from("members").select("*");
 
       if (error) {
-        console.error("Erreur chargement membres :", error.message);
+        console.error("Erreur chargement membres:", error.message);
         return;
       }
 
@@ -36,6 +38,7 @@ function HomePage() {
       let expirés = 0;
       let hommes = 0;
       let femmes = 0;
+      let expirésNoms = [];
 
       members.forEach((m) => {
         const end = m.endDate ? new Date(m.endDate) : null;
@@ -43,6 +46,9 @@ function HomePage() {
           actifs++;
         } else {
           expirés++;
+          if (expirésNoms.length < 5) {
+            expirésNoms.push(`${m.firstName} ${m.name}`);
+          }
         }
 
         const genre = (m.gender || "").toLowerCase();
@@ -59,22 +65,28 @@ function HomePage() {
         expirés,
         hommes,
         femmes,
+        expirésNoms,
+        autresExpirés: expirés - expirésNoms.length,
       });
     };
 
     const fetchPaiements = async () => {
-      const { data: payments, error } = await supabase
-        .from("payments")
-        .select("*, members(name)")
-        .eq("is_paid", false)
-        .order("encaissement_prevu", { ascending: true });
+      const { data, error } = await supabase.from("payments").select("*");
 
       if (error) {
-        console.error("Erreur chargement paiements :", error.message);
+        console.error("Erreur chargement paiements:", error.message);
         return;
       }
 
-      setPaiementsAttente(payments);
+      const today = new Date();
+
+      const nonPayés = data.filter((p) => !p.is_paid);
+      const àVenir = data.filter(
+        (p) => p.encaissement_prevu && isAfter(parseISO(p.encaissement_prevu), today)
+      );
+
+      setPaiementsNonPayés(nonPayés);
+      setPaiementsAVenir(àVenir);
     };
 
     fetchStats();
@@ -97,9 +109,7 @@ function HomePage() {
         <div className={cardStyle}>
           <FaUsers className="text-4xl text-blue-600" />
           <div>
-            <h2 className="text-lg font-semibold text-blue-600">
-              Nombre total de membres
-            </h2>
+            <h2 className="text-lg font-semibold text-blue-600">Nombre total de membres</h2>
             <p className="text-3xl font-bold">{stats.total}</p>
           </div>
         </div>
@@ -107,9 +117,7 @@ function HomePage() {
         <div className={cardStyle}>
           <FaUserCheck className="text-4xl text-green-600" />
           <div>
-            <h2 className="text-lg font-semibold text-green-600">
-              Inscriptions en cours
-            </h2>
+            <h2 className="text-lg font-semibold text-green-600">Inscriptions en cours</h2>
             <p className="text-3xl font-bold">{stats.actifs}</p>
           </div>
         </div>
@@ -117,19 +125,23 @@ function HomePage() {
         <div className={cardStyle}>
           <FaUserTimes className="text-4xl text-red-600" />
           <div>
-            <h2 className="text-lg font-semibold text-red-600">
-              Abonnements échus
-            </h2>
+            <h2 className="text-lg font-semibold text-red-600">Abonnements échus</h2>
             <p className="text-3xl font-bold">{stats.expirés}</p>
+            <ul className="text-sm mt-2 text-gray-700 list-disc list-inside">
+              {stats.expirésNoms.map((nom, i) => (
+                <li key={i}>{nom}</li>
+              ))}
+              {stats.autresExpirés > 0 && (
+                <li className="italic">et {stats.autresExpirés} autres...</li>
+              )}
+            </ul>
           </div>
         </div>
 
         <div className={cardStyle}>
           <FaMale className="text-4xl text-blue-500" />
           <div>
-            <h2 className="text-lg font-semibold text-blue-500">
-              Nombre d'hommes
-            </h2>
+            <h2 className="text-lg font-semibold text-blue-500">Nombre d'hommes</h2>
             <p className="text-3xl font-bold">{stats.hommes}</p>
           </div>
         </div>
@@ -137,51 +149,45 @@ function HomePage() {
         <div className={cardStyle}>
           <FaFemale className="text-4xl text-pink-500" />
           <div>
-            <h2 className="text-lg font-semibold text-pink-500">
-              Nombre de femmes
-            </h2>
+            <h2 className="text-lg font-semibold text-pink-500">Nombre de femmes</h2>
             <p className="text-3xl font-bold">{stats.femmes}</p>
           </div>
         </div>
-      </div>
 
-      {/* Paiements à venir */}
-      <div className="mt-8 bg-white p-6 rounded-xl shadow">
-        <div className="flex items-center gap-3 mb-4">
-          <FaMoneyBillAlt className="text-3xl text-orange-500" />
-          <h2 className="text-xl font-bold text-orange-600">Paiements en attente</h2>
+        <div className={cardStyle}>
+          <FaMoneyBillWave className="text-4xl text-orange-500" />
+          <div>
+            <h2 className="text-lg font-semibold text-orange-500">Paiements non encaissés</h2>
+            <p className="text-3xl font-bold">{paiementsNonPayés.length}</p>
+          </div>
         </div>
 
-        {paiementsAttente.length === 0 ? (
-          <p className="text-gray-600 italic">Aucun paiement en attente</p>
-        ) : (
-          <ul className="space-y-2">
-            {paiementsAttente.map((p) => {
-              const date = p.encaissement_prevu ? new Date(p.encaissement_prevu) : null;
-              const badge =
-                date && (isToday(date) || isBefore(date, new Date())) ? (
-                  <span className="bg-red-600 text-white px-2 py-0.5 rounded-full text-xs ml-2">
-                    ⚠ Échéance !
-                  </span>
-                ) : null;
+        <div className={cardStyle}>
+          <FaCalendarAlt className="text-4xl text-purple-600" />
+          <div>
+            <h2 className="text-lg font-semibold text-purple-600">Encaissements à venir</h2>
+            <p className="text-3xl font-bold">{paiementsAVenir.length}</p>
+            <ul className="text-sm mt-2 text-gray-700 list-disc list-inside max-h-32 overflow-y-auto">
+              {paiementsAVenir.slice(0, 5).map((p) => {
+                const date = parseISO(p.encaissement_prevu);
+                const badge =
+                  isToday(date) || isBefore(date, new Date()) ? (
+                    <span className="text-red-600 font-bold ml-2">⚠</span>
+                  ) : null;
 
-              return (
-                <li key={p.id} className="flex items-center justify-between border-b pb-2">
-                  <div>
-                    <span className="font-semibold">{p.members?.name || "Membre"}</span> - {p.amount.toFixed(2)} € ({p.method})
-                    {date && (
-                      <span className="ml-2 text-sm text-gray-600">
-                        Encaissement prévu :{" "}
-                        {new Date(date).toLocaleDateString()}
-                      </span>
-                    )}
+                return (
+                  <li key={p.id}>
+                    {new Date(date).toLocaleDateString()}
                     {badge}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                  </li>
+                );
+              })}
+              {paiementsAVenir.length > 5 && (
+                <li className="italic">et {paiementsAVenir.length - 5} autres...</li>
+              )}
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );
