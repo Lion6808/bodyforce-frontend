@@ -60,6 +60,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
     etudiant: false,
   });
 
+  const [payments, setPayments] = useState([]);
+
+
   const [newPayment, setNewPayment] = useState({
     amount: "",
     method: "espèces",
