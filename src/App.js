@@ -80,7 +80,7 @@ function LoginPage() {
 }
 
 <div className="sm:hidden flex justify-center mt-2">
-  <img src="/logo.png" alt="Logo BodyForce" className="h-16" />
+  <img src="public/images/logo.png" alt="Logo BodyForce" className="h-16" />
 </div>
 
 
