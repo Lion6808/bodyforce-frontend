@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { isAfter, isBefore, isToday, parseISO } from "date-fns";
+import { isAfter, parseISO, format } from "date-fns";
 import {
   FaUsers,
   FaUserCheck,
   FaUserTimes,
   FaMale,
   FaFemale,
-  FaMoneyBillWave,
-  FaCalendarAlt,
+  FaMoneyCheckAlt,
 } from "react-icons/fa";
+
 import { supabase } from "../supabaseClient";
 
 function HomePage() {
@@ -18,93 +18,76 @@ function HomePage() {
     expirés: 0,
     hommes: 0,
     femmes: 0,
-    expirésNoms: [],
+    membresExpirés: [],
   });
 
-  const [paiementsNonPayés, setPaiementsNonPayés] = useState([]);
-  const [paiementsAVenir, setPaiementsAVenir] = useState([]);
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [showPayments, setShowPayments] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
       const { data: members, error } = await supabase.from("members").select("*");
-
-      if (error) {
-        console.error("Erreur chargement membres:", error.message);
-        return;
-      }
+      if (error) return;
 
       const today = new Date();
       let actifs = 0;
       let expirés = 0;
       let hommes = 0;
       let femmes = 0;
-      let expirésNoms = [];
+      let membresExpirés = [];
 
       members.forEach((m) => {
-        const end = m.endDate ? new Date(m.endDate) : null;
+        let end;
+        try {
+          end = typeof m.endDate === "string"
+            ? m.endDate.includes("/") 
+              ? parseISO(m.endDate.split("/").reverse().join("-"))
+              : new Date(m.endDate)
+            : m.endDate;
+        } catch {
+          end = null;
+        }
+
         if (end && isAfter(end, today)) {
           actifs++;
         } else {
           expirés++;
-          if (expirésNoms.length < 5) {
-            expirésNoms.push(`${m.firstName} ${m.name}`);
-          }
+          membresExpirés.push({ name: m.name, firstName: m.firstName });
         }
 
         const genre = (m.gender || "").toLowerCase();
-        if (genre === "homme" || genre === "h") {
-          hommes++;
-        } else if (genre === "femme" || genre === "f") {
-          femmes++;
-        }
+        if (genre === "homme" || genre === "h") hommes++;
+        else if (genre === "femme" || genre === "f") femmes++;
       });
 
-      setStats({
-        total: members.length,
-        actifs,
-        expirés,
-        hommes,
-        femmes,
-        expirésNoms,
-        autresExpirés: expirés - expirésNoms.length,
-      });
+      setStats({ total: members.length, actifs, expirés, hommes, femmes, membresExpirés });
     };
 
-    const fetchPaiements = async () => {
-      const { data, error } = await supabase.from("payments").select("*");
+    const fetchPayments = async () => {
+      const { data: payments, error } = await supabase
+        .from("payments")
+        .select("*, member:member_id (name, firstName)")
+        .order("encaissement_prevu", { ascending: true });
 
-      if (error) {
-        console.error("Erreur chargement paiements:", error.message);
-        return;
-      }
+      if (error) return;
 
       const today = new Date();
-
-      const nonPayés = data.filter((p) => !p.is_paid);
-      const àVenir = data.filter(
-        (p) => p.encaissement_prevu && isAfter(parseISO(p.encaissement_prevu), today)
+      const filtered = payments.filter(
+        (p) => !p.is_paid || (p.encaissement_prevu && new Date(p.encaissement_prevu) >= today)
       );
 
-      setPaiementsNonPayés(nonPayés);
-      setPaiementsAVenir(àVenir);
+      setPendingPayments(filtered);
     };
 
     fetchStats();
-    fetchPaiements();
+    fetchPayments();
   }, []);
 
   const cardStyle = "p-4 bg-white rounded-xl shadow flex items-center gap-4";
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-blue-700">
-        Bienvenue au Club de Musculation
-      </h1>
-      <p className="text-gray-700">
-        Notre club vous accueille toute l'année avec des équipements modernes,
-        des coachs certifiés, et une ambiance conviviale.
-      </p>
-
+      <h1 className="text-2xl font-bold text-blue-700">Bienvenue au Club de Musculation</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
         <div className={cardStyle}>
           <FaUsers className="text-4xl text-blue-600" />
@@ -127,14 +110,16 @@ function HomePage() {
           <div>
             <h2 className="text-lg font-semibold text-red-600">Abonnements échus</h2>
             <p className="text-3xl font-bold">{stats.expirés}</p>
-            <ul className="text-sm mt-2 text-gray-700 list-disc list-inside">
-              {stats.expirésNoms.map((nom, i) => (
-                <li key={i}>{nom}</li>
-              ))}
-              {stats.autresExpirés > 0 && (
-                <li className="italic">et {stats.autresExpirés} autres...</li>
-              )}
-            </ul>
+            {stats.membresExpirés.length > 0 && (
+              <ul className="mt-2 list-disc list-inside text-sm text-gray-700 max-h-24 overflow-y-auto">
+                {stats.membresExpirés.slice(0, 5).map((m, i) => (
+                  <li key={i}>{m.firstName} {m.name}</li>
+                ))}
+                {stats.membresExpirés.length > 5 && (
+                  <li className="italic text-gray-500">et {stats.membresExpirés.length - 5} autres…</li>
+                )}
+              </ul>
+            )}
           </div>
         </div>
 
@@ -154,38 +139,42 @@ function HomePage() {
           </div>
         </div>
 
-        <div className={cardStyle}>
-          <FaMoneyBillWave className="text-4xl text-orange-500" />
-          <div>
-            <h2 className="text-lg font-semibold text-orange-500">Paiements non encaissés</h2>
-            <p className="text-3xl font-bold">{paiementsNonPayés.length}</p>
-          </div>
-        </div>
+        <div className={`${cardStyle} col-span-1 sm:col-span-2 lg:col-span-1`}>
+          <FaMoneyCheckAlt className="text-4xl text-yellow-600" />
+          <div className="w-full">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-yellow-600">Paiements en attente</h2>
+              <button
+                onClick={() => setShowPayments(!showPayments)}
+                className="text-sm text-blue-500 underline"
+              >
+                {showPayments ? "Masquer" : "Voir"}
+              </button>
+            </div>
+            <p className="text-3xl font-bold">{pendingPayments.length}</p>
 
-        <div className={cardStyle}>
-          <FaCalendarAlt className="text-4xl text-purple-600" />
-          <div>
-            <h2 className="text-lg font-semibold text-purple-600">Encaissements à venir</h2>
-            <p className="text-3xl font-bold">{paiementsAVenir.length}</p>
-            <ul className="text-sm mt-2 text-gray-700 list-disc list-inside max-h-32 overflow-y-auto">
-              {paiementsAVenir.slice(0, 5).map((p) => {
-                const date = parseISO(p.encaissement_prevu);
-                const badge =
-                  isToday(date) || isBefore(date, new Date()) ? (
-                    <span className="text-red-600 font-bold ml-2">⚠</span>
-                  ) : null;
+            {showPayments && (
+              <ul className="mt-2 text-sm max-h-32 overflow-y-auto divide-y">
+                {pendingPayments.map((p) => {
+                  const overdue =
+                    p.encaissement_prevu &&
+                    new Date(p.encaissement_prevu).toDateString() <= new Date().toDateString();
 
-                return (
-                  <li key={p.id}>
-                    {new Date(date).toLocaleDateString()}
-                    {badge}
-                  </li>
-                );
-              })}
-              {paiementsAVenir.length > 5 && (
-                <li className="italic">et {paiementsAVenir.length - 5} autres...</li>
-              )}
-            </ul>
+                  return (
+                    <li key={p.id} className="py-1 flex justify-between items-center">
+                      <div>
+                        {p.member?.firstName} {p.member?.name} – {p.amount.toFixed(2)} €
+                        {p.encaissement_prevu && (
+                          <span className={`ml-2 text-xs px-2 py-0.5 rounded ${overdue ? "bg-red-500 text-white" : "bg-gray-200 text-gray-800"}`}>
+                            {format(new Date(p.encaissement_prevu), "dd/MM/yyyy")}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
       </div>
