@@ -1,4 +1,3 @@
-// src/pages/PlanningPage.js
 import React, { useEffect, useState } from "react";
 import {
   format,
@@ -35,18 +34,51 @@ function PlanningPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: presenceData } = await supabase.from("presences").select("*");
-      const { data: membersData } = await supabase.from("members").select("*");
-
-      setPresences(Array.isArray(presenceData) ? presenceData : []);
+      const { data: membersData, error: membersError } = await supabase.from("members").select("*");
+      if (membersError) {
+        console.error("Erreur chargement membres :", membersError);
+        return;
+      }
       setMembers(Array.isArray(membersData) ? membersData : []);
+
+      // Récupération paginée des présences entre startDate et endDate
+      let allPresences = [];
+      let from = 0;
+      const pageSize = 1000;
+      let done = false;
+
+      while (!done) {
+        const { data, error } = await supabase
+          .from("presences")
+          .select("*")
+          .gte("timestamp", startDate.toISOString())
+          .lte("timestamp", endDate.toISOString())
+          .order("timestamp", { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) {
+          console.error("Erreur chargement présences :", error.message);
+          break;
+        }
+
+        if (data.length > 0) {
+          allPresences = [...allPresences, ...data];
+          from += pageSize;
+        }
+
+        if (data.length < pageSize) {
+          done = true;
+        }
+      }
+
+      setPresences(allPresences);
 
       const user = JSON.parse(localStorage.getItem("user"));
       if (user?.role) setRole(user.role);
     };
 
     fetchData();
-  }, []);
+  }, [startDate, endDate]);
 
   const updateDateRange = (value, base = new Date()) => {
     const start = startOfDay(base);
