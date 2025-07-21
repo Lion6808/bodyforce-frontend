@@ -26,18 +26,48 @@ export default function StatisticsPage() {
         .from("members")
         .select("*");
 
-      const { data: presencesData, error: presencesError } = await supabase
-        .from("presences")
-        .select("*")
-        .range(0, 19999);
-
-      if (membersError || presencesError) {
-        console.error("Erreur chargement Supabase :", membersError || presencesError);
+      if (membersError) {
+        console.error("Erreur chargement membres :", membersError);
         return;
       }
 
       setMembers(Array.isArray(membersData) ? membersData : []);
-      setPresences(Array.isArray(presencesData) ? presencesData : []);
+
+      // Récupération paginée des présences pour l’année en cours
+      const currentYear = new Date().getFullYear();
+      const startOfYear = new Date(currentYear, 0, 1).toISOString();
+      const endOfYear = new Date(currentYear + 1, 0, 1).toISOString();
+
+      let allPresences = [];
+      let from = 0;
+      const pageSize = 1000;
+      let done = false;
+
+      while (!done) {
+        const { data, error } = await supabase
+          .from("presences")
+          .select("*")
+          .gte("timestamp", startOfYear)
+          .lt("timestamp", endOfYear)
+          .order("timestamp", { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) {
+          console.error("Erreur chargement présences :", error.message);
+          break;
+        }
+
+        if (data.length > 0) {
+          allPresences = [...allPresences, ...data];
+          from += pageSize;
+        }
+
+        if (data.length < pageSize) {
+          done = true;
+        }
+      }
+
+      setPresences(allPresences);
     };
 
     fetchData();
