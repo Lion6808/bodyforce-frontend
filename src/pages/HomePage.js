@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { isAfter } from "date-fns";
+import { isAfter, isBefore, parseISO, isToday } from "date-fns";
 import {
   FaUsers,
   FaUserCheck,
   FaUserTimes,
   FaMale,
   FaFemale,
+  FaMoneyBillAlt,
 } from "react-icons/fa";
 
-import { supabase } from "../supabaseClient"; // ✅ remplacement propre
+import { supabase } from "../supabaseClient";
 
 function HomePage() {
   const [stats, setStats] = useState({
@@ -19,12 +20,14 @@ function HomePage() {
     femmes: 0,
   });
 
+  const [paiementsAttente, setPaiementsAttente] = useState([]);
+
   useEffect(() => {
     const fetchStats = async () => {
       const { data: members, error } = await supabase.from("members").select("*");
 
       if (error) {
-        console.error("Erreur de chargement Supabase :", error.message);
+        console.error("Erreur chargement membres :", error.message);
         return;
       }
 
@@ -59,7 +62,23 @@ function HomePage() {
       });
     };
 
+    const fetchPaiements = async () => {
+      const { data: payments, error } = await supabase
+        .from("payments")
+        .select("*, members(name)")
+        .eq("is_paid", false)
+        .order("encaissement_prevu", { ascending: true });
+
+      if (error) {
+        console.error("Erreur chargement paiements :", error.message);
+        return;
+      }
+
+      setPaiementsAttente(payments);
+    };
+
     fetchStats();
+    fetchPaiements();
   }, []);
 
   const cardStyle = "p-4 bg-white rounded-xl shadow flex items-center gap-4";
@@ -124,6 +143,45 @@ function HomePage() {
             <p className="text-3xl font-bold">{stats.femmes}</p>
           </div>
         </div>
+      </div>
+
+      {/* Paiements à venir */}
+      <div className="mt-8 bg-white p-6 rounded-xl shadow">
+        <div className="flex items-center gap-3 mb-4">
+          <FaMoneyBillAlt className="text-3xl text-orange-500" />
+          <h2 className="text-xl font-bold text-orange-600">Paiements en attente</h2>
+        </div>
+
+        {paiementsAttente.length === 0 ? (
+          <p className="text-gray-600 italic">Aucun paiement en attente</p>
+        ) : (
+          <ul className="space-y-2">
+            {paiementsAttente.map((p) => {
+              const date = p.encaissement_prevu ? new Date(p.encaissement_prevu) : null;
+              const badge =
+                date && (isToday(date) || isBefore(date, new Date())) ? (
+                  <span className="bg-red-600 text-white px-2 py-0.5 rounded-full text-xs ml-2">
+                    ⚠ Échéance !
+                  </span>
+                ) : null;
+
+              return (
+                <li key={p.id} className="flex items-center justify-between border-b pb-2">
+                  <div>
+                    <span className="font-semibold">{p.members?.name || "Membre"}</span> - {p.amount.toFixed(2)} € ({p.method})
+                    {date && (
+                      <span className="ml-2 text-sm text-gray-600">
+                        Encaissement prévu :{" "}
+                        {new Date(date).toLocaleDateString()}
+                      </span>
+                    )}
+                    {badge}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );
