@@ -36,13 +36,22 @@ const parseTimestamp = (timestamp) => {
   // Si c'est déjà un objet Date, le retourner
   if (timestamp instanceof Date) return timestamp;
 
-  // Si c'est un string avec timezone UTC (+00:00)
+  // Si c'est un string avec timezone UTC
   if (typeof timestamp === "string") {
-    // Méthode corrigée : Parser en gardant l'heure locale
-    if (timestamp.includes("T") && timestamp.includes("+00:00")) {
-      // Option 1: Créer une date locale sans conversion de timezone
-      const datePart = timestamp.split("T")[0]; // '2025-01-01'
-      const timePart = timestamp.split("T")[1].split("+")[0]; // '08:08:00'
+    // CORRECTION: Gérer les différents formats de timezone
+    if (
+      timestamp.includes("T") &&
+      (timestamp.includes("+00:00") || timestamp.includes("+00"))
+    ) {
+      // Extraire la partie date et heure sans le timezone
+      const datePart = timestamp.split("T")[0]; // '2025-06-14'
+      let timePart;
+
+      if (timestamp.includes("+00:00")) {
+        timePart = timestamp.split("T")[1].split("+00:00")[0]; // '18:29:00'
+      } else if (timestamp.includes("+00")) {
+        timePart = timestamp.split("T")[1].split("+00")[0]; // '18:29:00'
+      }
 
       // Reconstruire la date en tant que locale
       const localDateString = `${datePart}T${timePart}`;
@@ -50,6 +59,20 @@ const parseTimestamp = (timestamp) => {
 
       console.log(
         `🔄 Conversion timestamp: ${timestamp} -> ${localDate.toLocaleString()}`
+      );
+      return localDate;
+    }
+
+    // Pour les autres formats avec espace au lieu de T
+    if (timestamp.includes(" ") && timestamp.includes("+00")) {
+      const [datePart, timeWithTz] = timestamp.split(" ");
+      const timePart = timeWithTz.split("+00")[0];
+
+      const localDateString = `${datePart}T${timePart}`;
+      const localDate = new Date(localDateString);
+
+      console.log(
+        `🔄 Conversion timestamp (espace): ${timestamp} -> ${localDate.toLocaleString()}`
       );
       return localDate;
     }
@@ -274,6 +297,65 @@ function PlanningPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // DEBUG TEMPORAIRE - À supprimer après vérification
+  useEffect(() => {
+    if (presences.length > 0) {
+      console.log("🔍 ANALYSE DES DONNÉES CHARGÉES:");
+
+      // Test sur vos données réelles
+      const testTimestamps = [
+        "2025-06-14 18:29:00+00",
+        "2025-06-14T18:29:00+00:00",
+        "2025-01-01 08:08:00+00",
+      ];
+
+      testTimestamps.forEach((ts) => {
+        const parsed = parseTimestamp(ts);
+        console.log(
+          `📅 Test: ${ts} → ${parsed.toLocaleDateString()} ${parsed.toLocaleTimeString()}`
+        );
+      });
+
+      // Échantillon de vos vraies données
+      const sample = presences.slice(0, 5);
+      console.log("📊 Échantillon de vos présences:");
+      sample.forEach((p) => {
+        const parsed = parseTimestamp(p.timestamp);
+        console.log(
+          `   ${p.badgeId}: ${p.timestamp} → ${parsed.toLocaleDateString()}`
+        );
+      });
+
+      // Compter par mois pour vérifier la répartition
+      const monthCounts = {};
+      presences.forEach((p) => {
+        const date = parseTimestamp(p.timestamp);
+        const monthKey = `${date.getFullYear()}-${String(
+          date.getMonth() + 1
+        ).padStart(2, "0")}`;
+        monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+      });
+
+      console.log("📈 Répartition par mois:", monthCounts);
+
+      // Vérifier le filtrage actuel
+      const filtered = presences.filter((p) => {
+        const presenceDate = parseTimestamp(p.timestamp);
+        return isWithinInterval(presenceDate, {
+          start: startDate,
+          end: endDate,
+        });
+      });
+
+      console.log("🎯 Période actuelle:", {
+        début: startDate.toLocaleDateString(),
+        fin: endDate.toLocaleDateString(),
+        totalPresences: presences.length,
+        presencesFiltrées: filtered.length,
+      });
+    }
+  }, [presences, startDate, endDate]);
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1);
