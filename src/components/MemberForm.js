@@ -37,8 +37,8 @@ function InputField({ label, icon: Icon, error, ...props }) {
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
     </div>
-}
-}
+  );  // ← Point-virgule ajouté après la parenthèse fermante
+}     // ← Une seule accolade fermante
 
 function SelectField({ label, options, icon: Icon, error, ...props }) {
   return (
