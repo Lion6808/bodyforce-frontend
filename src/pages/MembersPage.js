@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabaseServices } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
-import { FaEdit, FaTrash, FaPlus, FaRefresh } from "react-icons/fa";
+import { FaEdit, FaTrash, FaPlus, FaSync  } from "react-icons/fa";
 
 function MembersPage() {
   const [members, setMembers] = useState([]);
