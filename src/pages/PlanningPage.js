@@ -318,9 +318,9 @@ function PlanningPage() {
         (!filterBadge || m.badgeId?.includes(filterBadge))
     );
 
-  // Vue liste pour mobile
+  // Vue liste pour mobile - Version compacte
   const ListView = () => (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {visibleMembers.map((member) => {
         const memberPresences = groupedByMember[member.badgeId] || [];
         const dailyPresences = {};
@@ -332,52 +332,65 @@ function PlanningPage() {
         });
 
         return (
-          <div key={member.badgeId} className="bg-white rounded-xl shadow-md p-4 border border-gray-100 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-3 mb-4">
+          <div key={member.badgeId} className="bg-white rounded-lg shadow-sm p-3 border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
               {member.photo ? (
-                <img src={member.photo} alt="avatar" className="w-14 h-14 object-cover rounded-full border-2 border-blue-200" />
+                <img src={member.photo} alt="avatar" className="w-10 h-10 object-cover rounded-full border border-blue-200" />
               ) : (
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
                   {member.firstName?.[0]}{member.name?.[0]}
                 </div>
               )}
-              <div className="flex-1">
-                <h3 className="font-bold text-gray-900 text-lg">{member.name} {member.firstName}</h3>
-                <div className="flex items-center gap-4 mt-1">
-                  <span className="text-sm text-gray-500">Badge: {member.badgeId}</span>
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-gray-900 text-base truncate">{member.name} {member.firstName}</h3>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs text-gray-500">Badge: {member.badgeId}</span>
+                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
                     {memberPresences.length} présence(s)
                   </span>
                 </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
+            {/* Grille compacte des jours */}
+            <div className="grid grid-cols-7 sm:grid-cols-14 gap-1">
               {allDays.map(day => {
                 const dayKey = formatDate(day, 'yyyy-MM-dd');
                 const dayPresences = dailyPresences[dayKey] || [];
                 const hasPresences = dayPresences.length > 0;
                 
                 return (
-                  <div key={dayKey} className={`p-3 rounded-lg text-center transition-all hover:scale-105 ${
-                    hasPresences ? 'bg-gradient-to-br from-green-100 to-green-200 border-2 border-green-300 shadow-sm' : 
-                    isWeekend(day) ? 'bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200' : 
-                    'bg-gray-50 border border-gray-200'
-                  }`}>
-                    <div className="font-semibold text-sm mb-1">{formatDate(day, 'EEE dd')}</div>
-                    {hasPresences ? (
-                      <div className="space-y-1">
-                        {dayPresences.slice(0, 2).map((p, idx) => (
-                          <div key={idx} className="bg-green-600 text-white px-2 py-1 rounded-md text-xs font-medium">
-                            {formatDate(p, 'HH:mm')}
+                  <div key={dayKey} className={`relative group`}>
+                    <div className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${
+                      hasPresences ? 'bg-green-500 text-white shadow-sm' : 
+                      isWeekend(day) ? 'bg-blue-100 text-blue-700' : 
+                      'bg-gray-100 text-gray-600'
+                    }`}>
+                      <div className="font-medium text-xs">{formatDate(day, 'EEE dd').split(' ')[1]}</div>
+                      {hasPresences && (
+                        <div className="text-[10px] font-bold mt-0.5">
+                          {dayPresences.length}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Tooltip avec détails au hover */}
+                    {hasPresences && (
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                        <div className="bg-gray-900 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max">
+                          <div className="font-semibold mb-1">{formatDate(day, 'EEE dd/MM')}</div>
+                          <div className="space-y-0.5">
+                            {dayPresences.slice(0, 3).map((p, idx) => (
+                              <div key={idx} className="text-[11px]">
+                                {formatDate(p, 'HH:mm')}
+                              </div>
+                            ))}
+                            {dayPresences.length > 3 && (
+                              <div className="text-[11px] opacity-75">+{dayPresences.length - 3} autres</div>
+                            )}
                           </div>
-                        ))}
-                        {dayPresences.length > 2 && (
-                          <div className="text-green-700 text-xs font-medium">+{dayPresences.length - 2}</div>
-                        )}
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-gray-400 text-xs">—</div>
                     )}
                   </div>
                 );
