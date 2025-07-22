@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://hpgcqrsxttflutdsasar.supabase.co';
-const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwZ2NxcnN4dHRmbHV0ZHNhc2FyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjEzMTYsImV4cCI6MjA2Nzk5NzMxNn0.7gecaEShO4oUStTcL9Xi-sJni9Pkb4d3mV5OVWxxiyM';
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
