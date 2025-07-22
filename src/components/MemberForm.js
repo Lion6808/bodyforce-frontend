@@ -1197,4 +1197,5 @@ export default function MemberForm({ member, onSave, onCancel }) {
     </Modal>
   );
 }
-  export default MemberForm;
+
+export default MemberForm; // ✅ Correct
