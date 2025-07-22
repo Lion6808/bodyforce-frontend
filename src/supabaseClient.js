@@ -379,12 +379,12 @@ export const supabaseServices = {
     try {
       const { data, error } = await supabase
         .from('members')
-        .select('count(*)')
-        .single();
+        .select('id')
+        .limit(1);
 
       if (error) throw error;
 
-      console.log('✅ Connexion Supabase OK - Membres:', data.count);
+      console.log('✅ Connexion Supabase OK');
       return true;
     } catch (error) {
       console.error('❌ Erreur connexion Supabase:', error);
