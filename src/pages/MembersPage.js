@@ -226,7 +226,7 @@ function MembersPage() {
           className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-2 disabled:opacity-50"
           title="Actualiser la liste"
         >
-          <Fasync className={loading ? 'animate-spin' : ''} />
+          <FaSync className={loading ? 'animate-spin' : ''} />
           Actualiser
         </button>
       </div>
