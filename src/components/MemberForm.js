@@ -38,7 +38,6 @@ function InputField({ label, icon: Icon, error, ...props }) {
       </div>
     </div>
 }
-}
 
 function SelectField({ label, options, icon: Icon, error, ...props }) {
   return (
