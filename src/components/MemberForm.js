@@ -276,6 +276,7 @@ function MemberForm({ member, onSave, onCancel }) {
       !containerRef.current.hasMoved ||
       !containerRef.current.isSwipeHorizontal
     ) {
+      // Animation de retour douce
       setTranslateX(0);
       isDraggingRef.current = false;
       return;
@@ -285,14 +286,23 @@ function MemberForm({ member, onSave, onCancel }) {
 
     if (Math.abs(translateX) > threshold) {
       if (translateX > 0 && currentTabIndex > 0) {
-        goToTab(currentTabIndex - 1);
+        // Animation vers la gauche (onglet précédent)
+        setTranslateX(window.innerWidth);
+        setTimeout(() => goToTab(currentTabIndex - 1), 200);
       } else if (translateX < 0 && currentTabIndex < tabs.length - 1) {
-        goToTab(currentTabIndex + 1);
+        // Animation vers la droite (onglet suivant)
+        setTranslateX(-window.innerWidth);
+        setTimeout(() => goToTab(currentTabIndex + 1), 200);
+      } else {
+        // Retour à la position normale si pas assez de mouvement
+        setTranslateX(0);
       }
+    } else {
+      // Retour à la position normale
+      setTranslateX(0);
     }
 
     // Reset
-    setTranslateX(0);
     isDraggingRef.current = false;
     containerRef.current.hasMoved = false;
     containerRef.current.isSwipeHorizontal = null;
@@ -307,9 +317,25 @@ function MemberForm({ member, onSave, onCancel }) {
   const goToTab = (tabIndex) => {
     if (tabIndex >= 0 && tabIndex < tabs.length && !isTransitioning) {
       setIsTransitioning(true);
-      setActiveTab(tabs[tabIndex].id);
-      setTranslateX(0);
-      setTimeout(() => setIsTransitioning(false), 300);
+
+      // Animation de transition fluide
+      const direction = tabIndex > currentTabIndex ? -1 : 1;
+      const transitionDistance = direction * 100;
+
+      // Phase 1: Mouvement vers la direction du changement
+      setTranslateX(transitionDistance);
+
+      setTimeout(() => {
+        // Phase 2: Changement d'onglet (invisible)
+        setActiveTab(tabs[tabIndex].id);
+        setTranslateX(-transitionDistance);
+
+        setTimeout(() => {
+          // Phase 3: Retour à la position normale
+          setTranslateX(0);
+          setTimeout(() => setIsTransitioning(false), 300);
+        }, 50);
+      }, 150);
     }
   };
 
@@ -1311,7 +1337,7 @@ function MemberForm({ member, onSave, onCancel }) {
             transform: `translateX(${translateX}px)`,
             transition: isDraggingRef.current
               ? "none"
-              : "transform 0.3s ease-out",
+              : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
           <div className="p-4 md:p-6 min-h-full">
