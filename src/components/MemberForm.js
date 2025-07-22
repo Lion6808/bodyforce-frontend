@@ -1,7 +1,28 @@
 import React, { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import Modal from "react-modal";
-import { FaCamera, FaFileUpload, FaTrash, FaDownload, FaUser, FaHome, FaCreditCard, FaFileAlt, FaEuroSign, FaCalendarAlt, FaIdCard, FaPhone, FaEnvelope, FaGraduationCap, FaCheck, FaTimes, FaEye, FaChevronLeft, FaChevronRight, FaCircle } from "react-icons/fa";
+import {
+  FaCamera,
+  FaFileUpload,
+  FaTrash,
+  FaDownload,
+  FaUser,
+  FaHome,
+  FaCreditCard,
+  FaFileAlt,
+  FaEuroSign,
+  FaCalendarAlt,
+  FaIdCard,
+  FaPhone,
+  FaEnvelope,
+  FaGraduationCap,
+  FaCheck,
+  FaTimes,
+  FaEye,
+  FaChevronLeft,
+  FaChevronRight,
+  FaCircle,
+} from "react-icons/fa";
 import { supabase } from "../supabaseClient";
 
 const subscriptionDurations = {
@@ -28,10 +49,12 @@ function InputField({ label, icon: Icon, error, ...props }) {
         {label}
       </label>
       <div className="relative">
-        <input 
-          {...props} 
+        <input
+          {...props}
           className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-            error ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300 focus:border-blue-500'
+            error
+              ? "border-red-300 bg-red-50"
+              : "border-gray-200 hover:border-gray-300 focus:border-blue-500"
           }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -48,14 +71,18 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
         {label}
       </label>
       <div className="relative">
-        <select 
-          {...props} 
+        <select
+          {...props}
           className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-            error ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300 focus:border-blue-500'
+            error
+              ? "border-red-300 bg-red-50"
+              : "border-gray-200 hover:border-gray-300 focus:border-blue-500"
           }`}
         >
           {options.map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
           ))}
         </select>
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -70,17 +97,19 @@ function TabButton({ active, onClick, icon: Icon, children, count }) {
       type="button"
       onClick={onClick}
       className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${
-        active 
-          ? 'bg-white bg-opacity-30 text-white shadow-lg' 
-          : 'text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20'
+        active
+          ? "bg-white bg-opacity-30 text-white shadow-lg"
+          : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
       }`}
     >
       <Icon className="w-4 h-4" />
       <span className="hidden xs:inline sm:inline">{children}</span>
       {count !== undefined && count > 0 && (
-        <span className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${
-          active ? 'bg-white bg-opacity-30' : 'bg-white bg-opacity-20'
-        }`}>
+        <span
+          className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${
+            active ? "bg-white bg-opacity-30" : "bg-white bg-opacity-20"
+          }`}
+        >
           {count}
         </span>
       )}
@@ -108,7 +137,7 @@ function StatusBadge({ isExpired, isStudent }) {
 }
 
 export default function MemberForm({ member, onSave, onCancel }) {
-  const [activeTab, setActiveTab] = useState('identity');
+  const [activeTab, setActiveTab] = useState("identity");
   const [form, setForm] = useState({
     name: "",
     firstName: "",
@@ -137,7 +166,11 @@ export default function MemberForm({ member, onSave, onCancel }) {
   });
 
   const [webcamOpen, setWebcamOpen] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState({ loading: false, error: null, success: null });
+  const [uploadStatus, setUploadStatus] = useState({
+    loading: false,
+    error: null,
+    success: null,
+  });
   const [webcamReady, setWebcamReady] = useState(false);
   const webcamRef = useRef(null);
 
@@ -149,14 +182,24 @@ export default function MemberForm({ member, onSave, onCancel }) {
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   const tabs = [
-    { id: 'identity', label: 'Identité', icon: FaUser },
-    { id: 'contact', label: 'Contact', icon: FaHome },
-    { id: 'subscription', label: 'Abonnement', icon: FaCreditCard },
-    { id: 'documents', label: 'Documents', icon: FaFileAlt, count: form.files.length },
-    { id: 'payments', label: 'Paiements', icon: FaEuroSign, count: payments.length },
+    { id: "identity", label: "Identité", icon: FaUser },
+    { id: "contact", label: "Contact", icon: FaHome },
+    { id: "subscription", label: "Abonnement", icon: FaCreditCard },
+    {
+      id: "documents",
+      label: "Documents",
+      icon: FaFileAlt,
+      count: form.files.length,
+    },
+    {
+      id: "payments",
+      label: "Paiements",
+      icon: FaEuroSign,
+      count: payments.length,
+    },
   ];
 
-  const currentTabIndex = tabs.findIndex(tab => tab.id === activeTab);
+  const currentTabIndex = tabs.findIndex((tab) => tab.id === activeTab);
 
   useEffect(() => {
     if (member) {
@@ -165,8 +208,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-            ? JSON.parse(member.files || "[]")
-            : [],
+          ? JSON.parse(member.files || "[]")
+          : [],
         etudiant: !!member.etudiant,
       });
 
@@ -185,14 +228,14 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const handleTouchMove = (e) => {
     if (!isDraggingRef.current || isTransitioning) return;
-    
+
     const currentX = e.touches[0].clientX;
     const deltaX = currentX - startXRef.current;
-    
+
     // Limiter le mouvement pour éviter de sortir des limites
     const maxTranslate = currentTabIndex === 0 ? 0 : -50;
     const minTranslate = currentTabIndex === tabs.length - 1 ? 0 : 50;
-    
+
     const clampedDelta = Math.max(minTranslate, Math.min(maxTranslate, deltaX));
     setTranslateX(clampedDelta);
   };
@@ -200,9 +243,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
   const handleTouchEnd = () => {
     if (!isDraggingRef.current || isTransitioning) return;
     isDraggingRef.current = false;
-    
+
     const threshold = 50; // Seuil minimum pour déclencher le changement
-    
+
     if (Math.abs(translateX) > threshold) {
       if (translateX > 0 && currentTabIndex > 0) {
         // Swipe vers la droite - onglet précédent
@@ -212,7 +255,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
         goToTab(currentTabIndex + 1);
       }
     }
-    
+
     // Reset de la position
     setTranslateX(0);
   };
@@ -222,26 +265,29 @@ export default function MemberForm({ member, onSave, onCancel }) {
     if (isTransitioning) return;
     startXRef.current = e.clientX;
     isDraggingRef.current = true;
-    
+
     const handleMouseMove = (e) => {
       if (!isDraggingRef.current || isTransitioning) return;
-      
+
       const currentX = e.clientX;
       const deltaX = currentX - startXRef.current;
-      
+
       const maxTranslate = currentTabIndex === 0 ? 0 : -50;
       const minTranslate = currentTabIndex === tabs.length - 1 ? 0 : 50;
-      
-      const clampedDelta = Math.max(minTranslate, Math.min(maxTranslate, deltaX));
+
+      const clampedDelta = Math.max(
+        minTranslate,
+        Math.min(maxTranslate, deltaX)
+      );
       setTranslateX(clampedDelta);
     };
-    
+
     const handleMouseUp = () => {
       if (!isDraggingRef.current || isTransitioning) return;
       isDraggingRef.current = false;
-      
+
       const threshold = 50;
-      
+
       if (Math.abs(translateX) > threshold) {
         if (translateX > 0 && currentTabIndex > 0) {
           goToTab(currentTabIndex - 1);
@@ -249,14 +295,14 @@ export default function MemberForm({ member, onSave, onCancel }) {
           goToTab(currentTabIndex + 1);
         }
       }
-      
+
       setTranslateX(0);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   };
 
   const goToTab = (tabIndex) => {
@@ -329,7 +375,10 @@ export default function MemberForm({ member, onSave, onCancel }) {
       .eq("id", paymentId);
 
     if (error) {
-      console.error("Erreur mise à jour du statut de paiement :", error.message);
+      console.error(
+        "Erreur mise à jour du statut de paiement :",
+        error.message
+      );
       return;
     }
 
@@ -364,7 +413,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
   };
 
   const age = form.birthdate
-    ? Math.floor((new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000))
+    ? Math.floor(
+        (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
+      )
     : null;
 
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
@@ -384,18 +435,29 @@ export default function MemberForm({ member, onSave, onCancel }) {
       for (const file of files) {
         const safeName = sanitizeFileName(file.name);
         const filePath = `certificats/${Date.now()}_${safeName}`;
-        const { error } = await supabase.storage.from("documents").upload(filePath, file);
+        const { error } = await supabase.storage
+          .from("documents")
+          .upload(filePath, file);
         if (error) {
           throw new Error(`Erreur lors du téléversement : ${error.message}`);
         }
-        const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+        const { data } = supabase.storage
+          .from("documents")
+          .getPublicUrl(filePath);
         setForm((f) => ({
           ...f,
           files: [...f.files, { name: safeName, url: data.publicUrl }],
         }));
       }
-      setUploadStatus({ loading: false, error: null, success: "Fichiers ajoutés avec succès !" });
-      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: "Fichiers ajoutés avec succès !",
+      });
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
     } catch (err) {
       console.error("Erreur lors du téléversement :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
@@ -414,9 +476,16 @@ export default function MemberForm({ member, onSave, onCancel }) {
       }
 
       setForm((f) => ({ ...f, photo: imageSrc }));
-      setUploadStatus({ loading: false, error: null, success: "Photo capturée avec succès !" });
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: "Photo capturée avec succès !",
+      });
       setWebcamOpen(false);
-      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
     } catch (err) {
       console.error("Erreur lors de la capture :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
@@ -425,13 +494,21 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const captureDocument = async () => {
     if (!webcamRef.current || !webcamReady) {
-      setUploadStatus({ loading: false, error: "Webcam non disponible ou non prête", success: null });
+      setUploadStatus({
+        loading: false,
+        error: "Webcam non disponible ou non prête",
+        success: null,
+      });
       return;
     }
 
     const imageSrc = webcamRef.current.getScreenshot();
     if (!imageSrc) {
-      setUploadStatus({ loading: false, error: "Impossible de capturer le document", success: null });
+      setUploadStatus({
+        loading: false,
+        error: "Impossible de capturer le document",
+        success: null,
+      });
       return;
     }
 
@@ -441,21 +518,43 @@ export default function MemberForm({ member, onSave, onCancel }) {
       const blob = await (await fetch(imageSrc)).blob();
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
-      const { error } = await supabase.storage.from("documents").upload(filePath, blob);
+      const { error } = await supabase.storage
+        .from("documents")
+        .upload(filePath, blob);
       if (error) {
-        throw new Error(`Erreur lors du téléversement du document : ${error.message}`);
+        throw new Error(
+          `Erreur lors du téléversement du document : ${error.message}`
+        );
       }
 
-      const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+      const { data } = supabase.storage
+        .from("documents")
+        .getPublicUrl(filePath);
       setForm((f) => ({
         ...f,
         files: [...f.files, { name: fileName, url: data.publicUrl }],
       }));
-      setUploadStatus({ loading: false, error: null, success: "Document capturé avec succès !" });
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: "Document capturé avec succès !",
+      });
       setWebcamOpen(false);
 
-      await onSave({ ...form, files: JSON.stringify([...form.files, { name: fileName, url: data.publicUrl }]) }, false);
-      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+      await onSave(
+        {
+          ...form,
+          files: JSON.stringify([
+            ...form.files,
+            { name: fileName, url: data.publicUrl },
+          ]),
+        },
+        false
+      );
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
     } catch (err) {
       console.error("Erreur lors de la capture du document :", err);
       setUploadStatus({
@@ -480,15 +579,25 @@ export default function MemberForm({ member, onSave, onCancel }) {
       const [bucket, ...pathParts] = afterPrefix.split("/");
       const path = pathParts.join("/");
 
-      const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
-      if (storageError) throw new Error(`Erreur de suppression : ${storageError.message}`);
+      const { error: storageError } = await supabase.storage
+        .from(bucket)
+        .remove([path]);
+      if (storageError)
+        throw new Error(`Erreur de suppression : ${storageError.message}`);
 
       const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
       setForm((f) => ({ ...f, files: newFiles }));
 
       await onSave({ ...form, files: JSON.stringify(newFiles) }, false);
-      setUploadStatus({ loading: false, error: null, success: "Fichier supprimé avec succès !" });
-      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: "Fichier supprimé avec succès !",
+      });
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
     } catch (err) {
       console.error("Erreur suppression fichier :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
@@ -500,37 +609,37 @@ export default function MemberForm({ member, onSave, onCancel }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField 
-              label="Nom" 
-              name="name" 
-              value={form.name} 
+            <InputField
+              label="Nom"
+              name="name"
+              value={form.name}
               onChange={handleChange}
               icon={FaUser}
               placeholder="Nom de famille"
             />
-            <InputField 
-              label="Prénom" 
-              name="firstName" 
-              value={form.firstName} 
+            <InputField
+              label="Prénom"
+              name="firstName"
+              value={form.firstName}
               onChange={handleChange}
               icon={FaUser}
               placeholder="Prénom"
             />
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField 
-              type="date" 
-              label="Date de naissance" 
-              name="birthdate" 
-              value={form.birthdate} 
+            <InputField
+              type="date"
+              label="Date de naissance"
+              name="birthdate"
+              value={form.birthdate}
               onChange={handleChange}
               icon={FaCalendarAlt}
             />
-            <SelectField 
-              label="Sexe" 
-              name="gender" 
-              value={form.gender} 
+            <SelectField
+              label="Sexe"
+              name="gender"
+              value={form.gender}
               onChange={handleChange}
               options={["Homme", "Femme"]}
               icon={FaUser}
@@ -544,20 +653,30 @@ export default function MemberForm({ member, onSave, onCancel }) {
                   <FaGraduationCap className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-800">Statut étudiant</h3>
-                  <p className="text-sm text-gray-600">Bénéficiez de tarifs préférentiels</p>
+                  <h3 className="font-semibold text-gray-800">
+                    Statut étudiant
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Bénéficiez de tarifs préférentiels
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
+                onClick={() =>
+                  setForm((f) => ({ ...f, etudiant: !f.etudiant }))
+                }
                 className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  form.etudiant ? "bg-gradient-to-r from-blue-500 to-purple-600" : "bg-gray-300"
+                  form.etudiant
+                    ? "bg-gradient-to-r from-blue-500 to-purple-600"
+                    : "bg-gray-300"
                 }`}
               >
-                <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${
-                  form.etudiant ? "translate-x-7" : ""
-                }`} />
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${
+                    form.etudiant ? "translate-x-7" : ""
+                  }`}
+                />
               </button>
             </div>
           </div>
@@ -566,7 +685,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
             <div className="bg-gray-50 p-4 rounded-xl">
               <div className="flex items-center gap-3">
                 <FaCalendarAlt className="w-5 h-5 text-gray-500" />
-                <span className="text-gray-700 font-medium">Âge : {age} ans</span>
+                <span className="text-gray-700 font-medium">
+                  Âge : {age} ans
+                </span>
               </div>
             </div>
           )}
@@ -575,9 +696,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
         <div className="flex flex-col items-center space-y-4">
           <div className="relative">
             {form.photo ? (
-              <img 
-                src={form.photo} 
-                alt="Photo du membre" 
+              <img
+                src={form.photo}
+                alt="Photo du membre"
                 className="w-40 h-40 object-cover rounded-2xl border-4 border-white shadow-lg"
               />
             ) : (
@@ -608,35 +729,35 @@ export default function MemberForm({ member, onSave, onCancel }) {
   const renderContactTab = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <InputField 
-          label="Adresse complète" 
-          name="address" 
-          value={form.address} 
+        <InputField
+          label="Adresse complète"
+          name="address"
+          value={form.address}
           onChange={handleChange}
           icon={FaHome}
           placeholder="Numéro, rue, ville, code postal"
         />
-        <InputField 
-          label="Email" 
-          name="email" 
+        <InputField
+          label="Email"
+          name="email"
           type="email"
-          value={form.email} 
+          value={form.email}
           onChange={handleChange}
           icon={FaEnvelope}
           placeholder="exemple@email.com"
         />
-        <InputField 
-          label="Téléphone fixe" 
-          name="phone" 
-          value={form.phone} 
+        <InputField
+          label="Téléphone fixe"
+          name="phone"
+          value={form.phone}
           onChange={handleChange}
           icon={FaPhone}
           placeholder="01 23 45 67 89"
         />
-        <InputField 
-          label="Téléphone portable" 
-          name="mobile" 
-          value={form.mobile} 
+        <InputField
+          label="Téléphone portable"
+          name="mobile"
+          value={form.mobile}
           onChange={handleChange}
           icon={FaPhone}
           placeholder="06 12 34 56 78"
@@ -648,45 +769,47 @@ export default function MemberForm({ member, onSave, onCancel }) {
   const renderSubscriptionTab = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SelectField 
-          label="Type d'abonnement" 
-          name="subscriptionType" 
-          value={form.subscriptionType} 
-          onChange={handleChange} 
+        <SelectField
+          label="Type d'abonnement"
+          name="subscriptionType"
+          value={form.subscriptionType}
+          onChange={handleChange}
           options={Object.keys(subscriptionDurations)}
           icon={FaCreditCard}
         />
-        <InputField 
-          label="ID Badge" 
-          name="badgeId" 
-          value={form.badgeId} 
+        <InputField
+          label="ID Badge"
+          name="badgeId"
+          value={form.badgeId}
           onChange={handleChange}
           icon={FaIdCard}
           placeholder="Numéro du badge d'accès"
         />
-        <InputField 
-          type="date" 
-          label="Date de début" 
-          name="startDate" 
-          value={form.startDate} 
+        <InputField
+          type="date"
+          label="Date de début"
+          name="startDate"
+          value={form.startDate}
           onChange={handleChange}
           icon={FaCalendarAlt}
         />
-        <InputField 
-          type="date" 
-          label="Date de fin" 
-          name="endDate" 
-          value={form.endDate} 
+        <InputField
+          type="date"
+          label="Date de fin"
+          name="endDate"
+          value={form.endDate}
           readOnly
           icon={FaCalendarAlt}
         />
       </div>
-      
+
       {isExpired && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-xl">
           <div className="flex items-center">
             <FaTimes className="w-5 h-5 text-red-400 mr-2" />
-            <p className="text-red-800 font-medium">Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}</p>
+            <p className="text-red-800 font-medium">
+              Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}
+            </p>
           </div>
         </div>
       )}
@@ -696,18 +819,18 @@ export default function MemberForm({ member, onSave, onCancel }) {
   const renderDocumentsTab = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4">
-        <label 
-          htmlFor="fileUpload" 
+        <label
+          htmlFor="fileUpload"
           className="cursor-pointer flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <FaFileUpload className="w-4 h-4" />
           Importer des fichiers
         </label>
-        <input 
-          type="file" 
-          id="fileUpload" 
-          className="hidden" 
-          multiple 
+        <input
+          type="file"
+          id="fileUpload"
+          className="hidden"
+          multiple
           onChange={handleFileUpload}
           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
         />
@@ -727,28 +850,33 @@ export default function MemberForm({ member, onSave, onCancel }) {
       {form.files.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {form.files.map((file) => (
-            <div key={file.name} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+            <div
+              key={file.name}
+              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
+            >
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-blue-100 rounded-lg">
                   <FaFileAlt className="w-6 h-6 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-gray-800 truncate">{file.name}</h4>
+                  <h4 className="font-medium text-gray-800 truncate">
+                    {file.name}
+                  </h4>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {file.url && (
                       <>
-                        <a 
-                          href={file.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-lg hover:bg-blue-200 transition-colors"
                         >
                           <FaEye className="w-3 h-3" />
                           Voir
                         </a>
-                        <a 
-                          href={file.url} 
-                          download={file.name} 
+                        <a
+                          href={file.url}
+                          download={file.name}
                           className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 text-sm rounded-lg hover:bg-green-200 transition-colors"
                         >
                           <FaDownload className="w-3 h-3" />
@@ -773,7 +901,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
         <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
           <FaFileAlt className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500 text-lg font-medium">Aucun document</p>
-          <p className="text-gray-400 text-sm">Importez des certificats, documents d'identité, etc.</p>
+          <p className="text-gray-400 text-sm">
+            Importez des certificats, documents d'identité, etc.
+          </p>
         </div>
       )}
     </div>
@@ -786,14 +916,16 @@ export default function MemberForm({ member, onSave, onCancel }) {
           <FaEuroSign className="w-5 h-5 text-green-600" />
           Nouveau paiement
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <InputField
             label="Montant (€)"
             type="number"
             name="amount"
             value={newPayment.amount}
-            onChange={(e) => setNewPayment((p) => ({ ...p, amount: e.target.value }))}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, amount: e.target.value }))
+            }
             icon={FaEuroSign}
             placeholder="0.00"
             step="0.01"
@@ -802,7 +934,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
             label="Méthode de paiement"
             name="method"
             value={newPayment.method}
-            onChange={(e) => setNewPayment((p) => ({ ...p, method: e.target.value }))}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, method: e.target.value }))
+            }
             options={["espèces", "chèque", "carte", "virement", "autre"]}
             icon={FaCreditCard}
           />
@@ -811,7 +945,12 @@ export default function MemberForm({ member, onSave, onCancel }) {
             type="date"
             name="encaissement_prevu"
             value={newPayment.encaissement_prevu}
-            onChange={(e) => setNewPayment((p) => ({ ...p, encaissement_prevu: e.target.value }))}
+            onChange={(e) =>
+              setNewPayment((p) => ({
+                ...p,
+                encaissement_prevu: e.target.value,
+              }))
+            }
             icon={FaCalendarAlt}
           />
         </div>
@@ -821,7 +960,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
             label="Commentaire"
             name="commentaire"
             value={newPayment.commentaire}
-            onChange={(e) => setNewPayment((p) => ({ ...p, commentaire: e.target.value }))}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, commentaire: e.target.value }))
+            }
             placeholder="Note ou commentaire sur ce paiement"
           />
         </div>
@@ -832,18 +973,26 @@ export default function MemberForm({ member, onSave, onCancel }) {
               <input
                 type="checkbox"
                 checked={newPayment.is_paid}
-                onChange={(e) => setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))}
+                onChange={(e) =>
+                  setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))
+                }
                 className="sr-only"
               />
-              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                newPayment.is_paid ? 'bg-green-500 border-green-500' : 'border-gray-300'
-              }`}>
-                {newPayment.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+              <div
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  newPayment.is_paid
+                    ? "bg-green-500 border-green-500"
+                    : "border-gray-300"
+                }`}
+              >
+                {newPayment.is_paid && (
+                  <FaCheck className="w-3 h-3 text-white" />
+                )}
               </div>
             </div>
             Paiement déjà encaissé
           </label>
-          
+
           <button
             type="button"
             onClick={handleAddPayment}
@@ -859,21 +1008,38 @@ export default function MemberForm({ member, onSave, onCancel }) {
       {/* Liste des paiements */}
       {payments.length > 0 ? (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800">Historique des paiements</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            Historique des paiements
+          </h3>
           {payments.map((pay) => (
-            <div key={pay.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+            <div
+              key={pay.id}
+              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
+            >
               <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                 <div className="flex-1 w-full sm:w-auto">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className={`p-2 rounded-lg ${pay.is_paid ? 'bg-green-100' : 'bg-orange-100'}`}>
-                      <FaEuroSign className={`w-4 h-4 ${pay.is_paid ? 'text-green-600' : 'text-orange-600'}`} />
+                    <div
+                      className={`p-2 rounded-lg ${
+                        pay.is_paid ? "bg-green-100" : "bg-orange-100"
+                      }`}
+                    >
+                      <FaEuroSign
+                        className={`w-4 h-4 ${
+                          pay.is_paid ? "text-green-600" : "text-orange-600"
+                        }`}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-lg text-gray-800">{pay.amount.toFixed(2)} €</h4>
-                      <p className="text-sm text-gray-600 capitalize">{pay.method}</p>
+                      <h4 className="font-semibold text-lg text-gray-800">
+                        {pay.amount.toFixed(2)} €
+                      </h4>
+                      <p className="text-sm text-gray-600 capitalize">
+                        {pay.method}
+                      </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-3 mb-3">
                     <input
                       type="checkbox"
@@ -884,27 +1050,40 @@ export default function MemberForm({ member, onSave, onCancel }) {
                     <button
                       onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                        pay.is_paid ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400'
+                        pay.is_paid
+                          ? "bg-green-500 border-green-500"
+                          : "border-gray-300 hover:border-green-400"
                       }`}
                     >
-                      {pay.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                      {pay.is_paid && (
+                        <FaCheck className="w-3 h-3 text-white" />
+                      )}
                     </button>
-                    <span className={`text-sm font-medium ${pay.is_paid ? 'text-green-600' : 'text-orange-600'}`}>
-                      {pay.is_paid ? 'Encaissé' : 'En attente'}
+                    <span
+                      className={`text-sm font-medium ${
+                        pay.is_paid ? "text-green-600" : "text-orange-600"
+                      }`}
+                    >
+                      {pay.is_paid ? "Encaissé" : "En attente"}
                     </span>
                   </div>
-                  
+
                   <div className="text-sm text-gray-600 space-y-1">
-                    <p>Payé le {new Date(pay.date_paiement).toLocaleDateString()}</p>
+                    <p>
+                      Payé le {new Date(pay.date_paiement).toLocaleDateString()}
+                    </p>
                     {pay.encaissement_prevu && (
                       <p className="text-blue-600">
-                        Encaissement prévu : {new Date(pay.encaissement_prevu).toLocaleDateString()}
+                        Encaissement prévu :{" "}
+                        {new Date(pay.encaissement_prevu).toLocaleDateString()}
                       </p>
                     )}
-                    {pay.commentaire && <p className="italic text-gray-500">{pay.commentaire}</p>}
+                    {pay.commentaire && (
+                      <p className="italic text-gray-500">{pay.commentaire}</p>
+                    )}
                   </div>
                 </div>
-                
+
                 <button
                   onClick={() => handleDeletePayment(pay.id)}
                   className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors w-full sm:w-auto"
@@ -915,12 +1094,17 @@ export default function MemberForm({ member, onSave, onCancel }) {
               </div>
             </div>
           ))}
-          
+
           <div className="bg-gray-50 p-4 rounded-xl">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-700">Total des paiements :</span>
+              <span className="font-medium text-gray-700">
+                Total des paiements :
+              </span>
               <span className="text-2xl font-bold text-green-600">
-                {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)} €
+                {payments
+                  .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
+                  .toFixed(2)}{" "}
+                €
               </span>
             </div>
           </div>
@@ -928,8 +1112,12 @@ export default function MemberForm({ member, onSave, onCancel }) {
       ) : (
         <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
           <FaEuroSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg font-medium">Aucun paiement enregistré</p>
-          <p className="text-gray-400 text-sm">Ajoutez le premier paiement ci-dessus</p>
+          <p className="text-gray-500 text-lg font-medium">
+            Aucun paiement enregistré
+          </p>
+          <p className="text-gray-400 text-sm">
+            Ajoutez le premier paiement ci-dessus
+          </p>
         </div>
       )}
     </div>
@@ -937,15 +1125,15 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const renderCurrentTab = () => {
     switch (activeTab) {
-      case 'identity':
+      case "identity":
         return renderIdentityTab();
-      case 'contact':
+      case "contact":
         return renderContactTab();
-      case 'subscription':
+      case "subscription":
         return renderSubscriptionTab();
-      case 'documents':
+      case "documents":
         return renderDocumentsTab();
-      case 'payments':
+      case "payments":
         return renderPaymentsTab();
       default:
         return renderIdentityTab();
@@ -968,14 +1156,20 @@ export default function MemberForm({ member, onSave, onCancel }) {
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center flex-shrink-0">
               {form.photo ? (
-                <img src={form.photo} alt="Avatar" className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover" />
+                <img
+                  src={form.photo}
+                  alt="Avatar"
+                  className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover"
+                />
               ) : (
                 <FaUser className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               )}
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-lg sm:text-2xl font-bold truncate">
-                {form.firstName || form.name ? `${form.firstName} ${form.name}` : 'Nouveau membre'}
+                {form.firstName || form.name
+                  ? `${form.firstName} ${form.name}`
+                  : "Nouveau membre"}
               </h1>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
                 {form.badgeId && (
@@ -988,7 +1182,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
               </div>
             </div>
           </div>
-          
+
           <div className="flex gap-2 w-full sm:w-auto">
             <button
               type="button"
@@ -1049,7 +1243,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
                 key={index}
                 onClick={() => goToTab(index)}
                 className={`w-2 h-2 rounded-full transition-colors ${
-                  currentTabIndex === index ? "bg-white" : "bg-white bg-opacity-40"
+                  currentTabIndex === index
+                    ? "bg-white"
+                    : "bg-white bg-opacity-40"
                 }`}
               />
             ))}
@@ -1085,7 +1281,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
           </div>
         </div>
       )}
-      
+
       {uploadStatus.error && (
         <div className="bg-red-50 border-l-4 border-red-400 p-4">
           <div className="flex items-center">
@@ -1094,7 +1290,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
           </div>
         </div>
       )}
-      
+
       {uploadStatus.success && (
         <div className="bg-green-50 border-l-4 border-green-400 p-4">
           <div className="flex items-center">
@@ -1115,14 +1311,14 @@ export default function MemberForm({ member, onSave, onCancel }) {
           onMouseDown={handleMouseDown}
           style={{
             transform: `translateX(${translateX}px)`,
-            transition: isDraggingRef.current ? 'none' : 'transform 0.3s ease-out',
-            cursor: isDraggingRef.current ? 'grabbing' : 'grab'
+            transition: isDraggingRef.current
+              ? "none"
+              : "transform 0.3s ease-out",
+            cursor: isDraggingRef.current ? "grabbing" : "grab",
           }}
         >
           <div className="p-4 md:p-6">
-            <form onSubmit={handleSubmit}>
-              {renderCurrentTab()}
-            </form>
+            <form onSubmit={handleSubmit}>{renderCurrentTab()}</form>
           </div>
         </div>
       </div>
@@ -1139,18 +1335,20 @@ export default function MemberForm({ member, onSave, onCancel }) {
         >
           <div className="text-center">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              {webcamOpen === "photo" ? "Prendre une photo" : "Capturer un document"}
+              {webcamOpen === "photo"
+                ? "Prendre une photo"
+                : "Capturer un document"}
             </h2>
-            
+
             <div className="relative inline-block mb-6">
               <Webcam
                 ref={webcamRef}
                 audio={false}
                 screenshotFormat="image/jpeg"
-                videoConstraints={{ 
-                  width: { ideal: 640 }, 
-                  height: { ideal: 480 }, 
-                  facingMode: "user" 
+                videoConstraints={{
+                  width: { ideal: 640 },
+                  height: { ideal: 480 },
+                  facingMode: "user",
                 }}
                 className="rounded-xl border-4 border-gray-200 shadow-lg"
                 onUserMedia={() => {
@@ -1159,10 +1357,10 @@ export default function MemberForm({ member, onSave, onCancel }) {
                 }}
                 onUserMediaError={(error) => {
                   console.error("Erreur d'accès à la webcam :", error);
-                  setUploadStatus({ 
-                    loading: false, 
-                    error: `Erreur d'accès à la webcam : ${error}`, 
-                    success: null 
+                  setUploadStatus({
+                    loading: false,
+                    error: `Erreur d'accès à la webcam : ${error}`,
+                    success: null,
                   });
                   setWebcamReady(false);
                 }}
@@ -1173,7 +1371,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
                 </div>
               )}
             </div>
-            
+
             <div className="flex justify-center gap-4">
               <button
                 onClick={webcamOpen === "doc" ? captureDocument : capturePhoto}
@@ -1183,8 +1381,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
                 <FaCamera className="w-4 h-4" />
                 Capturer
               </button>
-              <button 
-                onClick={() => setWebcamOpen(false)} 
+              <button
+                onClick={() => setWebcamOpen(false)}
                 className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200"
               >
                 <FaTimes className="w-4 h-4" />
@@ -1197,5 +1395,3 @@ export default function MemberForm({ member, onSave, onCancel }) {
     </Modal>
   );
 }
-
-export default MemberForm; // ✅ Correct
