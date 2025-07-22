@@ -303,29 +303,14 @@ function PlanningPage() {
     if (presences.length > 0) {
       console.log("🔍 ANALYSE DES DONNÉES CHARGÉES:");
 
-      // Test sur vos données réelles
-      const testTimestamps = [
-        "2025-06-14 18:29:00+00",
-        "2025-06-14T18:29:00+00:00",
-        "2025-01-01 08:08:00+00",
-      ];
+      // Trouver les dates min et max dans vos données
+      const dates = presences.map((p) => parseTimestamp(p.timestamp));
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(Math.max(...dates));
 
-      testTimestamps.forEach((ts) => {
-        const parsed = parseTimestamp(ts);
-        console.log(
-          `📅 Test: ${ts} → ${parsed.toLocaleDateString()} ${parsed.toLocaleTimeString()}`
-        );
-      });
-
-      // Échantillon de vos vraies données
-      const sample = presences.slice(0, 5);
-      console.log("📊 Échantillon de vos présences:");
-      sample.forEach((p) => {
-        const parsed = parseTimestamp(p.timestamp);
-        console.log(
-          `   ${p.badgeId}: ${p.timestamp} → ${parsed.toLocaleDateString()}`
-        );
-      });
+      console.log("📅 Plage de dates dans vos données:");
+      console.log(`   Plus ancienne: ${minDate.toLocaleDateString()}`);
+      console.log(`   Plus récente: ${maxDate.toLocaleDateString()}`);
 
       // Compter par mois pour vérifier la répartition
       const monthCounts = {};
@@ -354,6 +339,20 @@ function PlanningPage() {
         totalPresences: presences.length,
         presencesFiltrées: filtered.length,
       });
+
+      // SUGGESTION AUTOMATIQUE si aucune donnée filtrée
+      if (filtered.length === 0 && presences.length > 0) {
+        console.log(
+          "💡 SUGGESTION: Ajustez votre période pour inclure vos données !"
+        );
+        console.log(
+          `   Période suggérée: ${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`
+        );
+
+        // Auto-ajustement optionnel (décommentez si vous voulez)
+        // setStartDate(startOfDay(minDate));
+        // setEndDate(endOfDay(maxDate));
+      }
     }
   }, [presences, startDate, endDate]);
 
