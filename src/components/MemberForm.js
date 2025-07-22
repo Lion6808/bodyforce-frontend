@@ -219,116 +219,74 @@ function MemberForm({ member, onSave, onCancel }) {
     }
   }, [member]);
 
-  // Gestion des événements tactiles pour le swipe
+  // Gestion des événements tactiles pour le swipe - Version simplifiée
   const handleTouchStart = (e) => {
     if (isTransitioning) return;
 
     const touch = e.touches[0];
-    startXRef.current = touch.clientX;
-
-    // Stocker les positions initiales
     containerRef.current.startX = touch.clientX;
     containerRef.current.startY = touch.clientY;
     containerRef.current.hasMoved = false;
-    containerRef.current.isHorizontal = false;
-    containerRef.current.scrollAtTop = containerRef.current.scrollTop === 0;
-    containerRef.current.scrollAtBottom =
-      containerRef.current.scrollTop + containerRef.current.clientHeight >=
-      containerRef.current.scrollHeight - 5;
-
-    isDraggingRef.current = false;
+    containerRef.current.isSwipeHorizontal = null;
   };
 
   const handleTouchMove = (e) => {
     if (isTransitioning) return;
 
     const touch = e.touches[0];
-    const currentX = touch.clientX;
-    const currentY = touch.clientY;
+    const deltaX = touch.clientX - containerRef.current.startX;
+    const deltaY = touch.clientY - containerRef.current.startY;
 
-    const startX = containerRef.current.startX || startXRef.current;
-    const startY = containerRef.current.startY || 0;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
 
-    const deltaX = currentX - startX;
-    const deltaY = currentY - startY;
-
-    // Si on n'a pas encore déterminé le type de mouvement
-    if (!containerRef.current.hasMoved) {
-      const absX = Math.abs(deltaX);
-      const absY = Math.abs(deltaY);
-
-      // Seuil de détection du mouvement
-      if (absX > 20 || absY > 20) {
-        containerRef.current.hasMoved = true;
-
-        // Déterminer si c'est un mouvement horizontal ou vertical
-        if (absX > absY * 1.5 && absX > 35) {
-          // Ratio plus strict pour l'horizontal
-          // Mouvement horizontal - activer le swipe
-          containerRef.current.isHorizontal = true;
-          isDraggingRef.current = true;
-          e.preventDefault();
-          e.stopPropagation();
-        } else {
-          // Mouvement vertical - gérer le scroll
-          containerRef.current.isHorizontal = false;
-
-          // Empêcher le scroll de la page parente si on est en haut/bas
-          const isScrollingUp = deltaY > 0;
-          const isScrollingDown = deltaY < 0;
-
-          if (
-            (isScrollingUp && containerRef.current.scrollAtTop) ||
-            (isScrollingDown && containerRef.current.scrollAtBottom)
-          ) {
-            e.preventDefault(); // Empêcher le scroll de la page parente
-          }
-
-          return;
-        }
-      }
+    // Déterminer le type de mouvement une seule fois
+    if (
+      containerRef.current.isSwipeHorizontal === null &&
+      (absX > 10 || absY > 10)
+    ) {
+      containerRef.current.isSwipeHorizontal = absX > absY;
+      containerRef.current.hasMoved = true;
     }
 
     // Si c'est un swipe horizontal
-    if (containerRef.current.isHorizontal && isDraggingRef.current) {
+    if (containerRef.current.isSwipeHorizontal && absX > 15) {
       e.preventDefault();
       e.stopPropagation();
 
-      // Limiter le mouvement
-      const maxTranslate = currentTabIndex === 0 ? 0 : -100;
-      const minTranslate = currentTabIndex === tabs.length - 1 ? 0 : 100;
+      // Calculer le feedback visuel
+      let clampedDelta = deltaX;
 
-      const clampedDelta = Math.max(
-        minTranslate,
-        Math.min(maxTranslate, deltaX)
-      );
+      // Limiter aux bornes
+      if (currentTabIndex === 0 && deltaX > 0) {
+        clampedDelta = Math.min(deltaX * 0.3, 50); // Résistance au début
+      } else if (currentTabIndex === tabs.length - 1 && deltaX < 0) {
+        clampedDelta = Math.max(deltaX * 0.3, -50); // Résistance à la fin
+      } else {
+        clampedDelta = Math.max(-150, Math.min(150, deltaX)); // Mouvement libre
+      }
+
       setTranslateX(clampedDelta);
+      isDraggingRef.current = true;
     }
   };
 
   const handleTouchEnd = () => {
-    if (!containerRef.current.hasMoved) {
-      // Pas de mouvement significatif
+    if (
+      !containerRef.current.hasMoved ||
+      !containerRef.current.isSwipeHorizontal
+    ) {
       setTranslateX(0);
       isDraggingRef.current = false;
       return;
     }
 
-    if (!containerRef.current.isHorizontal || !isDraggingRef.current) {
-      // Ce n'était pas un swipe horizontal
-      setTranslateX(0);
-      isDraggingRef.current = false;
-      return;
-    }
-
-    const threshold = 50; // Seuil pour déclencher le changement d'onglet
+    const threshold = 60; // Seuil pour changer d'onglet
 
     if (Math.abs(translateX) > threshold) {
       if (translateX > 0 && currentTabIndex > 0) {
-        // Swipe vers la droite - onglet précédent
         goToTab(currentTabIndex - 1);
       } else if (translateX < 0 && currentTabIndex < tabs.length - 1) {
-        // Swipe vers la gauche - onglet suivant
         goToTab(currentTabIndex + 1);
       }
     }
@@ -337,7 +295,7 @@ function MemberForm({ member, onSave, onCancel }) {
     setTranslateX(0);
     isDraggingRef.current = false;
     containerRef.current.hasMoved = false;
-    containerRef.current.isHorizontal = false;
+    containerRef.current.isSwipeHorizontal = null;
   };
 
   // Gestion des événements souris (pour desktop) - simplifiée
@@ -1434,4 +1392,5 @@ function MemberForm({ member, onSave, onCancel }) {
     </Modal>
   );
 }
+
 export default MemberForm;
