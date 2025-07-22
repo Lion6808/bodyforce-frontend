@@ -26,23 +26,37 @@ const PlanningPage = () => {
       setLoading(true);
       setError('');
 
-      // Test de connexion d'abord
-      const connectionTest = await supabaseServices.testConnection();
-      if (!connectionTest) {
-        throw new Error('Impossible de se connecter à la base de données');
-      }
-
+      // Chargement direct des données au lieu de tester la connexion
       const [presencesData, membersData] = await Promise.all([
         supabaseServices.getPresencesWithMembers(),
         supabaseServices.getMembers()
       ]);
+
+      // Vérification que les données sont valides
+      if (!presencesData && !membersData) {
+        throw new Error('Impossible de charger les données depuis la base');
+      }
 
       setPresences(presencesData || []);
       setMembers(membersData || []);
       setRetryCount(0);
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
-      setError(error.message || 'Erreur de connexion');
+      
+      // Messages d'erreur plus spécifiques
+      let errorMessage = 'Erreur de connexion à la base de données';
+      
+      if (error.message?.includes('Failed to fetch')) {
+        errorMessage = 'Problème de réseau - Vérifiez votre connexion internet';
+      } else if (error.message?.includes('Invalid API key')) {
+        errorMessage = 'Clé API Supabase invalide';
+      } else if (error.message?.includes('Row level security')) {
+        errorMessage = 'Problème de permissions - Contactez l\'administrateur';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setIsRetrying(false);
@@ -79,15 +93,22 @@ const PlanningPage = () => {
   };
 
   const getFilteredPresences = () => {
+    if (!presences.length) return [];
+    
     const { start, end } = getDateRange();
     
     return presences.filter(presence => {
-      const presenceDate = parseISO(presence.timestamp);
-      const isInDateRange = isWithinInterval(presenceDate, { start, end });
-      const matchesMember = !filterMember || 
-        (presence.member && presence.member.id.toString() === filterMember);
-      
-      return isInDateRange && matchesMember;
+      try {
+        const presenceDate = parseISO(presence.timestamp);
+        const isInDateRange = isWithinInterval(presenceDate, { start, end });
+        const matchesMember = !filterMember || 
+          (presence.member && presence.member.id.toString() === filterMember);
+        
+        return isInDateRange && matchesMember;
+      } catch (error) {
+        console.warn('Erreur de parsing de date:', presence.timestamp);
+        return false;
+      }
     });
   };
 
@@ -96,20 +117,24 @@ const PlanningPage = () => {
     const statsByDate = {};
 
     filteredPresences.forEach(presence => {
-      const dateKey = format(parseISO(presence.timestamp), 'yyyy-MM-dd');
-      if (!statsByDate[dateKey]) {
-        statsByDate[dateKey] = {
-          date: parseISO(presence.timestamp),
-          count: 0,
-          members: new Set(),
-          presences: []
-        };
+      try {
+        const dateKey = format(parseISO(presence.timestamp), 'yyyy-MM-dd');
+        if (!statsByDate[dateKey]) {
+          statsByDate[dateKey] = {
+            date: parseISO(presence.timestamp),
+            count: 0,
+            members: new Set(),
+            presences: []
+          };
+        }
+        statsByDate[dateKey].count++;
+        if (presence.member) {
+          statsByDate[dateKey].members.add(presence.member.id);
+        }
+        statsByDate[dateKey].presences.push(presence);
+      } catch (error) {
+        console.warn('Erreur de traitement de présence:', presence);
       }
-      statsByDate[dateKey].count++;
-      if (presence.member) {
-        statsByDate[dateKey].members.add(presence.member.id);
-      }
-      statsByDate[dateKey].presences.push(presence);
     });
 
     return Object.values(statsByDate).sort((a, b) => b.date - a.date);
@@ -148,6 +173,22 @@ const PlanningPage = () => {
           <p className="text-sm text-gray-500 mt-3">
             Tentative {retryCount + 1}
           </p>
+        )}
+        
+        {/* Debug info en développement */}
+        {process.env.NODE_ENV === 'development' && (
+          <details className="mt-4 text-left">
+            <summary className="text-sm text-gray-500 cursor-pointer">
+              Informations de debug
+            </summary>
+            <pre className="text-xs text-gray-400 mt-2 bg-gray-50 p-2 rounded overflow-auto">
+              {JSON.stringify({
+                retryCount,
+                timestamp: new Date().toISOString(),
+                error: error
+              }, null, 2)}
+            </pre>
+          </details>
         )}
       </div>
     </div>
