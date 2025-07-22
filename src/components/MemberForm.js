@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import Modal from "react-modal";
-import { FaCamera, FaFileUpload, FaTrash, FaDownload, FaUser, FaHome, FaCreditCard, FaFileAlt, FaEuroSign, FaCalendarAlt, FaIdCard, FaPhone, FaEnvelope, FaGraduationCap, FaCheck, FaTimes, FaEye } from "react-icons/fa";
+import { FaCamera, FaFileUpload, FaTrash, FaDownload, FaUser, FaHome, FaCreditCard, FaFileAlt, FaEuroSign, FaCalendarAlt, FaIdCard, FaPhone, FaEnvelope, FaGraduationCap, FaCheck, FaTimes, FaEye, FaChevronLeft, FaChevronRight, FaCircle } from "react-icons/fa";
 import { supabase } from "../supabaseClient";
 
 const subscriptionDurations = {
@@ -69,17 +69,17 @@ function TabButton({ active, onClick, icon: Icon, children, count }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-3 px-6 py-3 rounded-xl font-medium transition-all duration-200 relative ${
+      className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${
         active 
-          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg transform scale-105' 
-          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+          ? 'bg-white bg-opacity-30 text-white shadow-lg' 
+          : 'text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20'
       }`}
     >
-      <Icon className="w-5 h-5" />
-      <span>{children}</span>
-      {count !== undefined && (
-        <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-          active ? 'bg-white bg-opacity-20' : 'bg-gray-200 text-gray-600'
+      <Icon className="w-4 h-4" />
+      <span className="hidden xs:inline sm:inline">{children}</span>
+      {count !== undefined && count > 0 && (
+        <span className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${
+          active ? 'bg-white bg-opacity-30' : 'bg-white bg-opacity-20'
         }`}>
           {count}
         </span>
@@ -141,6 +141,23 @@ export default function MemberForm({ member, onSave, onCancel }) {
   const [webcamReady, setWebcamReady] = useState(false);
   const webcamRef = useRef(null);
 
+  // États pour la gestion du swipe
+  const containerRef = useRef(null);
+  const startXRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const [translateX, setTranslateX] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const tabs = [
+    { id: 'identity', label: 'Identité', icon: FaUser },
+    { id: 'contact', label: 'Contact', icon: FaHome },
+    { id: 'subscription', label: 'Abonnement', icon: FaCreditCard },
+    { id: 'documents', label: 'Documents', icon: FaFileAlt, count: form.files.length },
+    { id: 'payments', label: 'Paiements', icon: FaEuroSign, count: payments.length },
+  ];
+
+  const currentTabIndex = tabs.findIndex(tab => tab.id === activeTab);
+
   useEffect(() => {
     if (member) {
       setForm({
@@ -158,6 +175,98 @@ export default function MemberForm({ member, onSave, onCancel }) {
       }
     }
   }, [member]);
+
+  // Gestion des événements tactiles pour le swipe
+  const handleTouchStart = (e) => {
+    if (isTransitioning) return;
+    startXRef.current = e.touches[0].clientX;
+    isDraggingRef.current = true;
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDraggingRef.current || isTransitioning) return;
+    
+    const currentX = e.touches[0].clientX;
+    const deltaX = currentX - startXRef.current;
+    
+    // Limiter le mouvement pour éviter de sortir des limites
+    const maxTranslate = currentTabIndex === 0 ? 0 : -50;
+    const minTranslate = currentTabIndex === tabs.length - 1 ? 0 : 50;
+    
+    const clampedDelta = Math.max(minTranslate, Math.min(maxTranslate, deltaX));
+    setTranslateX(clampedDelta);
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDraggingRef.current || isTransitioning) return;
+    isDraggingRef.current = false;
+    
+    const threshold = 50; // Seuil minimum pour déclencher le changement
+    
+    if (Math.abs(translateX) > threshold) {
+      if (translateX > 0 && currentTabIndex > 0) {
+        // Swipe vers la droite - onglet précédent
+        goToTab(currentTabIndex - 1);
+      } else if (translateX < 0 && currentTabIndex < tabs.length - 1) {
+        // Swipe vers la gauche - onglet suivant
+        goToTab(currentTabIndex + 1);
+      }
+    }
+    
+    // Reset de la position
+    setTranslateX(0);
+  };
+
+  // Gestion des événements souris (pour desktop)
+  const handleMouseDown = (e) => {
+    if (isTransitioning) return;
+    startXRef.current = e.clientX;
+    isDraggingRef.current = true;
+    
+    const handleMouseMove = (e) => {
+      if (!isDraggingRef.current || isTransitioning) return;
+      
+      const currentX = e.clientX;
+      const deltaX = currentX - startXRef.current;
+      
+      const maxTranslate = currentTabIndex === 0 ? 0 : -50;
+      const minTranslate = currentTabIndex === tabs.length - 1 ? 0 : 50;
+      
+      const clampedDelta = Math.max(minTranslate, Math.min(maxTranslate, deltaX));
+      setTranslateX(clampedDelta);
+    };
+    
+    const handleMouseUp = () => {
+      if (!isDraggingRef.current || isTransitioning) return;
+      isDraggingRef.current = false;
+      
+      const threshold = 50;
+      
+      if (Math.abs(translateX) > threshold) {
+        if (translateX > 0 && currentTabIndex > 0) {
+          goToTab(currentTabIndex - 1);
+        } else if (translateX < 0 && currentTabIndex < tabs.length - 1) {
+          goToTab(currentTabIndex + 1);
+        }
+      }
+      
+      setTranslateX(0);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const goToTab = (tabIndex) => {
+    if (tabIndex >= 0 && tabIndex < tabs.length && !isTransitioning) {
+      setIsTransitioning(true);
+      setActiveTab(tabs[tabIndex].id);
+      setTranslateX(0);
+      setTimeout(() => setIsTransitioning(false), 300);
+    }
+  };
 
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
@@ -826,13 +935,22 @@ export default function MemberForm({ member, onSave, onCancel }) {
     </div>
   );
 
-  const tabs = [
-    { id: 'identity', label: 'Identité', icon: FaUser, component: renderIdentityTab },
-    { id: 'contact', label: 'Contact', icon: FaHome, component: renderContactTab },
-    { id: 'subscription', label: 'Abonnement', icon: FaCreditCard, component: renderSubscriptionTab },
-    { id: 'documents', label: 'Documents', icon: FaFileAlt, component: renderDocumentsTab, count: form.files.length },
-    { id: 'payments', label: 'Paiements', icon: FaEuroSign, component: renderPaymentsTab, count: payments.length },
-  ];
+  const renderCurrentTab = () => {
+    switch (activeTab) {
+      case 'identity':
+        return renderIdentityTab();
+      case 'contact':
+        return renderContactTab();
+      case 'subscription':
+        return renderSubscriptionTab();
+      case 'documents':
+        return renderDocumentsTab();
+      case 'payments':
+        return renderPaymentsTab();
+      default:
+        return renderIdentityTab();
+    }
+  };
 
   return (
     <Modal
@@ -891,32 +1009,70 @@ export default function MemberForm({ member, onSave, onCancel }) {
           </div>
         </div>
 
-        {/* Onglets - Version mobile avec scroll horizontal */}
+        {/* Navigation par onglets avec scroll horizontal */}
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex gap-1 sm:gap-2 min-w-max pb-2 sm:pb-0">
-            {tabs.map(tab => (
-              <button
+            {tabs.map((tab, index) => (
+              <TabButton
                 key={tab.id}
-                type="button"
+                active={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${
-                  activeTab === tab.id 
-                    ? 'bg-white bg-opacity-30 text-white shadow-lg' 
-                    : 'text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20'
-                }`}
+                icon={tab.icon}
+                count={tab.count}
               >
-                <tab.icon className="w-4 h-4" />
-                <span className="hidden xs:inline sm:inline">{tab.label}</span>
-                {tab.count !== undefined && tab.count > 0 && (
-                  <span className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${
-                    activeTab === tab.id ? 'bg-white bg-opacity-30' : 'bg-white bg-opacity-20'
-                  }`}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
+                {tab.label}
+              </TabButton>
             ))}
           </div>
+        </div>
+
+        {/* Indicateurs de progression et navigation (mobile) */}
+        <div className="flex items-center justify-between mt-4">
+          {/* Bouton précédent */}
+          <button
+            onClick={() => goToTab(currentTabIndex - 1)}
+            disabled={currentTabIndex === 0}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+              currentTabIndex === 0
+                ? "text-white text-opacity-40 cursor-not-allowed"
+                : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+            }`}
+          >
+            <FaChevronLeft className="w-3 h-3" />
+            <span className="hidden sm:inline">Précédent</span>
+          </button>
+
+          {/* Indicateurs de progression */}
+          <div className="flex justify-center gap-2">
+            {tabs.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToTab(index)}
+                className={`w-2 h-2 rounded-full transition-colors ${
+                  currentTabIndex === index ? "bg-white" : "bg-white bg-opacity-40"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Bouton suivant */}
+          <button
+            onClick={() => goToTab(currentTabIndex + 1)}
+            disabled={currentTabIndex === tabs.length - 1}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+              currentTabIndex === tabs.length - 1
+                ? "text-white text-opacity-40 cursor-not-allowed"
+                : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+            }`}
+          >
+            <span className="hidden sm:inline">Suivant</span>
+            <FaChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* Instructions de swipe */}
+        <div className="text-center mt-3 text-xs text-white text-opacity-70">
+          💡 Glissez horizontalement ou utilisez les flèches pour naviguer
         </div>
       </div>
 
@@ -948,11 +1104,27 @@ export default function MemberForm({ member, onSave, onCancel }) {
         </div>
       )}
 
-      {/* Contenu des onglets */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <form onSubmit={handleSubmit}>
-          {tabs.find(tab => tab.id === activeTab)?.component()}
-        </form>
+      {/* Contenu des onglets avec gestion du swipe */}
+      <div className="flex-1 overflow-hidden">
+        <div
+          ref={containerRef}
+          className="h-full overflow-y-auto select-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+          style={{
+            transform: `translateX(${translateX}px)`,
+            transition: isDraggingRef.current ? 'none' : 'transform 0.3s ease-out',
+            cursor: isDraggingRef.current ? 'grabbing' : 'grab'
+          }}
+        >
+          <div className="p-4 md:p-6">
+            <form onSubmit={handleSubmit}>
+              {renderCurrentTab()}
+            </form>
+          </div>
+        </div>
       </div>
 
       {/* Modal Webcam */}
@@ -1024,7 +1196,3 @@ export default function MemberForm({ member, onSave, onCancel }) {
       )}
     </Modal>
   );
-}
-
-
-
