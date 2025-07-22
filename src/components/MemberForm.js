@@ -136,7 +136,7 @@ function StatusBadge({ isExpired, isStudent }) {
   );
 }
 
-export default function MemberForm({ member, onSave, onCancel }) {
+function MemberForm({ member, onSave, onCancel }) {
   const [activeTab, setActiveTab] = useState("identity");
   const [form, setForm] = useState({
     name: "",
@@ -231,6 +231,10 @@ export default function MemberForm({ member, onSave, onCancel }) {
     containerRef.current.startY = touch.clientY;
     containerRef.current.hasMoved = false;
     containerRef.current.isHorizontal = false;
+    containerRef.current.scrollAtTop = containerRef.current.scrollTop === 0;
+    containerRef.current.scrollAtBottom =
+      containerRef.current.scrollTop + containerRef.current.clientHeight >=
+      containerRef.current.scrollHeight - 5;
 
     isDraggingRef.current = false;
   };
@@ -254,19 +258,32 @@ export default function MemberForm({ member, onSave, onCancel }) {
       const absY = Math.abs(deltaY);
 
       // Seuil de détection du mouvement
-      if (absX > 15 || absY > 15) {
+      if (absX > 20 || absY > 20) {
         containerRef.current.hasMoved = true;
 
         // Déterminer si c'est un mouvement horizontal ou vertical
-        if (absX > absY && absX > 30) {
-          // Seuil plus élevé pour l'horizontal
+        if (absX > absY * 1.5 && absX > 35) {
+          // Ratio plus strict pour l'horizontal
           // Mouvement horizontal - activer le swipe
           containerRef.current.isHorizontal = true;
           isDraggingRef.current = true;
-          e.preventDefault(); // Empêcher le scroll seulement pour le swipe horizontal
+          e.preventDefault();
+          e.stopPropagation();
         } else {
-          // Mouvement vertical - laisser le scroll normal
+          // Mouvement vertical - gérer le scroll
           containerRef.current.isHorizontal = false;
+
+          // Empêcher le scroll de la page parente si on est en haut/bas
+          const isScrollingUp = deltaY > 0;
+          const isScrollingDown = deltaY < 0;
+
+          if (
+            (isScrollingUp && containerRef.current.scrollAtTop) ||
+            (isScrollingDown && containerRef.current.scrollAtBottom)
+          ) {
+            e.preventDefault(); // Empêcher le scroll de la page parente
+          }
+
           return;
         }
       }
@@ -274,11 +291,12 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
     // Si c'est un swipe horizontal
     if (containerRef.current.isHorizontal && isDraggingRef.current) {
-      e.preventDefault(); // Empêcher le scroll seulement pour le swipe horizontal
+      e.preventDefault();
+      e.stopPropagation();
 
       // Limiter le mouvement
-      const maxTranslate = currentTabIndex === 0 ? 0 : -80;
-      const minTranslate = currentTabIndex === tabs.length - 1 ? 0 : 80;
+      const maxTranslate = currentTabIndex === 0 ? 0 : -100;
+      const minTranslate = currentTabIndex === tabs.length - 1 ? 0 : 100;
 
       const clampedDelta = Math.max(
         minTranslate,
@@ -303,7 +321,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       return;
     }
 
-    const threshold = 40; // Seuil pour déclencher le changement d'onglet
+    const threshold = 50; // Seuil pour déclencher le changement d'onglet
 
     if (Math.abs(translateX) > threshold) {
       if (translateX > 0 && currentTabIndex > 0) {
@@ -1416,3 +1434,4 @@ export default function MemberForm({ member, onSave, onCancel }) {
     </Modal>
   );
 }
+export default MemberForm;
