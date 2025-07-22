@@ -346,18 +346,19 @@ function PlanningPage() {
         // Calcul correct du nombre total de présences dans la période affichée
         const totalPresencesInPeriod = memberPresences.length;
         
-        // Debug pour vérifier les calculs
+        // Debug pour vérifier les calculs - pour TOUS les membres avec des incohérences
         const visibleDaysWithPresences = Object.keys(dailyPresences).length;
         const totalVisiblePresences = Object.values(dailyPresences).reduce((sum, dayP) => sum + dayP.length, 0);
         
-        if (member.badgeId === '0072217562') { // Debug pour le membre avec 14 présences
-          console.log(`🔍 Debug membre ${member.badgeId}:`, {
-            totalPresencesInPeriod,
-            visibleDaysWithPresences,
-            totalVisiblePresences,
-            dailyPresences: Object.keys(dailyPresences).map(date => ({
+        if (totalPresencesInPeriod !== totalVisiblePresences) {
+          console.log(`⚠️ INCOHÉRENCE membre ${member.badgeId} (${member.name} ${member.firstName}):`, {
+            badgeAffiche: totalPresencesInPeriod,
+            presencesCalculées: totalVisiblePresences,
+            joursAvecPresences: visibleDaysWithPresences,
+            détailParJour: Object.keys(dailyPresences).map(date => ({
               date,
-              count: dailyPresences[date].length
+              count: dailyPresences[date].length,
+              heures: dailyPresences[date].map(p => formatDate(p, 'HH:mm'))
             }))
           });
         }
