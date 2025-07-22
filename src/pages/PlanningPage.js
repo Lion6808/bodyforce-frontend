@@ -291,10 +291,17 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Calculs pour l'affichage
+  // Calculs pour l'affichage avec debug
   const filteredPresences = presences.filter((p) => {
     const d = toLocalDate(p.timestamp);
     return isWithinInterval(d, { start: startDate, end: endDate });
+  });
+
+  console.log('🔍 Debug présences:', {
+    totalPresences: presences.length,
+    filteredPresences: filteredPresences.length,
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
   });
 
   const groupedByMember = {};
@@ -302,6 +309,11 @@ function PlanningPage() {
     const key = p.badgeId;
     if (!groupedByMember[key]) groupedByMember[key] = [];
     groupedByMember[key].push(toLocalDate(p.timestamp));
+  });
+
+  // Debug pour chaque membre
+  Object.keys(groupedByMember).forEach(badgeId => {
+    console.log(`👤 Membre ${badgeId}: ${groupedByMember[badgeId].length} présences filtrées`);
   });
 
   const allDays = eachDayOfInterval({ start: startDate, end: endDate });
@@ -331,6 +343,9 @@ function PlanningPage() {
           dailyPresences[dayKey].push(timestamp);
         });
 
+        // Calcul correct du nombre total de présences dans la période affichée
+        const totalPresencesInPeriod = memberPresences.length;
+
         return (
           <div key={member.badgeId} className="bg-white rounded-lg shadow-sm p-3 border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-2 mb-3">
@@ -346,7 +361,7 @@ function PlanningPage() {
                 <div className="flex items-center gap-3 mt-0.5">
                   <span className="text-xs text-gray-500">Badge: {member.badgeId}</span>
                   <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
-                    {memberPresences.length} présence(s)
+                    {totalPresencesInPeriod} présence(s)
                   </span>
                 </div>
               </div>
