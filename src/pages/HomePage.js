@@ -8,7 +8,7 @@ import {
   FaFemale,
   FaMoneyCheckAlt,
   FaGraduationCap,
-  FaRefresh
+  FaSync
 } from "react-icons/fa";
 
 import { supabaseServices } from "../supabaseClient";
@@ -156,7 +156,7 @@ function HomePage() {
           onClick={fetchData}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
         >
-          <FaRefresh />
+          <FaSync />
           Réessayer
         </button>
       </div>
@@ -172,7 +172,7 @@ function HomePage() {
           disabled={loading}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2 disabled:opacity-50"
         >
-          <FaRefresh className={loading ? 'animate-spin' : ''} />
+          <FaSync className={loading ? 'animate-spin' : ''} />
           Actualiser
         </button>
       </div>

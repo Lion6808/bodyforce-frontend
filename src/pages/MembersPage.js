@@ -204,7 +204,7 @@ function MembersPage() {
           onClick={fetchMembers}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
         >
-          <FaRefresh />
+          <Fasync />
           Réessayer
         </button>
       </div>
@@ -226,7 +226,7 @@ function MembersPage() {
           className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-2 disabled:opacity-50"
           title="Actualiser la liste"
         >
-          <FaRefresh className={loading ? 'animate-spin' : ''} />
+          <Fasync className={loading ? 'animate-spin' : ''} />
           Actualiser
         </button>
       </div>
