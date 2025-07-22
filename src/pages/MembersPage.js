@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabaseServices } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
-import { FaEdit, FaTrash, FaPlus, FaSync  } from "react-icons/fa";
+import { FaEdit, FaTrash, FaPlus, FaSync, FaUser } from "react-icons/fa";
 
 function MembersPage() {
   const [members, setMembers] = useState([]);
@@ -15,6 +15,7 @@ function MembersPage() {
   const [activeFilter, setActiveFilter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [imageErrors, setImageErrors] = useState(new Set()); // Track failed images
 
   const fetchMembers = async () => {
     try {
@@ -37,7 +38,9 @@ function MembersPage() {
 
   useEffect(() => {
     let result = members.filter((m) =>
-      `${m.name || ''} ${m.firstName || ''}`.toLowerCase().includes(search.toLowerCase())
+      `${m.name || ""} ${m.firstName || ""}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
     );
 
     // Appliquer les filtres
@@ -74,7 +77,8 @@ function MembersPage() {
       result = result.filter((m) => {
         if (!m.files) return true;
         if (Array.isArray(m.files)) return m.files.length === 0;
-        if (typeof m.files === 'string') return m.files === '[]' || m.files === '';
+        if (typeof m.files === "string")
+          return m.files === "[]" || m.files === "";
         return Object.keys(m.files).length === 0;
       });
     }
@@ -90,7 +94,9 @@ function MembersPage() {
   }, [members, search, sortAsc, activeFilter]);
 
   const handleDelete = async (id) => {
-    if (window.confirm("Supprimer ce membre ? Cette action est irréversible.")) {
+    if (
+      window.confirm("Supprimer ce membre ? Cette action est irréversible.")
+    ) {
       try {
         await supabaseServices.deleteMember(id);
         await fetchMembers(); // Recharger la liste
@@ -103,7 +109,11 @@ function MembersPage() {
   };
 
   const handleBulkDelete = async () => {
-    if (window.confirm(`Supprimer les ${selectedIds.length} membres sélectionnés ? Cette action est irréversible.`)) {
+    if (
+      window.confirm(
+        `Supprimer les ${selectedIds.length} membres sélectionnés ? Cette action est irréversible.`
+      )
+    ) {
       try {
         for (const id of selectedIds) {
           await supabaseServices.deleteMember(id);
@@ -132,10 +142,21 @@ function MembersPage() {
     );
   };
 
+  // Handle image error
+  const handleImageError = (memberId, e) => {
+    // Add member ID to failed images set to prevent further retries
+    setImageErrors((prev) => new Set([...prev, memberId]));
+
+    // Set fallback immediately to prevent flickering
+    e.target.style.display = "none";
+  };
+
   // Calculer les statistiques
   const total = filteredMembers.length;
   const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
-  const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
+  const femaleCount = filteredMembers.filter(
+    (m) => m.gender === "Femme"
+  ).length;
   const expiredCount = filteredMembers.filter((m) => {
     if (!m.endDate) return true;
     try {
@@ -144,14 +165,14 @@ function MembersPage() {
       return true;
     }
   }).length;
-  
+
   const noCertCount = filteredMembers.filter((m) => {
     if (!m.files) return true;
     if (Array.isArray(m.files)) return m.files.length === 0;
-    if (typeof m.files === 'string') return m.files === '[]' || m.files === '';
+    if (typeof m.files === "string") return m.files === "[]" || m.files === "";
     return Object.keys(m.files).length === 0;
   }).length;
-  
+
   const recentCount = filteredMembers.filter((m) => {
     if (!m.startDate) return false;
     try {
@@ -184,12 +205,61 @@ function MembersPage() {
     }
   };
 
+  // Component for avatar with fallback
+  const MemberAvatar = ({ member }) => {
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
+
+    // If we know the image failed before or there's no photo, show fallback immediately
+    const shouldShowFallback = !member.photo || imageFailed;
+
+    if (shouldShowFallback) {
+      return (
+        <div className="w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center bg-gray-100">
+          <FaUser
+            className={`text-xl ${
+              member.gender === "Femme" ? "text-pink-500" : "text-blue-500"
+            }`}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative w-12 h-12">
+        {!imageLoaded && (
+          <div className="absolute inset-0 rounded-full border border-gray-200 flex items-center justify-center bg-gray-100">
+            <FaUser
+              className={`text-xl ${
+                member.gender === "Femme" ? "text-pink-500" : "text-blue-500"
+              }`}
+            />
+          </div>
+        )}
+        <img
+          src={member.photo}
+          alt="avatar"
+          className={`w-12 h-12 object-cover rounded-full border border-gray-200 ${
+            imageLoaded ? "opacity-100" : "opacity-0"
+          } transition-opacity duration-200`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            setImageFailed(true);
+            setImageErrors((prev) => new Set([...prev, member.id]));
+          }}
+        />
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des membres depuis Supabase...</p>
+          <p className="text-gray-600">
+            Chargement des membres depuis Supabase...
+          </p>
         </div>
       </div>
     );
@@ -204,7 +274,7 @@ function MembersPage() {
           onClick={fetchMembers}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
         >
-          <Fasync />
+          <FaSync />
           Réessayer
         </button>
       </div>
@@ -226,7 +296,7 @@ function MembersPage() {
           className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-2 disabled:opacity-50"
           title="Actualiser la liste"
         >
-          <FaSync className={loading ? 'animate-spin' : ''} />
+          <FaSync className={loading ? "animate-spin" : ""} />
           Actualiser
         </button>
       </div>
@@ -235,7 +305,9 @@ function MembersPage() {
         <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
           <div className="flex justify-between items-center">
             <span className="text-blue-700">
-              Filtre actif : <strong>{activeFilter}</strong> ({filteredMembers.length} résultat{filteredMembers.length !== 1 ? 's' : ''})
+              Filtre actif : <strong>{activeFilter}</strong> (
+              {filteredMembers.length} résultat
+              {filteredMembers.length !== 1 ? "s" : ""})
             </span>
             <button
               onClick={() => setActiveFilter(null)}
@@ -249,13 +321,48 @@ function MembersPage() {
 
       {/* Widgets de statistiques */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-        <Widget title="👥 Total" value={total} onClick={() => setActiveFilter(null)} active={!activeFilter} />
-        <Widget title="👨 Hommes" value={maleCount} onClick={() => setActiveFilter("Homme")} active={activeFilter === "Homme"} />
-        <Widget title="👩 Femmes" value={femaleCount} onClick={() => setActiveFilter("Femme")} active={activeFilter === "Femme"} />
-        <Widget title="🎓 Étudiants" value={studentCount} onClick={() => setActiveFilter("Etudiant")} active={activeFilter === "Etudiant"} />
-        <Widget title="📅 Expirés" value={expiredCount} onClick={() => setActiveFilter("Expiré")} active={activeFilter === "Expiré"} />
-        <Widget title="✅ Récents" value={recentCount} onClick={() => setActiveFilter("Récent")} active={activeFilter === "Récent"} />
-        <Widget title="📂 Sans certif" value={noCertCount} onClick={() => setActiveFilter("SansCertif")} active={activeFilter === "SansCertif"} />
+        <Widget
+          title="👥 Total"
+          value={total}
+          onClick={() => setActiveFilter(null)}
+          active={!activeFilter}
+        />
+        <Widget
+          title="👨 Hommes"
+          value={maleCount}
+          onClick={() => setActiveFilter("Homme")}
+          active={activeFilter === "Homme"}
+        />
+        <Widget
+          title="👩 Femmes"
+          value={femaleCount}
+          onClick={() => setActiveFilter("Femme")}
+          active={activeFilter === "Femme"}
+        />
+        <Widget
+          title="🎓 Étudiants"
+          value={studentCount}
+          onClick={() => setActiveFilter("Etudiant")}
+          active={activeFilter === "Etudiant"}
+        />
+        <Widget
+          title="📅 Expirés"
+          value={expiredCount}
+          onClick={() => setActiveFilter("Expiré")}
+          active={activeFilter === "Expiré"}
+        />
+        <Widget
+          title="✅ Récents"
+          value={recentCount}
+          onClick={() => setActiveFilter("Récent")}
+          active={activeFilter === "Récent"}
+        />
+        <Widget
+          title="📂 Sans certif"
+          value={noCertCount}
+          onClick={() => setActiveFilter("SansCertif")}
+          active={activeFilter === "SansCertif"}
+        />
       </div>
 
       {/* Barre d'actions */}
@@ -281,7 +388,7 @@ function MembersPage() {
             </button>
           )}
         </div>
-        
+
         <div className="flex items-center gap-4 w-full sm:w-auto">
           <input
             type="text"
@@ -293,218 +400,464 @@ function MembersPage() {
         </div>
       </div>
 
-      {/* Tableau des membres */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="p-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.length === filteredMembers.length && filteredMembers.length > 0}
-                    onChange={toggleSelectAll}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                </th>
-                <th className="p-3 text-left">Photo</th>
-                <th className="p-3 text-left">
-                  <button
-                    onClick={() => setSortAsc(!sortAsc)}
-                    className="flex items-center gap-1 font-medium text-gray-700 hover:text-gray-900"
-                  >
-                    Nom {sortAsc ? "▲" : "▼"}
-                  </button>
-                </th>
-                <th className="p-3 text-left">Infos</th>
-                <th className="p-3 text-left">Abonnement</th>
-                <th className="p-3 text-left">Badge</th>
-                <th className="p-3 text-left">Status</th>
-                <th className="p-3 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredMembers.length === 0 ? (
-                <tr>
-                  <td colSpan="8" className="p-8 text-center text-gray-500">
-                    {search || activeFilter 
-                      ? "Aucun membre ne correspond aux critères de recherche"
-                      : "Aucun membre trouvé dans la base de données"
-                    }
-                  </td>
-                </tr>
-              ) : (
-                filteredMembers.map((member) => {
-                  const isExpired = member.endDate ? (() => {
+      {/* Contrôles de tri en mode desktop */}
+      <div className="hidden lg:flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={
+                selectedIds.length === filteredMembers.length &&
+                filteredMembers.length > 0
+              }
+              onChange={toggleSelectAll}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-600">Sélectionner tout</span>
+          </label>
+        </div>
+        <button
+          onClick={() => setSortAsc(!sortAsc)}
+          className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <span className="text-sm font-medium text-gray-700">
+            Trier par nom
+          </span>
+          {sortAsc ? "▲" : "▼"}
+        </button>
+      </div>
+
+      {filteredMembers.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-sm border p-8 text-center text-gray-500">
+          {search || activeFilter
+            ? "Aucun membre ne correspond aux critères de recherche"
+            : "Aucun membre trouvé dans la base de données"}
+        </div>
+      ) : (
+        <>
+          {/* Vue tableau pour desktop */}
+          <div className="hidden lg:block bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="p-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedIds.length === filteredMembers.length &&
+                          filteredMembers.length > 0
+                        }
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                    </th>
+                    <th className="p-3 text-left">Photo</th>
+                    <th className="p-3 text-left">
+                      <button
+                        onClick={() => setSortAsc(!sortAsc)}
+                        className="flex items-center gap-1 font-medium text-gray-700 hover:text-gray-900"
+                      >
+                        Nom {sortAsc ? "▲" : "▼"}
+                      </button>
+                    </th>
+                    <th className="p-3 text-left">Infos</th>
+                    <th className="p-3 text-left">Abonnement</th>
+                    <th className="p-3 text-left">Badge</th>
+                    <th className="p-3 text-left">Status</th>
+                    <th className="p-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredMembers.map((member) => {
+                    const isExpired = member.endDate
+                      ? (() => {
+                          try {
+                            return isBefore(
+                              parseISO(member.endDate),
+                              new Date()
+                            );
+                          } catch (e) {
+                            return true;
+                          }
+                        })()
+                      : true;
+
+                    const hasFiles =
+                      member.files &&
+                      (Array.isArray(member.files)
+                        ? member.files.length > 0
+                        : typeof member.files === "string"
+                        ? member.files !== "[]" && member.files !== ""
+                        : Object.keys(member.files).length > 0);
+
+                    return (
+                      <tr
+                        key={member.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="p-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(member.id)}
+                            onChange={() => toggleSelect(member.id)}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                          />
+                        </td>
+
+                        <td className="p-3">
+                          <MemberAvatar member={member} />
+                        </td>
+
+                        <td
+                          className="p-3 cursor-pointer hover:text-blue-600 transition-colors"
+                          onDoubleClick={() => {
+                            setSelectedMember(member);
+                            setShowForm(true);
+                          }}
+                          title="Double-clic pour modifier"
+                        >
+                          <div className="font-medium text-gray-900">
+                            {member.name} {member.firstName}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            ID: {member.id}
+                          </div>
+                        </td>
+
+                        <td className="p-3">
+                          <div className="text-sm space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  member.gender === "Femme"
+                                    ? "bg-pink-100 text-pink-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}
+                              >
+                                {member.gender}
+                              </span>
+                              {member.etudiant && (
+                                <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium">
+                                  🎓 Étudiant
+                                </span>
+                              )}
+                            </div>
+                            {member.email && (
+                              <div
+                                className="text-gray-600 text-xs truncate max-w-[200px]"
+                                title={member.email}
+                              >
+                                📧 {member.email}
+                              </div>
+                            )}
+                            {member.mobile && (
+                              <div className="text-gray-600 text-xs">
+                                📱 {member.mobile}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-3">
+                          <div className="space-y-1">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(
+                                member.subscriptionType
+                              )}`}
+                            >
+                              {member.subscriptionType || "Non défini"}
+                            </span>
+                            {member.startDate && (
+                              <div className="text-xs text-gray-500">
+                                Début: {member.startDate}
+                              </div>
+                            )}
+                            {member.endDate && (
+                              <div
+                                className={`text-xs ${
+                                  isExpired
+                                    ? "text-red-600 font-medium"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                Fin: {member.endDate}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-3">
+                          <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono">
+                            {member.badgeId || "—"}
+                          </span>
+                        </td>
+
+                        <td className="p-3">
+                          <div className="flex flex-col gap-1">
+                            {isExpired ? (
+                              <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                                ⚠️ Expiré
+                              </span>
+                            ) : (
+                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                                ✅ Actif
+                              </span>
+                            )}
+                            {hasFiles ? (
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                                📄 Docs OK
+                              </span>
+                            ) : (
+                              <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+                                📄 Manquant
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-3">
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedMember(member);
+                                setShowForm(true);
+                              }}
+                              className="flex items-center gap-1 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-sm transition-colors"
+                              title="Modifier ce membre"
+                            >
+                              <FaEdit className="w-3 h-3" />
+                              Modifier
+                            </button>
+                            <button
+                              onClick={() => handleDelete(member.id)}
+                              className="flex items-center gap-1 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm transition-colors"
+                              title="Supprimer ce membre"
+                            >
+                              <FaTrash className="w-3 h-3" />
+                              Supprimer
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Vue cartes pour mobile/tablette */}
+          <div className="lg:hidden space-y-4">
+            {/* Contrôles de tri mobile */}
+            <div className="flex items-center justify-between mb-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={
+                    selectedIds.length === filteredMembers.length &&
+                    filteredMembers.length > 0
+                  }
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600">Tout sélectionner</span>
+              </label>
+              <button
+                onClick={() => setSortAsc(!sortAsc)}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+              >
+                Nom {sortAsc ? "▲" : "▼"}
+              </button>
+            </div>
+
+            {filteredMembers.map((member) => {
+              const isExpired = member.endDate
+                ? (() => {
                     try {
                       return isBefore(parseISO(member.endDate), new Date());
                     } catch (e) {
                       return true;
                     }
-                  })() : true;
+                  })()
+                : true;
 
-                  const hasFiles = member.files && (
-                    Array.isArray(member.files) ? member.files.length > 0 :
-                    typeof member.files === 'string' ? member.files !== '[]' && member.files !== '' :
-                    Object.keys(member.files).length > 0
-                  );
+              const hasFiles =
+                member.files &&
+                (Array.isArray(member.files)
+                  ? member.files.length > 0
+                  : typeof member.files === "string"
+                  ? member.files !== "[]" && member.files !== ""
+                  : Object.keys(member.files).length > 0);
 
-                  return (
-                    <tr key={member.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="p-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(member.id)}
-                          onChange={() => toggleSelect(member.id)}
-                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                      </td>
-                      
-                      <td className="p-3">
-                        <img
-                          src={
-                            member.photo ||
-                            (member.gender === "Femme"
-                              ? "/images/default_female.png"
-                              : "/images/default_male.png")
-                          }
-                          alt="avatar"
-                          className="w-12 h-12 object-cover rounded-full border border-gray-200"
-                          onError={(e) => {
-                            e.target.src = member.gender === "Femme" 
-                              ? "https://via.placeholder.com/48/FF69B4/FFFFFF?text=F"
-                              : "https://via.placeholder.com/48/4169E1/FFFFFF?text=H";
-                          }}
-                        />
-                      </td>
-                      
-                      <td
-                        className="p-3 cursor-pointer hover:text-blue-600 transition-colors"
-                        onDoubleClick={() => {
+              return (
+                <div
+                  key={member.id}
+                  className="bg-white rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow"
+                >
+                  {/* En-tête de la carte */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(member.id)}
+                        onChange={() => toggleSelect(member.id)}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
+                      />
+                      <MemberAvatar member={member} />
+                      <div
+                        className="flex-1 cursor-pointer"
+                        onClick={() => {
                           setSelectedMember(member);
                           setShowForm(true);
                         }}
-                        title="Double-clic pour modifier"
                       >
-                        <div className="font-medium text-gray-900">
+                        <div className="font-semibold text-gray-900 text-lg">
                           {member.name} {member.firstName}
                         </div>
-                        <div className="text-sm text-gray-500">ID: {member.id}</div>
-                      </td>
-                      
-                      <td className="p-3">
-                        <div className="text-sm space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              member.gender === "Femme"
-                                ? "bg-pink-100 text-pink-700"
-                                : "bg-blue-100 text-blue-700"
-                            }`}>
-                              {member.gender}
-                            </span>
-                            {member.etudiant && (
-                              <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium">
-                                🎓 Étudiant
-                              </span>
-                            )}
-                          </div>
-                          {member.email && (
-                            <div className="text-gray-600 text-xs truncate max-w-[200px]" title={member.email}>
-                              📧 {member.email}
-                            </div>
-                          )}
-                          {member.mobile && (
-                            <div className="text-gray-600 text-xs">📱 {member.mobile}</div>
-                          )}
+                        <div className="text-sm text-gray-500">
+                          ID: {member.id}
                         </div>
-                      </td>
-                      
-                      <td className="p-3">
-                        <div className="space-y-1">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(member.subscriptionType)}`}>
-                            {member.subscriptionType || "Non défini"}
-                          </span>
-                          {member.startDate && (
-                            <div className="text-xs text-gray-500">
-                              Début: {member.startDate}
-                            </div>
-                          )}
-                          {member.endDate && (
-                            <div className={`text-xs ${isExpired ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                              Fin: {member.endDate}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      
-                      <td className="p-3">
-                        <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono">
-                          {member.badgeId || "—"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Informations personnelles */}
+                  <div className="mb-3">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          member.gender === "Femme"
+                            ? "bg-pink-100 text-pink-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {member.gender}
+                      </span>
+                      {member.etudiant && (
+                        <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium">
+                          🎓 Étudiant
                         </span>
-                      </td>
-                      
-                      <td className="p-3">
-                        <div className="flex flex-col gap-1">
-                          {isExpired ? (
-                            <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
-                              ⚠️ Expiré
-                            </span>
-                          ) : (
-                            <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                              ✅ Actif
-                            </span>
-                          )}
-                          {hasFiles ? (
-                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                              📄 Docs OK
-                            </span>
-                          ) : (
-                            <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
-                              📄 Manquant
-                            </span>
-                          )}
+                      )}
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(
+                          member.subscriptionType
+                        )}`}
+                      >
+                        {member.subscriptionType || "Non défini"}
+                      </span>
+                    </div>
+
+                    {/* Contact */}
+                    <div className="space-y-1 text-sm text-gray-600">
+                      {member.email && (
+                        <div className="flex items-center gap-2">
+                          <span>📧</span>
+                          <span className="truncate">{member.email}</span>
                         </div>
-                      </td>
-                      
-                      <td className="p-3">
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedMember(member);
-                              setShowForm(true);
-                            }}
-                            className="flex items-center gap-1 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-sm transition-colors"
-                            title="Modifier ce membre"
-                          >
-                            <FaEdit className="w-3 h-3" />
-                            Modifier
-                          </button>
-                          <button
-                            onClick={() => handleDelete(member.id)}
-                            className="flex items-center gap-1 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm transition-colors"
-                            title="Supprimer ce membre"
-                          >
-                            <FaTrash className="w-3 h-3" />
-                            Supprimer
-                          </button>
+                      )}
+                      {member.mobile && (
+                        <div className="flex items-center gap-2">
+                          <span>📱</span>
+                          <span>{member.mobile}</span>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Abonnement et Badge */}
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <div className="text-xs font-medium text-gray-500 mb-1">
+                        ABONNEMENT
+                      </div>
+                      <div className="space-y-1">
+                        {member.startDate && (
+                          <div className="text-xs text-gray-600">
+                            Début: {member.startDate}
+                          </div>
+                        )}
+                        {member.endDate && (
+                          <div
+                            className={`text-xs ${
+                              isExpired
+                                ? "text-red-600 font-medium"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            Fin: {member.endDate}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-gray-500 mb-1">
+                        BADGE
+                      </div>
+                      <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono">
+                        {member.badgeId || "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {isExpired ? (
+                      <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                        ⚠️ Expiré
+                      </span>
+                    ) : (
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                        ✅ Actif
+                      </span>
+                    )}
+                    {hasFiles ? (
+                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                        📄 Docs OK
+                      </span>
+                    ) : (
+                      <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+                        📄 Manquant
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => {
+                        setSelectedMember(member);
+                        setShowForm(true);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-sm transition-colors"
+                    >
+                      <FaEdit className="w-3 h-3" />
+                      Modifier
+                    </button>
+                    <button
+                      onClick={() => handleDelete(member.id)}
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg text-sm transition-colors"
+                    >
+                      <FaTrash className="w-3 h-3" />
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* Résumé en bas */}
       {filteredMembers.length > 0 && (
         <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
-          Affichage de {filteredMembers.length} membre{filteredMembers.length !== 1 ? 's' : ''} sur {members.length} total
+          Affichage de {filteredMembers.length} membre
+          {filteredMembers.length !== 1 ? "s" : ""} sur {members.length} total
           {selectedIds.length > 0 && (
             <span className="ml-4 text-blue-600 font-medium">
-              • {selectedIds.length} sélectionné{selectedIds.length !== 1 ? 's' : ''}
+              • {selectedIds.length} sélectionné
+              {selectedIds.length !== 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -518,24 +871,32 @@ function MembersPage() {
               member={selectedMember}
               onSave={async (memberData, closeModal) => {
                 try {
-                  console.log("💾 Sauvegarde membre:", selectedMember ? "Modification" : "Création");
-                  
+                  console.log(
+                    "💾 Sauvegarde membre:",
+                    selectedMember ? "Modification" : "Création"
+                  );
+
                   if (selectedMember?.id) {
                     // Modification d'un membre existant
-                    await supabaseServices.updateMember(selectedMember.id, memberData);
+                    await supabaseServices.updateMember(
+                      selectedMember.id,
+                      memberData
+                    );
                     console.log("✅ Membre modifié:", selectedMember.id);
                   } else {
                     // Création d'un nouveau membre
-                    const newMember = await supabaseServices.createMember(memberData);
+                    const newMember = await supabaseServices.createMember(
+                      memberData
+                    );
                     console.log("✅ Nouveau membre créé:", newMember.id);
                   }
-                  
+
                   // Fermer le modal si demandé
                   if (closeModal) {
                     setShowForm(false);
                     setSelectedMember(null);
                   }
-                  
+
                   // Recharger la liste
                   await fetchMembers();
                 } catch (error) {
@@ -562,14 +923,22 @@ function Widget({ title, value, onClick, active = false }) {
       onClick={onClick}
       className={`p-3 rounded-lg text-center cursor-pointer transition-all hover:scale-105 border-2 ${
         active
-          ? 'bg-blue-100 border-blue-300 shadow-md'
-          : 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-200 shadow-sm'
+          ? "bg-blue-100 border-blue-300 shadow-md"
+          : "bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-200 shadow-sm"
       }`}
     >
-      <div className={`text-sm ${active ? 'text-blue-700 font-medium' : 'text-gray-500'}`}>
+      <div
+        className={`text-sm ${
+          active ? "text-blue-700 font-medium" : "text-gray-500"
+        }`}
+      >
         {title}
       </div>
-      <div className={`text-xl font-bold ${active ? 'text-blue-800' : 'text-gray-800'}`}>
+      <div
+        className={`text-xl font-bold ${
+          active ? "text-blue-800" : "text-gray-800"
+        }`}
+      >
         {value}
       </div>
     </div>
