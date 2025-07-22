@@ -60,8 +60,8 @@ function InputField({ label, icon: Icon, error, ...props }) {
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
     </div>
-  ); // ← Point-virgule ajouté après la parenthèse fermante
-} // ← Une seule accolade fermante
+  );
+}
 
 function SelectField({ label, options, icon: Icon, error, ...props }) {
   return (
@@ -258,10 +258,12 @@ export default function MemberForm({ member, onSave, onCancel }) {
         containerRef.current.hasMoved = true;
 
         // Déterminer si c'est un mouvement horizontal ou vertical
-        if (absX > absY && absX > 20) {
+        if (absX > absY && absX > 30) {
+          // Seuil plus élevé pour l'horizontal
           // Mouvement horizontal - activer le swipe
           containerRef.current.isHorizontal = true;
           isDraggingRef.current = true;
+          e.preventDefault(); // Empêcher le scroll seulement pour le swipe horizontal
         } else {
           // Mouvement vertical - laisser le scroll normal
           containerRef.current.isHorizontal = false;
@@ -1322,10 +1324,10 @@ export default function MemberForm({ member, onSave, onCancel }) {
       )}
 
       {/* Contenu des onglets avec gestion du swipe */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <div
           ref={containerRef}
-          className="h-full overflow-y-auto"
+          className="flex-1 overflow-y-auto overflow-x-hidden"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -1336,7 +1338,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
               : "transform 0.3s ease-out",
           }}
         >
-          <div className="p-4 md:p-6">
+          <div className="p-4 md:p-6 min-h-full">
             <form onSubmit={handleSubmit}>{renderCurrentTab()}</form>
           </div>
         </div>
