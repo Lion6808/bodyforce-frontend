@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import Modal from "react-modal";
-import { FaCamera, FaFileUpload, FaTrash, FaDownload } from "react-icons/fa";
+import { FaCamera, FaFileUpload, FaTrash, FaDownload, FaUser, FaHome, FaCreditCard, FaFileAlt, FaEuroSign, FaCalendarAlt, FaIdCard, FaPhone, FaEnvelope, FaGraduationCap, FaCheck, FaTimes, FaEye } from "react-icons/fa";
 import { supabase } from "../supabaseClient";
 
 const subscriptionDurations = {
@@ -20,28 +20,95 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 
-function InputField({ label, ...props }) {
+function InputField({ label, icon: Icon, error, ...props }) {
   return (
-    <div>
-      <label className="block text-sm text-gray-700 mb-1">{label}</label>
-      <input {...props} className="w-full border p-2 rounded" />
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        {Icon && <Icon className="w-4 h-4 text-gray-500" />}
+        {label}
+      </label>
+      <div className="relative">
+        <input 
+          {...props} 
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+            error ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300 focus:border-blue-500'
+          }`}
+        />
+        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      </div>
     </div>
   );
 }
 
-function SelectField({ label, options, ...props }) {
+function SelectField({ label, options, icon: Icon, error, ...props }) {
   return (
-    <div>
-      <label className="block text-sm text-gray-700 mb-1">{label}</label>
-      <select {...props} className="w-full border p-2 rounded">
-        {options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        {Icon && <Icon className="w-4 h-4 text-gray-500" />}
+        {label}
+      </label>
+      <div className="relative">
+        <select 
+          {...props} 
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+            error ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300 focus:border-blue-500'
+          }`}
+        >
+          {options.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      </div>
     </div>
   );
 }
+
+function TabButton({ active, onClick, icon: Icon, children, count }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-3 px-6 py-3 rounded-xl font-medium transition-all duration-200 relative ${
+        active 
+          ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg transform scale-105' 
+          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+      }`}
+    >
+      <Icon className="w-5 h-5" />
+      <span>{children}</span>
+      {count !== undefined && (
+        <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+          active ? 'bg-white bg-opacity-20' : 'bg-gray-200 text-gray-600'
+        }`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function StatusBadge({ isExpired, isStudent }) {
+  return (
+    <div className="flex gap-2">
+      {isExpired && (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+          <FaTimes className="w-3 h-3 mr-1" />
+          Expiré
+        </span>
+      )}
+      {isStudent && (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+          <FaGraduationCap className="w-3 h-3 mr-1" />
+          Étudiant
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function MemberForm({ member, onSave, onCancel }) {
+  const [activeTab, setActiveTab] = useState('identity');
   const [form, setForm] = useState({
     name: "",
     firstName: "",
@@ -61,16 +128,13 @@ export default function MemberForm({ member, onSave, onCancel }) {
   });
 
   const [payments, setPayments] = useState([]);
-
-
   const [newPayment, setNewPayment] = useState({
     amount: "",
     method: "espèces",
     encaissement_prevu: "",
     commentaire: "",
-    is_paid: false, // ✅ Ajouté ici
+    is_paid: false,
   });
-
 
   const [webcamOpen, setWebcamOpen] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ loading: false, error: null, success: null });
@@ -94,6 +158,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       }
     }
   }, [member]);
+
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
       .from("payments")
@@ -119,10 +184,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
         method: newPayment.method,
         encaissement_prevu: newPayment.encaissement_prevu || null,
         commentaire: newPayment.commentaire || "",
-        is_paid: newPayment.is_paid || false, // ✅ Ajouté ici
+        is_paid: newPayment.is_paid || false,
       },
     ]);
-
 
     if (error) {
       console.error("Erreur ajout paiement :", error.message);
@@ -134,6 +198,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       method: "espèces",
       encaissement_prevu: "",
       commentaire: "",
+      is_paid: false,
     });
 
     fetchPayments(member.id);
@@ -147,6 +212,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
     }
     fetchPayments(member.id);
   };
+
   const togglePaymentStatus = async (paymentId, newStatus) => {
     const { error } = await supabase
       .from("payments")
@@ -158,7 +224,7 @@ export default function MemberForm({ member, onSave, onCancel }) {
       return;
     }
 
-    fetchPayments(member.id); // Recharge les paiements
+    fetchPayments(member.id);
   };
 
   useEffect(() => {
@@ -196,8 +262,9 @@ export default function MemberForm({ member, onSave, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ ...form, files: JSON.stringify(form.files) }, true); // Fermer le modal
+    onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
+
   const handleFileUpload = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
@@ -218,7 +285,8 @@ export default function MemberForm({ member, onSave, onCancel }) {
           files: [...f.files, { name: safeName, url: data.publicUrl }],
         }));
       }
-      setUploadStatus({ loading: false, error: null, success: "Fichiers ajoutés" });
+      setUploadStatus({ loading: false, error: null, success: "Fichiers ajoutés avec succès !" });
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       console.error("Erreur lors du téléversement :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
@@ -237,13 +305,15 @@ export default function MemberForm({ member, onSave, onCancel }) {
       }
 
       setForm((f) => ({ ...f, photo: imageSrc }));
-      setUploadStatus({ loading: false, error: null, success: "Photo capturée" });
+      setUploadStatus({ loading: false, error: null, success: "Photo capturée avec succès !" });
       setWebcamOpen(false);
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       console.error("Erreur lors de la capture :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
   };
+
   const captureDocument = async () => {
     if (!webcamRef.current || !webcamReady) {
       setUploadStatus({ loading: false, error: "Webcam non disponible ou non prête", success: null });
@@ -272,10 +342,11 @@ export default function MemberForm({ member, onSave, onCancel }) {
         ...f,
         files: [...f.files, { name: fileName, url: data.publicUrl }],
       }));
-      setUploadStatus({ loading: false, error: null, success: "Fichier ajouté" });
+      setUploadStatus({ loading: false, error: null, success: "Document capturé avec succès !" });
       setWebcamOpen(false);
 
       await onSave({ ...form, files: JSON.stringify([...form.files, { name: fileName, url: data.publicUrl }]) }, false);
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       console.error("Erreur lors de la capture du document :", err);
       setUploadStatus({
@@ -307,12 +378,461 @@ export default function MemberForm({ member, onSave, onCancel }) {
       setForm((f) => ({ ...f, files: newFiles }));
 
       await onSave({ ...form, files: JSON.stringify(newFiles) }, false);
-      setUploadStatus({ loading: false, error: null, success: "Fichier supprimé et profil mis à jour" });
+      setUploadStatus({ loading: false, error: null, success: "Fichier supprimé avec succès !" });
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       console.error("Erreur suppression fichier :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
   };
+
+  const renderIdentityTab = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField 
+              label="Nom" 
+              name="name" 
+              value={form.name} 
+              onChange={handleChange}
+              icon={FaUser}
+              placeholder="Nom de famille"
+            />
+            <InputField 
+              label="Prénom" 
+              name="firstName" 
+              value={form.firstName} 
+              onChange={handleChange}
+              icon={FaUser}
+              placeholder="Prénom"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField 
+              type="date" 
+              label="Date de naissance" 
+              name="birthdate" 
+              value={form.birthdate} 
+              onChange={handleChange}
+              icon={FaCalendarAlt}
+            />
+            <SelectField 
+              label="Sexe" 
+              name="gender" 
+              value={form.gender} 
+              onChange={handleChange}
+              options={["Homme", "Femme"]}
+              icon={FaUser}
+            />
+          </div>
+
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <FaGraduationCap className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800">Statut étudiant</h3>
+                  <p className="text-sm text-gray-600">Bénéficiez de tarifs préférentiels</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  form.etudiant ? "bg-gradient-to-r from-blue-500 to-purple-600" : "bg-gray-300"
+                }`}
+              >
+                <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${
+                  form.etudiant ? "translate-x-7" : ""
+                }`} />
+              </button>
+            </div>
+          </div>
+
+          {age !== null && (
+            <div className="bg-gray-50 p-4 rounded-xl">
+              <div className="flex items-center gap-3">
+                <FaCalendarAlt className="w-5 h-5 text-gray-500" />
+                <span className="text-gray-700 font-medium">Âge : {age} ans</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col items-center space-y-4">
+          <div className="relative">
+            {form.photo ? (
+              <img 
+                src={form.photo} 
+                alt="Photo du membre" 
+                className="w-40 h-40 object-cover rounded-2xl border-4 border-white shadow-lg"
+              />
+            ) : (
+              <div className="w-40 h-40 flex items-center justify-center border-4 border-dashed border-gray-300 rounded-2xl text-gray-400 bg-gray-50">
+                <div className="text-center">
+                  <FaUser className="w-12 h-12 mx-auto mb-2" />
+                  <p className="text-sm">Pas de photo</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setWebcamReady(false);
+              setWebcamOpen("photo");
+            }}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            <FaCamera className="w-4 h-4" />
+            Prendre une photo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderContactTab = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <InputField 
+          label="Adresse complète" 
+          name="address" 
+          value={form.address} 
+          onChange={handleChange}
+          icon={FaHome}
+          placeholder="Numéro, rue, ville, code postal"
+        />
+        <InputField 
+          label="Email" 
+          name="email" 
+          type="email"
+          value={form.email} 
+          onChange={handleChange}
+          icon={FaEnvelope}
+          placeholder="exemple@email.com"
+        />
+        <InputField 
+          label="Téléphone fixe" 
+          name="phone" 
+          value={form.phone} 
+          onChange={handleChange}
+          icon={FaPhone}
+          placeholder="01 23 45 67 89"
+        />
+        <InputField 
+          label="Téléphone portable" 
+          name="mobile" 
+          value={form.mobile} 
+          onChange={handleChange}
+          icon={FaPhone}
+          placeholder="06 12 34 56 78"
+        />
+      </div>
+    </div>
+  );
+
+  const renderSubscriptionTab = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SelectField 
+          label="Type d'abonnement" 
+          name="subscriptionType" 
+          value={form.subscriptionType} 
+          onChange={handleChange} 
+          options={Object.keys(subscriptionDurations)}
+          icon={FaCreditCard}
+        />
+        <InputField 
+          label="ID Badge" 
+          name="badgeId" 
+          value={form.badgeId} 
+          onChange={handleChange}
+          icon={FaIdCard}
+          placeholder="Numéro du badge d'accès"
+        />
+        <InputField 
+          type="date" 
+          label="Date de début" 
+          name="startDate" 
+          value={form.startDate} 
+          onChange={handleChange}
+          icon={FaCalendarAlt}
+        />
+        <InputField 
+          type="date" 
+          label="Date de fin" 
+          name="endDate" 
+          value={form.endDate} 
+          readOnly
+          icon={FaCalendarAlt}
+        />
+      </div>
+      
+      {isExpired && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-xl">
+          <div className="flex items-center">
+            <FaTimes className="w-5 h-5 text-red-400 mr-2" />
+            <p className="text-red-800 font-medium">Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderDocumentsTab = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <label 
+          htmlFor="fileUpload" 
+          className="cursor-pointer flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+        >
+          <FaFileUpload className="w-4 h-4" />
+          Importer des fichiers
+        </label>
+        <input 
+          type="file" 
+          id="fileUpload" 
+          className="hidden" 
+          multiple 
+          onChange={handleFileUpload}
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setWebcamReady(false);
+            setWebcamOpen("doc");
+          }}
+          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+        >
+          <FaCamera className="w-4 h-4" />
+          Photographier un document
+        </button>
+      </div>
+
+      {form.files.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {form.files.map((file) => (
+            <div key={file.name} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <FaFileAlt className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-gray-800 truncate">{file.name}</h4>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {file.url && (
+                      <>
+                        <a 
+                          href={file.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-lg hover:bg-blue-200 transition-colors"
+                        >
+                          <FaEye className="w-3 h-3" />
+                          Voir
+                        </a>
+                        <a 
+                          href={file.url} 
+                          download={file.name} 
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 text-sm rounded-lg hover:bg-green-200 transition-colors"
+                        >
+                          <FaDownload className="w-3 h-3" />
+                          Télécharger
+                        </a>
+                      </>
+                    )}
+                    <button
+                      onClick={(e) => removeFile(file, e)}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 text-sm rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      <FaTrash className="w-3 h-3" />
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+          <FaFileAlt className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg font-medium">Aucun document</p>
+          <p className="text-gray-400 text-sm">Importez des certificats, documents d'identité, etc.</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPaymentsTab = () => (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200">
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-4">
+          <FaEuroSign className="w-5 h-5 text-green-600" />
+          Nouveau paiement
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <InputField
+            label="Montant (€)"
+            type="number"
+            name="amount"
+            value={newPayment.amount}
+            onChange={(e) => setNewPayment((p) => ({ ...p, amount: e.target.value }))}
+            icon={FaEuroSign}
+            placeholder="0.00"
+            step="0.01"
+          />
+          <SelectField
+            label="Méthode de paiement"
+            name="method"
+            value={newPayment.method}
+            onChange={(e) => setNewPayment((p) => ({ ...p, method: e.target.value }))}
+            options={["espèces", "chèque", "carte", "virement", "autre"]}
+            icon={FaCreditCard}
+          />
+          <InputField
+            label="Encaissement prévu"
+            type="date"
+            name="encaissement_prevu"
+            value={newPayment.encaissement_prevu}
+            onChange={(e) => setNewPayment((p) => ({ ...p, encaissement_prevu: e.target.value }))}
+            icon={FaCalendarAlt}
+          />
+        </div>
+
+        <div className="mb-4">
+          <InputField
+            label="Commentaire"
+            name="commentaire"
+            value={newPayment.commentaire}
+            onChange={(e) => setNewPayment((p) => ({ ...p, commentaire: e.target.value }))}
+            placeholder="Note ou commentaire sur ce paiement"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-3 text-sm font-medium text-gray-700 cursor-pointer">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={newPayment.is_paid}
+                onChange={(e) => setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))}
+                className="sr-only"
+              />
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                newPayment.is_paid ? 'bg-green-500 border-green-500' : 'border-gray-300'
+              }`}>
+                {newPayment.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+              </div>
+            </div>
+            Paiement déjà encaissé
+          </label>
+          
+          <button
+            type="button"
+            onClick={handleAddPayment}
+            disabled={!newPayment.amount}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            <FaEuroSign className="w-4 h-4" />
+            Ajouter le paiement
+          </button>
+        </div>
+      </div>
+
+      {/* Liste des paiements */}
+      {payments.length > 0 ? (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-800">Historique des paiements</h3>
+          {payments.map((pay) => (
+            <div key={pay.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`p-2 rounded-lg ${pay.is_paid ? 'bg-green-100' : 'bg-orange-100'}`}>
+                      <FaEuroSign className={`w-4 h-4 ${pay.is_paid ? 'text-green-600' : 'text-orange-600'}`} />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-lg text-gray-800">{pay.amount.toFixed(2)} €</h4>
+                      <p className="text-sm text-gray-600 capitalize">{pay.method}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={pay.is_paid}
+                        onChange={() => togglePaymentStatus(pay.id, !pay.is_paid)}
+                        className="sr-only"
+                      />
+                      <button
+                        onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          pay.is_paid ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-green-400'
+                        }`}
+                      >
+                        {pay.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                      </button>
+                      <span className={`text-sm font-medium ${pay.is_paid ? 'text-green-600' : 'text-orange-600'}`}>
+                        {pay.is_paid ? 'Encaissé' : 'En attente'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p>Payé le {new Date(pay.date_paiement).toLocaleDateString()}</p>
+                    {pay.encaissement_prevu && (
+                      <p className="text-blue-600">
+                        Encaissement prévu : {new Date(pay.encaissement_prevu).toLocaleDateString()}
+                      </p>
+                    )}
+                    {pay.commentaire && <p className="italic text-gray-500">{pay.commentaire}</p>}
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => handleDeletePayment(pay.id)}
+                  className="flex items-center gap-1 px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <FaTrash className="w-3 h-3" />
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          ))}
+          
+          <div className="bg-gray-50 p-4 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-gray-700">Total des paiements :</span>
+              <span className="text-2xl font-bold text-green-600">
+                {payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)} €
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+          <FaEuroSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg font-medium">Aucun paiement enregistré</p>
+          <p className="text-gray-400 text-sm">Ajoutez le premier paiement ci-dessus</p>
+        </div>
+      )}
+    </div>
+  );
+
+  const tabs = [
+    { id: 'identity', label: 'Identité', icon: FaUser, component: renderIdentityTab },
+    { id: 'contact', label: 'Contact', icon: FaHome, component: renderContactTab },
+    { id: 'subscription', label: 'Abonnement', icon: FaCreditCard, component: renderSubscriptionTab },
+    { id: 'documents', label: 'Documents', icon: FaFileAlt, component: renderDocumentsTab, count: form.files.length },
+    { id: 'payments', label: 'Paiements', icon: FaEuroSign, component: renderPaymentsTab, count: payments.length },
+  ];
+
   return (
     <Modal
       isOpen={true}
@@ -320,268 +840,174 @@ export default function MemberForm({ member, onSave, onCancel }) {
       shouldCloseOnOverlayClick={false}
       shouldCloseOnEsc={false}
       contentLabel="Fiche Membre"
-      className="bg-white rounded-xl shadow-lg w-full max-w-5xl mx-auto mt-10 outline-none relative flex flex-col"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50"
+      className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl mx-auto mt-4 outline-none relative flex flex-col max-h-[95vh]"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-start z-50 p-4"
     >
-      <div className="absolute top-4 right-6 flex gap-4 z-10">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="bg-gray-300 text-gray-800 px-4 py-1 rounded hover:bg-gray-400 transition"
-        >
-          ❌ Annuler
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition inline-flex items-center gap-2"
-        >
-          ✅ Enregistrer
-        </button>
+      {/* Header avec photo et infos principales */}
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-t-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
+              {form.photo ? (
+                <img src={form.photo} alt="Avatar" className="w-14 h-14 rounded-full object-cover" />
+              ) : (
+                <FaUser className="w-8 h-8 text-white" />
+              )}
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">
+                {form.firstName || form.name ? `${form.firstName} ${form.name}` : 'Nouveau membre'}
+              </h1>
+              <div className="flex items-center gap-4 mt-1">
+                {form.badgeId && (
+                  <span className="flex items-center gap-1 text-sm bg-white bg-opacity-20 px-2 py-1 rounded-full">
+                    <FaIdCard className="w-3 h-3" />
+                    Badge: {form.badgeId}
+                  </span>
+                )}
+                <StatusBadge isExpired={isExpired} isStudent={form.etudiant} />
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all duration-200"
+            >
+              <FaTimes className="w-4 h-4" />
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="flex items-center gap-2 px-6 py-2 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition-all duration-200 font-semibold shadow-lg"
+            >
+              <FaCheck className="w-4 h-4" />
+              Enregistrer
+            </button>
+          </div>
+        </div>
+
+        {/* Onglets */}
+        <div className="flex flex-wrap gap-2">
+          {tabs.map(tab => (
+            <TabButton
+              key={tab.id}
+              active={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              icon={tab.icon}
+              count={tab.count}
+            >
+              {tab.label}
+            </TabButton>
+          ))}
+        </div>
       </div>
 
-      <div className="p-6 pt-20 max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-gray-100 p-4 rounded">
-            <h2 className="text-xl font-semibold mb-4">Identité</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2 grid grid-cols-1 gap-4">
-                <InputField label="Nom" name="name" value={form.name} onChange={handleChange} />
-                <InputField label="Prénom" name="firstName" value={form.firstName} onChange={handleChange} />
-                <InputField type="date" label="Date de naissance" name="birthdate" value={form.birthdate} onChange={handleChange} />
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Sexe</label>
-                  <select name="gender" value={form.gender} onChange={handleChange} className="w-full border p-2 rounded">
-                    <option>Homme</option>
-                    <option>Femme</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-4">
-                  <label htmlFor="etudiant" className="text-sm font-medium text-gray-700">🎓 Étudiant :</label>
-                  <button
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
-                    className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${form.etudiant ? "bg-green-500" : "bg-gray-300"}`}
-                  >
-                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${form.etudiant ? "translate-x-6" : ""}`} />
-                  </button>
-                </div>
-                {age !== null && <div className="text-sm mt-1 text-gray-700">Âge : {age} ans</div>}
-              </div>
-              <div className="flex flex-col items-center justify-start">
-                {form.photo ? (
-                  <img src={form.photo} alt="Photo" className="w-32 h-32 object-cover rounded border mb-2" />
-                ) : (
-                  <div className="w-32 h-32 flex items-center justify-center border rounded text-gray-400 mb-2">Pas de photo</div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWebcamReady(false);
-                    setWebcamOpen("photo");
-                  }}
-                  className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-                >
-                  <FaCamera /> Photo
-                </button>
-              </div>
-            </div>
+      {/* Notifications de statut */}
+      {uploadStatus.loading && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+            <p className="text-blue-700">Téléversement en cours...</p>
           </div>
-          <div className="bg-green-50 p-4 rounded">
-            <h2 className="text-xl font-semibold mb-4">Coordonnées</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField label="Adresse" name="address" value={form.address} onChange={handleChange} />
-              <InputField label="Email" name="email" value={form.email} onChange={handleChange} />
-              <InputField label="Téléphone" name="phone" value={form.phone} onChange={handleChange} />
-              <InputField label="Portable" name="mobile" value={form.mobile} onChange={handleChange} />
-            </div>
+        </div>
+      )}
+      
+      {uploadStatus.error && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4">
+          <div className="flex items-center">
+            <FaTimes className="w-4 h-4 text-red-400 mr-3" />
+            <p className="text-red-700">{uploadStatus.error}</p>
           </div>
-
-          <div className="bg-yellow-50 p-4 rounded">
-            <h2 className="text-xl font-semibold mb-4">Abonnement</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <SelectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} />
-              <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} />
-              <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly />
-              {isExpired && <p className="text-red-600 text-sm">⛔ Abonnement expiré</p>}
-              <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} />
-            </div>
+        </div>
+      )}
+      
+      {uploadStatus.success && (
+        <div className="bg-green-50 border-l-4 border-green-400 p-4">
+          <div className="flex items-center">
+            <FaCheck className="w-4 h-4 text-green-400 mr-3" />
+            <p className="text-green-700">{uploadStatus.success}</p>
           </div>
+        </div>
+      )}
 
-          <div className="bg-pink-50 p-4 rounded">
-            <h2 className="text-xl font-semibold mb-4">Documents / Certificats</h2>
-            <div className="flex flex-col md:flex-row gap-4">
-              <label htmlFor="fileUpload" className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2">
-                <FaFileUpload /> Importer un fichier
-              </label>
-              <input type="file" id="fileUpload" className="hidden" multiple onChange={handleFileUpload} />
-              <button
-                type="button"
-                onClick={() => {
-                  setWebcamReady(false);
-                  setWebcamOpen("doc");
-                }}
-                className="bg-purple-600 text-white px-4 py-2 rounded inline-flex items-center gap-2"
-              >
-                <FaCamera /> Prendre une photo (doc)
-              </button>
-            </div>
-
-            {uploadStatus.loading && <p className="text-blue-600 mt-2">Téléversement en cours...</p>}
-            {uploadStatus.error && <p className="text-red-600 mt-2">{uploadStatus.error}</p>}
-            {uploadStatus.success && <p className="text-green-600 mt-2">{uploadStatus.success}</p>}
-
-            <ul className="mt-4 space-y-2">
-              {form.files.map((file) => (
-                <li key={file.name} className="flex flex-col md:flex-row md:items-center justify-between bg-gray-100 rounded px-3 py-2 gap-2">
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl">📄</span>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-gray-800">{file.name}</span>
-                      <div className="flex gap-2 mt-2">
-                        {file.url && (
-                          <>
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white text-sm px-3 py-1 rounded hover:bg-blue-700">🔗 Ouvrir</a>
-                            <a href={file.url} download={file.name} className="bg-green-600 text-white text-sm px-3 py-1 rounded hover:bg-green-700"><FaDownload /> Télécharger</a>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => removeFile(file, e)}
-                    className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
-                  >
-                    <FaTrash /> Supprimer
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="bg-blue-50 p-4 rounded">
-            <h2 className="text-xl font-semibold mb-4">Paiements</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <InputField
-                label="Montant (€)"
-                type="number"
-                name="amount"
-                value={newPayment.amount}
-                onChange={(e) => setNewPayment((p) => ({ ...p, amount: e.target.value }))}
-              />
-              <SelectField
-                label="Méthode"
-                name="method"
-                value={newPayment.method}
-                onChange={(e) => setNewPayment((p) => ({ ...p, method: e.target.value }))}
-                options={["espèces", "chèque", "carte", "autre"]}
-              />
-              <InputField
-                label="Encaissement prévu"
-                type="date"
-                name="encaissement_prevu"
-                value={newPayment.encaissement_prevu}
-                onChange={(e) => setNewPayment((p) => ({ ...p, encaissement_prevu: e.target.value }))}
-              />
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={newPayment.is_paid}
-                  onChange={(e) => setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))}
-                />
-                <label className="text-sm text-gray-700">Déjà encaissé ?</label>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleAddPayment}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
-              >
-                ➕ Ajouter Paiement
-              </button>
-            </div>
-
-            <InputField
-              label="Commentaire"
-              name="commentaire"
-              value={newPayment.commentaire}
-              onChange={(e) => setNewPayment((p) => ({ ...p, commentaire: e.target.value }))}
-            />
-
-            <ul className="mt-4 divide-y">
-              {payments.length === 0 && <li className="text-gray-500 italic">Aucun paiement enregistré.</li>}
-              {payments.map((pay) => (
-                <li key={pay.id} className="flex justify-between items-center py-2">
-                  <div className="flex flex-col text-sm">
-                    <span className="font-semibold">{pay.amount.toFixed(2)} € - {pay.method}</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input
-                        type="checkbox"
-                        checked={pay.is_paid}
-                        onChange={() => togglePaymentStatus(pay.id, !pay.is_paid)}
-                      />
-                      <label className="text-sm text-gray-700">Encaissé</label>
-                    </div>
-
-                    <span className="text-gray-600">Payé le {new Date(pay.date_paiement).toLocaleDateString()}</span>
-                    {pay.encaissement_prevu && (
-                      <span className="text-blue-600">Encaissement prévu : {new Date(pay.encaissement_prevu).toLocaleDateString()}</span>
-                    )}
-                    {pay.commentaire && <span className="text-gray-500 italic">{pay.commentaire}</span>}
-                  </div>
-                  <button
-                    onClick={() => handleDeletePayment(pay.id)}
-                    className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
-                  >
-                    <FaTrash /> Supprimer
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          {webcamOpen && (
-            <Modal
-              isOpen={true}
-              onRequestClose={() => setWebcamOpen(false)}
-              shouldCloseOnOverlayClick={false}
-              shouldCloseOnEsc={false}
-              className="bg-white rounded-xl shadow-lg p-6 w-[700px] mx-auto mt-20 max-h-[90vh] overflow-y-auto outline-none"
-              overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-start z-50"
-            >
-              <div className="flex flex-col items-center">
-                <Webcam
-                  ref={webcamRef}
-                  audio={false}
-                  screenshotFormat="image/jpeg"
-                  videoConstraints={{ width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }}
-                  className="rounded border shadow-lg"
-                  onUserMedia={() => {
-                    console.log("Webcam activée avec succès");
-                    setWebcamReady(true);
-                  }}
-                  onUserMediaError={(error) => {
-                    console.error("Erreur d'accès à la webcam :", error);
-                    setUploadStatus({ loading: false, error: `Erreur d'accès à la webcam : ${error}`, success: null });
-                    setWebcamReady(false);
-                  }}
-                />
-                <div className="mt-4 space-x-4">
-                  <button
-                    onClick={webcamOpen === "doc" ? captureDocument : capturePhoto}
-                    className="bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
-                    disabled={!webcamReady}
-                  >
-                    📸 Capturer
-                  </button>
-                  <button onClick={() => setWebcamOpen(false)} className="text-red-500">
-                    Annuler
-                  </button>
-                </div>
-              </div>
-            </Modal>
-          )}
+      {/* Contenu des onglets */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <form onSubmit={handleSubmit}>
+          {tabs.find(tab => tab.id === activeTab)?.component()}
         </form>
       </div>
+
+      {/* Modal Webcam */}
+      {webcamOpen && (
+        <Modal
+          isOpen={true}
+          onRequestClose={() => setWebcamOpen(false)}
+          shouldCloseOnOverlayClick={false}
+          shouldCloseOnEsc={false}
+          className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl mx-auto mt-20 outline-none"
+          overlayClassName="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-start z-[60] p-4"
+        >
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              {webcamOpen === "photo" ? "Prendre une photo" : "Capturer un document"}
+            </h2>
+            
+            <div className="relative inline-block mb-6">
+              <Webcam
+                ref={webcamRef}
+                audio={false}
+                screenshotFormat="image/jpeg"
+                videoConstraints={{ 
+                  width: { ideal: 640 }, 
+                  height: { ideal: 480 }, 
+                  facingMode: "user" 
+                }}
+                className="rounded-xl border-4 border-gray-200 shadow-lg"
+                onUserMedia={() => {
+                  console.log("Webcam activée avec succès");
+                  setWebcamReady(true);
+                }}
+                onUserMediaError={(error) => {
+                  console.error("Erreur d'accès à la webcam :", error);
+                  setUploadStatus({ 
+                    loading: false, 
+                    error: `Erreur d'accès à la webcam : ${error}`, 
+                    success: null 
+                  });
+                  setWebcamReady(false);
+                }}
+              />
+              {!webcamReady && (
+                <div className="absolute inset-0 bg-gray-100 rounded-xl flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={webcamOpen === "doc" ? captureDocument : capturePhoto}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!webcamReady}
+              >
+                <FaCamera className="w-4 h-4" />
+                Capturer
+              </button>
+              <button 
+                onClick={() => setWebcamOpen(false)} 
+                className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200"
+              >
+                <FaTimes className="w-4 h-4" />
+                Annuler
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </Modal>
   );
 }
