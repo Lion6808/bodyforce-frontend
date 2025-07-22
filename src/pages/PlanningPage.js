@@ -197,14 +197,7 @@ function PlanningPage() {
     const checkMobile = () => {
       const width = window.innerWidth;
       setIsMobile(width < 768);
-      // Auto-select best view mode based on screen size
-      if (width < 768) {
-        setViewMode("list");
-      } else if (width < 1200) {
-        setViewMode("compact");
-      } else {
-        setViewMode("grid");
-      }
+      // Ne pas forcer le changement de mode, juste détecter mobile
     };
     
     checkMobile();
@@ -359,7 +352,7 @@ function PlanningPage() {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
               {allDays.map(day => {
                 const dayKey = formatDate(day, 'yyyy-MM-dd');
                 const dayPresences = dailyPresences[dayKey] || [];
@@ -631,14 +624,36 @@ function PlanningPage() {
           <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 rounded-lg">
             <button
               onClick={() => navigatePeriod("prev")}
-              className="p-2 hover:bg-white rounded-lg transition-colors shadow-sm"
+              className="p-2 hover:bg-white rounded-lg transition-colors shadow-sm flex-shrink-0"
             >
               <ChevronLeft className="w-6 h-6 text-gray-600" />
             </button>
             
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
+              {/* Sélecteur de date de début */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Début:</label>
+                <input
+                  type="date"
+                  value={formatDate(startDate, 'yyyy-MM-dd')}
+                  onChange={(e) => {
+                    const newStartDate = new Date(e.target.value);
+                    setStartDate(startOfDay(newStartDate));
+                    // Ajuster la fin selon la période sélectionnée
+                    if (period === "week") {
+                      setEndDate(endOfDay(addWeeks(newStartDate, 1)));
+                    } else if (period === "month") {
+                      setEndDate(endOfDay(addMonths(newStartDate, 1)));
+                    } else {
+                      setEndDate(endOfDay(addYears(newStartDate, 1)));
+                    }
+                  }}
+                  className="border-2 border-gray-200 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                />
+              </div>
+              
               <select 
-                className="border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white font-medium" 
+                className="border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white font-medium text-sm" 
                 value={period} 
                 onChange={(e) => {
                   const value = e.target.value;
@@ -651,17 +666,17 @@ function PlanningPage() {
                 <option value="year">Année</option>
               </select>
               
-              <div className="text-center">
-                <div className="text-lg font-bold text-gray-900">
+              <div className="text-center min-w-0">
+                <div className="text-sm sm:text-lg font-bold text-gray-900 truncate">
                   {formatDate(startDate, "dd/MM/yyyy")} - {formatDate(endDate, "dd/MM/yyyy")}
                 </div>
-                <div className="text-sm text-gray-600">{allDays.length} jours</div>
+                <div className="text-xs sm:text-sm text-gray-600">{allDays.length} jours</div>
               </div>
             </div>
             
             <button
               onClick={() => navigatePeriod("next")}
-              className="p-2 hover:bg-white rounded-lg transition-colors shadow-sm"
+              className="p-2 hover:bg-white rounded-lg transition-colors shadow-sm flex-shrink-0"
             >
               <ChevronRight className="w-6 h-6 text-gray-600" />
             </button>
