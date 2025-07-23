@@ -1,0 +1,359 @@
+// Fonction d'export PDF pour les paiements
+// À ajouter dans votre PaymentsPage.js
+
+// ✅ 1. D'abord, installez jsPDF et jsPDF-AutoTable :
+// npm install jspdf jspdf-autotable
+
+// ✅ 2. Ajoutez ces imports en haut de votre fichier PaymentsPage.js :
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+// ✅ 3. Ajoutez cette fonction dans votre composant PaymentsPage :
+
+const exportToPDF = () => {
+  try {
+    // Créer un nouveau document PDF
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    
+    // Configuration des couleurs
+    const colors = {
+      primary: [59, 130, 246], // Bleu
+      success: [34, 197, 94],   // Vert
+      warning: [251, 191, 36],  // Jaune
+      danger: [239, 68, 68],    // Rouge
+      gray: [107, 114, 128],    // Gris
+      dark: [31, 41, 55]        // Gris foncé
+    };
+
+    // En-tête du document
+    doc.setFillColor(...colors.primary);
+    doc.rect(0, 0, 297, 25, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLUB BODY FORCE', 20, 12);
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Rapport de Suivi des Paiements', 20, 20);
+    
+    // Date du rapport
+    const today = new Date().toLocaleDateString('fr-FR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    doc.setFontSize(10);
+    doc.text(`Généré le ${today}`, 200, 20);
+
+    // Réinitialiser la couleur du texte
+    doc.setTextColor(...colors.dark);
+
+    // Position Y courante
+    let yPos = 40;
+
+    // ✅ Section Statistiques Globales
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('📊 Statistiques Globales', 20, yPos);
+    yPos += 10;
+
+    // Créer le tableau des statistiques
+    const statsData = [
+      ['Total Attendu', `${stats.totalExpected.toLocaleString()} €`, `${payments.length} paiements`],
+      ['Total Reçu', `${stats.totalReceived.toLocaleString()} €`, `${stats.collectionRate.toFixed(1)}% collecté`],
+      ['En Attente', `${stats.totalPending.toLocaleString()} €`, `${stats.pendingCount} paiements`],
+      ['En Retard', `${stats.totalOverdue.toLocaleString()} €`, `${stats.overdueCount} paiements`]
+    ];
+
+    doc.autoTable({
+      startY: yPos,
+      head: [['Catégorie', 'Montant', 'Détails']],
+      body: statsData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: colors.primary,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      styles: {
+        fontSize: 10,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold' },
+        1: { halign: 'right', fontStyle: 'bold' },
+        2: { fontSize: 9, textColor: colors.gray }
+      }
+    });
+
+    yPos = doc.lastAutoTable.finalY + 15;
+
+    // ✅ Section Répartition par Méthode
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('💳 Répartition par Méthode de Paiement', 20, yPos);
+    yPos += 10;
+
+    const methodsData = ['carte', 'chèque', 'espèces', 'autre'].map(method => {
+      const methodPayments = payments.filter(p => p.method === method && p.is_paid);
+      const total = methodPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+      const percentage = stats.totalReceived > 0 ? (total / stats.totalReceived) * 100 : 0;
+      
+      const icon = method === 'carte' ? '💳' : 
+                  method === 'chèque' ? '📝' : 
+                  method === 'espèces' ? '💵' : '🔄';
+      
+      return [
+        `${icon} ${method.charAt(0).toUpperCase() + method.slice(1)}`,
+        `${total.toFixed(2)} €`,
+        `${percentage.toFixed(1)}%`,
+        `${methodPayments.length} paiements`
+      ];
+    });
+
+    doc.autoTable({
+      startY: yPos,
+      head: [['Méthode', 'Montant', 'Pourcentage', 'Nombre']],
+      body: methodsData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: colors.success,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      styles: {
+        fontSize: 10,
+        cellPadding: 3
+      },
+      columnStyles: {
+        1: { halign: 'right', fontStyle: 'bold' },
+        2: { halign: 'center', fontStyle: 'bold' },
+        3: { halign: 'center' }
+      }
+    });
+
+    yPos = doc.lastAutoTable.finalY + 15;
+
+    // ✅ Section Détail par Membre
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`👥 Détail par Membre (${filteredMembers.length} membres)`, 20, yPos);
+    yPos += 10;
+
+    // Préparer les données des membres
+    const membersData = filteredMembers.map(member => {
+      const statusIcon = member.overallStatus === 'paid' ? '✅' :
+                        member.overallStatus === 'pending' ? '⏳' :
+                        member.overallStatus === 'overdue' ? '⚠️' : '❓';
+      
+      return [
+        `${member.firstName || ''} ${member.name || ''}`.trim(),
+        member.badgeId || 'N/A',
+        `${statusIcon} ${getStatusLabel(member.overallStatus)}`,
+        `${member.progressPercentage.toFixed(0)}%`,
+        `${member.totalPaid.toFixed(2)} € / ${member.totalDue.toFixed(2)} €`,
+        `${member.payments.length}`,
+        member.lastPaymentDate ? formatDate(member.lastPaymentDate) : 'Aucun'
+      ];
+    });
+
+    doc.autoTable({
+      startY: yPos,
+      head: [['Nom', 'Badge', 'Statut', 'Progression', 'Montants', 'Nb Paiements', 'Dernier Paiement']],
+      body: membersData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: colors.dark,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      styles: {
+        fontSize: 8,
+        cellPadding: 2
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 35 },
+        1: { cellWidth: 25, halign: 'center' },
+        2: { cellWidth: 30, halign: 'center' },
+        3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+        4: { cellWidth: 40, halign: 'right' },
+        5: { cellWidth: 15, halign: 'center' },
+        6: { cellWidth: 25, halign: 'center' }
+      },
+      // Colorier les lignes selon le statut
+      didParseCell: function(data) {
+        if (data.column.index === 2 && data.section === 'body') {
+          const status = filteredMembers[data.row.index]?.overallStatus;
+          if (status === 'paid') {
+            data.cell.styles.textColor = colors.success;
+            data.cell.styles.fontStyle = 'bold';
+          } else if (status === 'overdue') {
+            data.cell.styles.textColor = colors.danger;
+            data.cell.styles.fontStyle = 'bold';
+          } else if (status === 'pending') {
+            data.cell.styles.textColor = colors.warning;
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+        if (data.column.index === 3 && data.section === 'body') {
+          const percentage = filteredMembers[data.row.index]?.progressPercentage || 0;
+          if (percentage === 100) {
+            data.cell.styles.textColor = colors.success;
+          } else if (percentage < 50) {
+            data.cell.styles.textColor = colors.danger;
+          }
+        }
+      }
+    });
+
+    // Vérifier si on a besoin d'une nouvelle page
+    yPos = doc.lastAutoTable.finalY + 15;
+    if (yPos > 180) { // Si on approche du bas de la page
+      doc.addPage();
+      yPos = 20;
+    }
+
+    // ✅ Section Paiements Récents
+    const recentPayments = payments
+      .filter(p => p.is_paid)
+      .slice(0, 10)
+      .map(payment => [
+        `${payment.members?.firstName || ''} ${payment.members?.name || ''}`.trim(),
+        `${parseFloat(payment.amount).toFixed(2)} €`,
+        payment.method?.charAt(0).toUpperCase() + payment.method?.slice(1) || 'N/A',
+        formatDateTime(payment.date_paiement),
+        payment.commentaire || ''
+      ]);
+
+    if (recentPayments.length > 0) {
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('🕒 Paiements Récents (10 derniers)', 20, yPos);
+      yPos += 10;
+
+      doc.autoTable({
+        startY: yPos,
+        head: [['Membre', 'Montant', 'Méthode', 'Date', 'Commentaire']],
+        body: recentPayments,
+        theme: 'grid',
+        headStyles: {
+          fillColor: colors.warning,
+          textColor: [0, 0, 0],
+          fontStyle: 'bold'
+        },
+        styles: {
+          fontSize: 9,
+          cellPadding: 2
+        },
+        columnStyles: {
+          0: { cellWidth: 50 },
+          1: { cellWidth: 25, halign: 'right', fontStyle: 'bold', textColor: colors.success },
+          2: { cellWidth: 25, halign: 'center' },
+          3: { cellWidth: 35, halign: 'center' },
+          4: { cellWidth: 60, fontSize: 8 }
+        }
+      });
+    }
+
+    // ✅ Pied de page avec informations
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      
+      // Ligne de séparation
+      doc.setDrawColor(...colors.gray);
+      doc.line(20, 200, 277, 200);
+      
+      doc.setFontSize(8);
+      doc.setTextColor(...colors.gray);
+      doc.text('Club Body Force - Système de Gestion des Paiements', 20, 205);
+      doc.text(`Page ${i} sur ${pageCount}`, 240, 205);
+      doc.text(`Rapport généré automatiquement le ${new Date().toLocaleString('fr-FR')}`, 20, 210);
+    }
+
+    // ✅ Sauvegarder le PDF
+    const fileName = `Rapport_Paiements_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+
+    console.log('✅ Export PDF réussi:', fileName);
+    
+    // Optionnel : Afficher une notification de succès
+    // Vous pouvez ajouter ici un toast de confirmation
+
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'export PDF:', error);
+    
+    // Optionnel : Afficher une notification d'erreur
+    alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
+  }
+};
+
+// ✅ 4. Dans votre JSX, remplacez le bouton Export par :
+// <button 
+//   onClick={exportToPDF}
+//   className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+// >
+//   <Download className="w-4 h-4" />
+//   Exporter PDF
+// </button>
+
+// ✅ 5. Code complet du bouton d'export à intégrer dans votre header :
+const ExportButton = () => (
+  <button 
+    onClick={exportToPDF}
+    disabled={loading || payments.length === 0}
+    className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors flex items-center gap-2"
+    title={payments.length === 0 ? "Aucune donnée à exporter" : "Exporter en PDF"}
+  >
+    <Download className="w-4 h-4" />
+    Exporter PDF
+  </button>
+);
+
+// ✅ 6. BONUS: Fonction d'export CSV (optionnelle)
+const exportToCSV = () => {
+  try {
+    // Préparer les données CSV des membres
+    const csvData = filteredMembers.map(member => ({
+      'Nom': member.name || '',
+      'Prénom': member.firstName || '',
+      'Badge': member.badgeId || '',
+      'Email': member.email || '',
+      'Téléphone': member.phone || '',
+      'Statut': getStatusLabel(member.overallStatus),
+      'Progression (%)': member.progressPercentage.toFixed(1),
+      'Total Dû (€)': member.totalDue.toFixed(2),
+      'Total Payé (€)': member.totalPaid.toFixed(2),
+      'Reste à Payer (€)': (member.totalDue - member.totalPaid).toFixed(2),
+      'Nombre de Paiements': member.payments.length,
+      'Paiements Effectués': member.payments.filter(p => p.is_paid).length,
+      'Paiements en Retard': member.payments.filter(p => !p.is_paid && isOverdue(p)).length,
+      'Dernier Paiement': member.lastPaymentDate ? formatDate(member.lastPaymentDate) : 'Aucun'
+    }));
+
+    // Convertir en CSV
+    const headers = Object.keys(csvData[0] || {});
+    const csvContent = [
+      headers.join(','), // En-têtes
+      ...csvData.map(row => 
+        headers.map(header => 
+          `"${String(row[header]).replace(/"/g, '""')}"`
+        ).join(',')
+      )
+    ].join('\n');
+
+    // Télécharger le fichier
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Paiements_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+
+    console.log('✅ Export CSV réussi');
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'export CSV:', error);
+    alert('Erreur lors de la génération du CSV. Veuillez réessayer.');
+  }
+};
