@@ -740,58 +740,41 @@ function PlanningPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Statistiques rapides */}
-              <div className="bg-gray-100 rounded-lg px-4 py-2 text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {visibleMembers.length}
-                </div>
-                <div className="text-xs text-gray-600">Membres</div>
-              </div>
-
-              <div className="bg-gray-100 rounded-lg px-4 py-2 text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {filteredPresences.length}
-                </div>
-                <div className="text-xs text-gray-600">Présences</div>
-              </div>
-
-              {/* Boutons de vue */}
-              <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 rounded-lg p-1 gap-1">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-md transition-all ${
-                    viewMode === "list"
-                      ? "bg-white shadow-md text-blue-600"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                  title="Vue liste"
-                >
-                  <List className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode("compact")}
-                  className={`p-2 rounded-md transition-all ${
-                    viewMode === "compact"
-                      ? "bg-white shadow-md text-blue-600"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                  title="Vue compacte"
-                >
-                  <Users className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-md transition-all ${
-                    viewMode === "grid"
-                      ? "bg-white shadow-md text-blue-600"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                  title="Vue grille"
-                >
-                  <Grid className="w-5 h-5" />
-                </button>
-              </div>
+            {/* Boutons de vue + filtre */}
+            <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 rounded-lg p-1 gap-1 w-full sm:w-auto">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded-md transition-all ${
+                  viewMode === "list"
+                    ? "bg-white shadow-md text-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                title="Vue liste"
+              >
+                <List className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("compact")}
+                className={`p-2 rounded-md transition-all ${
+                  viewMode === "compact"
+                    ? "bg-white shadow-md text-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                title="Vue compacte"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-md transition-all ${
+                  viewMode === "grid"
+                    ? "bg-white shadow-md text-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                title="Vue grille"
+              >
+                <Grid className="w-5 h-5" />
+              </button>
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
