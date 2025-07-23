@@ -13,7 +13,6 @@ import {
 import { createClient } from "@supabase/supabase-js";
 import {
   format,
-  isWithinInterval,
   parseISO,
   startOfWeek,
   endOfWeek,
