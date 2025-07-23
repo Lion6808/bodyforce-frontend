@@ -137,112 +137,180 @@ function PaymentsPage() {
         return matchesSearch && matchesStatus;
     });
 
-    // Export PDF corrigé - sans autoTable
+    // Export PDF CORRIGÉ - 100% manuel sans autoTable
     const exportToPDF = () => {
         try {
             const doc = new jsPDF('landscape', 'mm', 'a4');
-            
-            // En-tête
-            doc.setFillColor(59, 130, 246);
+
+            // Configuration des couleurs
+            const primaryColor = [59, 130, 246];
+            const textColor = [0, 0, 0];
+            const whiteColor = [255, 255, 255];
+
+            // En-tête du document
+            doc.setFillColor(...primaryColor);
             doc.rect(0, 0, 297, 25, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(20);
-            doc.text('CLUB BODY FORCE', 20, 12);
-            doc.setFontSize(14);
-            doc.text('Rapport de Suivi des Paiements', 20, 20);
 
-            const today = new Date().toLocaleDateString('fr-FR');
+            // Titre principal
+            doc.setTextColor(...whiteColor);
+            doc.setFontSize(18);
+            doc.text('CLUB BODY FORCE - RAPPORT PAIEMENTS', 148, 15, { align: 'center' });
+
+            // Date du rapport
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('fr-FR');
             doc.setFontSize(10);
-            doc.text(`Genere le ${today}`, 200, 20);
+            doc.text(`Genere le ${dateStr}`, 148, 22, { align: 'center' });
 
-            // Contenu principal
-            doc.setTextColor(0, 0, 0);
-            let yPos = 40;
+            // Reset couleur texte
+            doc.setTextColor(...textColor);
+            let yPos = 35;
 
-            // Statistiques
-            doc.setFontSize(16);
+            // === STATISTIQUES GLOBALES ===
+            doc.setFontSize(14);
             doc.text('STATISTIQUES GLOBALES', 20, yPos);
-            yPos += 15;
+            yPos += 10;
 
-            doc.setFontSize(12);
-            doc.text(`Total Attendu: ${stats.totalExpected.toLocaleString()} €`, 20, yPos);
-            yPos += 8;
-            doc.text(`Total Recu: ${stats.totalReceived.toLocaleString()} € (${stats.collectionRate.toFixed(1)}%)`, 20, yPos);
-            yPos += 8;
-            doc.text(`En Attente: ${stats.totalPending.toLocaleString()} € (${stats.pendingCount} paiements)`, 20, yPos);
-            yPos += 8;
-            doc.text(`En Retard: ${stats.totalOverdue.toLocaleString()} € (${stats.overdueCount} paiements)`, 20, yPos);
-            yPos += 20;
+            // Cadre pour les statistiques
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(15, yPos - 2, 267, 35);
 
-            // Répartition par méthode
-            doc.setFontSize(16);
-            doc.text('REPARTITION PAR METHODE', 20, yPos);
-            yPos += 15;
+            doc.setFontSize(10);
 
-            ['carte', 'cheque', 'especes', 'autre'].forEach(method => {
+            // Ligne 1
+            doc.text(`Total Attendu: ${stats.totalExpected.toLocaleString('fr-FR')} €`, 20, yPos + 5);
+            doc.text(`Total Recu: ${stats.totalReceived.toLocaleString('fr-FR')} € (${stats.collectionRate.toFixed(1)}%)`, 150, yPos + 5);
+
+            // Ligne 2
+            doc.text(`En Attente: ${stats.totalPending.toLocaleString('fr-FR')} € (${stats.pendingCount} paiements)`, 20, yPos + 15);
+            doc.text(`En Retard: ${stats.totalOverdue.toLocaleString('fr-FR')} € (${stats.overdueCount} paiements)`, 150, yPos + 15);
+
+            // Ligne 3
+            doc.text(`Nombre de membres: ${stats.totalMembers}`, 20, yPos + 25);
+            doc.text(`Paiements effectues: ${stats.paidCount}`, 150, yPos + 25);
+
+            yPos += 45;
+
+            // === REPARTITION PAR METHODE ===
+            doc.setFontSize(14);
+            doc.text('REPARTITION PAR METHODE DE PAIEMENT', 20, yPos);
+            yPos += 10;
+
+            // Cadre méthodes
+            doc.rect(15, yPos - 2, 267, 30);
+
+            doc.setFontSize(10);
+            let xPos = 20;
+
+            ['carte', 'cheque', 'especes', 'autre'].forEach((method, index) => {
                 const methodPayments = payments.filter(p => p.method === method && p.is_paid);
                 const total = methodPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
                 const percentage = stats.totalReceived > 0 ? (total / stats.totalReceived) * 100 : 0;
-                
-                doc.setFontSize(12);
-                doc.text(`${method.charAt(0).toUpperCase() + method.slice(1)}: ${total.toFixed(2)} € (${percentage.toFixed(1)}%)`, 20, yPos);
-                yPos += 8;
+
+                doc.text(`${method.toUpperCase()}:`, xPos, yPos + 8);
+                doc.text(`${total.toFixed(2)} €`, xPos, yPos + 15);
+                doc.text(`${percentage.toFixed(1)}%`, xPos, yPos + 22);
+
+                xPos += 65;
             });
 
-            yPos += 15;
+            yPos += 40;
 
-            // Liste des membres
-            doc.setFontSize(16);
-            doc.text(`DETAIL DES MEMBRES (${filteredMembers.length})`, 20, yPos);
-            yPos += 15;
+            // === LISTE DES MEMBRES ===
+            doc.setFontSize(14);
+            doc.text(`DETAIL DES MEMBRES (${filteredMembers.length} affiches)`, 20, yPos);
+            yPos += 10;
 
-            // En-têtes du tableau simplifié
-            doc.setFontSize(10);
-            doc.text('NOM', 20, yPos);
-            doc.text('BADGE', 70, yPos);  
+            // En-têtes du tableau
+            doc.setFontSize(9);
+            doc.text('NOM PRENOM', 20, yPos);
+            doc.text('BADGE', 80, yPos);
             doc.text('STATUT', 110, yPos);
-            doc.text('PROGRESSION', 150, yPos);
-            doc.text('MONTANTS', 200, yPos);
-            doc.text('DERNIER PAIEMENT', 240, yPos);
-            yPos += 8;
+            doc.text('PROGRESSION', 145, yPos);
+            doc.text('MONTANTS', 185, yPos);
+            doc.text('DERNIER PAIEMENT', 235, yPos);
+            yPos += 5;
 
             // Ligne de séparation
-            doc.line(15, yPos - 2, 285, yPos - 2);
+            doc.setDrawColor(0, 0, 0);
+            doc.line(15, yPos, 280, yPos);
+            yPos += 8;
 
             // Données des membres
+            doc.setFontSize(8);
+
             filteredMembers.forEach((member, index) => {
+                // Nouvelle page si nécessaire
                 if (yPos > 190) {
                     doc.addPage();
                     yPos = 20;
+
+                    // Répéter les en-têtes
+                    doc.setFontSize(9);
+                    doc.text('NOM PRENOM', 20, yPos);
+                    doc.text('BADGE', 80, yPos);
+                    doc.text('STATUT', 110, yPos);
+                    doc.text('PROGRESSION', 145, yPos);
+                    doc.text('MONTANTS', 185, yPos);
+                    doc.text('DERNIER PAIEMENT', 235, yPos);
+                    yPos += 5;
+                    doc.line(15, yPos, 280, yPos);
+                    yPos += 8;
+                    doc.setFontSize(8);
                 }
 
-                const statusText = member.overallStatus === 'paid' ? 'Paye' : 
-                                 member.overallStatus === 'pending' ? 'Attente' :
-                                 member.overallStatus === 'overdue' ? 'Retard' : 'Aucun';
+                // Nom complet (tronqué)
+                const fullName = `${member.firstName || ''} ${member.name || ''}`.trim();
+                const truncatedName = fullName.length > 25 ? fullName.substring(0, 22) + '...' : fullName;
+                doc.text(truncatedName, 20, yPos);
 
-                doc.setFontSize(9);
-                doc.text(`${member.firstName || ''} ${member.name || ''}`.trim().substring(0, 20), 20, yPos);
-                doc.text(member.badgeId || 'N/A', 70, yPos);
+                // Badge
+                doc.text(member.badgeId || 'N/A', 80, yPos);
+
+                // Statut
+                const statusText = member.overallStatus === 'paid' ? 'Paye' :
+                    member.overallStatus === 'pending' ? 'Attente' :
+                        member.overallStatus === 'overdue' ? 'Retard' : 'Aucun';
                 doc.text(statusText, 110, yPos);
-                doc.text(`${member.progressPercentage.toFixed(0)}%`, 150, yPos);
-                doc.text(`${member.totalPaid.toFixed(0)}€/${member.totalDue.toFixed(0)}€`, 200, yPos);
-                doc.text(member.lastPaymentDate ? formatDate(member.lastPaymentDate) : 'Aucun', 240, yPos);
-                
+
+                // Progression
+                doc.text(`${member.progressPercentage.toFixed(0)}%`, 145, yPos);
+
+                // Montants
+                doc.text(`${member.totalPaid.toFixed(0)}€/${member.totalDue.toFixed(0)}€`, 185, yPos);
+
+                // Dernier paiement
+                const lastPayment = member.lastPaymentDate ? formatDate(member.lastPaymentDate) : 'Aucun';
+                doc.text(lastPayment, 235, yPos);
+
                 yPos += 6;
+
+                // Ligne séparatrice légère tous les 5 membres
+                if ((index + 1) % 5 === 0) {
+                    doc.setDrawColor(220, 220, 220);
+                    doc.line(15, yPos - 1, 280, yPos - 1);
+                    yPos += 2;
+                }
             });
 
-            // Pied de page
+            // Pied de page sur toutes les pages
             const pageCount = doc.internal.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
                 doc.setFontSize(8);
-                doc.setTextColor(100, 100, 100);
-                doc.text('Club Body Force - Systeme de Gestion des Paiements', 20, 205);
-                doc.text(`Page ${i}/${pageCount}`, 250, 205);
+                doc.setTextColor(150, 150, 150);
+                doc.text(`Page ${i}/${pageCount}`, 148, 205, { align: 'center' });
+                doc.text('Club Body Force - Rapport genere automatiquement', 148, 210, { align: 'center' });
             }
 
-            const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '_');
-            doc.save(`Rapport_Paiements_${timestamp}.pdf`);
+            // Nom du fichier avec timestamp
+            const timestamp = now.toISOString().slice(0, 16).replace(/[T:]/g, '_');
+            const fileName = `Rapport_Paiements_${timestamp}.pdf`;
+
+            // Sauvegarder
+            doc.save(fileName);
+
+            console.log('✅ Export PDF réussi:', fileName);
 
         } catch (error) {
             console.error('❌ Erreur lors de l\'export PDF:', error);
@@ -596,7 +664,7 @@ function PaymentsPage() {
                             <h1 className="text-2xl lg:text-4xl font-bold text-gray-900 mb-2">Suivi des Paiements</h1>
                             <p className="text-gray-600">Gérez et suivez les paiements de vos membres</p>
                         </div>
-                        
+
                         {/* Boutons d'action - Responsive */}
                         <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
                             <button
