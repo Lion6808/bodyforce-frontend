@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-// ✅ Déplacez ces imports au début du fichier
+// ✅ Import corrigé pour jsPDF et autoTable
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import {
     CreditCard,
     TrendingUp,
@@ -186,7 +186,7 @@ function PaymentsPage() {
         return matchesSearch && matchesStatus;
     });
 
-    // ✅ Fonction d'export PDF (sans imports redondants)
+    // ✅ Fonction d'export PDF (avec autoTable correctement importé)
     const exportToPDF = () => {
         try {
             // Créer un nouveau document PDF
@@ -244,7 +244,8 @@ function PaymentsPage() {
                 ['En Retard', `${stats.totalOverdue.toLocaleString()} €`, `${stats.overdueCount} paiements`]
             ];
 
-            doc.autoTable({
+            // ✅ Utilisation correcte d'autoTable
+            autoTable(doc, {
                 startY: yPos,
                 head: [['Catégorie', 'Montant', 'Détails']],
                 body: statsData,
@@ -290,7 +291,7 @@ function PaymentsPage() {
                 ];
             });
 
-            doc.autoTable({
+            autoTable(doc, {
                 startY: yPos,
                 head: [['Méthode', 'Montant', 'Pourcentage', 'Nombre']],
                 body: methodsData,
@@ -336,7 +337,7 @@ function PaymentsPage() {
                 ];
             });
 
-            doc.autoTable({
+            autoTable(doc, {
                 startY: yPos,
                 head: [['Nom', 'Badge', 'Statut', 'Progression', 'Montants', 'Nb Paiements', 'Dernier Paiement']],
                 body: membersData,
@@ -410,7 +411,7 @@ function PaymentsPage() {
                 doc.text('🕒 Paiements Récents (10 derniers)', 20, yPos);
                 yPos += 10;
 
-                doc.autoTable({
+                autoTable(doc, {
                     startY: yPos,
                     head: [['Membre', 'Montant', 'Méthode', 'Date', 'Commentaire']],
                     body: recentPayments,
