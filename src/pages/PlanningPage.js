@@ -757,7 +757,7 @@ function PlanningPage() {
               </div>
 
               {/* Boutons de vue */}
-              <div className="flex bg-gray-100 rounded-lg p-1">
+              <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 rounded-lg p-1 gap-1">
                 <button
                   onClick={() => setViewMode("list")}
                   className={`p-2 rounded-md transition-all ${
