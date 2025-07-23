@@ -1,230 +1,1578 @@
-// src/App.js
 import React, { useState, useEffect } from "react";
+import jsPDF from "jspdf";
 import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useNavigate,
-  Link,
-} from "react-router-dom";
-import {
-  FaHome,
-  FaUserFriends,
-  FaChartBar,
-  FaCalendarAlt,
-  FaBars,
-  FaTimes,
-  FaUserCircle,
-  FaSignOutAlt,
-  FaCreditCard,
-} from "react-icons/fa";
-import { supabase } from "./supabaseClient";
+  CreditCard,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  Calendar,
+  Search,
+  Filter,
+  Download,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  Edit, // ✅ Nouvel import pour l'icône Edit
+} from "lucide-react";
+// ✅ Import corrigé - utilise le fichier supabaseClient existant
+import { supabase } from "../supabaseClient";
 
-import HomePage from "./pages/HomePage";
-import MembersPage from "./pages/MembersPage";
-import PlanningPage from "./pages/PlanningPage";
-import PaymentsPage from "./pages/PaymentsPage";
-import StatisticsPage from "./pages/StatisticsPage";
-import UserManagementPage from "./pages/UserManagementPage";
-import ProfilePage from "./pages/ProfilePage";
-import MemberForm from "./components/MemberForm";
-
-// Styles CSS pour les animations
-const mobileMenuStyles = `
-  .mobile-menu-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0);
-    z-index: 40;
-    transition: background-color 0.4s ease-out;
-    pointer-events: none;
-  }
-  
-  .mobile-menu-overlay.open {
-    background-color: rgba(0, 0, 0, 0.6);
-    pointer-events: auto;
-  }
-  
-  .mobile-menu-container {
-    position: fixed;
-    top: 0;
-    right: 0;
-    height: 100vh;
-    width: 320px;
-    max-width: 85vw;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    box-shadow: -15px 0 30px rgba(0, 0, 0, 0.2);
-    z-index: 50;
-    transform: translateX(100%);
-    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    overflow-y: auto;
-    border-radius: 20px 0 0 20px;
-  }
-  
-  .mobile-menu-container.open {
-    transform: translateX(0);
-  }
-  
-  .mobile-menu-container.closing {
-    transform: translateX(100%);
-    transition: transform 0.4s cubic-bezier(0.55, 0.085, 0.68, 0.53);
-  }
-  
-  .menu-item {
-    opacity: 0;
-    transform: translateX(20px);
-    transition: all 0.3s ease-out;
-  }
-  
-  .menu-item.animate {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  
-  .menu-item:nth-child(1) { transition-delay: 0.1s; }
-  .menu-item:nth-child(2) { transition-delay: 0.15s; }
-  .menu-item:nth-child(3) { transition-delay: 0.2s; }
-  .menu-item:nth-child(4) { transition-delay: 0.25s; }
-  .menu-item:nth-child(5) { transition-delay: 0.3s; }
-  .menu-item:nth-child(6) { transition-delay: 0.35s; }
-  .menu-item:nth-child(7) { transition-delay: 0.4s; }
-  
-  .menu-header {
-    opacity: 0;
-    transform: translateY(-20px);
-    transition: all 0.4s ease-out 0.2s;
-  }
-  
-  .menu-header.animate {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  
-  .user-profile {
-    opacity: 0;
-    transform: scale(0.8);
-    transition: all 0.3s ease-out 0.3s;
-  }
-  
-  .user-profile.animate {
-    opacity: 1;
-    transform: scale(1);
-  }
-  
-  .close-button {
-    transform: rotate(-180deg);
-    transition: transform 0.3s ease-out;
-  }
-  
-  .close-button.animate {
-    transform: rotate(0deg);
-  }
-`;
-
-function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+// ✅ Ajout de la prop onEdit pour permettre l'ouverture du formulaire de modification
+function PaymentsPage({ onEdit }) {
+  const [members, setMembers] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [expandedMember, setExpandedMember] = useState(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
+  const loadData = async (showRetryIndicator = false) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      if (showRetryIndicator) setIsRetrying(true);
+      setLoading(true);
+      setError("");
 
-      if (error) {
-        setError(error.message);
-      } else {
-        console.log("Connexion réussie:", data.user);
-        navigate("/");
-      }
-    } catch (err) {
-      setError("Erreur de connexion");
-      console.error("Erreur login:", err);
+      const { data: membersData, error: membersError } = await supabase
+        .from("members")
+        .select("*")
+        .order("name", { ascending: true });
+
+      if (membersError)
+        throw new Error(`Erreur membres: ${membersError.message}`);
+
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select(
+          `
+                    *,
+                    members (id, badgeId, name, firstName, email, phone, photo)
+                `
+        )
+        .order("date_paiement", { ascending: false });
+
+      if (paymentsError)
+        throw new Error(`Erreur paiements: ${paymentsError.message}`);
+
+      setMembers(membersData || []);
+      setPayments(paymentsData || []);
+      setRetryCount(0);
+    } catch (error) {
+      setError(error.message || "Erreur de connexion à la base de données");
     } finally {
       setLoading(false);
+      setIsRetrying(false);
     }
   };
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1);
+    loadData(true);
+  };
+
+  // ✅ Fonction pour gérer l'édition d'un membre
+  const handleEditMember = (member) => {
+    if (onEdit && typeof onEdit === "function") {
+      onEdit(member);
+    } else {
+      console.warn("La fonction onEdit n'est pas définie dans les props");
+    }
+  };
+
+  function isOverdue(payment) {
+    if (payment.is_paid) return false;
+    if (!payment.encaissement_prevu) return false;
+    return new Date(payment.encaissement_prevu) < new Date();
+  }
+
+  function getPaymentStatus(payment) {
+    if (payment.is_paid) return "paid";
+    if (isOverdue(payment)) return "overdue";
+    return "pending";
+  }
+
+  const stats = {
+    totalMembers: members.length,
+    totalExpected: payments.reduce(
+      (sum, p) => sum + parseFloat(p.amount || 0),
+      0
+    ),
+    totalReceived: payments
+      .filter((p) => p.is_paid)
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+    totalPending: payments
+      .filter((p) => !p.is_paid && !isOverdue(p))
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+    totalOverdue: payments
+      .filter((p) => !p.is_paid && isOverdue(p))
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+    paidCount: payments.filter((p) => p.is_paid).length,
+    pendingCount: payments.filter((p) => !p.is_paid && !isOverdue(p)).length,
+    overdueCount: payments.filter((p) => !p.is_paid && isOverdue(p)).length,
+  };
+
+  stats.collectionRate =
+    stats.totalExpected > 0
+      ? (stats.totalReceived / stats.totalExpected) * 100
+      : 0;
+  const enrichedMembers = members.map((member) => {
+    const memberPayments = payments.filter((p) => p.member_id === member.id);
+    const totalDue = memberPayments.reduce(
+      (sum, p) => sum + parseFloat(p.amount || 0),
+      0
+    );
+    const totalPaid = memberPayments
+      .filter((p) => p.is_paid)
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const progressPercentage = totalDue > 0 ? (totalPaid / totalDue) * 100 : 0;
+    const hasOverdue = memberPayments.some((p) => !p.is_paid && isOverdue(p));
+    const hasPending = memberPayments.some((p) => !p.is_paid && !isOverdue(p));
+
+    let overallStatus = "no_payments";
+    if (memberPayments.length > 0) {
+      if (hasOverdue) overallStatus = "overdue";
+      else if (hasPending) overallStatus = "pending";
+      else overallStatus = "paid";
+    }
+
+    const lastPaymentDate = memberPayments
+      .filter((p) => p.is_paid)
+      .sort(
+        (a, b) => new Date(b.date_paiement) - new Date(a.date_paiement)
+      )[0]?.date_paiement;
+
+    return {
+      ...member,
+      payments: memberPayments,
+      totalDue,
+      totalPaid,
+      progressPercentage,
+      overallStatus,
+      lastPaymentDate,
+    };
+  });
+
+  const filteredMembers = enrichedMembers.filter((member) => {
+    const matchesSearch =
+      member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member.badgeId?.includes(searchTerm);
+    const matchesStatus =
+      statusFilter === "all" || member.overallStatus === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Export PDF CORRIGÉ - 100% manuel sans autoTable
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF("landscape", "mm", "a4");
+
+      // Configuration des couleurs
+      const primaryColor = [59, 130, 246];
+      const textColor = [0, 0, 0];
+      const whiteColor = [255, 255, 255];
+
+      // En-tête du document
+      doc.setFillColor(...primaryColor);
+      doc.rect(0, 0, 297, 25, "F");
+
+      // Titre principal
+      doc.setTextColor(...whiteColor);
+      doc.setFontSize(18);
+      doc.text("CLUB BODY FORCE - RAPPORT PAIEMENTS", 148, 15, {
+        align: "center",
+      });
+
+      // Date du rapport
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("fr-FR");
+      doc.setFontSize(10);
+      doc.text(`Genere le ${dateStr}`, 148, 22, { align: "center" });
+
+      // Reset couleur texte
+      doc.setTextColor(...textColor);
+      let yPos = 35;
+
+      // === STATISTIQUES GLOBALES ===
+      doc.setFontSize(14);
+      doc.text("STATISTIQUES GLOBALES", 20, yPos);
+      yPos += 10;
+
+      // Cadre pour les statistiques
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(15, yPos - 2, 267, 35);
+
+      doc.setFontSize(10);
+
+      // Ligne 1
+      doc.text(
+        `Total Attendu: ${stats.totalExpected.toLocaleString("fr-FR")} €`,
+        20,
+        yPos + 5
+      );
+      doc.text(
+        `Total Recu: ${stats.totalReceived.toLocaleString(
+          "fr-FR"
+        )} € (${stats.collectionRate.toFixed(1)}%)`,
+        150,
+        yPos + 5
+      );
+
+      // Ligne 2
+      doc.text(
+        `En Attente: ${stats.totalPending.toLocaleString("fr-FR")} € (${
+          stats.pendingCount
+        } paiements)`,
+        20,
+        yPos + 15
+      );
+      doc.text(
+        `En Retard: ${stats.totalOverdue.toLocaleString("fr-FR")} € (${
+          stats.overdueCount
+        } paiements)`,
+        150,
+        yPos + 15
+      );
+
+      // Ligne 3
+      doc.text(`Nombre de membres: ${stats.totalMembers}`, 20, yPos + 25);
+      doc.text(`Paiements effectues: ${stats.paidCount}`, 150, yPos + 25);
+
+      yPos += 45;
+
+      // === REPARTITION PAR METHODE ===
+      doc.setFontSize(14);
+      doc.text("REPARTITION PAR METHODE DE PAIEMENT", 20, yPos);
+      yPos += 10;
+
+      // Cadre méthodes
+      doc.rect(15, yPos - 2, 267, 30);
+
+      doc.setFontSize(10);
+      let xPos = 20;
+
+      ["carte", "cheque", "especes", "autre"].forEach((method, index) => {
+        const methodPayments = payments.filter(
+          (p) => p.method === method && p.is_paid
+        );
+        const total = methodPayments.reduce(
+          (sum, p) => sum + parseFloat(p.amount || 0),
+          0
+        );
+        const percentage =
+          stats.totalReceived > 0 ? (total / stats.totalReceived) * 100 : 0;
+
+        doc.text(`${method.toUpperCase()}:`, xPos, yPos + 8);
+        doc.text(`${total.toFixed(2)} €`, xPos, yPos + 15);
+        doc.text(`${percentage.toFixed(1)}%`, xPos, yPos + 22);
+
+        xPos += 65;
+      });
+
+      yPos += 40;
+
+      // === LISTE DES MEMBRES ===
+      doc.setFontSize(14);
+      doc.text(
+        `DETAIL DES MEMBRES (${filteredMembers.length} affiches)`,
+        20,
+        yPos
+      );
+      yPos += 10;
+
+      // En-têtes du tableau
+      doc.setFontSize(9);
+      doc.text("NOM PRENOM", 20, yPos);
+      doc.text("BADGE", 80, yPos);
+      doc.text("STATUT", 110, yPos);
+      doc.text("PROGRESSION", 145, yPos);
+      doc.text("MONTANTS", 185, yPos);
+      doc.text("DERNIER PAIEMENT", 235, yPos);
+      yPos += 5;
+
+      // Ligne de séparation
+      doc.setDrawColor(0, 0, 0);
+      doc.line(15, yPos, 280, yPos);
+      yPos += 8;
+
+      // Données des membres
+      doc.setFontSize(8);
+
+      filteredMembers.forEach((member, index) => {
+        // Nouvelle page si nécessaire
+        if (yPos > 190) {
+          doc.addPage();
+          yPos = 20;
+
+          // Répéter les en-têtes
+          doc.setFontSize(9);
+          doc.text("NOM PRENOM", 20, yPos);
+          doc.text("BADGE", 80, yPos);
+          doc.text("STATUT", 110, yPos);
+          doc.text("PROGRESSION", 145, yPos);
+          doc.text("MONTANTS", 185, yPos);
+          doc.text("DERNIER PAIEMENT", 235, yPos);
+          yPos += 5;
+          doc.line(15, yPos, 280, yPos);
+          yPos += 8;
+          doc.setFontSize(8);
+        }
+
+        // Nom complet (tronqué)
+        const fullName = `${member.firstName || ""} ${
+          member.name || ""
+        }`.trim();
+        const truncatedName =
+          fullName.length > 25 ? fullName.substring(0, 22) + "..." : fullName;
+        doc.text(truncatedName, 20, yPos);
+
+        // Badge
+        doc.text(member.badgeId || "N/A", 80, yPos);
+
+        // Statut
+        const statusText =
+          member.overallStatus === "paid"
+            ? "Paye"
+            : member.overallStatus === "pending"
+            ? "Attente"
+            : member.overallStatus === "overdue"
+            ? "Retard"
+            : "Aucun";
+        doc.text(statusText, 110, yPos);
+
+        // Progression
+        doc.text(`${member.progressPercentage.toFixed(0)}%`, 145, yPos);
+
+        // Montants
+        doc.text(
+          `${member.totalPaid.toFixed(0)}€/${member.totalDue.toFixed(0)}€`,
+          185,
+          yPos
+        );
+
+        // Dernier paiement
+        const lastPayment = member.lastPaymentDate
+          ? formatDate(member.lastPaymentDate)
+          : "Aucun";
+        doc.text(lastPayment, 235, yPos);
+
+        yPos += 6;
+
+        // Ligne séparatrice légère tous les 5 membres
+        if ((index + 1) % 5 === 0) {
+          doc.setDrawColor(220, 220, 220);
+          doc.line(15, yPos - 1, 280, yPos - 1);
+          yPos += 2;
+        }
+      });
+
+      // Pied de page sur toutes les pages
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Page ${i}/${pageCount}`, 148, 205, { align: "center" });
+        doc.text("Club Body Force - Rapport genere automatiquement", 148, 210, {
+          align: "center",
+        });
+      }
+
+      // Nom du fichier avec timestamp
+      const timestamp = now.toISOString().slice(0, 16).replace(/[T:]/g, "_");
+      const fileName = `Rapport_Paiements_${timestamp}.pdf`;
+
+      // Sauvegarder
+      doc.save(fileName);
+
+      console.log("✅ Export PDF réussi:", fileName);
+    } catch (error) {
+      console.error("❌ Erreur lors de l'export PDF:", error);
+      alert("Erreur lors de la génération du PDF. Veuillez réessayer.");
+    }
+  };
+
+  const exportToCSV = () => {
+    try {
+      const csvData = filteredMembers.map((member) => ({
+        Nom: member.name || "",
+        Prénom: member.firstName || "",
+        Badge: member.badgeId || "",
+        Email: member.email || "",
+        Téléphone: member.phone || "",
+        Statut: getStatusLabel(member.overallStatus),
+        "Progression (%)": member.progressPercentage.toFixed(1),
+        "Total Dû (€)": member.totalDue.toFixed(2),
+        "Total Payé (€)": member.totalPaid.toFixed(2),
+        "Reste à Payer (€)": (member.totalDue - member.totalPaid).toFixed(2),
+        "Nombre de Paiements": member.payments.length,
+        "Paiements Effectués": member.payments.filter((p) => p.is_paid).length,
+        "Paiements en Retard": member.payments.filter(
+          (p) => !p.is_paid && isOverdue(p)
+        ).length,
+        "Dernier Paiement": member.lastPaymentDate
+          ? formatDate(member.lastPaymentDate)
+          : "Aucun",
+      }));
+
+      const headers = Object.keys(csvData[0] || {});
+      const csvContent = [
+        headers.join(","),
+        ...csvData.map((row) =>
+          headers
+            .map((header) => `"${String(row[header]).replace(/"/g, '""')}"`)
+            .join(",")
+        ),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `Paiements_${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+    } catch (error) {
+      console.error("❌ Erreur lors de l'export CSV:", error);
+      alert("Erreur lors de la génération du CSV. Veuillez réessayer.");
+    }
+  };
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "paid":
+        return "text-green-600 bg-green-100";
+      case "pending":
+        return "text-yellow-600 bg-yellow-100";
+      case "overdue":
+        return "text-red-600 bg-red-100";
+      case "no_payments":
+        return "text-gray-600 bg-gray-100";
+      default:
+        return "text-gray-600 bg-gray-100";
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "paid":
+        return <CheckCircle className="w-4 h-4" />;
+      case "pending":
+        return <Clock className="w-4 h-4" />;
+      case "overdue":
+        return <AlertCircle className="w-4 h-4" />;
+      case "no_payments":
+        return <CreditCard className="w-4 h-4" />;
+      default:
+        return <Clock className="w-4 h-4" />;
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case "paid":
+        return "Payé";
+      case "pending":
+        return "En attente";
+      case "overdue":
+        return "En retard";
+      case "no_payments":
+        return "Aucun paiement";
+      default:
+        return "Inconnu";
+    }
+  };
+
+  const getPaymentMethodIcon = (method) => {
+    switch (method) {
+      case "carte":
+        return "💳";
+      case "chèque":
+        return "📝";
+      case "espèces":
+        return "💵";
+      case "autre":
+        return "🔄";
+      default:
+        return "❓";
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "Non définie";
+    try {
+      return new Date(dateString).toLocaleDateString("fr-FR");
+    } catch (error) {
+      return "Date invalide";
+    }
+  };
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "Non définie";
+    try {
+      return new Date(dateString).toLocaleString("fr-FR");
+    } catch (error) {
+      return "Date invalide";
+    }
+  };
+
+  // Vue mobile CORRIGÉE - Badge repositionné + Bouton Modifier ajouté
+  const renderMobileView = () => (
+    <div className="space-y-4">
+      {filteredMembers.map((member) => (
+        <div
+          key={member.id}
+          className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden"
+        >
+          <div className="p-4">
+            {/* En-tête CORRIGÉ - Badge en haut à droite */}
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <div className="flex-shrink-0">
+                  {member.photo ? (
+                    <img
+                      src={member.photo}
+                      alt="avatar"
+                      className="h-12 w-12 rounded-full object-cover border-2 border-gray-300"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                      {member.firstName?.[0] || "N"}
+                      {member.name?.[0] || "N"}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-lg font-semibold text-gray-900 truncate">
+                    {member.firstName || "Prénom"} {member.name || "Nom"}
+                  </h4>
+                  <p className="text-sm text-gray-500">
+                    Badge: {member.badgeId || "N/A"}
+                  </p>
+                </div>
+              </div>
+              {/* Badge REPOSITIONNÉ en haut à droite */}
+              <div className="flex-shrink-0 ml-2">
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                    member.overallStatus
+                  )}`}
+                >
+                  {getStatusIcon(member.overallStatus)}
+                  <span className="hidden sm:inline">
+                    {getStatusLabel(member.overallStatus)}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* Informations principales */}
+            <div className="grid grid-cols-1 gap-3">
+              {/* Progression */}
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">
+                    Progression
+                  </span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {member.progressPercentage.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      member.progressPercentage === 100
+                        ? "bg-gradient-to-r from-green-400 to-green-600"
+                        : member.progressPercentage > 50
+                        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                        : "bg-gradient-to-r from-red-400 to-red-600"
+                    }`}
+                    style={{
+                      width: `${Math.min(member.progressPercentage, 100)}%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Montants et infos */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-sm font-medium text-gray-600 mb-1">
+                    Montants
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-bold text-green-600">
+                      {member.totalPaid.toFixed(2)} €
+                    </div>
+                    <div className="text-gray-500">
+                      sur {member.totalDue.toFixed(2)} €
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-sm font-medium text-gray-600 mb-1">
+                    Paiements
+                  </div>
+                  <div className="text-sm">
+                    <div className="font-bold text-blue-600">
+                      {member.payments.filter((p) => p.is_paid).length}
+                    </div>
+                    <div className="text-gray-500">
+                      sur {member.payments.length}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ Boutons d'action - Responsive */}
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() =>
+                  setExpandedMember(
+                    expandedMember === member.id ? null : member.id
+                  )
+                }
+                className="flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                {expandedMember === member.id ? (
+                  <>
+                    <EyeOff className="w-4 h-4" />
+                    Masquer les détails
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    Voir les détails
+                  </>
+                )}
+              </button>
+
+              {/* ✅ Nouveau bouton Modifier */}
+              <button
+                onClick={() => handleEditMember(member)}
+                className="flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                Modifier
+              </button>
+            </div>
+          </div>
+          {expandedMember === member.id && (
+            <div className="border-t border-gray-200 bg-gray-50">
+              <div className="p-4 space-y-4">
+                <h5 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Détail des paiements
+                </h5>
+
+                {member.payments.length > 0 ? (
+                  <div className="space-y-3">
+                    {member.payments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="bg-white rounded-lg p-3 border"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                              getPaymentStatus(payment)
+                            )}`}
+                          >
+                            {getStatusIcon(getPaymentStatus(payment))}
+                            {getStatusLabel(getPaymentStatus(payment))}
+                          </span>
+                          <span className="text-sm font-medium text-gray-900">
+                            #{payment.id}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-500">Montant:</span>
+                            <div className="font-bold">
+                              {parseFloat(payment.amount || 0).toFixed(2)} €
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Méthode:</span>
+                            <div className="flex items-center gap-1">
+                              <span>
+                                {getPaymentMethodIcon(payment.method)}
+                              </span>
+                              <span className="capitalize">
+                                {payment.method}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">
+                              Date paiement:
+                            </span>
+                            <div className="font-medium">
+                              {payment.is_paid
+                                ? formatDate(payment.date_paiement)
+                                : "Non payé"}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Échéance:</span>
+                            <div className="font-medium">
+                              {formatDate(payment.encaissement_prevu)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {payment.commentaire && (
+                          <div className="mt-2 p-2 bg-gray-100 rounded text-sm">
+                            <span className="text-gray-500">Commentaire:</span>
+                            <div className="text-gray-700 mt-1">
+                              {payment.commentaire}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <CreditCard className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">
+                      Aucun paiement enregistré
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <h6 className="font-medium text-blue-900 mb-2">Contact</h6>
+                    <div className="space-y-1 text-sm">
+                      <div className="text-blue-700">
+                        📧 {member.email || "Non renseigné"}
+                      </div>
+                      <div className="text-blue-700">
+                        📞 {member.phone || "Non renseigné"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <h6 className="font-medium text-green-900 mb-2">
+                      Résumé financier
+                    </h6>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <div className="font-bold text-green-700">
+                          {member.totalPaid.toFixed(2)} €
+                        </div>
+                        <div className="text-green-600">Payé</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-orange-700">
+                          {(member.totalDue - member.totalPaid).toFixed(2)} €
+                        </div>
+                        <div className="text-orange-600">Restant</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderConnectionError = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200">
+        <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          Problème de connexion
+        </h2>
+        <p className="text-gray-600 mb-8 leading-relaxed">{error}</p>
+        <button
+          onClick={handleRetry}
+          disabled={isRetrying}
+          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
+                       disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 
+                       rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
+        >
+          {isRetrying ? (
+            <>
+              <RefreshCw className="w-5 h-5 animate-spin" />
+              Reconnexion...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-5 h-5" />
+              Réessayer
+            </>
+          )}
+        </button>
+        {retryCount > 0 && (
+          <p className="text-sm text-gray-500 mt-4">
+            Tentative {retryCount + 1}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderLoading = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <RefreshCw className="w-8 h-8 animate-spin text-white" />
+        </div>
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">
+          {isRetrying
+            ? "Reconnexion en cours..."
+            : "Chargement des paiements..."}
+        </h2>
+        <p className="text-gray-600">Veuillez patienter</p>
+      </div>
+    </div>
+  );
+
+  if (loading) return renderLoading();
+  if (error && !isRetrying) return renderConnectionError();
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md border border-gray-200">
-        <div className="text-center mb-6">
-          <img
-            src="/images/logo.png"
-            alt="Logo BodyForce"
-            className="h-24 w-auto mx-auto mb-4"
-            onError={(e) => {
-              e.target.style.display = "none";
-            }}
-          />
-          <h1 className="text-2xl font-bold text-blue-600 mb-2">
-            CLUB BODY FORCE
-          </h1>
-          <h2 className="text-lg font-semibold text-gray-700">Connexion</h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 lg:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header - Responsive */}
+        <div className="mb-6 lg:mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl lg:text-4xl font-bold text-gray-900 mb-2">
+                Suivi des Paiements
+              </h1>
+              <p className="text-gray-600">
+                Gérez et suivez les paiements de vos membres
+              </p>
+            </div>
+
+            {/* Boutons d'action - Responsive */}
+            <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
+              <button
+                onClick={exportToCSV}
+                disabled={loading || filteredMembers.length === 0}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors text-sm font-medium"
+              >
+                <Download className="w-4 h-4" />
+                Exporter CSV
+              </button>
+              <button
+                onClick={exportToPDF}
+                disabled={loading || filteredMembers.length === 0}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors text-sm font-medium"
+              >
+                <Download className="w-4 h-4" />
+                Exporter PDF
+              </button>
+              <button
+                onClick={() => loadData(true)}
+                disabled={isRetrying}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors text-sm font-medium"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${isRetrying ? "animate-spin" : ""}`}
+                />
+                Actualiser
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Widgets statistiques - Responsive */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8">
+          {/* Total Attendu */}
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex-1">
+                <p className="text-xs lg:text-sm font-medium text-gray-600">
+                  Total Attendu
+                </p>
+                <p className="text-lg lg:text-2xl font-bold text-gray-900">
+                  {stats.totalExpected.toLocaleString()} €
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {payments.length} paiement(s)
+                </p>
+              </div>
+              <div className="hidden lg:block p-3 bg-blue-100 rounded-full">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Total Reçu */}
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex-1">
+                <p className="text-xs lg:text-sm font-medium text-gray-600">
+                  Total Reçu
+                </p>
+                <p className="text-lg lg:text-2xl font-bold text-green-600">
+                  {stats.totalReceived.toLocaleString()} €
+                </p>
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  {stats.collectionRate.toFixed(1)}%
+                </p>
+              </div>
+              <div className="hidden lg:block p-3 bg-green-100 rounded-full">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* En Attente */}
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex-1">
+                <p className="text-xs lg:text-sm font-medium text-gray-600">
+                  En Attente
+                </p>
+                <p className="text-lg lg:text-2xl font-bold text-yellow-600">
+                  {stats.totalPending.toLocaleString()} €
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.pendingCount} paiement(s)
+                </p>
+              </div>
+              <div className="hidden lg:block p-3 bg-yellow-100 rounded-full">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* En Retard */}
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex-1">
+                <p className="text-xs lg:text-sm font-medium text-gray-600">
+                  En Retard
+                </p>
+                <p className="text-lg lg:text-2xl font-bold text-red-600">
+                  {stats.totalOverdue.toLocaleString()} €
+                </p>
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <TrendingDown className="w-3 h-3" />
+                  {stats.overdueCount} paiement(s)
+                </p>
+              </div>
+              <div className="hidden lg:block p-3 bg-red-100 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+        {/* Barre de progression globale */}
+        <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Progression Globale
+            </h3>
+            <span className="text-xl lg:text-2xl font-bold text-blue-600">
+              {stats.collectionRate.toFixed(1)}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3 lg:h-4">
+            <div
+              className="bg-gradient-to-r from-blue-500 to-green-500 h-3 lg:h-4 rounded-full transition-all duration-1000 ease-out"
+              style={{ width: `${Math.min(stats.collectionRate, 100)}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between text-sm text-gray-600 mt-2">
+            <span>{stats.totalReceived.toLocaleString()} € reçus</span>
+            <span>{stats.totalExpected.toLocaleString()} € attendus</span>
+          </div>
+        </div>
+
+        {/* Filtres et recherche - Responsive */}
+        <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 mb-6 border border-gray-200">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Rechercher par nom, prénom ou badge..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:w-48"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="paid">Payé</option>
+                <option value="pending">En attente</option>
+                <option value="overdue">En retard</option>
+                <option value="no_payments">Aucun paiement</option>
+              </select>
+
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${
+                  showFilters
+                    ? "bg-blue-100 text-blue-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Filtres</span>
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <p className="text-sm text-gray-600">
+                {filteredMembers.length} membre(s) affiché(s) sur{" "}
+                {members.length}
+              </p>
+              {(searchTerm || statusFilter !== "all") && (
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("all");
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium self-start sm:self-auto"
+                >
+                  Réinitialiser les filtres
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Contenu principal - Basculement entre vue mobile et desktop */}
+        {isMobile ? (
+          // Vue mobile avec tuiles
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+            <div className="px-4 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Membres ({filteredMembers.length})
+              </h3>
+            </div>
+            <div className="p-4">
+              {filteredMembers.length > 0 ? (
+                renderMobileView()
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Aucun membre trouvé
+                  </h3>
+                  <p className="text-gray-500">
+                    Essayez de modifier vos critères de recherche
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Vue desktop avec tableau
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Détail par Membre ({filteredMembers.length})
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Membre
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Progression
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Montants
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Dernier Paiement
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredMembers.map((member) => (
+                    <React.Fragment key={member.id}>
+                      <tr className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              {member.photo ? (
+                                <img
+                                  src={member.photo}
+                                  alt="avatar"
+                                  className="h-10 w-10 rounded-full object-cover border border-gray-300"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                                  {member.firstName?.[0] || "N"}
+                                  {member.name?.[0] || "N"}
+                                </div>
+                              )}
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {member.firstName || "Prénom"}{" "}
+                                {member.name || "Nom"}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Badge: {member.badgeId || "N/A"}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                              member.overallStatus
+                            )}`}
+                          >
+                            {getStatusIcon(member.overallStatus)}
+                            {getStatusLabel(member.overallStatus)}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="w-32">
+                            <div className="flex items-center justify-between text-sm mb-1">
+                              <span className="text-gray-600">
+                                {member.progressPercentage.toFixed(0)}%
+                              </span>
+                              <span className="text-gray-500 text-xs">
+                                {member.totalPaid.toFixed(0)}€/
+                                {member.totalDue.toFixed(0)}€
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all duration-500 ${
+                                  member.progressPercentage === 100
+                                    ? "bg-gradient-to-r from-green-400 to-green-600"
+                                    : member.progressPercentage > 50
+                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                                    : "bg-gradient-to-r from-red-400 to-red-600"
+                                }`}
+                                style={{
+                                  width: `${Math.min(
+                                    member.progressPercentage,
+                                    100
+                                  )}%`,
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm">
+                            <div className="font-medium text-gray-900">
+                              {member.totalPaid.toFixed(2)} € /{" "}
+                              {member.totalDue.toFixed(2)} €
+                            </div>
+                            <div className="text-gray-500">
+                              {member.payments.length} paiement(s)
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {member.lastPaymentDate ? (
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4 text-gray-400" />
+                                  {formatDate(member.lastPaymentDate)}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 italic">
+                                Aucun paiement
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* ✅ Colonne Actions modifiée - Ajout du bouton Modifier */}
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                setExpandedMember(
+                                  expandedMember === member.id
+                                    ? null
+                                    : member.id
+                                )
+                              }
+                              className="text-blue-600 hover:text-blue-900 transition-colors flex items-center gap-1"
+                            >
+                              {expandedMember === member.id ? (
+                                <EyeOff className="w-4 h-4" />
+                              ) : (
+                                <Eye className="w-4 h-4" />
+                              )}
+                              {expandedMember === member.id
+                                ? "Masquer"
+                                : "Détails"}
+                            </button>
+
+                            {/* ✅ Nouveau bouton Modifier */}
+                            <button
+                              onClick={() => handleEditMember(member)}
+                              className="text-orange-600 hover:text-orange-900 transition-colors flex items-center gap-1"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Modifier
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Ligne étendue avec détails des paiements */}
+                      {expandedMember === member.id && (
+                        <tr>
+                          <td colSpan="6" className="px-6 py-4 bg-gray-50">
+                            <div className="space-y-4">
+                              <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                                <CreditCard className="w-4 h-4" />
+                                Détail des paiements de {member.firstName}{" "}
+                                {member.name}
+                              </h4>
+
+                              {member.payments.length > 0 ? (
+                                <div className="grid gap-3">
+                                  {member.payments.map((payment) => (
+                                    <div
+                                      key={payment.id}
+                                      className="bg-white rounded-lg p-4 border border-gray-200"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3">
+                                            <span
+                                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                                getPaymentStatus(payment)
+                                              )}`}
+                                            >
+                                              {getStatusIcon(
+                                                getPaymentStatus(payment)
+                                              )}
+                                              {getStatusLabel(
+                                                getPaymentStatus(payment)
+                                              )}
+                                            </span>
+                                            <span className="font-medium text-gray-900">
+                                              Paiement #{payment.id}
+                                            </span>
+                                          </div>
+
+                                          <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                            <div>
+                                              <span className="text-gray-500">
+                                                Montant:
+                                              </span>
+                                              <div className="font-medium">
+                                                {parseFloat(
+                                                  payment.amount || 0
+                                                ).toFixed(2)}{" "}
+                                                €
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500">
+                                                Méthode:
+                                              </span>
+                                              <div className="font-medium flex items-center gap-1">
+                                                <span>
+                                                  {getPaymentMethodIcon(
+                                                    payment.method
+                                                  )}
+                                                </span>
+                                                <span className="capitalize">
+                                                  {payment.method}
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500">
+                                                Date de paiement:
+                                              </span>
+                                              <div className="font-medium">
+                                                {payment.is_paid
+                                                  ? formatDateTime(
+                                                      payment.date_paiement
+                                                    )
+                                                  : "Non payé"}
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500">
+                                                Encaissement prévu:
+                                              </span>
+                                              <div className="font-medium">
+                                                {formatDate(
+                                                  payment.encaissement_prevu
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {payment.commentaire && (
+                                            <div className="mt-3 p-2 bg-gray-50 rounded">
+                                              <span className="text-gray-500 text-sm">
+                                                Commentaire:
+                                              </span>
+                                              <div className="text-gray-700 text-sm mt-1">
+                                                {payment.commentaire}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center py-8">
+                                  <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                  <p className="text-gray-500">
+                                    Aucun paiement enregistré pour ce membre
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Contact et résumé */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-blue-50 p-3 rounded-lg">
+                                  <h5 className="font-medium text-blue-900 mb-2">
+                                    Informations de contact
+                                  </h5>
+                                  <div className="space-y-1 text-sm">
+                                    <div className="text-blue-700">
+                                      📧 {member.email || "Email non renseigné"}
+                                    </div>
+                                    <div className="text-blue-700">
+                                      📞{" "}
+                                      {member.phone ||
+                                        "Téléphone non renseigné"}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="bg-green-50 p-3 rounded-lg">
+                                  <h5 className="font-medium text-green-900 mb-2">
+                                    Résumé financier
+                                  </h5>
+                                  <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                      <div className="text-green-700 font-medium">
+                                        {member.totalPaid.toFixed(2)} €
+                                      </div>
+                                      <div className="text-green-600">
+                                        Total payé
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-yellow-700 font-medium">
+                                        {(
+                                          member.totalDue - member.totalPaid
+                                        ).toFixed(2)}{" "}
+                                        €
+                                      </div>
+                                      <div className="text-yellow-600">
+                                        Reste à payer
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredMembers.length === 0 && (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Aucun membre trouvé
+                </h3>
+                <p className="text-gray-500">
+                  Essayez de modifier vos critères de recherche
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              placeholder="votre@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-              disabled={loading}
-            />
+        {/* Statistiques détaillées par méthode de paiement - Responsive */}
+        <div className="mt-6 lg:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Répartition par Méthode
+            </h3>
+            <div className="space-y-3">
+              {["carte", "chèque", "espèces", "autre"].map((method) => {
+                const methodPayments = payments.filter(
+                  (p) => p.method === method && p.is_paid
+                );
+                const total = methodPayments.reduce(
+                  (sum, p) => sum + parseFloat(p.amount || 0),
+                  0
+                );
+                const percentage =
+                  stats.totalReceived > 0
+                    ? (total / stats.totalReceived) * 100
+                    : 0;
+
+                return (
+                  <div
+                    key={method}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg lg:text-xl">
+                        {getPaymentMethodIcon(method)}
+                      </span>
+                      <span className="font-medium capitalize text-gray-900">
+                        {method}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-sm lg:text-base">
+                        {total.toFixed(2)} €
+                      </div>
+                      <div className="text-xs lg:text-sm text-gray-500">
+                        {percentage.toFixed(1)}% • {methodPayments.length}{" "}
+                        paiement(s)
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mot de passe
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-              disabled={loading}
-            />
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Paiements Récents
+            </h3>
+            <div className="space-y-3">
+              {payments
+                .filter((p) => p.is_paid)
+                .slice(0, 5)
+                .map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-lg">
+                        {getPaymentMethodIcon(payment.method)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm text-gray-900 truncate">
+                          {payment.members?.firstName} {payment.members?.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatDate(payment.date_paiement)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-medium text-sm lg:text-base text-green-600">
+                        {parseFloat(payment.amount).toFixed(2)} €
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              {payments.filter((p) => p.is_paid).length === 0 && (
+                <div className="text-center py-6 lg:py-8 text-gray-500">
+                  <Clock className="w-8 lg:w-12 h-8 lg:h-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">Aucun paiement récent</p>
+                </div>
+              )}
+            </div>
           </div>
+        </div>
+        {/* Résumé global en pied de page */}
+        <div className="mt-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg p-4 lg:p-6 text-white">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-2xl lg:text-3xl font-bold">
+                {stats.totalMembers}
+              </div>
+              <div className="text-sm lg:text-base text-blue-100">
+                Membres total
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl lg:text-3xl font-bold">
+                {stats.collectionRate.toFixed(1)}%
+              </div>
+              <div className="text-sm lg:text-base text-blue-100">
+                Taux de collecte
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl lg:text-3xl font-bold">
+                {stats.paidCount + stats.pendingCount + stats.overdueCount}
+              </div>
+              <div className="text-sm lg:text-base text-blue-100">
+                Total paiements
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white py-2 px-4 rounded-lg transition duration-200 font-medium"
-          >
-            {loading ? "Connexion..." : "Se connecter"}
-          </button>
-        </form>
-
+        {/* Pied de page avec informations */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            Besoin d'un compte ? Contactez l'administrateur
+          <p className="text-sm text-gray-500">
+            Dernière mise à jour : {new Date().toLocaleString("fr-FR")}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Club Body Force - Système de Gestion des Paiements v2.0
           </p>
         </div>
       </div>
@@ -232,488 +1580,4 @@ function LoginPage() {
   );
 }
 
-function Sidebar({ user, onLogout }) {
-  const location = useLocation();
-  const menu = [
-    { name: "Accueil", path: "/", icon: <FaHome className="text-red-500" /> },
-    {
-      name: "Membres",
-      path: "/members",
-      icon: <FaUserFriends className="text-green-500" />,
-    },
-    {
-      name: "Planning",
-      path: "/planning",
-      icon: <FaCalendarAlt className="text-yellow-500" />,
-    },
-    {
-      name: "Paiements",
-      path: "/payments",
-      icon: <FaCreditCard className="text-purple-500" />,
-    },
-    {
-      name: "Statistiques",
-      path: "/statistics",
-      icon: <FaChartBar className="text-blue-500" />,
-    },
-  ];
-
-  const isAdmin =
-    user?.user_metadata?.role === "admin" ||
-    user?.email === "admin@bodyforce.com" ||
-    user?.app_metadata?.role === "admin";
-
-  return (
-    <aside className="w-64 bg-white shadow-md p-4 flex-col items-center hidden lg:flex">
-      <h1 className="text-center text-lg font-bold text-red-600 mb-2">
-        CLUB BODY FORCE
-      </h1>
-      <img
-        src="/images/logo.png"
-        alt="Logo"
-        className="mt-4 h-44 w-auto mb-6"
-        onError={(e) => {
-          e.target.style.display = "none";
-        }}
-      />
-      <div className="mb-4 text-sm text-gray-600 flex items-center gap-2">
-        <FaUserCircle className="text-xl text-blue-600" />
-        <div className="flex flex-col">
-          <span className="font-medium">{user?.email}</span>
-          {isAdmin && (
-            <span className="text-xs text-purple-600 font-bold">Admin</span>
-          )}
-        </div>
-      </div>
-      <ul className="w-full space-y-2">
-        {menu.map((item) => (
-          <li key={item.path}>
-            <Link
-              to={item.path}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-blue-100 transition duration-200 ${
-                location.pathname === item.path ? "bg-blue-200" : ""
-              }`}
-            >
-              {item.icon} {item.name}
-            </Link>
-          </li>
-        ))}
-        {isAdmin && (
-          <li>
-            <Link
-              to="/admin/users"
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-purple-100 transition duration-200 ${
-                location.pathname === "/admin/users" ? "bg-purple-200" : ""
-              }`}
-            >
-              <FaUserCircle className="text-purple-500" /> Utilisateurs
-            </Link>
-          </li>
-        )}
-        <li>
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-2 rounded-lg px-4 py-2 w-full text-left text-red-600 hover:bg-red-100 transition duration-200"
-          >
-            <FaSignOutAlt /> Déconnexion
-          </button>
-        </li>
-      </ul>
-    </aside>
-  );
-}
-
-// Composant pour le menu mobile animé
-function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
-  const [animate, setAnimate] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
-  const [isOpening, setIsOpening] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setShouldRender(true);
-      setIsClosing(false);
-      setIsOpening(true);
-      // Petit délai pour que le DOM soit prêt, puis déclenche l'animation d'ouverture
-      const openTimer = setTimeout(() => {
-        setIsOpening(false); // Déclenche l'animation d'ouverture
-      }, 10);
-      // Animation des éléments internes
-      const animateTimer = setTimeout(() => setAnimate(true), 200);
-      return () => {
-        clearTimeout(openTimer);
-        clearTimeout(animateTimer);
-      };
-    } else if (shouldRender) {
-      // Animation de fermeture
-      setIsClosing(true);
-      setAnimate(false);
-      const timer = setTimeout(() => {
-        setShouldRender(false);
-        setIsClosing(false);
-        setIsOpening(false);
-      }, 400); // Durée de l'animation de fermeture
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, shouldRender]);
-
-  const handleItemClick = () => {
-    setAnimate(false);
-    setIsClosing(true);
-    setTimeout(onClose, 200); // Délai pour l'animation de sortie
-  };
-
-  const handleLogout = () => {
-    setAnimate(false);
-    setIsClosing(true);
-    setTimeout(() => {
-      onClose();
-      // Le logout sera géré par le parent
-    }, 200);
-  };
-
-  const handleOverlayClick = () => {
-    setAnimate(false);
-    setIsClosing(true);
-    setTimeout(onClose, 200);
-  };
-
-  const handleCloseClick = () => {
-    setAnimate(false);
-    setIsClosing(true);
-    setTimeout(onClose, 200);
-  };
-
-  if (!shouldRender) return null;
-
-  return (
-    <>
-      <style>{mobileMenuStyles}</style>
-
-      {/* Overlay */}
-      <div
-        className={`mobile-menu-overlay ${isOpen && !isClosing ? "open" : ""}`}
-        onClick={handleOverlayClick}
-      />
-
-      {/* Menu Container */}
-      <div
-        className={`mobile-menu-container ${
-          !isOpening && isOpen && !isClosing ? "open" : ""
-        } ${isClosing ? "closing" : ""}`}
-      >
-        {/* Header */}
-        <div
-          className={`menu-header ${
-            animate ? "animate" : ""
-          } p-6 border-b border-white/20`}
-        >
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-3">
-              <img
-                src="/images/logo.png"
-                alt="Logo BodyForce"
-                className="h-12 w-auto"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-              <h1 className="text-lg font-bold text-white">BODY FORCE</h1>
-            </div>
-            <button
-              onClick={handleCloseClick}
-              className={`close-button ${
-                animate ? "animate" : ""
-              } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
-            >
-              <FaTimes className="text-xl" />
-            </button>
-          </div>
-        </div>
-
-        {/* User Profile */}
-        <div
-          className={`user-profile ${
-            animate ? "animate" : ""
-          } p-6 border-b border-white/20`}
-        >
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
-            <FaUserCircle className="text-2xl text-white" />
-            <div className="flex flex-col">
-              <span className="font-medium text-white text-sm">
-                {user?.email}
-              </span>
-              {isAdmin && (
-                <span className="text-xs text-yellow-300 font-bold">
-                  Administrateur
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Menu Items */}
-        <div className="p-6 space-y-3">
-          <Link
-            to="/"
-            onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/" ? "bg-white/20" : ""
-            }`}
-          >
-            <FaHome className="text-xl text-red-300" />
-            <span className="font-medium">Accueil</span>
-          </Link>
-
-          <Link
-            to="/members"
-            onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/members" ? "bg-white/20" : ""
-            }`}
-          >
-            <FaUserFriends className="text-xl text-green-300" />
-            <span className="font-medium">Membres</span>
-          </Link>
-
-          <Link
-            to="/planning"
-            onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/planning" ? "bg-white/20" : ""
-            }`}
-          >
-            <FaCalendarAlt className="text-xl text-yellow-300" />
-            <span className="font-medium">Planning</span>
-          </Link>
-
-          <Link
-            to="/payments"
-            onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/payments" ? "bg-white/20" : ""
-            }`}
-          >
-            <FaCreditCard className="text-xl text-purple-300" />
-            <span className="font-medium">Paiements</span>
-          </Link>
-
-          <Link
-            to="/statistics"
-            onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/statistics" ? "bg-white/20" : ""
-            }`}
-          >
-            <FaChartBar className="text-xl text-blue-300" />
-            <span className="font-medium">Statistiques</span>
-          </Link>
-
-          {isAdmin && (
-            <Link
-              to="/admin/users"
-              onClick={handleItemClick}
-              className={`menu-item ${
-                animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-                location.pathname === "/admin/users" ? "bg-white/20" : ""
-              }`}
-            >
-              <FaUserCircle className="text-xl text-purple-300" />
-              <span className="font-medium">Utilisateurs</span>
-            </Link>
-          )}
-
-          <button
-            onClick={handleLogout}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
-          >
-            <FaSignOutAlt className="text-xl" />
-            <span className="font-medium">Déconnexion</span>
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function AppRoutes({ user, setUser }) {
-  const [editingMember, setEditingMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      navigate("/login");
-    } catch (error) {
-      console.error("Erreur déconnexion:", error);
-    }
-  };
-
-  const isAdmin =
-    user?.user_metadata?.role === "admin" ||
-    user?.email === "admin@bodyforce.com" ||
-    user?.app_metadata?.role === "admin";
-
-  return user ? (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100">
-      {/* Header mobile */}
-      <div className="lg:hidden p-4 bg-white shadow-md flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <img
-            src="/images/logo.png"
-            alt="Logo BodyForce"
-            className="h-8 w-auto"
-            onError={(e) => {
-              e.target.style.display = "none";
-            }}
-          />
-          <h1 className="text-lg font-bold text-red-600">BODY FORCE</h1>
-        </div>
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="text-2xl text-gray-700 hover:text-blue-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <FaBars />
-        </button>
-      </div>
-
-      <Sidebar user={user} onLogout={handleLogout} />
-
-      {/* Menu mobile animé */}
-      <AnimatedMobileMenu
-        isOpen={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-        user={user}
-        isAdmin={isAdmin}
-        location={location}
-      />
-
-      <main className="flex-1 p-4">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route
-            path="/members"
-            element={
-              <MembersPage
-                onEdit={(member) => {
-                  setEditingMember(member);
-                  setShowForm(true);
-                }}
-              />
-            }
-          />
-          <Route path="/planning" element={<PlanningPage />} />
-          <Route path="/payments" element={<PaymentsPage />} />
-          <Route path="/statistics" element={<StatisticsPage />} />
-          <Route
-            path="/admin/users"
-            element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
-          />
-          <Route path="/profile" element={<ProfilePage user={user} />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-
-        {showForm && (
-          <MemberForm
-            member={editingMember}
-            onSave={() => {
-              setShowForm(false);
-              setEditingMember(null);
-            }}
-            onCancel={() => {
-              setShowForm(false);
-              setEditingMember(null);
-            }}
-          />
-        )}
-      </main>
-    </div>
-  ) : (
-    <Navigate to="/login" />
-  );
-}
-
-function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const getInitialSession = async () => {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
-        if (error) {
-          console.error("Erreur récupération session:", error);
-        } else {
-          setUser(session?.user || null);
-        }
-      } catch (error) {
-        console.error("Erreur session:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getInitialSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.email);
-      setUser(session?.user || null);
-      setLoading(false);
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Router>
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/" /> : <LoginPage />}
-        />
-        <Route
-          path="/*"
-          element={<AppRoutes user={user} setUser={setUser} />}
-        />
-      </Routes>
-    </Router>
-  );
-}
-
-export default App;
+export default PaymentsPage;
