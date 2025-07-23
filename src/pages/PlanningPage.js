@@ -14,8 +14,7 @@ import {
 import {
   startOfWeek, endOfWeek,
   startOfMonth, endOfMonth,
-  startOfYear, endOfYear,
-  startOfDay, endOfDay
+  startOfYear, endOfYear
 } from 'date-fns';
 
 import { createClient } from "@supabase/supabase-js";
