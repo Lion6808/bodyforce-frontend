@@ -20,9 +20,11 @@ import {
 } from "lucide-react";
 // ✅ Import corrigé - utilise le fichier supabaseClient existant
 import { supabase } from "../supabaseClient";
+// ✅ Import du composant MemberForm
+import MemberForm from "../components/MemberForm";
 
-// ✅ Ajout de la prop onEdit pour permettre l'ouverture du formulaire de modification
-function PaymentsPage({ onEdit }) {
+// ✅ Suppression de la prop onEdit - gestion interne des états
+function PaymentsPage() {
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,10 @@ function PaymentsPage({ onEdit }) {
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ États pour la gestion du formulaire (comme dans MembersPage)
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -89,13 +95,10 @@ function PaymentsPage({ onEdit }) {
     loadData(true);
   };
 
-  // ✅ Fonction pour gérer l'édition d'un membre
+  // ✅ Fonction pour gérer l'édition d'un membre (comme dans MembersPage)
   const handleEditMember = (member) => {
-    if (onEdit && typeof onEdit === "function") {
-      onEdit(member);
-    } else {
-      console.warn("La fonction onEdit n'est pas définie dans les props");
-    }
+    setSelectedMember(member);
+    setShowForm(true);
   };
 
   function isOverdue(payment) {
@@ -1576,6 +1579,61 @@ function PaymentsPage({ onEdit }) {
           </p>
         </div>
       </div>
+
+      {/* ✅ Modal du formulaire MemberForm (comme dans MembersPage) */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
+          <div className="bg-white mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
+            <MemberForm
+              member={selectedMember}
+              onSave={async (memberData, closeModal) => {
+                try {
+                  console.log(
+                    "💾 Sauvegarde membre depuis PaymentsPage:",
+                    selectedMember ? "Modification" : "Création"
+                  );
+
+                  if (selectedMember?.id) {
+                    // Modification d'un membre existant
+                    const { error } = await supabase
+                      .from("members")
+                      .update(memberData)
+                      .eq("id", selectedMember.id);
+
+                    if (error) throw error;
+                    console.log("✅ Membre modifié:", selectedMember.id);
+                  } else {
+                    // Création d'un nouveau membre
+                    const { data, error } = await supabase
+                      .from("members")
+                      .insert([memberData])
+                      .select();
+
+                    if (error) throw error;
+                    console.log("✅ Nouveau membre créé:", data[0]?.id);
+                  }
+
+                  // Fermer le modal si demandé
+                  if (closeModal) {
+                    setShowForm(false);
+                    setSelectedMember(null);
+                  }
+
+                  // Recharger les données
+                  await loadData();
+                } catch (error) {
+                  console.error("❌ Erreur sauvegarde membre:", error);
+                  alert(`Erreur lors de la sauvegarde: ${error.message}`);
+                }
+              }}
+              onCancel={() => {
+                setShowForm(false);
+                setSelectedMember(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
