@@ -328,14 +328,23 @@ function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
   const [animate, setAnimate] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
       setIsClosing(false);
-      // Animation d'ouverture
-      const timer = setTimeout(() => setAnimate(true), 50);
-      return () => clearTimeout(timer);
+      setIsOpening(true);
+      // Petit délai pour que le DOM soit prêt, puis déclenche l'animation d'ouverture
+      const openTimer = setTimeout(() => {
+        setIsOpening(false); // Déclenche l'animation d'ouverture
+      }, 10);
+      // Animation des éléments internes
+      const animateTimer = setTimeout(() => setAnimate(true), 200);
+      return () => {
+        clearTimeout(openTimer);
+        clearTimeout(animateTimer);
+      };
     } else if (shouldRender) {
       // Animation de fermeture
       setIsClosing(true);
@@ -343,6 +352,7 @@ function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
       const timer = setTimeout(() => {
         setShouldRender(false);
         setIsClosing(false);
+        setIsOpening(false);
       }, 400); // Durée de l'animation de fermeture
       return () => clearTimeout(timer);
     }
@@ -390,7 +400,7 @@ function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
       {/* Menu Container */}
       <div
         className={`mobile-menu-container ${
-          isOpen && !isClosing ? "open" : ""
+          !isOpening && isOpen && !isClosing ? "open" : ""
         } ${isClosing ? "closing" : ""}`}
       >
         {/* Header */}
