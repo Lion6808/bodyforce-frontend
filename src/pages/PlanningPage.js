@@ -11,6 +11,19 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
+import {
+  format,
+  isWithinInterval,
+  startOfDay,
+  endOfDay,
+  parseISO,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+} from "date-fns";
 
 // ✅ Client Supabase direct (comme votre ancien code qui fonctionne)
 const supabase = createClient(
