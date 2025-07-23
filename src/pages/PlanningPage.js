@@ -1,3 +1,5 @@
+// ✅ SOLUTION 1: Utiliser directement le client Supabase (comme votre ancien code)
+
 import React, { useEffect, useState } from "react";
 import {
   format,
@@ -25,7 +27,14 @@ import {
   AlertCircle,
   Settings,
 } from "lucide-react";
-import { supabaseServices } from "../supabaseClient";
+
+// ✅ CORRECTION: Créer directement le client Supabase (comme votre ancien code)
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
+);
 
 function PlanningPage() {
   const [presences, setPresences] = useState([]);
@@ -36,7 +45,6 @@ function PlanningPage() {
   const [isRetrying, setIsRetrying] = useState(false);
 
   const [period, setPeriod] = useState("month");
-  // ✅ Initialisation avec une plage plus large par défaut
   const [startDate, setStartDate] = useState(startOfDay(new Date('2025-01-01')));
   const [endDate, setEndDate] = useState(endOfDay(new Date('2025-12-31')));
   
@@ -47,7 +55,6 @@ function PlanningPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ Presets de périodes communes
   const quickPeriods = [
     { label: "Janvier 2025", start: new Date('2025-01-01'), end: new Date('2025-01-31') },
     { label: "Février 2025", start: new Date('2025-02-01'), end: new Date('2025-02-28') },
@@ -59,7 +66,7 @@ function PlanningPage() {
     { label: "Cette semaine", start: startOfDay(subWeeks(new Date(), 0)), end: endOfDay(new Date()) }
   ];
 
-  // ✅ Chargement des données FILTRÉ par période (comme votre ancien code)
+  // ✅ CORRECTION: Logique de chargement exactement comme votre ancien code qui marche
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) {
@@ -73,78 +80,75 @@ function PlanningPage() {
         fin: endDate.toLocaleDateString()
       });
 
-      // Chargement des membres
-      let membersData = [];
-      try {
-        membersData = await supabaseServices.getMembers();
-        console.log("✅ Membres chargés:", membersData?.length || 0);
-      } catch (memberError) {
-        console.error("❌ Erreur membres:", memberError);
-        throw new Error(`Erreur membres: ${memberError.message}`);
+      // ✅ Chargement des membres (même logique que votre ancien code)
+      const { data: membersData, error: membersError } = await supabase
+        .from("members")
+        .select("*");
+      
+      if (membersError) {
+        console.error("❌ Erreur membres:", membersError);
+        throw new Error(`Erreur membres: ${membersError.message}`);
       }
+      
+      const members = Array.isArray(membersData) ? membersData : [];
+      console.log("✅ Membres chargés:", members.length);
 
-      // ✅ Chargement des présences FILTRÉ par période (comme votre ancien code)
+      // ✅ Chargement des présences (EXACTEMENT comme votre ancien code)
       let allPresences = [];
-      try {
-        // Utiliser la même logique que votre ancien code qui fonctionne
-        let from = 0;
-        const pageSize = 1000;
-        let done = false;
+      let from = 0;
+      const pageSize = 1000;
+      let done = false;
 
-        while (!done) {
-          const { data, error } = await supabaseServices.supabase
-            .from("presences")
-            .select("*")
-            .gte("timestamp", startDate.toISOString())
-            .lte("timestamp", endDate.toISOString())
-            .order("timestamp", { ascending: false })
-            .range(from, from + pageSize - 1);
+      while (!done) {
+        const { data, error } = await supabase
+          .from("presences")
+          .select("*")
+          .gte("timestamp", startDate.toISOString())
+          .lte("timestamp", endDate.toISOString())
+          .order("timestamp", { ascending: false })
+          .range(from, from + pageSize - 1);
 
-          if (error) {
-            console.error("Erreur chargement présences :", error.message);
-            throw error;
-          }
-
-          if (data && data.length > 0) {
-            allPresences = [...allPresences, ...data];
-            from += pageSize;
-          }
-
-          if (!data || data.length < pageSize) {
-            done = true;
-          }
+        if (error) {
+          console.error("❌ Erreur présences:", error);
+          throw new Error(`Erreur présences: ${error.message}`);
         }
 
-        console.log("✅ Présences chargées pour la période:", allPresences.length);
-      } catch (presenceError) {
-        console.error("❌ Erreur présences:", presenceError);
-        throw new Error(`Erreur présences: ${presenceError.message}`);
+        if (data && data.length > 0) {
+          allPresences = [...allPresences, ...data];
+          from += pageSize;
+          console.log(`📊 Chargé ${allPresences.length} présences...`);
+        }
+
+        if (!data || data.length < pageSize) {
+          done = true;
+        }
       }
 
-      // Transformation des données
-      const transformedMembers = (membersData || []).map((m) => ({
-        badgeId: m.badgeId,
-        name: m.name,
-        firstName: m.firstName,
-        photo: m.photo || null,
-      }));
+      console.log("✅ Présences chargées pour la période:", allPresences.length);
 
+      // Mise à jour des états
+      setMembers(members);
       setPresences(allPresences);
-      setMembers(transformedMembers);
       setRetryCount(0);
+      setError("");
 
       console.log("✅ Chargement terminé avec succès");
+
     } catch (error) {
       console.error("💥 Erreur lors du chargement des données:", error);
+      
       let errorMessage = "Erreur de connexion à la base de données";
       
       if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
         errorMessage = "Problème de réseau - Vérifiez votre connexion internet";
+      } else if (error.message?.includes("Invalid API key") || error.message?.includes("Invalid JWT")) {
+        errorMessage = "Problème d'authentification avec Supabase";
       } else if (error.message) {
         errorMessage = error.message;
       }
 
       setError(errorMessage);
+      
     } finally {
       setLoading(false);
       setIsRetrying(false);
@@ -154,7 +158,7 @@ function PlanningPage() {
   // ✅ Recharger les données quand la période change
   useEffect(() => {
     loadData();
-  }, [startDate, endDate]); // ✅ Recharger quand les dates changent
+  }, [startDate, endDate]);
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1);
@@ -200,40 +204,42 @@ function PlanningPage() {
     try {
       console.log("🔍 Recherche de toutes les données...");
       
-      // Charger quelques échantillons pour trouver la plage réelle
-      const { data: sampleData, error } = await supabaseServices.supabase
+      // Chercher la plus ancienne présence
+      const { data: oldestData, error: oldestError } = await supabase
         .from("presences")
         .select("timestamp")
         .order("timestamp", { ascending: true })
         .limit(1);
 
-      const { data: sampleDataDesc, error: errorDesc } = await supabaseServices.supabase
+      // Chercher la plus récente présence
+      const { data: newestData, error: newestError } = await supabase
         .from("presences")
         .select("timestamp")
         .order("timestamp", { ascending: false })
         .limit(1);
 
-      if (!error && !errorDesc && sampleData?.[0] && sampleDataDesc?.[0]) {
-        const minDate = parseISO(sampleData[0].timestamp);
-        const maxDate = parseISO(sampleDataDesc[0].timestamp);
+      if (!oldestError && !newestError && oldestData?.[0] && newestData?.[0]) {
+        const minDate = parseISO(oldestData[0].timestamp);
+        const maxDate = parseISO(newestData[0].timestamp);
         
         setStartDate(startOfDay(minDate));
         setEndDate(endOfDay(maxDate));
         
         console.log(`✅ Période ajustée: ${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`);
+      } else {
+        console.error("Erreur lors de la recherche des dates limites");
       }
     } catch (error) {
       console.error("Erreur lors de l'ajustement:", error);
     }
   };
 
-  // ✅ Fonction de conversion (même que votre ancien code)
   const toLocalDate = (iso) => {
     if (!iso) return new Date();
     return parseISO(iso);
   };
 
-  // Affichage des écrans de chargement et d'erreur
+  // Écrans de chargement et d'erreur
   const renderConnectionError = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200">
@@ -283,7 +289,7 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // ✅ Les présences sont déjà filtrées par la requête, pas besoin de re-filtrer
+  // Les présences sont déjà filtrées par la requête
   const filteredPresences = presences.filter((p) => {
     const presenceDate = toLocalDate(p.timestamp);
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
@@ -314,7 +320,6 @@ function PlanningPage() {
         (!filterBadge || m.badgeId?.includes(filterBadge))
     );
 
-  // ✅ Vue grille (comme votre ancien code mais avec design amélioré)
   const GridView = () => (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
       <div className="overflow-auto max-h-[75vh]">
@@ -446,7 +451,6 @@ function PlanningPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Statistiques rapides */}
               <div className="bg-gray-100 rounded-lg px-4 py-2 text-center">
                 <div className="text-2xl font-bold text-blue-600">{visibleMembers.length}</div>
                 <div className="text-xs text-gray-600">Membres</div>
@@ -521,7 +525,6 @@ function PlanningPage() {
                 <div className="text-xs sm:text-sm text-gray-600">{allDays.length} jours</div>
               </div>
 
-              {/* Bouton pour ajuster automatiquement */}
               <button
                 onClick={adjustToAllData}
                 className="px-4 py-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 
