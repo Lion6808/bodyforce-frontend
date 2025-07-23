@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import {
     CreditCard, TrendingUp, TrendingDown, Users, AlertCircle, CheckCircle,
     Clock, DollarSign, Calendar, Search, Filter, Download, Eye, EyeOff, RefreshCw
@@ -138,19 +137,13 @@ function PaymentsPage() {
         return matchesSearch && matchesStatus;
     });
 
+    // Export PDF corrigé - sans autoTable
     const exportToPDF = () => {
         try {
             const doc = new jsPDF('landscape', 'mm', 'a4');
-            const colors = {
-                primary: [59, 130, 246],
-                success: [34, 197, 94],
-                warning: [251, 191, 36],
-                danger: [239, 68, 68],
-                gray: [107, 114, 128],
-                dark: [31, 41, 55]
-            };
-
-            doc.setFillColor(...colors.primary);
+            
+            // En-tête
+            doc.setFillColor(59, 130, 246);
             doc.rect(0, 0, 297, 25, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(20);
@@ -158,127 +151,105 @@ function PaymentsPage() {
             doc.setFontSize(14);
             doc.text('Rapport de Suivi des Paiements', 20, 20);
 
-            const today = new Date().toLocaleDateString('fr-FR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            });
+            const today = new Date().toLocaleDateString('fr-FR');
             doc.setFontSize(10);
             doc.text(`Genere le ${today}`, 200, 20);
 
-            doc.setTextColor(...colors.dark);
+            // Contenu principal
+            doc.setTextColor(0, 0, 0);
             let yPos = 40;
 
+            // Statistiques
             doc.setFontSize(16);
-            doc.text('Statistiques Globales', 20, yPos);
-            yPos += 10;
+            doc.text('STATISTIQUES GLOBALES', 20, yPos);
+            yPos += 15;
 
-            const statsData = [
-                ['Total Attendu', `${stats.totalExpected.toLocaleString()} €`, `${payments.length} paiements`],
-                ['Total Recu', `${stats.totalReceived.toLocaleString()} €`, `${stats.collectionRate.toFixed(1)}% collecte`],
-                ['En Attente', `${stats.totalPending.toLocaleString()} €`, `${stats.pendingCount} paiements`],
-                ['En Retard', `${stats.totalOverdue.toLocaleString()} €`, `${stats.overdueCount} paiements`]
-            ];
+            doc.setFontSize(12);
+            doc.text(`Total Attendu: ${stats.totalExpected.toLocaleString()} €`, 20, yPos);
+            yPos += 8;
+            doc.text(`Total Recu: ${stats.totalReceived.toLocaleString()} € (${stats.collectionRate.toFixed(1)}%)`, 20, yPos);
+            yPos += 8;
+            doc.text(`En Attente: ${stats.totalPending.toLocaleString()} € (${stats.pendingCount} paiements)`, 20, yPos);
+            yPos += 8;
+            doc.text(`En Retard: ${stats.totalOverdue.toLocaleString()} € (${stats.overdueCount} paiements)`, 20, yPos);
+            yPos += 20;
 
-            doc.autoTable({
-                startY: yPos,
-                head: [['Categorie', 'Montant', 'Details']],
-                body: statsData,
-                theme: 'grid',
-                headStyles: { fillColor: colors.primary, textColor: [255, 255, 255] },
-                styles: { fontSize: 10, cellPadding: 3 },
-                columnStyles: {
-                    0: { fontStyle: 'bold' },
-                    1: { halign: 'right', fontStyle: 'bold' },
-                    2: { fontSize: 9, textColor: colors.gray }
-                }
-            });
-
-            yPos = doc.lastAutoTable.finalY + 15;
-
+            // Répartition par méthode
             doc.setFontSize(16);
-            doc.text('Repartition par Methode de Paiement', 20, yPos);
-            yPos += 10;
+            doc.text('REPARTITION PAR METHODE', 20, yPos);
+            yPos += 15;
 
-            const methodsData = ['carte', 'cheque', 'especes', 'autre'].map(method => {
+            ['carte', 'cheque', 'especes', 'autre'].forEach(method => {
                 const methodPayments = payments.filter(p => p.method === method && p.is_paid);
                 const total = methodPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
                 const percentage = stats.totalReceived > 0 ? (total / stats.totalReceived) * 100 : 0;
-                const icon = method === 'carte' ? 'Carte' : method === 'cheque' ? 'Cheque' : method === 'especes' ? 'Especes' : 'Autre';
-                return [icon, `${total.toFixed(2)} €`, `${percentage.toFixed(1)}%`, `${methodPayments.length} paiements`];
+                
+                doc.setFontSize(12);
+                doc.text(`${method.charAt(0).toUpperCase() + method.slice(1)}: ${total.toFixed(2)} € (${percentage.toFixed(1)}%)`, 20, yPos);
+                yPos += 8;
             });
 
-            doc.autoTable({
-                startY: yPos,
-                head: [['Methode', 'Montant', 'Pourcentage', 'Nombre']],
-                body: methodsData,
-                theme: 'grid',
-                headStyles: { fillColor: colors.success, textColor: [255, 255, 255] },
-                styles: { fontSize: 10, cellPadding: 3 },
-                columnStyles: {
-                    1: { halign: 'right', fontStyle: 'bold' },
-                    2: { halign: 'center', fontStyle: 'bold' },
-                    3: { halign: 'center' }
-                }
-            });
+            yPos += 15;
 
-            yPos = doc.lastAutoTable.finalY + 15;
-
+            // Liste des membres
             doc.setFontSize(16);
-            doc.text(`Detail par Membre (${filteredMembers.length} membres)`, 20, yPos);
-            yPos += 10;
+            doc.text(`DETAIL DES MEMBRES (${filteredMembers.length})`, 20, yPos);
+            yPos += 15;
 
-            const membersData = filteredMembers.map(member => {
-                const statusIcon = member.overallStatus === 'paid' ? 'Paye' : member.overallStatus === 'pending' ? 'En attente' : member.overallStatus === 'overdue' ? 'En retard' : 'Aucun';
-                return [
-                    `${member.firstName || ''} ${member.name || ''}`.trim(),
-                    member.badgeId || 'N/A',
-                    statusIcon,
-                    `${member.progressPercentage.toFixed(0)}%`,
-                    `${member.totalPaid.toFixed(2)} € / ${member.totalDue.toFixed(2)} €`,
-                    `${member.payments.length}`,
-                    member.lastPaymentDate ? formatDate(member.lastPaymentDate) : 'Aucun'
-                ];
-            });
+            // En-têtes du tableau simplifié
+            doc.setFontSize(10);
+            doc.text('NOM', 20, yPos);
+            doc.text('BADGE', 70, yPos);  
+            doc.text('STATUT', 110, yPos);
+            doc.text('PROGRESSION', 150, yPos);
+            doc.text('MONTANTS', 200, yPos);
+            doc.text('DERNIER PAIEMENT', 240, yPos);
+            yPos += 8;
 
-            doc.autoTable({
-                startY: yPos,
-                head: [['Nom', 'Badge', 'Statut', 'Progression', 'Montants', 'Nb Paiements', 'Dernier Paiement']],
-                body: membersData,
-                theme: 'striped',
-                headStyles: { fillColor: colors.dark, textColor: [255, 255, 255] },
-                styles: { fontSize: 8, cellPadding: 2 },
-                columnStyles: {
-                    0: { fontStyle: 'bold', cellWidth: 35 },
-                    1: { cellWidth: 25, halign: 'center' },
-                    2: { cellWidth: 30, halign: 'center' },
-                    3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
-                    4: { cellWidth: 40, halign: 'right' },
-                    5: { cellWidth: 15, halign: 'center' },
-                    6: { cellWidth: 25, halign: 'center' }
+            // Ligne de séparation
+            doc.line(15, yPos - 2, 285, yPos - 2);
+
+            // Données des membres
+            filteredMembers.forEach((member, index) => {
+                if (yPos > 190) {
+                    doc.addPage();
+                    yPos = 20;
                 }
+
+                const statusText = member.overallStatus === 'paid' ? 'Paye' : 
+                                 member.overallStatus === 'pending' ? 'Attente' :
+                                 member.overallStatus === 'overdue' ? 'Retard' : 'Aucun';
+
+                doc.setFontSize(9);
+                doc.text(`${member.firstName || ''} ${member.name || ''}`.trim().substring(0, 20), 20, yPos);
+                doc.text(member.badgeId || 'N/A', 70, yPos);
+                doc.text(statusText, 110, yPos);
+                doc.text(`${member.progressPercentage.toFixed(0)}%`, 150, yPos);
+                doc.text(`${member.totalPaid.toFixed(0)}€/${member.totalDue.toFixed(0)}€`, 200, yPos);
+                doc.text(member.lastPaymentDate ? formatDate(member.lastPaymentDate) : 'Aucun', 240, yPos);
+                
+                yPos += 6;
             });
 
+            // Pied de page
             const pageCount = doc.internal.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
-                doc.setDrawColor(...colors.gray);
-                doc.line(20, 200, 277, 200);
                 doc.setFontSize(8);
-                doc.setTextColor(...colors.gray);
+                doc.setTextColor(100, 100, 100);
                 doc.text('Club Body Force - Systeme de Gestion des Paiements', 20, 205);
-                doc.text(`Page ${i} sur ${pageCount}`, 240, 205);
-                doc.text(`Rapport genere automatiquement le ${new Date().toLocaleString('fr-FR')}`, 20, 210);
+                doc.text(`Page ${i}/${pageCount}`, 250, 205);
             }
 
             const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '_');
-            const fileName = `Rapport_Paiements_${timestamp}.pdf`;
-            doc.save(fileName);
+            doc.save(`Rapport_Paiements_${timestamp}.pdf`);
+
         } catch (error) {
             console.error('❌ Erreur lors de l\'export PDF:', error);
             alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
         }
     };
+
     const exportToCSV = () => {
         try {
             const csvData = filteredMembers.map(member => ({
@@ -318,7 +289,6 @@ function PaymentsPage() {
             alert('Erreur lors de la génération du CSV. Veuillez réessayer.');
         }
     };
-
     const getStatusColor = (status) => {
         switch (status) {
             case 'paid': return 'text-green-600 bg-green-100';
@@ -377,13 +347,15 @@ function PaymentsPage() {
         }
     };
 
+    // Vue mobile CORRIGÉE - Badge repositionné
     const renderMobileView = () => (
         <div className="space-y-4">
             {filteredMembers.map((member) => (
                 <div key={member.id} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
                     <div className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-3">
+                        {/* En-tête CORRIGÉ - Badge en haut à droite */}
+                        <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
                                 <div className="flex-shrink-0">
                                     {member.photo ? (
                                         <img
@@ -404,13 +376,18 @@ function PaymentsPage() {
                                     <p className="text-sm text-gray-500">Badge: {member.badgeId || 'N/A'}</p>
                                 </div>
                             </div>
-                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(member.overallStatus)}`}>
-                                {getStatusIcon(member.overallStatus)}
-                                {getStatusLabel(member.overallStatus)}
-                            </span>
+                            {/* Badge REPOSITIONNÉ en haut à droite */}
+                            <div className="flex-shrink-0 ml-2">
+                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(member.overallStatus)}`}>
+                                    {getStatusIcon(member.overallStatus)}
+                                    <span className="hidden sm:inline">{getStatusLabel(member.overallStatus)}</span>
+                                </span>
+                            </div>
                         </div>
 
+                        {/* Informations principales */}
                         <div className="grid grid-cols-1 gap-3">
+                            {/* Progression */}
                             <div className="bg-gray-50 p-3 rounded-lg">
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-sm font-medium text-gray-600">Progression</span>
@@ -429,6 +406,7 @@ function PaymentsPage() {
                                 </div>
                             </div>
 
+                            {/* Montants et infos */}
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="bg-gray-50 p-3 rounded-lg">
                                     <div className="text-sm font-medium text-gray-600 mb-1">Montants</div>
@@ -586,8 +564,6 @@ function PaymentsPage() {
                 {retryCount > 0 && (
                     <p className="text-sm text-gray-500 mt-4">Tentative {retryCount + 1}</p>
                 )}
-
-
             </div>
         </div>
     );
@@ -620,7 +596,7 @@ function PaymentsPage() {
                             <h1 className="text-2xl lg:text-4xl font-bold text-gray-900 mb-2">Suivi des Paiements</h1>
                             <p className="text-gray-600">Gérez et suivez les paiements de vos membres</p>
                         </div>
-
+                        
                         {/* Boutons d'action - Responsive */}
                         <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
                             <button
@@ -650,7 +626,6 @@ function PaymentsPage() {
                         </div>
                     </div>
                 </div>
-
                 {/* Widgets statistiques - Responsive */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8">
                     {/* Total Attendu */}
@@ -1026,6 +1001,7 @@ function PaymentsPage() {
                         )}
                     </div>
                 )}
+
                 {/* Statistiques détaillées par méthode de paiement - Responsive */}
                 <div className="mt-6 lg:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                     <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
@@ -1085,7 +1061,6 @@ function PaymentsPage() {
                         </div>
                     </div>
                 </div>
-
                 {/* Résumé global en pied de page */}
                 <div className="mt-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg p-4 lg:p-6 text-white">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
