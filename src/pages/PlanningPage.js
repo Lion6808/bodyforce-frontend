@@ -863,46 +863,82 @@ function PlanningPage() {
           </div>
 
           {/* ✅ Presets rapides pour navigation facile */}
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          {/* Presets rapides */}
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex flex-wrap gap-2">
               <span className="text-sm font-medium text-blue-800 mr-2">
-                Raccourcis:
+                Raccourcis :
               </span>
+
               <button
                 onClick={() => {
-                  setStartDate(startOfDay(subWeeks(new Date(), 1)));
+                  const today = new Date();
+                  setStartDate(startOfDay(today));
+                  setEndDate(endOfDay(today));
+                }}
+                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+              >
+                Aujourd’hui
+              </button>
+
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setStartDate(
+                    startOfDay(new Date(today.setDate(today.getDate() - 6)))
+                  );
                   setEndDate(endOfDay(new Date()));
+                }}
+                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+              >
+                7 derniers jours
+              </button>
+
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setStartDate(
+                    startOfDay(new Date(today.setDate(today.getDate() - 29)))
+                  );
+                  setEndDate(endOfDay(new Date()));
+                }}
+                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+              >
+                30 derniers jours
+              </button>
+
+              <button
+                onClick={() => {
+                  setStartDate(
+                    startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 }))
+                  );
+                  setEndDate(
+                    endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))
+                  );
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
                 Cette semaine
               </button>
+
               <button
                 onClick={() => {
-                  setStartDate(startOfDay(new Date("2025-01-01")));
-                  setEndDate(endOfDay(new Date("2025-01-31")));
+                  setStartDate(startOfDay(startOfMonth(new Date())));
+                  setEndDate(endOfDay(endOfMonth(new Date())));
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
-                Janvier 2025
+                Ce mois
               </button>
+
               <button
                 onClick={() => {
-                  setStartDate(startOfDay(new Date("2025-06-01")));
-                  setEndDate(endOfDay(new Date("2025-06-30")));
+                  setStartDate(startOfDay(startOfYear(new Date())));
+                  setEndDate(endOfDay(endOfYear(new Date())));
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
-                Juin 2025
-              </button>
-              <button
-                onClick={() => {
-                  setStartDate(startOfDay(new Date("2025-01-01")));
-                  setEndDate(endOfDay(new Date("2025-06-30")));
-                }}
-                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
-              >
-                Premier semestre
+                Cette année
               </button>
             </div>
           </div>
