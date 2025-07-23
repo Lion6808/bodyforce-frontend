@@ -83,18 +83,7 @@ const formatDate = (date, format) => {
 //   return new Date(timestamp);
 // };
 
-const parseTimestamp = (timestamp) => {
-  if (!timestamp) return new Date();
-  if (timestamp instanceof Date) return timestamp;
-
-  const utcDate = new Date(timestamp);
-  if (isNaN(utcDate)) return new Date();
-
-  const localDate = new Date(
-    utcDate.getTime() + new Date().getTimezoneOffset() * -60000
-  );
-  return localDate;
-};
+const parseTimestamp = (timestamp) => new Date(timestamp);
 
 const toDateString = (date) => {
   if (!date) return "";
