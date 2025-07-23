@@ -349,9 +349,10 @@ function PlanningPage() {
           `   Période suggérée: ${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`
         );
 
-        // Auto-ajustement optionnel (décommentez si vous voulez)
-        // setStartDate(startOfDay(minDate));
-        // setEndDate(endOfDay(maxDate));
+        // Auto-ajustement automatique à la plage réelle des présences
+        setStartDate(startOfDay(minDate));
+        setEndDate(endOfDay(maxDate));
+
       }
     }
   }, [presences, startDate, endDate]);
@@ -467,8 +468,7 @@ function PlanningPage() {
     // Debug pour les présences problématiques
     if (p.badgeId && presenceDate.getFullYear() >= 2025) {
       console.log(
-        `🔍 Présence ${p.badgeId}: ${
-          p.timestamp
+        `🔍 Présence ${p.badgeId}: ${p.timestamp
         } -> ${presenceDate.toLocaleDateString()} (dans la plage: ${isInRange})`
       );
     }
@@ -603,13 +603,12 @@ function PlanningPage() {
                 return (
                   <div key={dayKey} className={`relative group`}>
                     <div
-                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${
-                        hasPresences
+                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${hasPresences
                           ? "bg-green-500 text-white shadow-sm"
                           : isWeekend(day)
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
                     >
                       <div className="font-medium text-xs">
                         {formatDate(day, "EEE dd").split(" ")[1]}
@@ -672,11 +671,10 @@ function PlanningPage() {
             {allDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`p-3 text-center font-medium border-b border-r ${
-                  isWeekend(day)
+                className={`p-3 text-center font-medium border-b border-r ${isWeekend(day)
                     ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
                     : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
-                }`}
+                  }`}
               >
                 <div className="text-sm">{formatDate(day, "EEE dd")}</div>
                 <div className="text-xs opacity-75">
@@ -689,9 +687,8 @@ function PlanningPage() {
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 p-3 border-r border-b flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  }`}
+                  className={`sticky left-0 z-10 p-3 border-r border-b flex items-center gap-3 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
                 >
                   {member.photo ? (
                     <img
@@ -726,15 +723,14 @@ function PlanningPage() {
                   return (
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
-                      className={`p-2 border-b border-r min-h-[80px] transition-colors hover:bg-opacity-80 ${
-                        dayPresences.length > 0
+                      className={`p-2 border-b border-r min-h-[80px] transition-colors hover:bg-opacity-80 ${dayPresences.length > 0
                           ? "bg-gradient-to-br from-green-100 to-green-200"
                           : isWeekend(day)
-                          ? "bg-blue-50"
-                          : idx % 2 === 0
-                          ? "bg-white"
-                          : "bg-gray-50"
-                      }`}
+                            ? "bg-blue-50"
+                            : idx % 2 === 0
+                              ? "bg-white"
+                              : "bg-gray-50"
+                        }`}
                     >
                       {dayPresences.length > 0 && (
                         <div className="space-y-1">
@@ -772,9 +768,8 @@ function PlanningPage() {
           <div
             className="grid"
             style={{
-              gridTemplateColumns: `220px repeat(${
-                allDays.length * hours.length
-              }, 45px)`,
+              gridTemplateColumns: `220px repeat(${allDays.length * hours.length
+                }, 45px)`,
             }}
           >
             <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r flex items-center justify-center font-bold text-white">
@@ -787,11 +782,10 @@ function PlanningPage() {
               hours.map((h, hIdx) => (
                 <div
                   key={`header-${dIdx}-${h}`}
-                  className={`text-[9px] border-b border-r flex flex-col items-center justify-center h-16 font-medium ${
-                    isWeekend(day)
+                  className={`text-[9px] border-b border-r flex flex-col items-center justify-center h-16 font-medium ${isWeekend(day)
                       ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
                       : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
-                  }`}
+                    }`}
                 >
                   {hIdx === 0 && (
                     <div className="font-bold whitespace-nowrap mb-1">
@@ -807,9 +801,8 @@ function PlanningPage() {
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b h-16 flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  }`}
+                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b h-16 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
                 >
                   {member.photo ? (
                     <img
@@ -845,15 +838,14 @@ function PlanningPage() {
                     return (
                       <div
                         key={`${member.badgeId}-${day.toISOString()}-${h}`}
-                        className={`h-16 border-b border-r relative group transition-all duration-200 ${
-                          present
+                        className={`h-16 border-b border-r relative group transition-all duration-200 ${present
                             ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
                             : isWeekend(day)
-                            ? "bg-blue-50 hover:bg-blue-100"
-                            : idx % 2 === 0
-                            ? "bg-white hover:bg-gray-50"
-                            : "bg-gray-50 hover:bg-gray-100"
-                        }`}
+                              ? "bg-blue-50 hover:bg-blue-100"
+                              : idx % 2 === 0
+                                ? "bg-white hover:bg-gray-50"
+                                : "bg-gray-50 hover:bg-gray-100"
+                          }`}
                       >
                         {present && (
                           <>
@@ -919,33 +911,30 @@ function PlanningPage() {
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-md transition-all ${
-                    viewMode === "list"
+                  className={`p-2 rounded-md transition-all ${viewMode === "list"
                       ? "bg-white shadow-md text-blue-600"
                       : "text-gray-600 hover:text-gray-900"
-                  }`}
+                    }`}
                   title="Vue liste"
                 >
                   <List className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setViewMode("compact")}
-                  className={`p-2 rounded-md transition-all ${
-                    viewMode === "compact"
+                  className={`p-2 rounded-md transition-all ${viewMode === "compact"
                       ? "bg-white shadow-md text-blue-600"
                       : "text-gray-600 hover:text-gray-900"
-                  }`}
+                    }`}
                   title="Vue compacte"
                 >
                   <Users className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-md transition-all ${
-                    viewMode === "grid"
+                  className={`p-2 rounded-md transition-all ${viewMode === "grid"
                       ? "bg-white shadow-md text-blue-600"
                       : "text-gray-600 hover:text-gray-900"
-                  }`}
+                    }`}
                   title="Vue grille"
                 >
                   <Grid className="w-5 h-5" />
@@ -954,11 +943,10 @@ function PlanningPage() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`p-3 rounded-lg transition-all ${
-                  showFilters
+                className={`p-3 rounded-lg transition-all ${showFilters
                     ? "bg-blue-100 text-blue-600"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                  }`}
               >
                 <Filter className="w-5 h-5" />
               </button>
