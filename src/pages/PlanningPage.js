@@ -12,7 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-// Utilitaires de date corrigés
+// Utilitaires de date
 const formatDate = (date, format) => {
   const options = {
     "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
@@ -29,69 +29,43 @@ const formatDate = (date, format) => {
   return new Intl.DateTimeFormat("fr-FR", options[format] || {}).format(date);
 };
 
-// CORRECTION PRINCIPALE : Fonction pour convertir correctement les timestamps
 const parseTimestamp = (timestamp) => {
   if (!timestamp) return new Date();
-
-  // Si c'est déjà un objet Date, le retourner
   if (timestamp instanceof Date) return timestamp;
-
-  // Si c'est un string avec timezone UTC
   if (typeof timestamp === "string") {
-    // CORRECTION: Gérer les différents formats de timezone
     if (
       timestamp.includes("T") &&
       (timestamp.includes("+00:00") || timestamp.includes("+00"))
     ) {
-      // Extraire la partie date et heure sans le timezone
-      const datePart = timestamp.split("T")[0]; // '2025-06-14'
+      const datePart = timestamp.split("T")[0];
       let timePart;
 
       if (timestamp.includes("+00:00")) {
-        timePart = timestamp.split("T")[1].split("+00:00")[0]; // '18:29:00'
+        timePart = timestamp.split("T")[1].split("+00:00")[0];
       } else if (timestamp.includes("+00")) {
-        timePart = timestamp.split("T")[1].split("+00")[0]; // '18:29:00'
+        timePart = timestamp.split("T")[1].split("+00")[0];
       }
 
-      // Reconstruire la date en tant que locale
-      const localDateString = `${datePart}T${timePart}`;
-      const localDate = new Date(localDateString);
-
-      console.log(
-        `🔄 Conversion timestamp: ${timestamp} -> ${localDate.toLocaleString()}`
-      );
-      return localDate;
+      return new Date(`${datePart}T${timePart}`);
     }
 
-    // Pour les autres formats avec espace au lieu de T
     if (timestamp.includes(" ") && timestamp.includes("+00")) {
       const [datePart, timeWithTz] = timestamp.split(" ");
       const timePart = timeWithTz.split("+00")[0];
-
-      const localDateString = `${datePart}T${timePart}`;
-      const localDate = new Date(localDateString);
-
-      console.log(
-        `🔄 Conversion timestamp (espace): ${timestamp} -> ${localDate.toLocaleString()}`
-      );
-      return localDate;
+      return new Date(`${datePart}T${timePart}`);
     }
 
-    // Pour les autres formats, conversion normale
     return new Date(timestamp);
   }
 
   return new Date(timestamp);
 };
 
-// Fonction pour normaliser une date en string YYYY-MM-DD local
 const toDateString = (date) => {
   if (!date) return "";
-
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-
   return `${year}-${month}-${day}`;
 };
 
@@ -107,12 +81,10 @@ const isWithinInterval = (date, interval) => {
 const eachDayOfInterval = (interval) => {
   const days = [];
   const current = new Date(interval.start);
-
   while (current <= interval.end) {
     days.push(new Date(current));
     current.setDate(current.getDate() + 1);
   }
-
   return days;
 };
 
@@ -155,19 +127,16 @@ function PlanningPage() {
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
-
   const [period, setPeriod] = useState("week");
-  const [startDate, setStartDate] = useState(
-    startOfDay(subWeeks(new Date(), 1))
-  );
+  const [startDate, setStartDate] = useState(startOfDay(new Date()));
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
+  const [dateAutoSet, setDateAutoSet] = useState(false);
   const [filterBadge, setFilterBadge] = useState("");
   const [filterName, setFilterName] = useState("");
   const [showNightHours, setShowNightHours] = useState(false);
   const [viewMode, setViewMode] = useState("list");
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) {
@@ -176,71 +145,16 @@ function PlanningPage() {
       setLoading(true);
       setError("");
 
-      console.log("🔄 Début du chargement des données...");
+      const testResult = await supabaseServices.testConnection();
+      if (!testResult) throw new Error("Test de connexion échoué");
 
-      // Test de connexion simple d'abord
-      try {
-        const testResult = await supabaseServices.testConnection();
-        console.log("🔍 Test de connexion:", testResult);
+      const membersData = await supabaseServices.getMembers();
+      const presencesData = await supabaseServices.getPresencesWithMembers();
 
-        if (!testResult) {
-          throw new Error("Test de connexion échoué");
-        }
-      } catch (testError) {
-        console.warn(
-          "⚠️ Test de connexion échoué, tentative de chargement direct:",
-          testError.message
-        );
-      }
-
-      // Chargement des données avec gestion d'erreur individuelle
-      let presencesData = [];
-      let membersData = [];
-
-      try {
-        console.log("📊 Chargement des membres...");
-        membersData = await supabaseServices.getMembers();
-        console.log("✅ Membres chargés:", membersData?.length || 0);
-      } catch (memberError) {
-        console.error("❌ Erreur membres:", memberError);
-        throw new Error(
-          `Erreur lors du chargement des membres: ${memberError.message}`
-        );
-      }
-
-      try {
-        console.log("👥 Chargement des présences...");
-        presencesData = await supabaseServices.getPresencesWithMembers();
-        console.log("✅ Présences chargées:", presencesData?.length || 0);
-
-        // Debug des premières présences pour vérifier les timestamps
-        if (presencesData && presencesData.length > 0) {
-          console.log(
-            "🔍 Échantillon des premières présences:",
-            presencesData.slice(0, 3).map((p) => ({
-              badgeId: p.badgeId,
-              timestamp: p.timestamp,
-              parsed: parseTimestamp(p.timestamp).toLocaleString(),
-            }))
-          );
-        }
-      } catch (presenceError) {
-        console.error("❌ Erreur présences:", presenceError);
-        throw new Error(
-          `Erreur lors du chargement des présences: ${presenceError.message}`
-        );
-      }
-
-      // Vérification finale
-      if (presencesData === null && membersData === null) {
-        throw new Error("Aucune donnée n'a pu être chargée");
-      }
-
-      // Transformation des données avec correction des timestamps
       const transformedPresences = (presencesData || []).map((p) => ({
         badgeId: p.badgeId,
         timestamp: p.timestamp,
-        parsedDate: parseTimestamp(p.timestamp), // Ajout de la date parsée
+        parsedDate: parseTimestamp(p.timestamp),
       }));
 
       const transformedMembers = (membersData || []).map((m) => ({
@@ -253,40 +167,9 @@ function PlanningPage() {
       setPresences(transformedPresences);
       setMembers(transformedMembers);
       setRetryCount(0);
-
-      console.log("✅ Chargement terminé avec succès");
     } catch (error) {
-      console.error("💥 Erreur lors du chargement des données:", error);
-
-      // Messages d'erreur plus spécifiques
       let errorMessage = "Erreur de connexion à la base de données";
-
-      if (
-        error.message?.includes("Failed to fetch") ||
-        error.message?.includes("NetworkError")
-      ) {
-        errorMessage = "Problème de réseau - Vérifiez votre connexion internet";
-      } else if (
-        error.message?.includes("Invalid API key") ||
-        error.message?.includes("Invalid JWT")
-      ) {
-        errorMessage = "Problème d'authentification avec Supabase";
-      } else if (
-        error.message?.includes("permission denied") ||
-        error.message?.includes("Row level security")
-      ) {
-        errorMessage = "Problème de permissions - Contactez l'administrateur";
-      } else if (
-        error.message?.includes("relation") &&
-        error.message?.includes("does not exist")
-      ) {
-        errorMessage = "Table manquante dans la base de données";
-      } else if (error.code === "PGRST301") {
-        errorMessage = "Problème de configuration Supabase (JWT)";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
+      if (error.message) errorMessage = error.message;
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -298,82 +181,16 @@ function PlanningPage() {
     loadData();
   }, []);
 
-  // DEBUG TEMPORAIRE - À supprimer après vérification
   useEffect(() => {
-    if (presences.length > 0) {
-      console.log("🔍 ANALYSE DES DONNÉES CHARGÉES:");
-
-      // Trouver les dates min et max dans vos données
+    if (presences.length > 0 && !dateAutoSet) {
       const dates = presences.map((p) => parseTimestamp(p.timestamp));
       const minDate = new Date(Math.min(...dates));
       const maxDate = new Date(Math.max(...dates));
       setStartDate(startOfDay(minDate));
       setEndDate(endOfDay(maxDate));
-
-      console.log("📅 Plage de dates dans vos données:");
-      console.log(`   Plus ancienne: ${minDate.toLocaleDateString()}`);
-      console.log(`   Plus récente: ${maxDate.toLocaleDateString()}`);
-
-      // Compter par mois pour vérifier la répartition
-      const monthCounts = {};
-      presences.forEach((p) => {
-        const date = parseTimestamp(p.timestamp);
-        const monthKey = `${date.getFullYear()}-${String(
-          date.getMonth() + 1
-        ).padStart(2, "0")}`;
-        monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
-      });
-
-      console.log("📈 Répartition par mois:", monthCounts);
-
-      // Vérifier le filtrage actuel
-      const filtered = presences.filter((p) => {
-        const presenceDate = parseTimestamp(p.timestamp);
-        return isWithinInterval(presenceDate, {
-          start: startDate,
-          end: endDate,
-        });
-      });
-
-      console.log("🎯 Période actuelle:", {
-        début: startDate.toLocaleDateString(),
-        fin: endDate.toLocaleDateString(),
-        totalPresences: presences.length,
-        presencesFiltrées: filtered.length,
-      });
-
-      // SUGGESTION AUTOMATIQUE si aucune donnée filtrée
-      if (filtered.length === 0 && presences.length > 0) {
-        console.log(
-          "💡 SUGGESTION: Ajustez votre période pour inclure vos données !"
-        );
-        console.log(
-          `   Période suggérée: ${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`
-        );
-
-        // Auto-ajustement automatique à la plage réelle des présences
-        setStartDate(startOfDay(minDate));
-        setEndDate(endOfDay(maxDate));
-
-      }
+      setDateAutoSet(true);
     }
-  }, [presences, startDate, endDate]);
-
-  const handleRetry = () => {
-    setRetryCount((prev) => prev + 1);
-    loadData(true);
-  };
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 768);
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+  }, [presences, dateAutoSet]);
 
   const updateDateRange = (value, base = new Date()) => {
     const start = startOfDay(base);
@@ -388,7 +205,6 @@ function PlanningPage() {
   const navigatePeriod = (direction) => {
     const amount = direction === "prev" ? -1 : 1;
     let newStart;
-
     if (period === "week") {
       newStart = addWeeks(startDate, amount);
     } else if (period === "month") {
@@ -396,112 +212,22 @@ function PlanningPage() {
     } else {
       newStart = addYears(startDate, amount);
     }
-
-    updateDateRange(period, newStart); // pas de limite vers le passé
+    updateDateRange(period, newStart);
   };
 
-  // CORRECTION: Utiliser la nouvelle fonction de parsing
-  const toLocalDate = (timestamp) => {
-    return parseTimestamp(timestamp);
-  };
-
-  // Affichage des écrans de chargement et d'erreur
-  const renderConnectionError = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200">
-        <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          Problème de connexion
-        </h2>
-        <p className="text-gray-600 mb-8 leading-relaxed">{error}</p>
-        <button
-          onClick={handleRetry}
-          disabled={isRetrying}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                   disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 
-                   rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
-        >
-          {isRetrying ? (
-            <>
-              <RefreshCw className="w-5 h-5 animate-spin" />
-              Reconnexion...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-5 h-5" />
-              Réessayer
-            </>
-          )}
-        </button>
-        {retryCount > 0 && (
-          <p className="text-sm text-gray-500 mt-4">
-            Tentative {retryCount + 1}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderLoading = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-          <RefreshCw className="w-8 h-8 animate-spin text-white" />
-        </div>
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">
-          {isRetrying ? "Reconnexion en cours..." : "Chargement du planning..."}
-        </h2>
-        <p className="text-gray-600">Veuillez patienter</p>
-      </div>
-    </div>
-  );
-
-  if (loading) return renderLoading();
-  if (error && !isRetrying) return renderConnectionError();
-
-  // CORRECTION: Calculs pour l'affichage avec timestamps corrigés
   const filteredPresences = presences.filter((p) => {
-    const presenceDate = toLocalDate(p.timestamp);
-    const isInRange = isWithinInterval(presenceDate, {
+    const presenceDate = parseTimestamp(p.timestamp);
+    return isWithinInterval(presenceDate, {
       start: startDate,
       end: endDate,
     });
-
-    // Debug pour les présences problématiques
-    if (p.badgeId && presenceDate.getFullYear() >= 2025) {
-      console.log(
-        `🔍 Présence ${p.badgeId}: ${p.timestamp
-        } -> ${presenceDate.toLocaleDateString()} (dans la plage: ${isInRange})`
-      );
-    }
-
-    return isInRange;
-  });
-
-  console.log("🔍 Debug présences corrigé:", {
-    totalPresences: presences.length,
-    filteredPresences: filteredPresences.length,
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-    sampleFiltered: filteredPresences.slice(0, 3).map((p) => ({
-      badgeId: p.badgeId,
-      original: p.timestamp,
-      parsed: toLocalDate(p.timestamp).toLocaleString(),
-    })),
   });
 
   const groupedByMember = {};
   filteredPresences.forEach((p) => {
     const key = p.badgeId;
     if (!groupedByMember[key]) groupedByMember[key] = [];
-    groupedByMember[key].push(toLocalDate(p.timestamp));
-  });
-
-  // Debug pour chaque membre
-  Object.keys(groupedByMember).forEach((badgeId) => {
-    console.log(
-      `👤 Membre ${badgeId}: ${groupedByMember[badgeId].length} présences filtrées`
-    );
+    groupedByMember[key].push(parseTimestamp(p.timestamp));
   });
 
   const allDays = eachDayOfInterval({ start: startDate, end: endDate });
@@ -521,369 +247,10 @@ function PlanningPage() {
             .includes(filterName.toLowerCase())) &&
         (!filterBadge || m.badgeId?.includes(filterBadge))
     );
-
-  // Vue liste pour mobile - Version compacte
-  const ListView = () => (
-    <div className="space-y-3">
-      {visibleMembers.map((member) => {
-        const memberPresences = groupedByMember[member.badgeId] || [];
-        const dailyPresences = {};
-
-        memberPresences.forEach((timestamp) => {
-          // CORRECTION: Utiliser toDateString pour éviter les décalages
-          const dayKey = toDateString(timestamp);
-          if (!dailyPresences[dayKey]) dailyPresences[dayKey] = [];
-          dailyPresences[dayKey].push(timestamp);
-        });
-
-        const totalPresencesInPeriod = memberPresences.length;
-
-        // Debug amélioré
-        const visibleDaysWithPresences = Object.keys(dailyPresences).length;
-        const totalVisiblePresences = Object.values(dailyPresences).reduce(
-          (sum, dayP) => sum + dayP.length,
-          0
-        );
-
-        if (totalPresencesInPeriod !== totalVisiblePresences) {
-          console.log(
-            `⚠️ INCOHÉRENCE CORRIGÉE membre ${member.badgeId} (${member.name} ${member.firstName}):`,
-            {
-              presencesFiltrées: totalPresencesInPeriod,
-              presencesCalculées: totalVisiblePresences,
-              joursAvecPresences: visibleDaysWithPresences,
-              détailParJour: Object.keys(dailyPresences).map((date) => ({
-                date,
-                count: dailyPresences[date].length,
-                heures: dailyPresences[date].map((p) => formatDate(p, "HH:mm")),
-              })),
-            }
-          );
-        }
-
-        return (
-          <div
-            key={member.badgeId}
-            className="bg-white rounded-lg shadow-sm p-3 border border-gray-100 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              {member.photo ? (
-                <img
-                  src={member.photo}
-                  alt="avatar"
-                  className="w-10 h-10 object-cover rounded-full border border-blue-200"
-                />
-              ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
-                  {member.firstName?.[0]}
-                  {member.name?.[0]}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-base truncate">
-                  {member.name} {member.firstName}
-                </h3>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-gray-500">
-                    Badge: {member.badgeId}
-                  </span>
-                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
-                    {totalPresencesInPeriod} présence(s)
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Grille compacte des jours */}
-            <div className="grid grid-cols-7 sm:grid-cols-14 gap-1">
-              {allDays.map((day) => {
-                // CORRECTION: Utiliser toDateString pour la clé
-                const dayKey = toDateString(day);
-                const dayPresences = dailyPresences[dayKey] || [];
-                const hasPresences = dayPresences.length > 0;
-
-                return (
-                  <div key={dayKey} className={`relative group`}>
-                    <div
-                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${hasPresences
-                        ? "bg-green-500 text-white shadow-sm"
-                        : isWeekend(day)
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-600"
-                        }`}
-                    >
-                      <div className="font-medium text-xs">
-                        {formatDate(day, "EEE dd").split(" ")[1]}
-                      </div>
-                      {hasPresences && (
-                        <div className="text-[10px] font-bold mt-0.5">
-                          {dayPresences.length}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Tooltip avec détails au hover */}
-                    {hasPresences && (
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                        <div className="bg-gray-900 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max">
-                          <div className="font-semibold mb-1">
-                            {formatDate(day, "EEE dd/MM")}
-                          </div>
-                          <div className="space-y-0.5">
-                            {dayPresences.slice(0, 3).map((p, idx) => (
-                              <div key={idx} className="text-[11px]">
-                                {formatDate(p, "HH:mm")}
-                              </div>
-                            ))}
-                            {dayPresences.length > 3 && (
-                              <div className="text-[11px] opacity-75">
-                                +{dayPresences.length - 3} autres
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  // Vue compacte pour tablettes
-  const CompactView = () => (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-      <div className="overflow-x-auto">
-        <div className="min-w-full">
-          <div
-            className="grid bg-gray-50"
-            style={{
-              gridTemplateColumns: `180px repeat(${allDays.length}, minmax(100px, 1fr))`,
-            }}
-          >
-            {/* En-tête */}
-            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 p-4 border-b border-r font-bold text-center text-white">
-              <Users className="w-5 h-5 mx-auto mb-1" />
-              Membres
-            </div>
-            {allDays.map((day) => (
-              <div
-                key={day.toISOString()}
-                className={`p-3 text-center font-medium border-b border-r ${isWeekend(day)
-                  ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
-                  : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
-                  }`}
-              >
-                <div className="text-sm">{formatDate(day, "EEE dd")}</div>
-                <div className="text-xs opacity-75">
-                  {formatDate(day, "dd/MM").split("/")[1]}
-                </div>
-              </div>
-            ))}
-
-            {/* Lignes des membres */}
-            {visibleMembers.map((member, idx) => (
-              <React.Fragment key={member.badgeId}>
-                <div
-                  className={`sticky left-0 z-10 p-3 border-r border-b flex items-center gap-3 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`}
-                >
-                  {member.photo ? (
-                    <img
-                      src={member.photo}
-                      alt="avatar"
-                      className="w-10 h-10 object-cover rounded-full border border-gray-300"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                      {member.firstName?.[0]}
-                      {member.name?.[0]}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate">
-                      {member.name}
-                    </div>
-                    <div className="text-xs text-gray-500 truncate">
-                      {member.firstName}
-                    </div>
-                  </div>
-                </div>
-                {allDays.map((day) => {
-                  const times = groupedByMember[member.badgeId] || [];
-                  // CORRECTION: Comparaison de dates corrigée
-                  const dayPresences = times.filter((t) => {
-                    const tDateStr = toDateString(t);
-                    const dayDateStr = toDateString(day);
-                    return tDateStr === dayDateStr;
-                  });
-
-                  return (
-                    <div
-                      key={`${member.badgeId}-${day.toISOString()}`}
-                      className={`p-2 border-b border-r min-h-[80px] transition-colors hover:bg-opacity-80 ${dayPresences.length > 0
-                        ? "bg-gradient-to-br from-green-100 to-green-200"
-                        : isWeekend(day)
-                          ? "bg-blue-50"
-                          : idx % 2 === 0
-                            ? "bg-white"
-                            : "bg-gray-50"
-                        }`}
-                    >
-                      {dayPresences.length > 0 && (
-                        <div className="space-y-1">
-                          {dayPresences.slice(0, 3).map((time, tidx) => (
-                            <div
-                              key={tidx}
-                              className="bg-green-600 text-white px-2 py-1 rounded-md text-xs font-medium text-center shadow-sm"
-                            >
-                              {formatDate(time, "HH:mm")}
-                            </div>
-                          ))}
-                          {dayPresences.length > 3 && (
-                            <div className="text-green-700 text-xs text-center font-medium">
-                              +{dayPresences.length - 3}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Vue grille complète pour desktop
-  const GridView = () => (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-      <div className="overflow-auto max-h-[75vh]">
-        <div className="min-w-max">
-          <div
-            className="grid"
-            style={{
-              gridTemplateColumns: `220px repeat(${allDays.length * hours.length
-                }, 45px)`,
-            }}
-          >
-            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r flex items-center justify-center font-bold text-white">
-              <div className="text-center">
-                <Users className="w-6 h-6 mx-auto mb-1" />
-                <div className="text-sm">Membres</div>
-              </div>
-            </div>
-            {allDays.map((day, dIdx) =>
-              hours.map((h, hIdx) => (
-                <div
-                  key={`header-${dIdx}-${h}`}
-                  className={`text-[9px] border-b border-r flex flex-col items-center justify-center h-16 font-medium ${isWeekend(day)
-                    ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
-                    : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
-                    }`}
-                >
-                  {hIdx === 0 && (
-                    <div className="font-bold whitespace-nowrap mb-1">
-                      {formatDate(day, "EEE dd/MM")}
-                    </div>
-                  )}
-                  <div className="font-semibold">{`${h
-                    .toString()
-                    .padStart(2, "0")}h`}</div>
-                </div>
-              ))
-            )}
-            {visibleMembers.map((member, idx) => (
-              <React.Fragment key={member.badgeId}>
-                <div
-                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b h-16 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`}
-                >
-                  {member.photo ? (
-                    <img
-                      src={member.photo}
-                      alt="avatar"
-                      className="w-12 h-12 object-cover rounded-full border border-gray-300"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                      {member.firstName?.[0]}
-                      {member.name?.[0]}
-                    </div>
-                  )}
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-semibold text-sm truncate">
-                      {member.name} {member.firstName}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {groupedByMember[member.badgeId]?.length || 0} présence(s)
-                    </span>
-                  </div>
-                </div>
-                {allDays.map((day) =>
-                  hours.map((h) => {
-                    const times = groupedByMember[member.badgeId] || [];
-                    // CORRECTION: Comparaison d'heure corrigée
-                    const present = times.some((t) => {
-                      const tDateStr = toDateString(t);
-                      const dayDateStr = toDateString(day);
-                      return tDateStr === dayDateStr && t.getHours() === h;
-                    });
-
-                    return (
-                      <div
-                        key={`${member.badgeId}-${day.toISOString()}-${h}`}
-                        className={`h-16 border-b border-r relative group transition-all duration-200 ${present
-                          ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
-                          : isWeekend(day)
-                            ? "bg-blue-50 hover:bg-blue-100"
-                            : idx % 2 === 0
-                              ? "bg-white hover:bg-gray-50"
-                              : "bg-gray-50 hover:bg-gray-100"
-                          }`}
-                      >
-                        {present && (
-                          <>
-                            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                              <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">
-                                  ✓
-                                </span>
-                              </div>
-                            </div>
-                            <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
-                              <div className="font-semibold">
-                                {formatDate(day, "EEE dd/MM")} à {h}h
-                              </div>
-                              <div className="opacity-90">
-                                {member.name} {member.firstName}
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
       <div className="max-w-7xl mx-auto">
-        {/* En-tête */}
+        {/* En-tête calendrier */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div className="flex items-center gap-4">
@@ -901,7 +268,6 @@ function PlanningPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Statistiques rapides */}
               <div className="bg-gray-100 rounded-lg px-4 py-2 text-center">
                 <div className="text-2xl font-bold text-blue-600">
                   {visibleMembers.length}
@@ -909,13 +275,12 @@ function PlanningPage() {
                 <div className="text-xs text-gray-600">Membres</div>
               </div>
 
-              {/* Boutons de vue */}
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode("list")}
                   className={`p-2 rounded-md transition-all ${viewMode === "list"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white shadow-md text-blue-600"
+                      : "text-gray-600 hover:text-gray-900"
                     }`}
                   title="Vue liste"
                 >
@@ -924,8 +289,8 @@ function PlanningPage() {
                 <button
                   onClick={() => setViewMode("compact")}
                   className={`p-2 rounded-md transition-all ${viewMode === "compact"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white shadow-md text-blue-600"
+                      : "text-gray-600 hover:text-gray-900"
                     }`}
                   title="Vue compacte"
                 >
@@ -934,8 +299,8 @@ function PlanningPage() {
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`p-2 rounded-md transition-all ${viewMode === "grid"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white shadow-md text-blue-600"
+                      : "text-gray-600 hover:text-gray-900"
                     }`}
                   title="Vue grille"
                 >
@@ -946,8 +311,8 @@ function PlanningPage() {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`p-3 rounded-lg transition-all ${showFilters
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    ? "bg-blue-100 text-blue-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
               >
                 <Filter className="w-5 h-5" />
@@ -965,14 +330,13 @@ function PlanningPage() {
             </button>
 
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
-              {/* Sélecteur de date de début */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
                   Début:
                 </label>
                 <input
                   type="date"
-                  value={formatDate(startDate, "yyyy-MM-dd")}
+                  value={toDateString(startDate)}
                   onChange={(e) => {
                     const newStartDate = new Date(e.target.value);
                     setStartDate(startOfDay(newStartDate));
@@ -1063,7 +427,7 @@ function PlanningPage() {
               </div>
               <div className="flex items-end">
                 <button
-                  onClick={handleRetry}
+                  onClick={() => loadData(true)}
                   disabled={isRetrying}
                   className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
                            disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all 
@@ -1078,34 +442,165 @@ function PlanningPage() {
             </div>
           </div>
         )}
-
-        {/* Contenu principal */}
-        {visibleMembers.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-200">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Users className="w-12 h-12 text-gray-400" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Aucune présence trouvée
-            </h3>
-            <p className="text-gray-500 mb-6">
-              Aucune présence n'a été enregistrée sur cette période ou avec ces
-              filtres.
-            </p>
-            <button
-              onClick={handleRetry}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                       text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Recharger les données
-            </button>
+        {/* Affichage erreurs ou chargement */}
+        {loading ? (
+          <div className="flex justify-center items-center mt-10 text-gray-500">
+            Chargement en cours...
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 text-red-800 px-4 py-3 rounded-lg flex items-center gap-3 shadow-md">
+            <AlertCircle className="w-5 h-5" />
+            {error}
+          </div>
+        ) : visibleMembers.length === 0 ? (
+          <div className="text-center text-gray-500 mt-6">
+            Aucun membre trouvé pour les filtres donnés.
           </div>
         ) : (
           <>
-            {viewMode === "list" && <ListView />}
-            {viewMode === "compact" && <CompactView />}
-            {viewMode === "grid" && <GridView />}
+            {viewMode === "list" && (
+              <div className="grid grid-cols-1 gap-4">
+                {visibleMembers.map((m) => (
+                  <div
+                    key={m.badgeId}
+                    className="bg-white rounded-xl shadow p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border"
+                  >
+                    <div className="flex items-center gap-4">
+                      {m.photo ? (
+                        <img
+                          src={m.photo}
+                          alt={`${m.name} ${m.firstName}`}
+                          className="w-12 h-12 rounded-full object-cover border"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                          ?
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-semibold">
+                          {m.name} {m.firstName}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Badge : {m.badgeId}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(groupedByMember[m.badgeId] || [])
+                        .sort((a, b) => b - a)
+                        .map((d, i) => (
+                          <div
+                            key={i}
+                            className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded"
+                          >
+                            {formatDate(d, "dd/MM/yyyy HH:mm")}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {viewMode === "compact" && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border border-gray-200 bg-white rounded-xl overflow-hidden shadow">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                        Membre
+                      </th>
+                      {allDays.map((day, idx) => (
+                        <th
+                          key={idx}
+                          className="px-2 py-2 text-xs text-gray-500 whitespace-nowrap"
+                        >
+                          {formatDate(day, "dd/MM")}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleMembers.map((m) => (
+                      <tr key={m.badgeId} className="border-t border-gray-100">
+                        <td className="px-4 py-2 whitespace-nowrap font-medium text-gray-800">
+                          {m.name} {m.firstName}
+                        </td>
+                        {allDays.map((day, idx) => {
+                          const present = (groupedByMember[m.badgeId] || []).some(
+                            (d) =>
+                              d.getFullYear() === day.getFullYear() &&
+                              d.getMonth() === day.getMonth() &&
+                              d.getDate() === day.getDate()
+                          );
+                          return (
+                            <td
+                              key={idx}
+                              className="px-2 py-1 text-center text-sm"
+                            >
+                              {present ? "✅" : "-"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {viewMode === "grid" && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border border-gray-200 bg-white rounded-xl overflow-hidden shadow text-xs">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-2 py-3 text-left text-gray-700 whitespace-nowrap">
+                        Heure / Date
+                      </th>
+                      {allDays.map((day, idx) => (
+                        <th
+                          key={idx}
+                          className="px-2 py-2 text-gray-500 whitespace-nowrap"
+                        >
+                          {formatDate(day, "dd/MM")}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hours.map((hour) => (
+                      <tr key={hour} className="border-t border-gray-100">
+                        <td className="px-2 py-1 font-medium text-gray-700 whitespace-nowrap">
+                          {`${hour.toString().padStart(2, "0")}:00`}
+                        </td>
+                        {allDays.map((day, idx) => {
+                          const presence = presences.find((p) => {
+                            const d = parseTimestamp(p.timestamp);
+                            return (
+                              d.getFullYear() === day.getFullYear() &&
+                              d.getMonth() === day.getMonth() &&
+                              d.getDate() === day.getDate() &&
+                              d.getHours() === hour
+                            );
+                          });
+
+                          return (
+                            <td
+                              key={idx}
+                              className={`text-center px-2 py-1 ${presence ? "bg-blue-100 text-blue-600" : ""
+                                }`}
+                            >
+                              {presence ? "•" : ""}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </div>
