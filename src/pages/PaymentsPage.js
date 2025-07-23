@@ -107,20 +107,6 @@ function PaymentsPage() {
     loadData(true);
   };
 
-  // ✅ Calculs des statistiques basés sur votre structure
-  const stats = {
-    totalMembers: members.length,
-    totalExpected: payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-    totalReceived: payments.filter(p => p.is_paid).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-    totalPending: payments.filter(p => !p.is_paid && !isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-    totalOverdue: payments.filter(p => !p.is_paid && isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-    paidCount: payments.filter(p => p.is_paid).length,
-    pendingCount: payments.filter(p => !p.is_paid && !isOverdue(p)).length,
-    overdueCount: payments.filter(p => !p.is_paid && isOverdue(p)).length,
-  };
-
-  stats.collectionRate = stats.totalExpected > 0 ? (stats.totalReceived / stats.totalExpected) * 100 : 0;
-
   // ✅ Fonction pour déterminer si un paiement est en retard
   function isOverdue(payment) {
     if (payment.is_paid) return false;
@@ -134,6 +120,20 @@ function PaymentsPage() {
     if (isOverdue(payment)) return 'overdue';
     return 'pending';
   }
+
+  // ✅ Calculs des statistiques basés sur votre structure
+  const stats = {
+    totalMembers: members.length,
+    totalExpected: payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+    totalReceived: payments.filter(p => p.is_paid).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+    totalPending: payments.filter(p => !p.is_paid && !isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+    totalOverdue: payments.filter(p => !p.is_paid && isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+    paidCount: payments.filter(p => p.is_paid).length,
+    pendingCount: payments.filter(p => !p.is_paid && !isOverdue(p)).length,
+    overdueCount: payments.filter(p => !p.is_paid && isOverdue(p)).length,
+  };
+
+  stats.collectionRate = stats.totalExpected > 0 ? (stats.totalReceived / stats.totalExpected) * 100 : 0;
 
   // ✅ Enrichissement des membres avec leurs paiements (basé sur member_id)
   const enrichedMembers = members.map(member => {
@@ -593,4 +593,194 @@ function PaymentsPage() {
                                 {member.payments.map((payment) => (
                                   <div key={payment.id} className="bg-white rounded-lg p-4 border border-gray-200">
                                     <div className="flex items-center justify-between">
-                                      <div className="flex-1"></div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-3">
+                                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(getPaymentStatus(payment))}`}>
+                                            {getStatusIcon(getPaymentStatus(payment))}
+                                            {getStatusLabel(getPaymentStatus(payment))}
+                                          </span>
+                                          <span className="font-medium text-gray-900">Paiement #{payment.id}</span>
+                                        </div>
+                                        
+                                        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                          <div>
+                                            <span className="text-gray-500">Montant:</span>
+                                            <div className="font-medium">{parseFloat(payment.amount || 0).toFixed(2)} €</div>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">Méthode:</span>
+                                            <div className="font-medium flex items-center gap-1">
+                                              <span>{getPaymentMethodIcon(payment.method)}</span>
+                                              <span className="capitalize">{payment.method}</span>
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">Date de paiement:</span>
+                                            <div className="font-medium">
+                                              {payment.is_paid ? formatDateTime(payment.date_paiement) : 'Non payé'}
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">Encaissement prévu:</span>
+                                            <div className="font-medium">
+                                              {formatDate(payment.encaissement_prevu)}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {payment.commentaire && (
+                                          <div className="mt-3 p-2 bg-gray-50 rounded">
+                                            <span className="text-gray-500 text-sm">Commentaire:</span>
+                                            <div className="text-gray-700 text-sm mt-1">{payment.commentaire}</div>
+                                          </div>
+                                        )}
+
+                                        {/* Indicateur visuel du statut */}
+                                        <div className="mt-3 flex items-center gap-2">
+                                          {payment.is_paid ? (
+                                            <div className="flex items-center gap-1 text-green-600">
+                                              <CheckCircle className="w-4 h-4" />
+                                              <span className="text-sm font-medium">Paiement encaissé</span>
+                                            </div>
+                                          ) : isOverdue(payment) ? (
+                                            <div className="flex items-center gap-1 text-red-600">
+                                              <AlertCircle className="w-4 h-4" />
+                                              <span className="text-sm font-medium">
+                                                En retard depuis le {formatDate(payment.encaissement_prevu)}
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-1 text-yellow-600">
+                                              <Clock className="w-4 h-4" />
+                                              <span className="text-sm font-medium">
+                                                Échéance: {formatDate(payment.encaissement_prevu)}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8">
+                                <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                <p className="text-gray-500">Aucun paiement enregistré pour ce membre</p>
+                              </div>
+                            )}
+                            
+                            {/* Contact info */}
+                            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                              <h5 className="font-medium text-blue-900 mb-2">Informations de contact</h5>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="text-blue-700">📧 {member.email || 'Email non renseigné'}</div>
+                                <div className="text-blue-700">📞 {member.phone || 'Téléphone non renseigné'}</div>
+                              </div>
+                            </div>
+
+                            {/* Résumé financier du membre */}
+                            <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                              <h5 className="font-medium text-green-900 mb-2">Résumé financier</h5>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <div className="text-green-700 font-medium">{member.totalPaid.toFixed(2)} €</div>
+                                  <div className="text-green-600">Total payé</div>
+                                </div>
+                                <div>
+                                  <div className="text-yellow-700 font-medium">{(member.totalDue - member.totalPaid).toFixed(2)} €</div>
+                                  <div className="text-yellow-600">Reste à payer</div>
+                                </div>
+                                <div>
+                                  <div className="text-blue-700 font-medium">{member.payments.filter(p => p.is_paid).length}</div>
+                                  <div className="text-blue-600">Paiements effectués</div>
+                                </div>
+                                <div>
+                                  <div className="text-red-700 font-medium">{member.payments.filter(p => !p.is_paid && isOverdue(p)).length}</div>
+                                  <div className="text-red-600">Paiements en retard</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredMembers.length === 0 && (
+            <div className="text-center py-12">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun membre trouvé</h3>
+              <p className="text-gray-500">Essayez de modifier vos critères de recherche</p>
+            </div>
+          )}
+        </div>
+
+        {/* Statistiques détaillées par méthode de paiement */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition par Méthode de Paiement</h3>
+            <div className="space-y-3">
+              {['carte', 'chèque', 'espèces', 'autre'].map(method => {
+                const methodPayments = payments.filter(p => p.method === method && p.is_paid);
+                const total = methodPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+                const percentage = stats.totalReceived > 0 ? (total / stats.totalReceived) * 100 : 0;
+                
+                return (
+                  <div key={method} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{getPaymentMethodIcon(method)}</span>
+                      <span className="font-medium capitalize">{method}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium">{total.toFixed(2)} €</div>
+                      <div className="text-sm text-gray-500">{percentage.toFixed(1)}%</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Paiements Récents</h3>
+            <div className="space-y-3">
+              {payments
+                .filter(p => p.is_paid)
+                .slice(0, 5)
+                .map(payment => (
+                  <div key={payment.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <div className="flex items-center gap-2">
+                      <span>{getPaymentMethodIcon(payment.method)}</span>
+                      <div>
+                        <div className="font-medium text-sm">
+                          {payment.members?.firstName} {payment.members?.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatDate(payment.date_paiement)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-green-600">{parseFloat(payment.amount).toFixed(2)} €</div>
+                    </div>
+                  </div>
+                ))}
+              {payments.filter(p => p.is_paid).length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  Aucun paiement récent
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default PaymentsPage;
