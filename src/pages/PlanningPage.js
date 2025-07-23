@@ -307,6 +307,8 @@ function PlanningPage() {
       const dates = presences.map((p) => parseTimestamp(p.timestamp));
       const minDate = new Date(Math.min(...dates));
       const maxDate = new Date(Math.max(...dates));
+      setStartDate(startOfDay(minDate));
+      setEndDate(endOfDay(maxDate));
 
       console.log("📅 Plage de dates dans vos données:");
       console.log(`   Plus ancienne: ${minDate.toLocaleDateString()}`);
@@ -395,7 +397,7 @@ function PlanningPage() {
       newStart = addYears(startDate, amount);
     }
 
-    updateDateRange(period, newStart);
+    updateDateRange(period, newStart); // pas de limite vers le passé
   };
 
   // CORRECTION: Utiliser la nouvelle fonction de parsing
@@ -604,10 +606,10 @@ function PlanningPage() {
                   <div key={dayKey} className={`relative group`}>
                     <div
                       className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${hasPresences
-                          ? "bg-green-500 text-white shadow-sm"
-                          : isWeekend(day)
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-600"
+                        ? "bg-green-500 text-white shadow-sm"
+                        : isWeekend(day)
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-600"
                         }`}
                     >
                       <div className="font-medium text-xs">
@@ -672,8 +674,8 @@ function PlanningPage() {
               <div
                 key={day.toISOString()}
                 className={`p-3 text-center font-medium border-b border-r ${isWeekend(day)
-                    ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
-                    : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
+                  ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
+                  : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
                   }`}
               >
                 <div className="text-sm">{formatDate(day, "EEE dd")}</div>
@@ -724,12 +726,12 @@ function PlanningPage() {
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
                       className={`p-2 border-b border-r min-h-[80px] transition-colors hover:bg-opacity-80 ${dayPresences.length > 0
-                          ? "bg-gradient-to-br from-green-100 to-green-200"
-                          : isWeekend(day)
-                            ? "bg-blue-50"
-                            : idx % 2 === 0
-                              ? "bg-white"
-                              : "bg-gray-50"
+                        ? "bg-gradient-to-br from-green-100 to-green-200"
+                        : isWeekend(day)
+                          ? "bg-blue-50"
+                          : idx % 2 === 0
+                            ? "bg-white"
+                            : "bg-gray-50"
                         }`}
                     >
                       {dayPresences.length > 0 && (
@@ -783,8 +785,8 @@ function PlanningPage() {
                 <div
                   key={`header-${dIdx}-${h}`}
                   className={`text-[9px] border-b border-r flex flex-col items-center justify-center h-16 font-medium ${isWeekend(day)
-                      ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
-                      : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
+                    ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
+                    : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
                     }`}
                 >
                   {hIdx === 0 && (
@@ -839,12 +841,12 @@ function PlanningPage() {
                       <div
                         key={`${member.badgeId}-${day.toISOString()}-${h}`}
                         className={`h-16 border-b border-r relative group transition-all duration-200 ${present
-                            ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
-                            : isWeekend(day)
-                              ? "bg-blue-50 hover:bg-blue-100"
-                              : idx % 2 === 0
-                                ? "bg-white hover:bg-gray-50"
-                                : "bg-gray-50 hover:bg-gray-100"
+                          ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
+                          : isWeekend(day)
+                            ? "bg-blue-50 hover:bg-blue-100"
+                            : idx % 2 === 0
+                              ? "bg-white hover:bg-gray-50"
+                              : "bg-gray-50 hover:bg-gray-100"
                           }`}
                       >
                         {present && (
@@ -912,8 +914,8 @@ function PlanningPage() {
                 <button
                   onClick={() => setViewMode("list")}
                   className={`p-2 rounded-md transition-all ${viewMode === "list"
-                      ? "bg-white shadow-md text-blue-600"
-                      : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white shadow-md text-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
                     }`}
                   title="Vue liste"
                 >
@@ -922,8 +924,8 @@ function PlanningPage() {
                 <button
                   onClick={() => setViewMode("compact")}
                   className={`p-2 rounded-md transition-all ${viewMode === "compact"
-                      ? "bg-white shadow-md text-blue-600"
-                      : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white shadow-md text-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
                     }`}
                   title="Vue compacte"
                 >
@@ -932,8 +934,8 @@ function PlanningPage() {
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`p-2 rounded-md transition-all ${viewMode === "grid"
-                      ? "bg-white shadow-md text-blue-600"
-                      : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white shadow-md text-blue-600"
+                    : "text-gray-600 hover:text-gray-900"
                     }`}
                   title="Vue grille"
                 >
@@ -944,8 +946,8 @@ function PlanningPage() {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`p-3 rounded-lg transition-all ${showFilters
-                    ? "bg-blue-100 text-blue-600"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-blue-100 text-blue-600"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
               >
                 <Filter className="w-5 h-5" />
@@ -974,7 +976,6 @@ function PlanningPage() {
                   onChange={(e) => {
                     const newStartDate = new Date(e.target.value);
                     setStartDate(startOfDay(newStartDate));
-                    // Ajuster la fin selon la période sélectionnée
                     if (period === "week") {
                       setEndDate(endOfDay(addWeeks(newStartDate, 1)));
                     } else if (period === "month") {
