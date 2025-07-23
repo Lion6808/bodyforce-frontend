@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// ✅ Déplacez ces imports au début du fichier
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import {
@@ -116,20 +117,76 @@ function PaymentsPage() {
         return new Date(payment.encaissement_prevu) < new Date();
     }
 
+    // ✅ Fonction pour obtenir le statut d'un paiement
+    function getPaymentStatus(payment) {
+        if (payment.is_paid) return 'paid';
+        if (isOverdue(payment)) return 'overdue';
+        return 'pending';
+    }
 
+    // ✅ Calculs des statistiques basés sur votre structure
+    const stats = {
+        totalMembers: members.length,
+        totalExpected: payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+        totalReceived: payments.filter(p => p.is_paid).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+        totalPending: payments.filter(p => !p.is_paid && !isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+        totalOverdue: payments.filter(p => !p.is_paid && isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
+        paidCount: payments.filter(p => p.is_paid).length,
+        pendingCount: payments.filter(p => !p.is_paid && !isOverdue(p)).length,
+        overdueCount: payments.filter(p => !p.is_paid && isOverdue(p)).length,
+    };
 
-    // Fonction d'export PDF pour les paiements
-    // À ajouter dans votre PaymentsPage.js
+    stats.collectionRate = stats.totalExpected > 0 ? (stats.totalReceived / stats.totalExpected) * 100 : 0;
 
-    // ✅ 1. D'abord, installez jsPDF et jsPDF-AutoTable :
-    // npm install jspdf jspdf-autotable
+    // ✅ Enrichissement des membres avec leurs paiements (basé sur member_id)
+    const enrichedMembers = members.map(member => {
+        const memberPayments = payments.filter(p => p.member_id === member.id);
 
-    // ✅ 2. Ajoutez ces imports en haut de votre fichier PaymentsPage.js :
-    import jsPDF from 'jspdf';
-    import 'jspdf-autotable';
+        const totalDue = memberPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+        const totalPaid = memberPayments
+            .filter(p => p.is_paid)
+            .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 
-    // ✅ 3. Ajoutez cette fonction dans votre composant PaymentsPage :
+        const progressPercentage = totalDue > 0 ? (totalPaid / totalDue) * 100 : 0;
 
+        const hasOverdue = memberPayments.some(p => !p.is_paid && isOverdue(p));
+        const hasPending = memberPayments.some(p => !p.is_paid && !isOverdue(p));
+
+        let overallStatus = 'no_payments';
+        if (memberPayments.length > 0) {
+            if (hasOverdue) overallStatus = 'overdue';
+            else if (hasPending) overallStatus = 'pending';
+            else overallStatus = 'paid';
+        }
+
+        const lastPaymentDate = memberPayments
+            .filter(p => p.is_paid)
+            .sort((a, b) => new Date(b.date_paiement) - new Date(a.date_paiement))[0]?.date_paiement;
+
+        return {
+            ...member,
+            payments: memberPayments,
+            totalDue,
+            totalPaid,
+            progressPercentage,
+            overallStatus,
+            lastPaymentDate
+        };
+    });
+
+    // ✅ Filtrage
+    const filteredMembers = enrichedMembers.filter(member => {
+        const matchesSearch =
+            member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            member.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            member.badgeId?.includes(searchTerm);
+
+        const matchesStatus = statusFilter === 'all' || member.overallStatus === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+
+    // ✅ Fonction d'export PDF (sans imports redondants)
     const exportToPDF = () => {
         try {
             // Créer un nouveau document PDF
@@ -399,40 +456,13 @@ function PaymentsPage() {
 
             console.log('✅ Export PDF réussi:', fileName);
 
-            // Optionnel : Afficher une notification de succès
-            // Vous pouvez ajouter ici un toast de confirmation
-
         } catch (error) {
             console.error('❌ Erreur lors de l\'export PDF:', error);
-
-            // Optionnel : Afficher une notification d'erreur
             alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
         }
     };
 
-    // ✅ 4. Dans votre JSX, remplacez le bouton Export par :
-    // <button 
-    //   onClick={exportToPDF}
-    //   className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-    // >
-    //   <Download className="w-4 h-4" />
-    //   Exporter PDF
-    // </button>
-
-    // ✅ 5. Code complet du bouton d'export à intégrer dans votre header :
-    const ExportButton = () => (
-        <button
-            onClick={exportToPDF}
-            disabled={loading || payments.length === 0}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors flex items-center gap-2"
-            title={payments.length === 0 ? "Aucune donnée à exporter" : "Exporter en PDF"}
-        >
-            <Download className="w-4 h-4" />
-            Exporter PDF
-        </button>
-    );
-
-    // ✅ 6. BONUS: Fonction d'export CSV (optionnelle)
+    // ✅ Fonction d'export CSV
     const exportToCSV = () => {
         try {
             // Préparer les données CSV des membres
@@ -477,77 +507,6 @@ function PaymentsPage() {
             alert('Erreur lors de la génération du CSV. Veuillez réessayer.');
         }
     };
-
-
-
-    // ✅ Fonction pour obtenir le statut d'un paiement
-    function getPaymentStatus(payment) {
-        if (payment.is_paid) return 'paid';
-        if (isOverdue(payment)) return 'overdue';
-        return 'pending';
-    }
-
-    // ✅ Calculs des statistiques basés sur votre structure
-    const stats = {
-        totalMembers: members.length,
-        totalExpected: payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-        totalReceived: payments.filter(p => p.is_paid).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-        totalPending: payments.filter(p => !p.is_paid && !isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-        totalOverdue: payments.filter(p => !p.is_paid && isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-        paidCount: payments.filter(p => p.is_paid).length,
-        pendingCount: payments.filter(p => !p.is_paid && !isOverdue(p)).length,
-        overdueCount: payments.filter(p => !p.is_paid && isOverdue(p)).length,
-    };
-
-    stats.collectionRate = stats.totalExpected > 0 ? (stats.totalReceived / stats.totalExpected) * 100 : 0;
-
-    // ✅ Enrichissement des membres avec leurs paiements (basé sur member_id)
-    const enrichedMembers = members.map(member => {
-        const memberPayments = payments.filter(p => p.member_id === member.id);
-
-        const totalDue = memberPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-        const totalPaid = memberPayments
-            .filter(p => p.is_paid)
-            .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-
-        const progressPercentage = totalDue > 0 ? (totalPaid / totalDue) * 100 : 0;
-
-        const hasOverdue = memberPayments.some(p => !p.is_paid && isOverdue(p));
-        const hasPending = memberPayments.some(p => !p.is_paid && !isOverdue(p));
-
-        let overallStatus = 'no_payments';
-        if (memberPayments.length > 0) {
-            if (hasOverdue) overallStatus = 'overdue';
-            else if (hasPending) overallStatus = 'pending';
-            else overallStatus = 'paid';
-        }
-
-        const lastPaymentDate = memberPayments
-            .filter(p => p.is_paid)
-            .sort((a, b) => new Date(b.date_paiement) - new Date(a.date_paiement))[0]?.date_paiement;
-
-        return {
-            ...member,
-            payments: memberPayments,
-            totalDue,
-            totalPaid,
-            progressPercentage,
-            overallStatus,
-            lastPaymentDate
-        };
-    });
-
-    // ✅ Filtrage
-    const filteredMembers = enrichedMembers.filter(member => {
-        const matchesSearch =
-            member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            member.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            member.badgeId?.includes(searchTerm);
-
-        const matchesStatus = statusFilter === 'all' || member.overallStatus === statusFilter;
-
-        return matchesSearch && matchesStatus;
-    });
 
     // ✅ Fonctions utilitaires pour l'affichage
     const getStatusColor = (status) => {
