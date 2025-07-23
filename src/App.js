@@ -18,12 +18,14 @@ import {
   FaTimes,
   FaUserCircle,
   FaSignOutAlt,
+  FaCreditCard, // ✅ Nouvel icône pour les paiements
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 
 import HomePage from "./pages/HomePage";
 import MembersPage from "./pages/MembersPage";
 import PlanningPage from "./pages/PlanningPage";
+import PaymentsPage from "./pages/PaymentsPage"; // ✅ Import de la nouvelle page
 import StatisticsPage from "./pages/StatisticsPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -135,10 +137,12 @@ function LoginPage() {
 
 function Sidebar({ user, onLogout }) {
   const location = useLocation();
+  // ✅ Menu mis à jour avec la page Paiements
   const menu = [
     { name: "Accueil", path: "/", icon: <FaHome className="text-red-500" /> },
     { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500" /> },
     { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500" /> },
+    { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500" /> }, // ✅ Nouvelle entrée
     { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500" /> },
   ];
 
@@ -274,6 +278,10 @@ function AppRoutes({ user, setUser }) {
             <Link to="/planning" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-lg">
               <FaCalendarAlt className="text-yellow-500" /> Planning
             </Link>
+            {/* ✅ Nouvel élément du menu mobile */}
+            <Link to="/payments" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-lg">
+              <FaCreditCard className="text-purple-500" /> Paiements
+            </Link>
             <Link to="/statistics" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-lg">
               <FaChartBar className="text-blue-500" /> Statistiques
             </Link>
@@ -310,6 +318,8 @@ function AppRoutes({ user, setUser }) {
             }
           />
           <Route path="/planning" element={<PlanningPage />} />
+          {/* ✅ Nouvelle route pour la page des paiements */}
+          <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/statistics" element={<StatisticsPage />} />
           <Route path="/admin/users" element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />} />
           <Route path="/profile" element={<ProfilePage user={user} />} />
