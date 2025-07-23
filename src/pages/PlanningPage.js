@@ -10,13 +10,6 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
-
-import {
-  startOfWeek, endOfWeek,
-  startOfMonth, endOfMonth,
-  startOfYear, endOfYear
-} from 'date-fns';
-
 import { createClient } from "@supabase/supabase-js";
 
 // ✅ Client Supabase direct (comme votre ancien code qui fonctionne)
@@ -151,7 +144,9 @@ function PlanningPage() {
 
   const [period, setPeriod] = useState("week");
   // ✅ Période par défaut plus courte pour éviter la lenteur
-  const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
+  const [startDate, setStartDate] = useState(
+    startOfDay(subWeeks(new Date(), 1))
+  );
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
 
   const [filterBadge, setFilterBadge] = useState("");
@@ -172,7 +167,7 @@ function PlanningPage() {
 
       console.log("🔄 Chargement des données...", {
         début: startDate.toLocaleDateString(),
-        fin: endDate.toLocaleDateString()
+        fin: endDate.toLocaleDateString(),
       });
 
       // ✅ Chargement des membres (même logique que votre ancien code)
@@ -293,7 +288,9 @@ function PlanningPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200">
         <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Problème de connexion</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          Problème de connexion
+        </h2>
         <p className="text-gray-600 mb-8 leading-relaxed">{error}</p>
         <button
           onClick={handleRetry}
@@ -315,7 +312,9 @@ function PlanningPage() {
           )}
         </button>
         {retryCount > 0 && (
-          <p className="text-sm text-gray-500 mt-4">Tentative {retryCount + 1}</p>
+          <p className="text-sm text-gray-500 mt-4">
+            Tentative {retryCount + 1}
+          </p>
         )}
       </div>
     </div>
@@ -330,7 +329,10 @@ function PlanningPage() {
         <h2 className="text-xl font-semibold text-gray-800 mb-2">
           {isRetrying ? "Reconnexion en cours..." : "Chargement du planning..."}
         </h2>
-        <p className="text-gray-600">Période: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</p>
+        <p className="text-gray-600">
+          Période: {startDate.toLocaleDateString()} -{" "}
+          {endDate.toLocaleDateString()}
+        </p>
       </div>
     </div>
   );
@@ -427,12 +429,13 @@ function PlanningPage() {
                 return (
                   <div key={dayKey} className={`relative group`}>
                     <div
-                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${hasPresences
-                        ? "bg-green-500 text-white shadow-sm"
-                        : isWeekend(day)
+                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${
+                        hasPresences
+                          ? "bg-green-500 text-white shadow-sm"
+                          : isWeekend(day)
                           ? "bg-blue-100 text-blue-700"
                           : "bg-gray-100 text-gray-600"
-                        }`}
+                      }`}
                     >
                       <div className="font-medium text-xs">
                         {formatDate(day, "EEE dd").split(" ")[1]}
@@ -495,10 +498,11 @@ function PlanningPage() {
             {allDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`p-3 text-center font-medium border-b border-r ${isWeekend(day)
-                  ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
-                  : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
-                  }`}
+                className={`p-3 text-center font-medium border-b border-r ${
+                  isWeekend(day)
+                    ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
+                    : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
+                }`}
               >
                 <div className="text-sm">{formatDate(day, "EEE dd")}</div>
                 <div className="text-xs opacity-75">
@@ -511,8 +515,9 @@ function PlanningPage() {
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 p-3 border-r border-b flex items-center gap-3 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`}
+                  className={`sticky left-0 z-10 p-3 border-r border-b flex items-center gap-3 ${
+                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  }`}
                 >
                   {member.photo ? (
                     <img
@@ -546,14 +551,15 @@ function PlanningPage() {
                   return (
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
-                      className={`p-2 border-b border-r min-h-[80px] transition-colors hover:bg-opacity-80 ${dayPresences.length > 0
-                        ? "bg-gradient-to-br from-green-100 to-green-200"
-                        : isWeekend(day)
+                      className={`p-2 border-b border-r min-h-[80px] transition-colors hover:bg-opacity-80 ${
+                        dayPresences.length > 0
+                          ? "bg-gradient-to-br from-green-100 to-green-200"
+                          : isWeekend(day)
                           ? "bg-blue-50"
                           : idx % 2 === 0
-                            ? "bg-white"
-                            : "bg-gray-50"
-                        }`}
+                          ? "bg-white"
+                          : "bg-gray-50"
+                      }`}
                     >
                       {dayPresences.length > 0 && (
                         <div className="space-y-1">
@@ -591,7 +597,9 @@ function PlanningPage() {
           <div
             className="grid"
             style={{
-              gridTemplateColumns: `220px repeat(${allDays.length * hours.length}, 45px)`,
+              gridTemplateColumns: `220px repeat(${
+                allDays.length * hours.length
+              }, 45px)`,
             }}
           >
             <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r flex items-center justify-center font-bold text-white">
@@ -604,25 +612,29 @@ function PlanningPage() {
               hours.map((h, hIdx) => (
                 <div
                   key={`header-${dIdx}-${h}`}
-                  className={`text-[9px] border-b border-r flex flex-col items-center justify-center h-16 font-medium ${isWeekend(day)
-                    ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
-                    : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
-                    }`}
+                  className={`text-[9px] border-b border-r flex flex-col items-center justify-center h-16 font-medium ${
+                    isWeekend(day)
+                      ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
+                      : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
+                  }`}
                 >
                   {hIdx === 0 && (
                     <div className="font-bold whitespace-nowrap mb-1">
                       {formatDate(day, "EEE dd/MM")}
                     </div>
                   )}
-                  <div className="font-semibold">{`${h.toString().padStart(2, "0")}h`}</div>
+                  <div className="font-semibold">{`${h
+                    .toString()
+                    .padStart(2, "0")}h`}</div>
                 </div>
               ))
             )}
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b h-16 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`}
+                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b h-16 flex items-center gap-3 ${
+                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  }`}
                 >
                   {member.photo ? (
                     <img
@@ -657,20 +669,23 @@ function PlanningPage() {
                     return (
                       <div
                         key={`${member.badgeId}-${day.toISOString()}-${h}`}
-                        className={`h-16 border-b border-r relative group transition-all duration-200 ${present
-                          ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
-                          : isWeekend(day)
+                        className={`h-16 border-b border-r relative group transition-all duration-200 ${
+                          present
+                            ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
+                            : isWeekend(day)
                             ? "bg-blue-50 hover:bg-blue-100"
                             : idx % 2 === 0
-                              ? "bg-white hover:bg-gray-50"
-                              : "bg-gray-50 hover:bg-gray-100"
-                          }`}
+                            ? "bg-white hover:bg-gray-50"
+                            : "bg-gray-50 hover:bg-gray-100"
+                        }`}
                       >
                         {present && (
                           <>
                             <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
                               <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">✓</span>
+                                <span className="text-white font-bold text-lg">
+                                  ✓
+                                </span>
                               </div>
                             </div>
                             <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
@@ -735,30 +750,33 @@ function PlanningPage() {
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-2 rounded-md transition-all ${viewMode === "list"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
-                    }`}
+                  className={`p-2 rounded-md transition-all ${
+                    viewMode === "list"
+                      ? "bg-white shadow-md text-blue-600"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
                   title="Vue liste"
                 >
                   <List className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setViewMode("compact")}
-                  className={`p-2 rounded-md transition-all ${viewMode === "compact"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
-                    }`}
+                  className={`p-2 rounded-md transition-all ${
+                    viewMode === "compact"
+                      ? "bg-white shadow-md text-blue-600"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
                   title="Vue compacte"
                 >
                   <Users className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-md transition-all ${viewMode === "grid"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
-                    }`}
+                  className={`p-2 rounded-md transition-all ${
+                    viewMode === "grid"
+                      ? "bg-white shadow-md text-blue-600"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
                   title="Vue grille"
                 >
                   <Grid className="w-5 h-5" />
@@ -767,10 +785,11 @@ function PlanningPage() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`p-3 rounded-lg transition-all ${showFilters
-                  ? "bg-blue-100 text-blue-600"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+                className={`p-3 rounded-lg transition-all ${
+                  showFilters
+                    ? "bg-blue-100 text-blue-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
               >
                 <Filter className="w-5 h-5" />
               </button>
@@ -846,134 +865,140 @@ function PlanningPage() {
           {/* ✅ Presets rapides pour navigation facile */}
           <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-blue-800 mr-2">Raccourcis:</span>
-
-              {/* Cette semaine */}
+              <span className="text-sm font-medium text-blue-800 mr-2">
+                Raccourcis:
+              </span>
               <button
                 onClick={() => {
-                  setStartDate(startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 }))); // lundi
-                  setEndDate(endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 })));       // dimanche
+                  setStartDate(startOfDay(subWeeks(new Date(), 1)));
+                  setEndDate(endOfDay(new Date()));
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
                 Cette semaine
               </button>
-
-              {/* Ce mois */}
               <button
                 onClick={() => {
-                  setStartDate(startOfDay(startOfMonth(new Date())));
-                  setEndDate(endOfDay(endOfMonth(new Date())));
+                  setStartDate(startOfDay(new Date("2025-01-01")));
+                  setEndDate(endOfDay(new Date("2025-01-31")));
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
-                Ce mois
+                Janvier 2025
               </button>
-
-              {/* Cette année */}
               <button
                 onClick={() => {
-                  setStartDate(startOfDay(startOfYear(new Date())));
-                  setEndDate(endOfDay(endOfYear(new Date())));
+                  setStartDate(startOfDay(new Date("2025-06-01")));
+                  setEndDate(endOfDay(new Date("2025-06-30")));
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
-                Cette année
+                Juin 2025
+              </button>
+              <button
+                onClick={() => {
+                  setStartDate(startOfDay(new Date("2025-01-01")));
+                  setEndDate(endOfDay(new Date("2025-06-30")));
+                }}
+                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+              >
+                Premier semestre
               </button>
             </div>
           </div>
+        </div>
 
-
-          {/* Filtres */}
-          {showFilters && (
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rechercher par nom
-                  </label>
+        {/* Filtres */}
+        {showFilters && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rechercher par nom
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nom ou prénom..."
+                  value={filterName}
+                  onChange={(e) => setFilterName(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filtrer par badge
+                </label>
+                <input
+                  type="text"
+                  placeholder="Numéro de badge..."
+                  value={filterBadge}
+                  onChange={(e) => setFilterBadge(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex items-end">
+                <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
                   <input
-                    type="text"
-                    placeholder="Nom ou prénom..."
-                    value={filterName}
-                    onChange={(e) => setFilterName(e.target.value)}
-                    className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none"
+                    type="checkbox"
+                    checked={showNightHours}
+                    onChange={() => setShowNightHours(!showNightHours)}
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Filtrer par badge
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Numéro de badge..."
-                    value={filterBadge}
-                    onChange={(e) => setFilterBadge(e.target.value)}
-                    className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={showNightHours}
-                      onChange={() => setShowNightHours(!showNightHours)}
-                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                    />
-                    Afficher 00h - 06h
-                  </label>
-                </div>
-                <div className="flex items-end">
-                  <button
-                    onClick={handleRetry}
-                    disabled={isRetrying}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
+                  Afficher 00h - 06h
+                </label>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
                            disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all 
                            duration-200 flex items-center justify-center gap-2"
-                  >
-                    <RefreshCw
-                      className={`w-4 h-4 ${isRetrying ? "animate-spin" : ""}`}
-                    />
-                    Actualiser
-                  </button>
-                </div>
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${isRetrying ? "animate-spin" : ""}`}
+                  />
+                  Actualiser
+                </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Contenu principal */}
-          {visibleMembers.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-200">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Users className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Aucune présence trouvée
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Aucune présence n'a été enregistrée sur cette période ou avec ces filtres.
-                <br />
-                Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
-              </p>
-              <button
-                onClick={handleRetry}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                       text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Recharger les données
-              </button>
+        {/* Contenu principal */}
+        {visibleMembers.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-200">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users className="w-12 h-12 text-gray-400" />
             </div>
-          ) : (
-            <>
-              {viewMode === "list" && <ListView />}
-              {viewMode === "compact" && <CompactView />}
-              {viewMode === "grid" && <GridView />}
-            </>
-          )}
-        </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Aucune présence trouvée
+            </h3>
+            <p className="text-gray-500 mb-6">
+              Aucune présence n'a été enregistrée sur cette période ou avec ces
+              filtres.
+              <br />
+              Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
+            </p>
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
+                       text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Recharger les données
+            </button>
+          </div>
+        ) : (
+          <>
+            {viewMode === "list" && <ListView />}
+            {viewMode === "compact" && <CompactView />}
+            {viewMode === "grid" && <GridView />}
+          </>
+        )}
       </div>
-      );
+    </div>
+  );
 }
 
-      export default PlanningPage;
+export default PlanningPage;
