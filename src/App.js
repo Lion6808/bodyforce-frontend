@@ -324,7 +324,14 @@ function Sidebar({ user, onLogout }) {
 }
 
 // Composant pour le menu mobile animé
-function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
+function AnimatedMobileMenu({
+  isOpen,
+  onClose,
+  user,
+  isAdmin,
+  location,
+  onLogout,
+}) {
   const [animate, setAnimate] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -369,7 +376,10 @@ function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
     setIsClosing(true);
     setTimeout(() => {
       onClose();
-      // Le logout sera géré par le parent
+      // ✅ Appel correct de la fonction de déconnexion du parent
+      if (typeof onLogout === "function") {
+        onLogout();
+      }
     }, 200);
   };
 
@@ -604,6 +614,7 @@ function AppRoutes({ user, setUser }) {
         user={user}
         isAdmin={isAdmin}
         location={location}
+        onLogout={handleLogout} // ✅ Passage de la fonction handleLogout
       />
 
       <main className="flex-1 p-4">
