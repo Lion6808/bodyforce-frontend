@@ -39,14 +39,15 @@ const mobileMenuStyles = `
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0);
     z-index: 40;
-    opacity: 0;
-    transition: opacity 0.3s ease-out;
+    transition: background-color 0.4s ease-out;
+    pointer-events: none;
   }
   
   .mobile-menu-overlay.open {
-    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.6);
+    pointer-events: auto;
   }
   
   .mobile-menu-container {
@@ -54,18 +55,24 @@ const mobileMenuStyles = `
     top: 0;
     right: 0;
     height: 100vh;
-    width: 280px;
-    max-width: 80vw;
-    background: linear-gradient(135deg, #a2a8ceff 0%, #434275ff 100%);
-    box-shadow: -10px 0 25px rgba(0, 0, 0, 0.22);
+    width: 320px;
+    max-width: 85vw;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: -15px 0 30px rgba(0, 0, 0, 0.2);
     z-index: 50;
     transform: translateX(100%);
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     overflow-y: auto;
+    border-radius: 20px 0 0 20px;
   }
   
   .mobile-menu-container.open {
     transform: translateX(0);
+  }
+  
+  .mobile-menu-container.closing {
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.55, 0.085, 0.68, 0.53);
   }
   
   .menu-item {
@@ -319,31 +326,56 @@ function Sidebar({ user, onLogout }) {
 // Composant pour le menu mobile animé
 function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
   const [animate, setAnimate] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      // Petit délai pour permettre au menu d'apparaître avant d'animer les éléments
+      setShouldRender(true);
+      setIsClosing(false);
+      // Animation d'ouverture
       const timer = setTimeout(() => setAnimate(true), 50);
       return () => clearTimeout(timer);
-    } else {
+    } else if (shouldRender) {
+      // Animation de fermeture
+      setIsClosing(true);
       setAnimate(false);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+      }, 400); // Durée de l'animation de fermeture
+      return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, shouldRender]);
 
   const handleItemClick = () => {
     setAnimate(false);
+    setIsClosing(true);
     setTimeout(onClose, 200); // Délai pour l'animation de sortie
   };
 
   const handleLogout = () => {
     setAnimate(false);
+    setIsClosing(true);
     setTimeout(() => {
       onClose();
       // Le logout sera géré par le parent
     }, 200);
   };
 
-  if (!isOpen) return null;
+  const handleOverlayClick = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(onClose, 200);
+  };
+
+  const handleCloseClick = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(onClose, 200);
+  };
+
+  if (!shouldRender) return null;
 
   return (
     <>
@@ -351,12 +383,16 @@ function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
 
       {/* Overlay */}
       <div
-        className={`mobile-menu-overlay ${isOpen ? "open" : ""}`}
-        onClick={onClose}
+        className={`mobile-menu-overlay ${isOpen && !isClosing ? "open" : ""}`}
+        onClick={handleOverlayClick}
       />
 
       {/* Menu Container */}
-      <div className={`mobile-menu-container ${isOpen ? "open" : ""}`}>
+      <div
+        className={`mobile-menu-container ${
+          isOpen && !isClosing ? "open" : ""
+        } ${isClosing ? "closing" : ""}`}
+      >
         {/* Header */}
         <div
           className={`menu-header ${
@@ -376,10 +412,10 @@ function AnimatedMobileMenu({ isOpen, onClose, user, isAdmin, location }) {
               <h1 className="text-lg font-bold text-white">BODY FORCE</h1>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleCloseClick}
               className={`close-button ${
                 animate ? "animate" : ""
-              } text-white hover:text-gray-200 transition-colors p-2`}
+              } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
             >
               <FaTimes className="text-xl" />
             </button>
