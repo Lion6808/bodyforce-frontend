@@ -918,7 +918,7 @@ function PlanningPage() {
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
-                Cette semaine
+                Cette Semaine
               </button>
 
               <button
@@ -928,7 +928,7 @@ function PlanningPage() {
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
-                Ce mois
+                Ce Mois
               </button>
 
               <button
@@ -938,7 +938,7 @@ function PlanningPage() {
                 }}
                 className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
               >
-                Cette année
+                Cette Année
               </button>
             </div>
           </div>
