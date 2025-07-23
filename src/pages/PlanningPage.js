@@ -46,41 +46,54 @@ const formatDate = (date, format) => {
 };
 
 // Fonction pour convertir correctement les timestamps
+// const parseTimestamp = (timestamp) => {
+//   if (!timestamp) return new Date();
+//   if (timestamp instanceof Date) return timestamp;
+
+//   if (typeof timestamp === "string") {
+//     if (
+//       timestamp.includes("T") &&
+//       (timestamp.includes("+00:00") || timestamp.includes("+00"))
+//     ) {
+//       const datePart = timestamp.split("T")[0];
+//       let timePart;
+
+//       if (timestamp.includes("+00:00")) {
+//         timePart = timestamp.split("T")[1].split("+00:00")[0];
+//       } else if (timestamp.includes("+00")) {
+//         timePart = timestamp.split("T")[1].split("+00")[0];
+//       }
+
+//       const localDateString = `${datePart}T${timePart}`;
+//       const localDate = new Date(localDateString);
+//       return localDate;
+//     }
+
+//     if (timestamp.includes(" ") && timestamp.includes("+00")) {
+//       const [datePart, timeWithTz] = timestamp.split(" ");
+//       const timePart = timeWithTz.split("+00")[0];
+//       const localDateString = `${datePart}T${timePart}`;
+//       const localDate = new Date(localDateString);
+//       return localDate;
+//     }
+
+//     return new Date(timestamp);
+//   }
+
+//   return new Date(timestamp);
+// };
+
 const parseTimestamp = (timestamp) => {
   if (!timestamp) return new Date();
   if (timestamp instanceof Date) return timestamp;
 
-  if (typeof timestamp === "string") {
-    if (
-      timestamp.includes("T") &&
-      (timestamp.includes("+00:00") || timestamp.includes("+00"))
-    ) {
-      const datePart = timestamp.split("T")[0];
-      let timePart;
+  const utcDate = new Date(timestamp);
+  if (isNaN(utcDate)) return new Date();
 
-      if (timestamp.includes("+00:00")) {
-        timePart = timestamp.split("T")[1].split("+00:00")[0];
-      } else if (timestamp.includes("+00")) {
-        timePart = timestamp.split("T")[1].split("+00")[0];
-      }
-
-      const localDateString = `${datePart}T${timePart}`;
-      const localDate = new Date(localDateString);
-      return localDate;
-    }
-
-    if (timestamp.includes(" ") && timestamp.includes("+00")) {
-      const [datePart, timeWithTz] = timestamp.split(" ");
-      const timePart = timeWithTz.split("+00")[0];
-      const localDateString = `${datePart}T${timePart}`;
-      const localDate = new Date(localDateString);
-      return localDate;
-    }
-
-    return new Date(timestamp);
-  }
-
-  return new Date(timestamp);
+  const localDate = new Date(
+    utcDate.getTime() + new Date().getTimezoneOffset() * -60000
+  );
+  return localDate;
 };
 
 const toDateString = (date) => {
