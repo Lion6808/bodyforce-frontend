@@ -57,7 +57,7 @@ const mobileMenuStyles = `
     width: 280px;
     max-width: 80vw;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    box-shadow: -10px 0 25px rgba(0, 0, 0, 0.15);
+    box-shadow: -10px 0 25px rgba(0, 0, 0, 0.22);
     z-index: 50;
     transform: translateX(100%);
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
