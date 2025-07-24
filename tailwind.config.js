@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./src/**/*.{js,jsx,ts,tsx}"],
+  darkMode: 'class', // ✅ AJOUT CRUCIAL pour activer le mode sombre
   theme: {
     extend: {
       animation: {

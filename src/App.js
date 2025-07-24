@@ -48,7 +48,7 @@ const SWIPE_PAGES = [
   { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
 ];
 
-// Hook pour la gestion du mode sombre
+// Hook pour la gestion du mode sombre - VERSION CORRIGÉE
 function useDarkMode() {
   const [darkMode, setDarkMode] = useState('auto');
   const [actualDarkMode, setActualDarkMode] = useState(false);
@@ -72,24 +72,42 @@ function useDarkMode() {
     }
   };
 
+  // Fonction pour appliquer le thème au DOM
+  const applyTheme = (isDark) => {
+    const htmlElement = document.documentElement;
+    
+    if (isDark) {
+      htmlElement.classList.add('dark');
+    } else {
+      htmlElement.classList.remove('dark');
+    }
+    
+    console.log(`🎨 Mode appliqué: ${isDark ? 'Sombre' : 'Clair'}`, {
+      classList: Array.from(htmlElement.classList),
+      darkMode,
+      actualDarkMode: isDark
+    });
+  };
+
   // Charger les préférences au démarrage
   useEffect(() => {
     const savedMode = localStorage.getItem('darkMode') || 'auto';
+    const newActualMode = determineActualMode(savedMode);
+    
+    console.log('🚀 Initialisation mode sombre:', { savedMode, newActualMode });
+    
     setDarkMode(savedMode);
-    setActualDarkMode(determineActualMode(savedMode));
+    setActualDarkMode(newActualMode);
+    applyTheme(newActualMode);
   }, []);
 
   // Mettre à jour le thème quand le mode change
   useEffect(() => {
     const newActualMode = determineActualMode(darkMode);
     setActualDarkMode(newActualMode);
+    applyTheme(newActualMode);
     
-    // Appliquer la classe au document
-    if (newActualMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    console.log('🔄 Changement de mode:', { darkMode, newActualMode });
   }, [darkMode]);
 
   // Timer pour le mode automatique
@@ -98,12 +116,9 @@ function useDarkMode() {
       const interval = setInterval(() => {
         const shouldBeDark = isNightTime();
         if (shouldBeDark !== actualDarkMode) {
+          console.log('⏰ Basculement automatique:', { shouldBeDark, actualDarkMode });
           setActualDarkMode(shouldBeDark);
-          if (shouldBeDark) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
+          applyTheme(shouldBeDark);
         }
       }, 60000); // Vérifier chaque minute
 
@@ -115,6 +130,8 @@ function useDarkMode() {
     const modes = ['auto', 'light', 'dark'];
     const currentIndex = modes.indexOf(darkMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
+    
+    console.log('👆 Toggle mode:', { current: darkMode, next: nextMode });
     
     setDarkMode(nextMode);
     localStorage.setItem('darkMode', nextMode);
@@ -140,7 +157,7 @@ function useDarkMode() {
         return 'Mode sombre';
       case 'auto':
       default:
-        return 'Mode auto';
+        return `Mode auto ${actualDarkMode ? '🌙' : '☀️'}`;
     }
   };
 
