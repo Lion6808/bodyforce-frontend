@@ -22,7 +22,7 @@ import {
   endOfYear,
 } from "date-fns";
 
-// ✅ Client Supabase direct (comme votre ancien code qui fonctionne)
+// Client Supabase direct
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
   process.env.REACT_APP_SUPABASE_KEY
@@ -44,44 +44,6 @@ const formatDate = (date, format) => {
 
   return new Intl.DateTimeFormat("fr-FR", options[format] || {}).format(date);
 };
-
-// Fonction pour convertir correctement les timestamps
-// const parseTimestamp = (timestamp) => {
-//   if (!timestamp) return new Date();
-//   if (timestamp instanceof Date) return timestamp;
-
-//   if (typeof timestamp === "string") {
-//     if (
-//       timestamp.includes("T") &&
-//       (timestamp.includes("+00:00") || timestamp.includes("+00"))
-//     ) {
-//       const datePart = timestamp.split("T")[0];
-//       let timePart;
-
-//       if (timestamp.includes("+00:00")) {
-//         timePart = timestamp.split("T")[1].split("+00:00")[0];
-//       } else if (timestamp.includes("+00")) {
-//         timePart = timestamp.split("T")[1].split("+00")[0];
-//       }
-
-//       const localDateString = `${datePart}T${timePart}`;
-//       const localDate = new Date(localDateString);
-//       return localDate;
-//     }
-
-//     if (timestamp.includes(" ") && timestamp.includes("+00")) {
-//       const [datePart, timeWithTz] = timestamp.split(" ");
-//       const timePart = timeWithTz.split("+00")[0];
-//       const localDateString = `${datePart}T${timePart}`;
-//       const localDate = new Date(localDateString);
-//       return localDate;
-//     }
-
-//     return new Date(timestamp);
-//   }
-
-//   return new Date(timestamp);
-// };
 
 const parseTimestamp = (timestamp) => new Date(timestamp);
 
@@ -155,7 +117,7 @@ function PlanningPage() {
   const [isRetrying, setIsRetrying] = useState(false);
 
   const [period, setPeriod] = useState("week");
-  // ✅ Période par défaut plus courte pour éviter la lenteur
+  // Période par défaut plus courte pour éviter la lenteur
   const [startDate, setStartDate] = useState(
     startOfDay(subWeeks(new Date(), 1))
   );
@@ -168,7 +130,7 @@ function PlanningPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ REQUÊTES DIRECTES SUPABASE (comme votre ancien code qui fonctionne)
+  // REQUÊTES DIRECTES SUPABASE
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) {
@@ -182,7 +144,7 @@ function PlanningPage() {
         fin: endDate.toLocaleDateString(),
       });
 
-      // ✅ Chargement des membres (même logique que votre ancien code)
+      // Chargement des membres
       const { data: membersData, error: membersError } = await supabase
         .from("members")
         .select("*");
@@ -195,7 +157,7 @@ function PlanningPage() {
       setMembers(Array.isArray(membersData) ? membersData : []);
       console.log("✅ Membres chargés:", membersData?.length || 0);
 
-      // ✅ Chargement des présences FILTRÉ par période (EXACTEMENT comme votre ancien code)
+      // Chargement des présences FILTRÉ par période
       let allPresences = [];
       let from = 0;
       const pageSize = 1000;
@@ -247,7 +209,7 @@ function PlanningPage() {
     }
   };
 
-  // ✅ Recharger quand la période change (comme votre ancien code)
+  // Recharger quand la période change
   useEffect(() => {
     loadData();
   }, [startDate, endDate]);
@@ -294,16 +256,15 @@ function PlanningPage() {
   const toLocalDate = (timestamp) => {
     return parseTimestamp(timestamp);
   };
-
-  // Écrans de chargement et d'erreur
+  // Écrans de chargement et d'erreur avec mode sombre
   const renderConnectionError = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200">
-        <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200 dark:border-gray-700">
+        <AlertCircle className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-6" />
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
           Problème de connexion
         </h2>
-        <p className="text-gray-600 mb-8 leading-relaxed">{error}</p>
+        <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">{error}</p>
         <button
           onClick={handleRetry}
           disabled={isRetrying}
@@ -324,7 +285,7 @@ function PlanningPage() {
           )}
         </button>
         {retryCount > 0 && (
-          <p className="text-sm text-gray-500 mt-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
             Tentative {retryCount + 1}
           </p>
         )}
@@ -333,15 +294,15 @@ function PlanningPage() {
   );
 
   const renderLoading = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
       <div className="text-center">
         <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <RefreshCw className="w-8 h-8 animate-spin text-white" />
         </div>
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
           {isRetrying ? "Reconnexion en cours..." : "Chargement du planning..."}
         </h2>
-        <p className="text-gray-600">
+        <p className="text-gray-600 dark:text-gray-400">
           Période: {startDate.toLocaleDateString()} -{" "}
           {endDate.toLocaleDateString()}
         </p>
@@ -352,7 +313,7 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // ✅ Les présences sont déjà filtrées par la requête, pas besoin de re-filtrer
+  // Les présences sont déjà filtrées par la requête, pas besoin de re-filtrer
   const filteredPresences = presences.filter((p) => {
     const presenceDate = toLocalDate(p.timestamp);
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
@@ -382,8 +343,7 @@ function PlanningPage() {
             .includes(filterName.toLowerCase())) &&
         (!filterBadge || m.badgeId?.includes(filterBadge))
     );
-
-  // Vue liste pour mobile - Version compacte
+    // Vue liste pour mobile - Version compacte avec mode sombre
   const ListView = () => (
     <div className="space-y-3">
       {visibleMembers.map((member) => {
@@ -401,14 +361,14 @@ function PlanningPage() {
         return (
           <div
             key={member.badgeId}
-            className="bg-white rounded-lg shadow-sm p-3 border border-gray-100 hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center gap-2 mb-3">
               {member.photo ? (
                 <img
                   src={member.photo}
                   alt="avatar"
-                  className="w-10 h-10 object-cover rounded-full border border-blue-200"
+                  className="w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600"
                 />
               ) : (
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
@@ -417,14 +377,14 @@ function PlanningPage() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-base truncate">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base truncate">
                   {member.name} {member.firstName}
                 </h3>
                 <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     Badge: {member.badgeId}
                   </span>
-                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                  <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium">
                     {totalPresencesInPeriod} présence(s)
                   </span>
                 </div>
@@ -445,8 +405,8 @@ function PlanningPage() {
                         hasPresences
                           ? "bg-green-500 text-white shadow-sm"
                           : isWeekend(day)
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-600"
+                          ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                       }`}
                     >
                       <div className="font-medium text-xs">
@@ -462,7 +422,7 @@ function PlanningPage() {
                     {/* Tooltip avec détails au hover */}
                     {hasPresences && (
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                        <div className="bg-gray-900 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max">
+                        <div className="bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700">
                           <div className="font-semibold mb-1">
                             {formatDate(day, "EEE dd/MM")}
                           </div>
@@ -490,30 +450,29 @@ function PlanningPage() {
       })}
     </div>
   );
-
-  // Vue compacte pour tablettes
+  // Vue compacte pour tablettes avec mode sombre
   const CompactView = () => (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
       <div className="overflow-x-auto">
         <div className="min-w-full">
           <div
-            className="grid bg-gray-50"
+            className="grid bg-gray-50 dark:bg-gray-700"
             style={{
               gridTemplateColumns: `180px repeat(${allDays.length}, minmax(100px, 1fr))`,
             }}
           >
             {/* En-tête */}
-            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 p-4 border-b border-r font-bold text-center text-white">
+            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 p-4 border-b border-r border-gray-200 dark:border-gray-600 font-bold text-center text-white">
               <Users className="w-5 h-5 mx-auto mb-1" />
               Membres
             </div>
             {allDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`p-3 text-center font-medium border-b border-r ${
+                className={`p-3 text-center font-medium border-b border-r border-gray-200 dark:border-gray-600 ${
                   isWeekend(day)
-                    ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
-                    : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
+                    ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
+                    : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
                 }`}
               >
                 <div className="text-sm">{formatDate(day, "EEE dd")}</div>
@@ -527,15 +486,15 @@ function PlanningPage() {
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 p-3 border-r border-b flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  className={`sticky left-0 z-10 p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 ${
+                    idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
                   }`}
                 >
                   {member.photo ? (
                     <img
                       src={member.photo}
                       alt="avatar"
-                      className="w-10 h-10 object-cover rounded-full border border-gray-300"
+                      className="w-10 h-10 object-cover rounded-full border border-gray-300 dark:border-gray-600"
                     />
                   ) : (
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
@@ -544,10 +503,10 @@ function PlanningPage() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate">
+                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
                       {member.name}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {member.firstName}
                     </div>
                   </div>
@@ -563,14 +522,14 @@ function PlanningPage() {
                   return (
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
-                      className={`p-2 border-b border-r min-h-[80px] transition-colors hover:bg-opacity-80 ${
+                      className={`p-2 border-b border-r border-gray-200 dark:border-gray-600 min-h-[80px] transition-colors hover:bg-opacity-80 ${
                         dayPresences.length > 0
-                          ? "bg-gradient-to-br from-green-100 to-green-200"
+                          ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20"
                           : isWeekend(day)
-                          ? "bg-blue-50"
+                          ? "bg-blue-50 dark:bg-blue-900/10"
                           : idx % 2 === 0
-                          ? "bg-white"
-                          : "bg-gray-50"
+                          ? "bg-white dark:bg-gray-800"
+                          : "bg-gray-50 dark:bg-gray-700"
                       }`}
                     >
                       {dayPresences.length > 0 && (
@@ -578,13 +537,13 @@ function PlanningPage() {
                           {dayPresences.slice(0, 3).map((time, tidx) => (
                             <div
                               key={tidx}
-                              className="bg-green-600 text-white px-2 py-1 rounded-md text-xs font-medium text-center shadow-sm"
+                              className="bg-green-600 dark:bg-green-700 text-white px-2 py-1 rounded-md text-xs font-medium text-center shadow-sm"
                             >
                               {formatDate(time, "HH:mm")}
                             </div>
                           ))}
                           {dayPresences.length > 3 && (
-                            <div className="text-green-700 text-xs text-center font-medium">
+                            <div className="text-green-700 dark:text-green-400 text-xs text-center font-medium">
                               +{dayPresences.length - 3}
                             </div>
                           )}
@@ -600,10 +559,9 @@ function PlanningPage() {
       </div>
     </div>
   );
-
-  // Vue grille complète pour desktop
+  // Vue grille complète pour desktop avec mode sombre
   const GridView = () => (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
       <div className="overflow-auto max-h-[75vh]">
         <div className="min-w-max">
           <div
@@ -614,7 +572,7 @@ function PlanningPage() {
               }, 45px)`,
             }}
           >
-            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r flex items-center justify-center font-bold text-white">
+            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-white">
               <div className="text-center">
                 <Users className="w-6 h-6 mx-auto mb-1" />
                 <div className="text-sm">Membres</div>
@@ -624,35 +582,17 @@ function PlanningPage() {
               hours.map((h, hIdx) => (
                 <div
                   key={`header-${dIdx}-${h}`}
-                  className={`text-[9px] border-b border-r flex flex-col items-center justify-center h-16 font-medium ${
+                  className={`text-[9px] border-b border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center h-16 font-medium ${
                     isWeekend(day)
-                      ? "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800"
-                      : "bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700"
-                  }`}
-                >
-                  {hIdx === 0 && (
-                    <div className="font-bold whitespace-nowrap mb-1">
-                      {formatDate(day, "EEE dd/MM")}
-                    </div>
-                  )}
-                  <div className="font-semibold">{`${h
-                    .toString()
-                    .padStart(2, "0")}h`}</div>
-                </div>
-              ))
-            )}
-            {visibleMembers.map((member, idx) => (
-              <React.Fragment key={member.badgeId}>
-                <div
-                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b h-16 flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
+                      : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
                   }`}
                 >
                   {member.photo ? (
                     <img
                       src={member.photo}
                       alt="avatar"
-                      className="w-12 h-12 object-cover rounded-full border border-gray-300"
+                      className="w-12 h-12 object-cover rounded-full border border-gray-300 dark:border-gray-600"
                     />
                   ) : (
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
@@ -661,10 +601,10 @@ function PlanningPage() {
                     </div>
                   )}
                   <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-semibold text-sm truncate">
+                    <span className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">
                       {member.name} {member.firstName}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {groupedByMember[member.badgeId]?.length || 0} présence(s)
                     </span>
                   </div>
@@ -681,14 +621,14 @@ function PlanningPage() {
                     return (
                       <div
                         key={`${member.badgeId}-${day.toISOString()}-${h}`}
-                        className={`h-16 border-b border-r relative group transition-all duration-200 ${
+                        className={`h-16 border-b border-r border-gray-200 dark:border-gray-600 relative group transition-all duration-200 ${
                           present
                             ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
                             : isWeekend(day)
-                            ? "bg-blue-50 hover:bg-blue-100"
+                            ? "bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20"
                             : idx % 2 === 0
-                            ? "bg-white hover:bg-gray-50"
-                            : "bg-gray-50 hover:bg-gray-100"
+                            ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
                         }`}
                       >
                         {present && (
@@ -700,7 +640,7 @@ function PlanningPage() {
                                 </span>
                               </div>
                             </div>
-                            <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
+                            <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap border border-gray-700">
                               <div className="font-semibold">
                                 {formatDate(day, "EEE dd/MM")} à {h}h
                               </div>
@@ -720,36 +660,53 @@ function PlanningPage() {
         </div>
       </div>
     </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
+  );hIdx === 0 && (
+                    <div className="font-bold whitespace-nowrap mb-1">
+                      {formatDate(day, "EEE dd/MM")}
+                    </div>
+                  )}
+                  <div className="font-semibold">{`${h
+                    .toString()
+                    .padStart(2, "0")}h`}</div>
+                </div>
+              ))
+            )}
+            {visibleMembers.map((member, idx) => (
+              <React.Fragment key={member.badgeId}>
+                <div
+                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3 ${
+                    idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
+                  }`}
+                >
+                  {
+                    return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4">
       <div className="max-w-7xl mx-auto">
         {/* En-tête */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
                 <Calendar className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                   Planning des présences
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
                   Visualisez les présences des membres
                 </p>
               </div>
             </div>
 
             {/* Boutons de vue + filtre */}
-            <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 rounded-lg p-1 gap-1 w-full sm:w-auto">
+            <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
               <button
                 onClick={() => setViewMode("list")}
                 className={`p-2 rounded-md transition-all ${
                   viewMode === "list"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 }`}
                 title="Vue liste"
               >
@@ -759,8 +716,8 @@ function PlanningPage() {
                 onClick={() => setViewMode("compact")}
                 className={`p-2 rounded-md transition-all ${
                   viewMode === "compact"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 }`}
                 title="Vue compacte"
               >
@@ -770,8 +727,8 @@ function PlanningPage() {
                 onClick={() => setViewMode("grid")}
                 className={`p-2 rounded-md transition-all ${
                   viewMode === "grid"
-                    ? "bg-white shadow-md text-blue-600"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 }`}
                 title="Vue grille"
               >
@@ -782,8 +739,8 @@ function PlanningPage() {
                 onClick={() => setShowFilters(!showFilters)}
                 className={`p-3 rounded-lg transition-all ${
                   showFilters
-                    ? "bg-blue-100 text-blue-600"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
               >
                 <Filter className="w-5 h-5" />
@@ -792,18 +749,18 @@ function PlanningPage() {
           </div>
 
           {/* Navigation période */}
-          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <button
               onClick={() => navigatePeriod("prev")}
-              className="p-2 hover:bg-white rounded-lg transition-colors shadow-sm flex-shrink-0"
+              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
             >
-              <ChevronLeft className="w-6 h-6 text-gray-600" />
+              <ChevronLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
 
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
               {/* Sélecteur de date de début */}
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                   Début:
                 </label>
                 <input
@@ -820,12 +777,12 @@ function PlanningPage() {
                       setEndDate(endOfDay(addYears(newStartDate, 1)));
                     }
                   }}
-                  className="border-2 border-gray-200 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                  className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
               </div>
 
               <select
-                className="border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white font-medium text-sm"
+                className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium text-sm"
                 value={period}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -839,11 +796,11 @@ function PlanningPage() {
               </select>
 
               <div className="text-center min-w-0">
-                <div className="text-sm sm:text-lg font-bold text-gray-900 truncate">
+                <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
                   {formatDate(startDate, "dd/MM/yyyy")} -{" "}
                   {formatDate(endDate, "dd/MM/yyyy")}
                 </div>
-                <div className="text-xs sm:text-sm text-gray-600">
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   {allDays.length} jours
                 </div>
               </div>
@@ -851,17 +808,16 @@ function PlanningPage() {
 
             <button
               onClick={() => navigatePeriod("next")}
-              className="p-2 hover:bg-white rounded-lg transition-colors shadow-sm flex-shrink-0"
+              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
             >
-              <ChevronRight className="w-6 h-6 text-gray-600" />
+              <ChevronRight className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
 
-          {/* ✅ Presets rapides pour navigation facile */}
-          {/* Presets rapides */}
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          {/* Presets rapides pour navigation facile */}
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
             <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-blue-800 mr-2">
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-300 mr-2">
                 Raccourcis :
               </span>
 
@@ -871,9 +827,9 @@ function PlanningPage() {
                   setStartDate(startOfDay(today));
                   setEndDate(endOfDay(today));
                 }}
-                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
               >
-                Aujourd’hui
+                Aujourd'hui
               </button>
 
               <button
@@ -884,7 +840,7 @@ function PlanningPage() {
                   );
                   setEndDate(endOfDay(new Date()));
                 }}
-                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
               >
                 7 derniers jours
               </button>
@@ -897,7 +853,7 @@ function PlanningPage() {
                   );
                   setEndDate(endOfDay(new Date()));
                 }}
-                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
               >
                 30 derniers jours
               </button>
@@ -911,7 +867,7 @@ function PlanningPage() {
                     endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))
                   );
                 }}
-                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
               >
                 Cette Semaine
               </button>
@@ -921,7 +877,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(startOfMonth(new Date())));
                   setEndDate(endOfDay(endOfMonth(new Date())));
                 }}
-                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
               >
                 Ce Mois
               </button>
@@ -931,20 +887,19 @@ function PlanningPage() {
                   setStartDate(startOfDay(startOfYear(new Date())));
                   setEndDate(endOfDay(endOfYear(new Date())));
                 }}
-                className="px-2 py-1 text-xs bg-white hover:bg-blue-100 text-blue-700 rounded"
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
               >
                 Cette Année
               </button>
             </div>
           </div>
         </div>
-
         {/* Filtres */}
         {showFilters && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Rechercher par nom
                 </label>
                 <input
@@ -952,11 +907,11 @@ function PlanningPage() {
                   placeholder="Nom ou prénom..."
                   value={filterName}
                   onChange={(e) => setFilterName(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Filtrer par badge
                 </label>
                 <input
@@ -964,18 +919,18 @@ function PlanningPage() {
                   placeholder="Numéro de badge..."
                   value={filterBadge}
                   onChange={(e) => setFilterBadge(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none"
+                  className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>
               <div className="flex items-end">
-                <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors">
+                <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
                   <input
                     type="checkbox"
                     checked={showNightHours}
                     onChange={() => setShowNightHours(!showNightHours)}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
                   />
-                  Afficher 00h - 06h
+                  <span className="text-gray-700 dark:text-gray-300">Afficher 00h - 06h</span>
                 </label>
               </div>
               <div className="flex items-end">
@@ -998,14 +953,14 @@ function PlanningPage() {
 
         {/* Contenu principal */}
         {visibleMembers.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-gray-200">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Users className="w-12 h-12 text-gray-400" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center border border-gray-200 dark:border-gray-700">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users className="w-12 h-12 text-gray-400 dark:text-gray-500" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
               Aucune présence trouvée
             </h3>
-            <p className="text-gray-500 mb-6">
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
               Aucune présence n'a été enregistrée sur cette période ou avec ces
               filtres.
               <br />
