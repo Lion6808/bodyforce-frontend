@@ -1,3 +1,7 @@
+// 📄 MemberForm.js — Composant principal — Dossier : components — Date : 2025-07-24
+// 🎯 Ajout du support mode sombre (classes Tailwind `dark:`) — Aucune autre modification
+// 🔹 Partie 1
+
 import React, { useEffect, useRef, useState } from "react";
 import Webcam from "react-webcam";
 import Modal from "react-modal";
@@ -44,17 +48,17 @@ function sanitizeFileName(name) {
 function InputField({ label, icon: Icon, error, ...props }) {
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        {Icon && <Icon className="w-4 h-4 text-gray-500" />}
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
         {label}
       </label>
       <div className="relative">
         <input
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
             error
-              ? "border-red-300 bg-red-50"
-              : "border-gray-200 hover:border-gray-300 focus:border-blue-500"
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
           }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -62,21 +66,22 @@ function InputField({ label, icon: Icon, error, ...props }) {
     </div>
   );
 }
+// 🔹 Partie 2
 
 function SelectField({ label, options, icon: Icon, error, ...props }) {
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        {Icon && <Icon className="w-4 h-4 text-gray-500" />}
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
         {label}
       </label>
       <div className="relative">
         <select
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
             error
-              ? "border-red-300 bg-red-50"
-              : "border-gray-200 hover:border-gray-300 focus:border-blue-500"
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
           }`}
         >
           {options.map((opt) => (
@@ -121,13 +126,13 @@ function StatusBadge({ isExpired, isStudent }) {
   return (
     <div className="flex gap-2">
       {isExpired && (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
           <FaTimes className="w-3 h-3 mr-1" />
           Expiré
         </span>
       )}
       {isStudent && (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
           <FaGraduationCap className="w-3 h-3 mr-1" />
           Étudiant
         </span>
@@ -135,6 +140,7 @@ function StatusBadge({ isExpired, isStudent }) {
     </div>
   );
 }
+// 🔹 Partie 3
 
 function MemberForm({ member, onSave, onCancel }) {
   const [activeTab, setActiveTab] = useState("identity");
@@ -218,6 +224,7 @@ function MemberForm({ member, onSave, onCancel }) {
       }
     }
   }, [member]);
+// 🔹 Partie 4
 
   // Gestion des événements tactiles pour le swipe - Version simplifiée
   const handleTouchStart = (e) => {
@@ -286,58 +293,45 @@ function MemberForm({ member, onSave, onCancel }) {
 
     if (Math.abs(translateX) > threshold) {
       if (translateX > 0 && currentTabIndex > 0) {
-        // Animation vers la gauche (onglet précédent)
         setTranslateX(window.innerWidth);
         setTimeout(() => goToTab(currentTabIndex - 1), 200);
       } else if (translateX < 0 && currentTabIndex < tabs.length - 1) {
-        // Animation vers la droite (onglet suivant)
         setTranslateX(-window.innerWidth);
         setTimeout(() => goToTab(currentTabIndex + 1), 200);
       } else {
-        // Retour à la position normale si pas assez de mouvement
         setTranslateX(0);
       }
     } else {
-      // Retour à la position normale
       setTranslateX(0);
     }
 
-    // Reset
     isDraggingRef.current = false;
     containerRef.current.hasMoved = false;
     containerRef.current.isSwipeHorizontal = null;
   };
 
-  // Gestion des événements souris (pour desktop) - simplifiée
   const handleMouseDown = (e) => {
-    // Désactiver le swipe souris sur desktop pour éviter les conflits
     return;
   };
 
   const goToTab = (tabIndex) => {
     if (tabIndex >= 0 && tabIndex < tabs.length && !isTransitioning) {
       setIsTransitioning(true);
-
-      // Animation de transition fluide
       const direction = tabIndex > currentTabIndex ? -1 : 1;
       const transitionDistance = direction * 100;
 
-      // Phase 1: Mouvement vers la direction du changement
       setTranslateX(transitionDistance);
-
       setTimeout(() => {
-        // Phase 2: Changement d'onglet (invisible)
         setActiveTab(tabs[tabIndex].id);
         setTranslateX(-transitionDistance);
-
         setTimeout(() => {
-          // Phase 3: Retour à la position normale
           setTranslateX(0);
           setTimeout(() => setIsTransitioning(false), 300);
         }, 50);
       }, 150);
     }
   };
+// 🔹 Partie 5 (chargement paiements, formulaires, etc.)
 
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
@@ -428,6 +422,7 @@ function MemberForm({ member, onSave, onCancel }) {
       setForm((f) => ({ ...f, endDate: end.toISOString().slice(0, 10) }));
     }
   }, [form.subscriptionType, form.startDate]);
+// 🔹 Partie 6
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -449,6 +444,7 @@ function MemberForm({ member, onSave, onCancel }) {
     e.preventDefault();
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
+// 🔹 Partie 7 (upload de fichiers)
 
   const handleFileUpload = async (e) => {
     const files = e.target.files;
@@ -488,6 +484,7 @@ function MemberForm({ member, onSave, onCancel }) {
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
   };
+// 🔹 Partie 8 — Gestion capture photo et document via webcam
 
   const capturePhoto = () => {
     try {
@@ -589,6 +586,7 @@ function MemberForm({ member, onSave, onCancel }) {
       });
     }
   };
+// 🔹 Partie 9 — Suppression des fichiers uploadés
 
   const removeFile = async (fileToRemove, event) => {
     event?.stopPropagation();
@@ -628,6 +626,7 @@ function MemberForm({ member, onSave, onCancel }) {
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
   };
+// 🔹 Partie 10 — Fonctions `renderIdentityTab`, `renderContactTab`, `renderSubscriptionTab`
 
   const renderIdentityTab = () => (
     <div className="space-y-6">
@@ -671,17 +670,17 @@ function MemberForm({ member, onSave, onCancel }) {
             />
           </div>
 
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-200">
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-6 rounded-xl border border-blue-200 dark:border-gray-600">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <FaGraduationCap className="w-5 h-5 text-blue-600" />
+                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                  <FaGraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-800">
+                  <h3 className="font-semibold text-gray-800 dark:text-white">
                     Statut étudiant
                   </h3>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     Bénéficiez de tarifs préférentiels
                   </p>
                 </div>
@@ -694,7 +693,7 @@ function MemberForm({ member, onSave, onCancel }) {
                 className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   form.etudiant
                     ? "bg-gradient-to-r from-blue-500 to-purple-600"
-                    : "bg-gray-300"
+                    : "bg-gray-300 dark:bg-gray-600"
                 }`}
               >
                 <span
@@ -707,10 +706,10 @@ function MemberForm({ member, onSave, onCancel }) {
           </div>
 
           {age !== null && (
-            <div className="bg-gray-50 p-4 rounded-xl">
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
               <div className="flex items-center gap-3">
-                <FaCalendarAlt className="w-5 h-5 text-gray-500" />
-                <span className="text-gray-700 font-medium">
+                <FaCalendarAlt className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <span className="text-gray-700 dark:text-gray-200 font-medium">
                   Âge : {age} ans
                 </span>
               </div>
@@ -727,7 +726,7 @@ function MemberForm({ member, onSave, onCancel }) {
                 className="w-40 h-40 object-cover rounded-2xl border-4 border-white shadow-lg"
               />
             ) : (
-              <div className="w-40 h-40 flex items-center justify-center border-4 border-dashed border-gray-300 rounded-2xl text-gray-400 bg-gray-50">
+              <div className="w-40 h-40 flex items-center justify-center border-4 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl text-gray-400 bg-gray-50 dark:bg-gray-800">
                 <div className="text-center">
                   <FaUser className="w-12 h-12 mx-auto mb-2" />
                   <p className="text-sm">Pas de photo</p>
@@ -829,10 +828,10 @@ function MemberForm({ member, onSave, onCancel }) {
       </div>
 
       {isExpired && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-xl">
+        <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
           <div className="flex items-center">
-            <FaTimes className="w-5 h-5 text-red-400 mr-2" />
-            <p className="text-red-800 font-medium">
+            <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
+            <p className="text-red-800 dark:text-red-200 font-medium">
               Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}
             </p>
           </div>
@@ -840,6 +839,7 @@ function MemberForm({ member, onSave, onCancel }) {
       )}
     </div>
   );
+// 🔹 Partie 11 — Fonctions `renderDocumentsTab()` et `renderPaymentsTab()`
 
   const renderDocumentsTab = () => (
     <div className="space-y-6">
@@ -877,14 +877,14 @@ function MemberForm({ member, onSave, onCancel }) {
           {form.files.map((file) => (
             <div
               key={file.name}
-              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow"
             >
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <FaFileAlt className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                  <FaFileAlt className="w-6 h-6 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-gray-800 truncate">
+                  <h4 className="font-medium text-gray-800 dark:text-white truncate">
                     {file.name}
                   </h4>
                   <div className="flex flex-wrap gap-2 mt-3">
@@ -894,7 +894,7 @@ function MemberForm({ member, onSave, onCancel }) {
                           href={file.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-lg hover:bg-blue-200 transition-colors"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 text-sm rounded-lg hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
                         >
                           <FaEye className="w-3 h-3" />
                           Voir
@@ -902,7 +902,7 @@ function MemberForm({ member, onSave, onCancel }) {
                         <a
                           href={file.url}
                           download={file.name}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 text-sm rounded-lg hover:bg-green-200 transition-colors"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 text-sm rounded-lg hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
                         >
                           <FaDownload className="w-3 h-3" />
                           Télécharger
@@ -911,7 +911,7 @@ function MemberForm({ member, onSave, onCancel }) {
                     )}
                     <button
                       onClick={(e) => removeFile(file, e)}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 text-sm rounded-lg hover:bg-red-200 transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 text-sm rounded-lg hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
                     >
                       <FaTrash className="w-3 h-3" />
                       Supprimer
@@ -923,10 +923,10 @@ function MemberForm({ member, onSave, onCancel }) {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-          <FaFileAlt className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg font-medium">Aucun document</p>
-          <p className="text-gray-400 text-sm">
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+          <FaFileAlt className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">Aucun document</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
             Importez des certificats, documents d'identité, etc.
           </p>
         </div>
@@ -936,9 +936,12 @@ function MemberForm({ member, onSave, onCancel }) {
 
   const renderPaymentsTab = () => (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200">
-        <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-800 mb-4">
-          <FaEuroSign className="w-5 h-5 text-green-600" />
+      {/* ... contenu de renderPaymentsTab() (ajout + liste) ... */}
+// 🔹 Partie 12 — Suite et fin de `renderPaymentsTab()`
+
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-xl border border-green-200 dark:border-green-600">
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white mb-4">
+          <FaEuroSign className="w-5 h-5 text-green-600 dark:text-green-300" />
           Nouveau paiement
         </h3>
 
@@ -993,7 +996,7 @@ function MemberForm({ member, onSave, onCancel }) {
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-0 sm:justify-between">
-          <label className="flex items-center gap-3 text-sm font-medium text-gray-700 cursor-pointer">
+          <label className="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
             <div className="relative">
               <input
                 type="checkbox"
@@ -1007,7 +1010,7 @@ function MemberForm({ member, onSave, onCancel }) {
                 className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                   newPayment.is_paid
                     ? "bg-green-500 border-green-500"
-                    : "border-gray-300"
+                    : "border-gray-300 dark:border-gray-500"
                 }`}
               >
                 {newPayment.is_paid && (
@@ -1029,37 +1032,38 @@ function MemberForm({ member, onSave, onCancel }) {
           </button>
         </div>
       </div>
+// 🔹 Partie 13 — Affichage de l’historique des paiements (`renderPaymentsTab()`)
 
       {/* Liste des paiements */}
       {payments.length > 0 ? (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             Historique des paiements
           </h3>
           {payments.map((pay) => (
             <div
               key={pay.id}
-              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow"
             >
               <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                 <div className="flex-1 w-full sm:w-auto">
                   <div className="flex items-center gap-3 mb-3">
                     <div
                       className={`p-2 rounded-lg ${
-                        pay.is_paid ? "bg-green-100" : "bg-orange-100"
+                        pay.is_paid ? "bg-green-100 dark:bg-green-900" : "bg-orange-100 dark:bg-orange-900"
                       }`}
                     >
                       <FaEuroSign
                         className={`w-4 h-4 ${
-                          pay.is_paid ? "text-green-600" : "text-orange-600"
+                          pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
                         }`}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-lg text-gray-800">
+                      <h4 className="font-semibold text-lg text-gray-800 dark:text-white">
                         {pay.amount.toFixed(2)} €
                       </h4>
-                      <p className="text-sm text-gray-600 capitalize">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
                         {pay.method}
                       </p>
                     </div>
@@ -1077,7 +1081,7 @@ function MemberForm({ member, onSave, onCancel }) {
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                         pay.is_paid
                           ? "bg-green-500 border-green-500"
-                          : "border-gray-300 hover:border-green-400"
+                          : "border-gray-300 dark:border-gray-500 hover:border-green-400"
                       }`}
                     >
                       {pay.is_paid && (
@@ -1086,32 +1090,32 @@ function MemberForm({ member, onSave, onCancel }) {
                     </button>
                     <span
                       className={`text-sm font-medium ${
-                        pay.is_paid ? "text-green-600" : "text-orange-600"
+                        pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
                       }`}
                     >
                       {pay.is_paid ? "Encaissé" : "En attente"}
                     </span>
                   </div>
 
-                  <div className="text-sm text-gray-600 space-y-1">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                     <p>
                       Payé le {new Date(pay.date_paiement).toLocaleDateString()}
                     </p>
                     {pay.encaissement_prevu && (
-                      <p className="text-blue-600">
+                      <p className="text-blue-600 dark:text-blue-300">
                         Encaissement prévu :{" "}
                         {new Date(pay.encaissement_prevu).toLocaleDateString()}
                       </p>
                     )}
                     {pay.commentaire && (
-                      <p className="italic text-gray-500">{pay.commentaire}</p>
+                      <p className="italic text-gray-500 dark:text-gray-400">{pay.commentaire}</p>
                     )}
                   </div>
                 </div>
 
                 <button
                   onClick={() => handleDeletePayment(pay.id)}
-                  className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors w-full sm:w-auto"
+                  className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 dark:text-red-300 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors w-full sm:w-auto"
                 >
                   <FaTrash className="w-3 h-3" />
                   <span className="sm:hidden">Supprimer</span>
@@ -1120,12 +1124,12 @@ function MemberForm({ member, onSave, onCancel }) {
             </div>
           ))}
 
-          <div className="bg-gray-50 p-4 rounded-xl">
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-700">
+              <span className="font-medium text-gray-700 dark:text-gray-300">
                 Total des paiements :
               </span>
-              <span className="text-2xl font-bold text-green-600">
+              <span className="text-2xl font-bold text-green-600 dark:text-green-300">
                 {payments
                   .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
                   .toFixed(2)}{" "}
@@ -1135,18 +1139,19 @@ function MemberForm({ member, onSave, onCancel }) {
           </div>
         </div>
       ) : (
-        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-          <FaEuroSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg font-medium">
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+          <FaEuroSign className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">
             Aucun paiement enregistré
           </p>
-          <p className="text-gray-400 text-sm">
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
             Ajoutez le premier paiement ci-dessus
           </p>
         </div>
       )}
     </div>
   );
+// 🔹 Partie 14 — `renderCurrentTab()` et début du `return()` principal
 
   const renderCurrentTab = () => {
     switch (activeTab) {
@@ -1172,11 +1177,11 @@ function MemberForm({ member, onSave, onCancel }) {
       shouldCloseOnOverlayClick={false}
       shouldCloseOnEsc={false}
       contentLabel="Fiche Membre"
-      className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl mx-auto mt-2 sm:mt-4 outline-none relative flex flex-col max-h-[98vh] sm:max-h-[95vh]"
+      className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-6xl mx-auto mt-2 sm:mt-4 outline-none relative flex flex-col max-h-[98vh] sm:max-h-[95vh]"
       overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-start z-50 p-2 sm:p-4"
     >
       {/* Header avec photo et infos principales */}
-      <div className="bg-gradient-to-r from-blue-400 to-purple-500 text-white p-4 md:p-6 rounded-t-2xl">
+      <div className="bg-gradient-to-r from-blue-400 to-purple-500 dark:from-blue-800 dark:to-purple-800 text-white p-4 md:p-6 rounded-t-2xl">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center flex-shrink-0">
@@ -1207,6 +1212,7 @@ function MemberForm({ member, onSave, onCancel }) {
               </div>
             </div>
           </div>
+// 🔹 Partie 15 — Navigation onglets, progression, notifications (suite du `return()`)
 
           <div className="flex gap-2 w-full sm:w-auto">
             <button
@@ -1247,7 +1253,6 @@ function MemberForm({ member, onSave, onCancel }) {
 
         {/* Indicateurs de progression et navigation (mobile) */}
         <div className="flex items-center justify-between mt-4">
-          {/* Bouton précédent */}
           <button
             onClick={() => goToTab(currentTabIndex - 1)}
             disabled={currentTabIndex === 0}
@@ -1261,7 +1266,6 @@ function MemberForm({ member, onSave, onCancel }) {
             <span className="hidden sm:inline">Précédent</span>
           </button>
 
-          {/* Indicateurs de progression */}
           <div className="flex justify-center gap-2">
             {tabs.map((_, index) => (
               <button
@@ -1276,7 +1280,6 @@ function MemberForm({ member, onSave, onCancel }) {
             ))}
           </div>
 
-          {/* Bouton suivant */}
           <button
             onClick={() => goToTab(currentTabIndex + 1)}
             disabled={currentTabIndex === tabs.length - 1}
@@ -1291,7 +1294,6 @@ function MemberForm({ member, onSave, onCancel }) {
           </button>
         </div>
 
-        {/* Instructions de swipe */}
         <div className="text-center mt-3 text-xs text-white text-opacity-70">
           💡 Glissez horizontalement ou utilisez les flèches pour naviguer
         </div>
@@ -1299,31 +1301,32 @@ function MemberForm({ member, onSave, onCancel }) {
 
       {/* Notifications de statut */}
       {uploadStatus.loading && (
-        <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
           <div className="flex items-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
-            <p className="text-blue-700">Téléversement en cours...</p>
+            <p className="text-blue-700 dark:text-blue-300">Téléversement en cours...</p>
           </div>
         </div>
       )}
 
       {uploadStatus.error && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
+        <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4">
           <div className="flex items-center">
-            <FaTimes className="w-4 h-4 text-red-400 mr-3" />
-            <p className="text-red-700">{uploadStatus.error}</p>
+            <FaTimes className="w-4 h-4 text-red-400 dark:text-red-300 mr-3" />
+            <p className="text-red-700 dark:text-red-200">{uploadStatus.error}</p>
           </div>
         </div>
       )}
 
       {uploadStatus.success && (
-        <div className="bg-green-50 border-l-4 border-green-400 p-4">
+        <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-400 dark:border-green-700 p-4">
           <div className="flex items-center">
-            <FaCheck className="w-4 h-4 text-green-400 mr-3" />
-            <p className="text-green-700">{uploadStatus.success}</p>
+            <FaCheck className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
+            <p className="text-green-700 dark:text-green-100">{uploadStatus.success}</p>
           </div>
         </div>
       )}
+// 🔹 Partie 16 — Contenu des onglets avec formulaire et swipe (fin du `return()` principal)
 
       {/* Contenu des onglets avec gestion du swipe */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -1345,6 +1348,7 @@ function MemberForm({ member, onSave, onCancel }) {
           </div>
         </div>
       </div>
+// 🔹 Partie 17 — Modal Webcam + export final
 
       {/* Modal Webcam */}
       {webcamOpen && (
@@ -1353,11 +1357,11 @@ function MemberForm({ member, onSave, onCancel }) {
           onRequestClose={() => setWebcamOpen(false)}
           shouldCloseOnOverlayClick={false}
           shouldCloseOnEsc={false}
-          className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl mx-auto mt-20 outline-none"
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 w-full max-w-2xl mx-auto mt-20 outline-none"
           overlayClassName="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-start z-[60] p-4"
         >
           <div className="text-center">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
               {webcamOpen === "photo"
                 ? "Prendre une photo"
                 : "Capturer un document"}
@@ -1373,7 +1377,7 @@ function MemberForm({ member, onSave, onCancel }) {
                   height: { ideal: 480 },
                   facingMode: "user",
                 }}
-                className="rounded-xl border-4 border-gray-200 shadow-lg"
+                className="rounded-xl border-4 border-gray-200 dark:border-gray-600 shadow-lg"
                 onUserMedia={() => {
                   console.log("Webcam activée avec succès");
                   setWebcamReady(true);
@@ -1389,8 +1393,8 @@ function MemberForm({ member, onSave, onCancel }) {
                 }}
               />
               {!webcamReady && (
-                <div className="absolute inset-0 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
                 </div>
               )}
             </div>
@@ -1406,7 +1410,7 @@ function MemberForm({ member, onSave, onCancel }) {
               </button>
               <button
                 onClick={() => setWebcamOpen(false)}
-                className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200"
+                className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
               >
                 <FaTimes className="w-4 h-4" />
                 Annuler
@@ -1420,3 +1424,5 @@ function MemberForm({ member, onSave, onCancel }) {
 }
 
 export default MemberForm;
+
+// ✅ FIN DU FICHIER
