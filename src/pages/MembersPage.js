@@ -192,16 +192,16 @@ function MembersPage() {
   const getBadgeColor = (type) => {
     switch (type) {
       case "Mensuel":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300";
       case "Trimestriel":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300";
       case "Semestriel":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300";
       case "Annuel":
       case "Année civile":
-        return "bg-purple-100 text-purple-800";
+        return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300";
     }
   };
 
@@ -215,10 +215,10 @@ function MembersPage() {
 
     if (shouldShowFallback) {
       return (
-        <div className="w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center bg-gray-100">
+        <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
           <FaUser
             className={`text-xl ${
-              member.gender === "Femme" ? "text-pink-500" : "text-blue-500"
+              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
             }`}
           />
         </div>
@@ -228,10 +228,10 @@ function MembersPage() {
     return (
       <div className="relative w-12 h-12">
         {!imageLoaded && (
-          <div className="absolute inset-0 rounded-full border border-gray-200 flex items-center justify-center bg-gray-100">
+          <div className="absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
             <FaUser
               className={`text-xl ${
-                member.gender === "Femme" ? "text-pink-500" : "text-blue-500"
+                member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
               }`}
             />
           </div>
@@ -239,7 +239,7 @@ function MembersPage() {
         <img
           src={member.photo}
           alt="avatar"
-          className={`w-12 h-12 object-cover rounded-full border border-gray-200 ${
+          className={`w-12 h-12 object-cover rounded-full border border-gray-200 dark:border-gray-600 ${
             imageLoaded ? "opacity-100" : "opacity-0"
           } transition-opacity duration-200`}
           onLoad={() => setImageLoaded(true)}
@@ -256,8 +256,8 @@ function MembersPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">
             Chargement des membres depuis Supabase...
           </p>
         </div>
@@ -267,12 +267,12 @@ function MembersPage() {
 
   if (error) {
     return (
-      <div className="text-center p-8 bg-red-50 rounded-xl border border-red-200">
-        <div className="text-red-600 mb-4">⚠️ Erreur</div>
-        <p className="text-gray-700 mb-4">{error}</p>
+      <div className="text-center p-8 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+        <div className="text-red-600 dark:text-red-400 mb-4">⚠️ Erreur</div>
+        <p className="text-gray-700 dark:text-gray-300 mb-4">{error}</p>
         <button
           onClick={fetchMembers}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+          className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2"
         >
           <FaSync />
           Réessayer
@@ -285,15 +285,15 @@ function MembersPage() {
     <div className="px-2 sm:px-4">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-2xl font-bold mb-2">Liste des membres</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Liste des membres</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             {members.length} membres dans la base Supabase
           </p>
         </div>
         <button
           onClick={fetchMembers}
           disabled={loading}
-          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-2 disabled:opacity-50"
+          className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-2 disabled:opacity-50"
           title="Actualiser la liste"
         >
           <FaSync className={loading ? "animate-spin" : ""} />
@@ -302,16 +302,16 @@ function MembersPage() {
       </div>
 
       {activeFilter && (
-        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <div className="flex justify-between items-center">
-            <span className="text-blue-700">
+            <span className="text-blue-700 dark:text-blue-300">
               Filtre actif : <strong>{activeFilter}</strong> (
               {filteredMembers.length} résultat
               {filteredMembers.length !== 1 ? "s" : ""})
             </span>
             <button
               onClick={() => setActiveFilter(null)}
-              className="text-blue-500 hover:text-blue-700 underline text-sm"
+              className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline text-sm"
             >
               Réinitialiser
             </button>
@@ -366,10 +366,10 @@ function MembersPage() {
       </div>
 
       {/* Barre d'actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 p-4 bg-white rounded-lg shadow-sm border">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <button
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
             onClick={() => {
               setSelectedMember(null);
               setShowForm(true);
@@ -381,7 +381,7 @@ function MembersPage() {
           {selectedIds.length > 0 && (
             <button
               onClick={handleBulkDelete}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
+              className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
             >
               <FaTrash />
               Supprimer ({selectedIds.length})
@@ -395,7 +395,7 @@ function MembersPage() {
             placeholder="🔍 Rechercher nom, prénom..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 px-4 py-2 rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
           />
         </div>
       </div>
@@ -413,22 +413,22 @@ function MembersPage() {
               onChange={toggleSelectAll}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-600">Sélectionner tout</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Sélectionner tout</span>
           </label>
         </div>
         <button
           onClick={() => setSortAsc(!sortAsc)}
-          className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         >
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Trier par nom
           </span>
-          {sortAsc ? "▲" : "▼"}
+          <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
         </button>
       </div>
 
       {filteredMembers.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border p-8 text-center text-gray-500">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 dark:text-gray-400">
           {search || activeFilter
             ? "Aucun membre ne correspond aux critères de recherche"
             : "Aucun membre trouvé dans la base de données"}
@@ -436,10 +436,10 @@ function MembersPage() {
       ) : (
         <>
           {/* Vue tableau pour desktop */}
-          <div className="hidden lg:block bg-white rounded-lg shadow-sm border overflow-hidden">
+          <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                   <tr>
                     <th className="p-3 text-left">
                       <input
@@ -452,23 +452,23 @@ function MembersPage() {
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                     </th>
-                    <th className="p-3 text-left">Photo</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Photo</th>
                     <th className="p-3 text-left">
                       <button
                         onClick={() => setSortAsc(!sortAsc)}
-                        className="flex items-center gap-1 font-medium text-gray-700 hover:text-gray-900"
+                        className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                       >
-                        Nom {sortAsc ? "▲" : "▼"}
+                        Nom <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
                       </button>
                     </th>
-                    <th className="p-3 text-left">Infos</th>
-                    <th className="p-3 text-left">Abonnement</th>
-                    <th className="p-3 text-left">Badge</th>
-                    <th className="p-3 text-left">Status</th>
-                    <th className="p-3 text-left">Actions</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Infos</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Abonnement</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Badge</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Status</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
@@ -494,7 +494,7 @@ function MembersPage() {
                     return (
                       <tr
                         key={member.id}
-                        className="hover:bg-gray-50 transition-colors"
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       >
                         <td className="p-3">
                           <input
@@ -510,17 +510,17 @@ function MembersPage() {
                         </td>
 
                         <td
-                          className="p-3 cursor-pointer hover:text-blue-600 transition-colors"
+                          className="p-3 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                           onDoubleClick={() => {
                             setSelectedMember(member);
                             setShowForm(true);
                           }}
                           title="Double-clic pour modifier"
                         >
-                          <div className="font-medium text-gray-900">
+                          <div className="font-medium text-gray-900 dark:text-white">
                             {member.name} {member.firstName}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
                             ID: {member.id}
                           </div>
                         </td>
@@ -531,28 +531,28 @@ function MembersPage() {
                               <span
                                 className={`px-2 py-1 rounded-full text-xs font-medium ${
                                   member.gender === "Femme"
-                                    ? "bg-pink-100 text-pink-700"
-                                    : "bg-blue-100 text-blue-700"
+                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                                 }`}
                               >
                                 {member.gender}
                               </span>
                               {member.etudiant && (
-                                <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium">
+                                <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium">
                                   🎓 Étudiant
                                 </span>
                               )}
                             </div>
                             {member.email && (
                               <div
-                                className="text-gray-600 text-xs truncate max-w-[200px]"
+                                className="text-gray-600 dark:text-gray-400 text-xs truncate max-w-[200px]"
                                 title={member.email}
                               >
                                 📧 {member.email}
                               </div>
                             )}
                             {member.mobile && (
-                              <div className="text-gray-600 text-xs">
+                              <div className="text-gray-600 dark:text-gray-400 text-xs">
                                 📱 {member.mobile}
                               </div>
                             )}
@@ -569,7 +569,7 @@ function MembersPage() {
                               {member.subscriptionType || "Non défini"}
                             </span>
                             {member.startDate && (
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
                                 Début: {member.startDate}
                               </div>
                             )}
@@ -577,8 +577,8 @@ function MembersPage() {
                               <div
                                 className={`text-xs ${
                                   isExpired
-                                    ? "text-red-600 font-medium"
-                                    : "text-gray-500"
+                                    ? "text-red-600 dark:text-red-400 font-medium"
+                                    : "text-gray-500 dark:text-gray-400"
                                 }`}
                               >
                                 Fin: {member.endDate}
@@ -588,7 +588,7 @@ function MembersPage() {
                         </td>
 
                         <td className="p-3">
-                          <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono">
+                          <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
                             {member.badgeId || "—"}
                           </span>
                         </td>
@@ -596,20 +596,20 @@ function MembersPage() {
                         <td className="p-3">
                           <div className="flex flex-col gap-1">
                             {isExpired ? (
-                              <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                              <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
                                 ⚠️ Expiré
                               </span>
                             ) : (
-                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                              <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
                                 ✅ Actif
                               </span>
                             )}
                             {hasFiles ? (
-                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                              <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
                                 📄 Docs OK
                               </span>
                             ) : (
-                              <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+                              <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
                                 📄 Manquant
                               </span>
                             )}
@@ -623,7 +623,7 @@ function MembersPage() {
                                 setSelectedMember(member);
                                 setShowForm(true);
                               }}
-                              className="flex items-center gap-1 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-sm transition-colors"
+                              className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-1 rounded text-sm transition-colors"
                               title="Modifier ce membre"
                             >
                               <FaEdit className="w-3 h-3" />
@@ -631,7 +631,7 @@ function MembersPage() {
                             </button>
                             <button
                               onClick={() => handleDelete(member.id)}
-                              className="flex items-center gap-1 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm transition-colors"
+                              className="flex items-center gap-1 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 px-3 py-1 rounded text-sm transition-colors"
                               title="Supprimer ce membre"
                             >
                               <FaTrash className="w-3 h-3" />
@@ -661,13 +661,12 @@ function MembersPage() {
                   onChange={toggleSelectAll}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-600">Tout sélectionner</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Tout sélectionner</span>
               </label>
               <button
                 onClick={() => setSortAsc(!sortAsc)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
               >
-                Nom {sortAsc ? "▲" : "▼"}
+                <span className="text-gray-700 dark:text-gray-300">Nom</span> <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
               </button>
             </div>
 
@@ -693,7 +692,7 @@ function MembersPage() {
               return (
                 <div
                   key={member.id}
-                  className="bg-white rounded-lg shadow-sm border p-4 hover:shadow-md transition-shadow"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow"
                 >
                   {/* En-tête de la carte */}
                   <div className="flex items-start justify-between mb-3">
@@ -712,10 +711,10 @@ function MembersPage() {
                           setShowForm(true);
                         }}
                       >
-                        <div className="font-semibold text-gray-900 text-lg">
+                        <div className="font-semibold text-gray-900 dark:text-white text-lg">
                           {member.name} {member.firstName}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
                           ID: {member.id}
                         </div>
                       </div>
@@ -728,14 +727,14 @@ function MembersPage() {
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${
                           member.gender === "Femme"
-                            ? "bg-pink-100 text-pink-700"
-                            : "bg-blue-100 text-blue-700"
+                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                         }`}
                       >
                         {member.gender}
                       </span>
                       {member.etudiant && (
-                        <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium">
+                        <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium">
                           🎓 Étudiant
                         </span>
                       )}
@@ -749,7 +748,7 @@ function MembersPage() {
                     </div>
 
                     {/* Contact */}
-                    <div className="space-y-1 text-sm text-gray-600">
+                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                       {member.email && (
                         <div className="flex items-center gap-2">
                           <span>📧</span>
@@ -768,12 +767,12 @@ function MembersPage() {
                   {/* Abonnement et Badge */}
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                         ABONNEMENT
                       </div>
                       <div className="space-y-1">
                         {member.startDate && (
-                          <div className="text-xs text-gray-600">
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
                             Début: {member.startDate}
                           </div>
                         )}
@@ -781,8 +780,8 @@ function MembersPage() {
                           <div
                             className={`text-xs ${
                               isExpired
-                                ? "text-red-600 font-medium"
-                                : "text-gray-600"
+                                ? "text-red-600 dark:text-red-400 font-medium"
+                                : "text-gray-600 dark:text-gray-400"
                             }`}
                           >
                             Fin: {member.endDate}
@@ -791,10 +790,10 @@ function MembersPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                         BADGE
                       </div>
-                      <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono">
+                      <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
                         {member.badgeId || "—"}
                       </span>
                     </div>
@@ -803,40 +802,40 @@ function MembersPage() {
                   {/* Status */}
                   <div className="flex flex-wrap gap-2 mb-4">
                     {isExpired ? (
-                      <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                      <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
                         ⚠️ Expiré
                       </span>
                     ) : (
-                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                      <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
                         ✅ Actif
                       </span>
                     )}
                     {hasFiles ? (
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                      <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
                         📄 Docs OK
                       </span>
                     ) : (
-                      <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+                      <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
                         📄 Manquant
                       </span>
                     )}
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
                     <button
                       onClick={() => {
                         setSelectedMember(member);
                         setShowForm(true);
                       }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-2 rounded-lg text-sm transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors"
                     >
                       <FaEdit className="w-3 h-3" />
                       Modifier
                     </button>
                     <button
                       onClick={() => handleDelete(member.id)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-lg text-sm transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm transition-colors"
                     >
                       <FaTrash className="w-3 h-3" />
                       Supprimer
@@ -851,11 +850,11 @@ function MembersPage() {
 
       {/* Résumé en bas */}
       {filteredMembers.length > 0 && (
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
+        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400">
           Affichage de {filteredMembers.length} membre
           {filteredMembers.length !== 1 ? "s" : ""} sur {members.length} total
           {selectedIds.length > 0 && (
-            <span className="ml-4 text-blue-600 font-medium">
+            <span className="ml-4 text-blue-600 dark:text-blue-400 font-medium">
               • {selectedIds.length} sélectionné
               {selectedIds.length !== 1 ? "s" : ""}
             </span>
@@ -866,7 +865,7 @@ function MembersPage() {
       {/* Modal du formulaire */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div className="bg-white mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
+          <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
             <MemberForm
               member={selectedMember}
               onSave={async (memberData, closeModal) => {
@@ -923,20 +922,20 @@ function Widget({ title, value, onClick, active = false }) {
       onClick={onClick}
       className={`p-3 rounded-lg text-center cursor-pointer transition-all hover:scale-105 border-2 ${
         active
-          ? "bg-blue-100 border-blue-300 shadow-md"
-          : "bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-200 shadow-sm"
+          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
       }`}
     >
       <div
         className={`text-sm ${
-          active ? "text-blue-700 font-medium" : "text-gray-500"
+          active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
         }`}
       >
         {title}
       </div>
       <div
         className={`text-xl font-bold ${
-          active ? "text-blue-800" : "text-gray-800"
+          active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
         }`}
       >
         {value}
