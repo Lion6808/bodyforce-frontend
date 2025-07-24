@@ -22,6 +22,8 @@ import {
   FaDownload,
   FaCheck,
   FaTimes as FaTimesIcon,
+  FaChevronLeft,
+  FaChevronRight,
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 
@@ -34,7 +36,87 @@ import UserManagementPage from "./pages/UserManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
 
-// Styles CSS pour les animations
+// Configuration des pages pour la navigation swipe
+const SWIPE_PAGES = [
+  { name: "Accueil", path: "/", icon: <FaHome className="text-red-500" />, component: "HomePage" },
+  { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500" />, component: "MembersPage" },
+  { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500" />, component: "PlanningPage" },
+  { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500" />, component: "PaymentsPage" },
+  { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500" />, component: "StatisticsPage" },
+];
+
+// Hook personnalisé pour la navigation par swipe
+function useSwipeNavigation() {
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Distance minimum pour déclencher un swipe (en pixels)
+  const minSwipeDistance = 100;
+
+  const getCurrentPageIndex = () => {
+    return SWIPE_PAGES.findIndex(page => page.path === location.pathname);
+  };
+
+  const navigateToPage = (direction) => {
+    const currentIndex = getCurrentPageIndex();
+    if (currentIndex === -1) return;
+
+    let newIndex;
+    if (direction === 'left') {
+      // Swipe gauche = page suivante
+      newIndex = currentIndex + 1;
+      if (newIndex >= SWIPE_PAGES.length) newIndex = 0; // Boucle au début
+    } else {
+      // Swipe droite = page précédente
+      newIndex = currentIndex - 1;
+      if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1; // Boucle à la fin
+    }
+
+    navigate(SWIPE_PAGES[newIndex].path);
+  };
+
+  const onTouchStart = (e) => {
+    if (!isSwipeEnabled) return;
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    if (!isSwipeEnabled) return;
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!isSwipeEnabled) return;
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      navigateToPage('left');
+    } else if (isRightSwipe) {
+      navigateToPage('right');
+    }
+  };
+
+  return {
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    getCurrentPageIndex,
+    navigateToPage,
+    isSwipeEnabled,
+    setIsSwipeEnabled,
+    totalPages: SWIPE_PAGES.length
+  };
+}
+
+// Styles CSS pour les animations et swipe
 const mobileMenuStyles = `
   .mobile-menu-overlay {
     position: fixed;
@@ -225,6 +307,97 @@ const mobileMenuStyles = `
     line-height: 1.4;
   }
 
+  /* Styles pour la navigation swipe */
+  .swipe-container {
+    touch-action: pan-y;
+    user-select: none;
+  }
+
+  .swipe-hint {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    z-index: 1000;
+    animation: swipe-hint-pulse 2s infinite;
+    pointer-events: none;
+  }
+
+  @keyframes swipe-hint-pulse {
+    0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+  }
+
+  .page-indicator {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    border-radius: 20px;
+    z-index: 1000;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  }
+
+  .page-indicator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d1d5db;
+    transition: all 0.3s ease;
+  }
+
+  .page-indicator-dot.active {
+    background: #3b82f6;
+    transform: scale(1.2);
+  }
+
+  .swipe-navigation-arrows {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  .swipe-arrow {
+    position: absolute;
+    background: rgba(59, 130, 246, 0.9);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+  }
+
+  .swipe-arrow:hover {
+    background: rgba(59, 130, 246, 1);
+    transform: scale(1.1);
+  }
+
+  .swipe-arrow.left {
+    left: 10px;
+  }
+
+  .swipe-arrow.right {
+    right: 10px;
+  }
+
   @media (max-width: 640px) {
     .pwa-install-button {
       bottom: 80px;
@@ -237,6 +410,14 @@ const mobileMenuStyles = `
       right: 15px;
       left: 15px;
       max-width: none;
+    }
+
+    .page-indicator {
+      bottom: 60px;
+    }
+
+    .swipe-hint {
+      bottom: 120px;
     }
   }
 `;
@@ -279,20 +460,17 @@ function usePWA() {
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
-    // Vérifier si l'app est déjà installée
     if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
       setIsInstalled(true);
       return;
     }
 
-    // Écouter l'événement beforeinstallprompt
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
 
-    // Écouter l'événement appinstalled
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setIsInstallable(false);
@@ -344,6 +522,57 @@ function usePWA() {
     toast,
     closeToast
   };
+}
+
+// Composant indicateur de pages
+function PageIndicator({ currentIndex, totalPages, isMobile }) {
+  if (!isMobile) return null;
+
+  return (
+    <div className="page-indicator">
+      {SWIPE_PAGES.map((_, index) => (
+        <div 
+          key={index}
+          className={`page-indicator-dot ${index === currentIndex ? 'active' : ''}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Composant flèches de navigation
+function SwipeNavigationArrows({ onNavigate, isMobile }) {
+  if (!isMobile) return null;
+
+  return (
+    <div className="swipe-navigation-arrows">
+      <button 
+        className="swipe-arrow left"
+        onClick={() => onNavigate('right')}
+        aria-label="Page précédente"
+      >
+        <FaChevronLeft />
+      </button>
+      <button 
+        className="swipe-arrow right"
+        onClick={() => onNavigate('left')}
+        aria-label="Page suivante"
+      >
+        <FaChevronRight />
+      </button>
+    </div>
+  );
+}
+
+// Composant hint de swipe
+function SwipeHint({ show }) {
+  if (!show) return null;
+
+  return (
+    <div className="swipe-hint">
+      ← Glissez pour naviguer →
+    </div>
+  );
 }
 
 function LoginPage() {
@@ -562,25 +791,22 @@ function AnimatedMobileMenu({
       setShouldRender(true);
       setIsClosing(false);
       setIsOpening(true);
-      // Petit délai pour que le DOM soit prêt, puis déclenche l'animation d'ouverture
       const openTimer = setTimeout(() => {
-        setIsOpening(false); // Déclenche l'animation d'ouverture
+        setIsOpening(false);
       }, 10);
-      // Animation des éléments internes
       const animateTimer = setTimeout(() => setAnimate(true), 200);
       return () => {
         clearTimeout(openTimer);
         clearTimeout(animateTimer);
       };
     } else if (shouldRender) {
-      // Animation de fermeture
       setIsClosing(true);
       setAnimate(false);
       const timer = setTimeout(() => {
         setShouldRender(false);
         setIsClosing(false);
         setIsOpening(false);
-      }, 400); // Durée de l'animation de fermeture
+      }, 400);
       return () => clearTimeout(timer);
     }
   }, [isOpen, shouldRender]);
@@ -588,7 +814,7 @@ function AnimatedMobileMenu({
   const handleItemClick = () => {
     setAnimate(false);
     setIsClosing(true);
-    setTimeout(onClose, 200); // Délai pour l'animation de sortie
+    setTimeout(onClose, 200);
   };
 
   const handleLogout = () => {
@@ -596,7 +822,6 @@ function AnimatedMobileMenu({
     setIsClosing(true);
     setTimeout(() => {
       onClose();
-      // ✅ Appel correct de la fonction de déconnexion du parent
       if (typeof onLogout === "function") {
         onLogout();
       }
@@ -621,19 +846,16 @@ function AnimatedMobileMenu({
     <>
       <style>{mobileMenuStyles}</style>
 
-      {/* Overlay */}
       <div
         className={`mobile-menu-overlay ${isOpen && !isClosing ? "open" : ""}`}
         onClick={handleOverlayClick}
       />
 
-      {/* Menu Container */}
       <div
         className={`mobile-menu-container ${
           !isOpening && isOpen && !isClosing ? "open" : ""
         } ${isClosing ? "closing" : ""}`}
       >
-        {/* Header */}
         <div
           className={`menu-header ${
             animate ? "animate" : ""
@@ -662,7 +884,6 @@ function AnimatedMobileMenu({
           </div>
         </div>
 
-        {/* User Profile */}
         <div
           className={`user-profile ${
             animate ? "animate" : ""
@@ -683,7 +904,6 @@ function AnimatedMobileMenu({
           </div>
         </div>
 
-        {/* Menu Items */}
         <div className="p-6 space-y-3">
           <Link
             to="/"
@@ -784,11 +1004,51 @@ function AppRoutes({ user, setUser }) {
   const [editingMember, setEditingMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   
   // Hook PWA
   const { isInstallable, isInstalled, installApp, toast, closeToast } = usePWA();
+  
+  // Hook Swipe Navigation
+  const { 
+    onTouchStart, 
+    onTouchMove, 
+    onTouchEnd, 
+    getCurrentPageIndex,
+    navigateToPage,
+    isSwipeEnabled,
+    setIsSwipeEnabled,
+    totalPages
+  } = useSwipeNavigation();
+
+  // Détecter mobile et afficher hint au premier chargement
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      
+      // Montrer le hint seulement sur mobile et au premier chargement
+      if (mobile && !localStorage.getItem('swipe_hint_shown')) {
+        setShowSwipeHint(true);
+        setTimeout(() => {
+          setShowSwipeHint(false);
+          localStorage.setItem('swipe_hint_shown', 'true');
+        }, 3000);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Désactiver le swipe quand le menu mobile est ouvert
+  useEffect(() => {
+    setIsSwipeEnabled(!mobileMenuOpen && !showForm);
+  }, [mobileMenuOpen, showForm, setIsSwipeEnabled]);
 
   const handleLogout = async () => {
     try {
@@ -839,7 +1099,7 @@ function AppRoutes({ user, setUser }) {
         user={user}
         isAdmin={isAdmin}
         location={location}
-        onLogout={handleLogout} // ✅ Passage de la fonction handleLogout
+        onLogout={handleLogout}
       />
 
       {/* Bouton d'installation PWA */}
@@ -857,7 +1117,29 @@ function AppRoutes({ user, setUser }) {
       {/* Toast PWA */}
       <PWAToast toast={toast} onClose={closeToast} />
 
-      <main className="flex-1 p-4">
+      {/* Indicateur de pages (mobile uniquement) */}
+      <PageIndicator 
+        currentIndex={getCurrentPageIndex()} 
+        totalPages={totalPages}
+        isMobile={isMobile}
+      />
+
+      {/* Flèches de navigation swipe (mobile uniquement) */}
+      <SwipeNavigationArrows 
+        onNavigate={navigateToPage}
+        isMobile={isMobile}
+      />
+
+      {/* Hint de swipe */}
+      <SwipeHint show={showSwipeHint} />
+
+      {/* Main content avec support du swipe */}
+      <main 
+        className={`flex-1 p-4 ${isMobile ? 'swipe-container' : ''}`}
+        onTouchStart={isMobile ? onTouchStart : undefined}
+        onTouchMove={isMobile ? onTouchMove : undefined}
+        onTouchEnd={isMobile ? onTouchEnd : undefined}
+      >
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route
