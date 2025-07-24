@@ -96,8 +96,32 @@ function PaymentsPage() {
   };
 
   // ✅ Fonction pour gérer l'édition d'un membre (comme dans MembersPage)
+  // ✅ Fonction corrigée pour gérer l'édition d'un membre
   const handleEditMember = (member) => {
-    setSelectedMember(member);
+    // Filtrer seulement les champs qui appartiennent à la table members
+    const memberOnlyData = {
+      id: member.id,
+      name: member.name,
+      firstName: member.firstName,
+      email: member.email,
+      phone: member.phone,
+      badgeId: member.badgeId,
+      photo: member.photo,
+      dateOfBirth: member.dateOfBirth,
+      address: member.address,
+      membershipType: member.membershipType,
+      startDate: member.startDate,
+      endDate: member.endDate,
+      status: member.status,
+      emergencyContact: member.emergencyContact,
+      emergencyPhone: member.emergencyPhone,
+      medicalInfo: member.medicalInfo,
+      // ❌ Exclure les champs calculés comme overallStatus, payments, totalDue, etc.
+    };
+
+    console.log("🔧 Données membre filtrées pour l'édition:", memberOnlyData);
+
+    setSelectedMember(memberOnlyData);
     setShowForm(true);
   };
 
@@ -242,15 +266,13 @@ function PaymentsPage() {
 
       // Ligne 2
       doc.text(
-        `En Attente: ${stats.totalPending.toLocaleString("fr-FR")} € (${
-          stats.pendingCount
+        `En Attente: ${stats.totalPending.toLocaleString("fr-FR")} € (${stats.pendingCount
         } paiements)`,
         20,
         yPos + 15
       );
       doc.text(
-        `En Retard: ${stats.totalOverdue.toLocaleString("fr-FR")} € (${
-          stats.overdueCount
+        `En Retard: ${stats.totalOverdue.toLocaleString("fr-FR")} € (${stats.overdueCount
         } paiements)`,
         150,
         yPos + 15
@@ -341,9 +363,8 @@ function PaymentsPage() {
         }
 
         // Nom complet (tronqué)
-        const fullName = `${member.firstName || ""} ${
-          member.name || ""
-        }`.trim();
+        const fullName = `${member.firstName || ""} ${member.name || ""
+          }`.trim();
         const truncatedName =
           fullName.length > 25 ? fullName.substring(0, 22) + "..." : fullName;
         doc.text(truncatedName, 20, yPos);
@@ -356,10 +377,10 @@ function PaymentsPage() {
           member.overallStatus === "paid"
             ? "Paye"
             : member.overallStatus === "pending"
-            ? "Attente"
-            : member.overallStatus === "overdue"
-            ? "Retard"
-            : "Aucun";
+              ? "Attente"
+              : member.overallStatus === "overdue"
+                ? "Retard"
+                : "Aucun";
         doc.text(statusText, 110, yPos);
 
         // Progression
@@ -599,13 +620,12 @@ function PaymentsPage() {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      member.progressPercentage === 100
+                    className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
                         ? "bg-gradient-to-r from-green-400 to-green-600"
                         : member.progressPercentage > 50
-                        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                        : "bg-gradient-to-r from-red-400 to-red-600"
-                    }`}
+                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                          : "bg-gradient-to-r from-red-400 to-red-600"
+                      }`}
                     style={{
                       width: `${Math.min(member.progressPercentage, 100)}%`,
                     }}
@@ -1041,11 +1061,10 @@ function PaymentsPage() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${
-                  showFilters
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${showFilters
                     ? "bg-blue-100 text-blue-600"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                  }`}
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filtres</span>
@@ -1186,13 +1205,12 @@ function PaymentsPage() {
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2">
                               <div
-                                className={`h-2 rounded-full transition-all duration-500 ${
-                                  member.progressPercentage === 100
+                                className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
                                     ? "bg-gradient-to-r from-green-400 to-green-600"
                                     : member.progressPercentage > 50
-                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                                    : "bg-gradient-to-r from-red-400 to-red-600"
-                                }`}
+                                      ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                                      : "bg-gradient-to-r from-red-400 to-red-600"
+                                  }`}
                                 style={{
                                   width: `${Math.min(
                                     member.progressPercentage,
@@ -1339,8 +1357,8 @@ function PaymentsPage() {
                                               <div className="font-medium">
                                                 {payment.is_paid
                                                   ? formatDateTime(
-                                                      payment.date_paiement
-                                                    )
+                                                    payment.date_paiement
+                                                  )
                                                   : "Non payé"}
                                               </div>
                                             </div>
