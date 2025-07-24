@@ -24,6 +24,9 @@ import {
   FaTimes as FaTimesIcon,
   FaChevronLeft,
   FaChevronRight,
+  FaMoon,
+  FaSun,
+  FaAdjust,
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 
@@ -38,12 +41,117 @@ import MemberForm from "./components/MemberForm";
 
 // Configuration des pages pour la navigation swipe
 const SWIPE_PAGES = [
-  { name: "Accueil", path: "/", icon: <FaHome className="text-red-500" />, component: "HomePage" },
-  { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500" />, component: "MembersPage" },
-  { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500" />, component: "PlanningPage" },
-  { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500" />, component: "PaymentsPage" },
-  { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500" />, component: "StatisticsPage" },
+  { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" />, component: "HomePage" },
+  { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500 dark:text-green-400" />, component: "MembersPage" },
+  { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, component: "PlanningPage" },
+  { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, component: "PaymentsPage" },
+  { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
 ];
+
+// Hook pour la gestion du mode sombre
+function useDarkMode() {
+  const [darkMode, setDarkMode] = useState('auto');
+  const [actualDarkMode, setActualDarkMode] = useState(false);
+
+  // Fonction pour vérifier si c'est la nuit (19h-7h)
+  const isNightTime = () => {
+    const hour = new Date().getHours();
+    return hour >= 19 || hour < 7;
+  };
+
+  // Fonction pour déterminer le mode sombre actuel
+  const determineActualMode = (mode) => {
+    switch (mode) {
+      case 'dark':
+        return true;
+      case 'light':
+        return false;
+      case 'auto':
+      default:
+        return isNightTime();
+    }
+  };
+
+  // Charger les préférences au démarrage
+  useEffect(() => {
+    const savedMode = localStorage.getItem('darkMode') || 'auto';
+    setDarkMode(savedMode);
+    setActualDarkMode(determineActualMode(savedMode));
+  }, []);
+
+  // Mettre à jour le thème quand le mode change
+  useEffect(() => {
+    const newActualMode = determineActualMode(darkMode);
+    setActualDarkMode(newActualMode);
+    
+    // Appliquer la classe au document
+    if (newActualMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  // Timer pour le mode automatique
+  useEffect(() => {
+    if (darkMode === 'auto') {
+      const interval = setInterval(() => {
+        const shouldBeDark = isNightTime();
+        if (shouldBeDark !== actualDarkMode) {
+          setActualDarkMode(shouldBeDark);
+          if (shouldBeDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        }
+      }, 60000); // Vérifier chaque minute
+
+      return () => clearInterval(interval);
+    }
+  }, [darkMode, actualDarkMode]);
+
+  const toggleDarkMode = () => {
+    const modes = ['auto', 'light', 'dark'];
+    const currentIndex = modes.indexOf(darkMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+    
+    setDarkMode(nextMode);
+    localStorage.setItem('darkMode', nextMode);
+  };
+
+  const getDarkModeIcon = () => {
+    switch (darkMode) {
+      case 'light':
+        return <FaSun className="w-5 h-5" />;
+      case 'dark':
+        return <FaMoon className="w-5 h-5" />;
+      case 'auto':
+      default:
+        return <FaAdjust className="w-5 h-5" />;
+    }
+  };
+
+  const getDarkModeLabel = () => {
+    switch (darkMode) {
+      case 'light':
+        return 'Mode clair';
+      case 'dark':
+        return 'Mode sombre';
+      case 'auto':
+      default:
+        return 'Mode auto';
+    }
+  };
+
+  return {
+    darkMode,
+    actualDarkMode,
+    toggleDarkMode,
+    getDarkModeIcon,
+    getDarkModeLabel,
+  };
+}
 
 // Hook personnalisé pour la navigation par swipe avec animation
 function useSwipeNavigation() {
@@ -170,7 +278,7 @@ function useSwipeNavigation() {
   };
 }
 
-// Styles CSS pour les animations et swipe
+// Styles CSS pour les animations, swipe et mode sombre
 const mobileMenuStyles = `
   .mobile-menu-overlay {
     position: fixed;
@@ -189,6 +297,10 @@ const mobileMenuStyles = `
     pointer-events: auto;
   }
   
+  .dark .mobile-menu-overlay.open {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+  
   .mobile-menu-container {
     position: fixed;
     top: 0;
@@ -203,6 +315,11 @@ const mobileMenuStyles = `
     transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     overflow-y: auto;
     border-radius: 20px 0 0 20px;
+  }
+  
+  .dark .mobile-menu-container {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    box-shadow: -15px 0 30px rgba(0, 0, 0, 0.5);
   }
   
   .mobile-menu-container.open {
@@ -232,6 +349,7 @@ const mobileMenuStyles = `
   .menu-item:nth-child(5) { transition-delay: 0.3s; }
   .menu-item:nth-child(6) { transition-delay: 0.35s; }
   .menu-item:nth-child(7) { transition-delay: 0.4s; }
+  .menu-item:nth-child(8) { transition-delay: 0.45s; }
   
   .menu-header {
     opacity: 0;
@@ -286,9 +404,18 @@ const mobileMenuStyles = `
     animation: pulse-install 2s infinite;
   }
 
+  .dark .pwa-install-button {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+  }
+
   .pwa-install-button:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+  }
+
+  .dark .pwa-install-button:hover {
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
   }
 
   @keyframes pulse-install {
@@ -309,6 +436,12 @@ const mobileMenuStyles = `
     border-left: 4px solid;
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     transform: translateX(400px);
+  }
+
+  .dark .pwa-toast {
+    background: #1f2937;
+    color: white;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   }
 
   .pwa-toast.show {
@@ -355,10 +488,18 @@ const mobileMenuStyles = `
     font-size: 16px;
   }
 
+  .dark .pwa-toast-title {
+    color: #f9fafb;
+  }
+
   .pwa-toast-message {
     color: #6b7280;
     font-size: 14px;
     line-height: 1.4;
+  }
+
+  .dark .pwa-toast-message {
+    color: #d1d5db;
   }
 
   /* Styles pour la navigation swipe */
@@ -394,6 +535,10 @@ const mobileMenuStyles = `
     transition: opacity 0.2s ease;
   }
 
+  .dark .swipe-preview {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
   .swipe-preview.active {
     opacity: 1;
   }
@@ -411,6 +556,11 @@ const mobileMenuStyles = `
     transition: transform 0.2s ease;
   }
 
+  .dark .swipe-preview-content {
+    background: rgba(31, 41, 55, 0.95);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
   .swipe-preview.active .swipe-preview-content {
     transform: scale(1);
   }
@@ -425,6 +575,10 @@ const mobileMenuStyles = `
     font-size: 16px;
   }
 
+  .dark .swipe-preview-text {
+    color: #f9fafb;
+  }
+
   .swipe-resistance-indicator {
     position: absolute;
     top: 50%;
@@ -435,6 +589,10 @@ const mobileMenuStyles = `
     opacity: 0;
     transition: opacity 0.2s ease;
     z-index: 2;
+  }
+
+  .dark .swipe-resistance-indicator {
+    background: linear-gradient(to bottom, #60a5fa, #a78bfa);
   }
 
   .swipe-resistance-indicator.left {
@@ -464,6 +622,11 @@ const mobileMenuStyles = `
     pointer-events: none;
   }
 
+  .dark .swipe-hint {
+    background: rgba(255, 255, 255, 0.9);
+    color: #1f2937;
+  }
+
   @keyframes swipe-hint-pulse {
     0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
     50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
@@ -484,6 +647,11 @@ const mobileMenuStyles = `
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   }
 
+  .dark .page-indicator {
+    background: rgba(31, 41, 55, 0.9);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  }
+
   .page-indicator-dot {
     width: 8px;
     height: 8px;
@@ -492,9 +660,17 @@ const mobileMenuStyles = `
     transition: all 0.3s ease;
   }
 
+  .dark .page-indicator-dot {
+    background: #6b7280;
+  }
+
   .page-indicator-dot.active {
     background: #3b82f6;
     transform: scale(1.2);
+  }
+
+  .dark .page-indicator-dot.active {
+    background: #60a5fa;
   }
 
   .swipe-navigation-arrows {
@@ -521,9 +697,18 @@ const mobileMenuStyles = `
     box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
   }
 
+  .dark .swipe-arrow {
+    background: rgba(96, 165, 250, 0.9);
+    box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
+  }
+
   .swipe-arrow:hover {
     background: rgba(59, 130, 246, 1);
     transform: scale(1.1);
+  }
+
+  .dark .swipe-arrow:hover {
+    background: rgba(96, 165, 250, 1);
   }
 
   .swipe-arrow.left {
@@ -702,6 +887,8 @@ function SwipeResistanceIndicator({ swipeOffset, direction }) {
     />
   );
 }
+
+// Composant indicateur de pages
 function PageIndicator({ currentIndex, totalPages, isMobile }) {
   if (!isMobile) return null;
 
@@ -785,8 +972,8 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md border border-gray-200">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-md border border-gray-200 dark:border-gray-700">
         <div className="text-center mb-6">
           <img
             src="/images/logo.png"
@@ -796,21 +983,21 @@ function LoginPage() {
               e.target.style.display = "none";
             }}
           />
-          <h1 className="text-2xl font-bold text-blue-600 mb-2">
+          <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
             CLUB BODY FORCE
           </h1>
-          <h2 className="text-lg font-semibold text-gray-700">Connexion</h2>
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Connexion</h2>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-4">
             {error}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Email
             </label>
             <input
@@ -818,14 +1005,14 @@ function LoginPage() {
               placeholder="votre@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               required
               disabled={loading}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Mot de passe
             </label>
             <input
@@ -833,7 +1020,7 @@ function LoginPage() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               required
               disabled={loading}
             />
@@ -842,14 +1029,14 @@ function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white py-2 px-4 rounded-lg transition duration-200 font-medium"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-800 text-white py-2 px-4 rounded-lg transition duration-200 font-medium"
           >
             {loading ? "Connexion..." : "Se connecter"}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Besoin d'un compte ? Contactez l'administrateur
           </p>
         </div>
@@ -858,29 +1045,29 @@ function LoginPage() {
   );
 }
 
-function Sidebar({ user, onLogout }) {
+function Sidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getDarkModeLabel }) {
   const location = useLocation();
   const menu = [
-    { name: "Accueil", path: "/", icon: <FaHome className="text-red-500" /> },
+    { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" /> },
     {
       name: "Membres",
       path: "/members",
-      icon: <FaUserFriends className="text-green-500" />,
+      icon: <FaUserFriends className="text-green-500 dark:text-green-400" />,
     },
     {
       name: "Planning",
       path: "/planning",
-      icon: <FaCalendarAlt className="text-yellow-500" />,
+      icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />,
     },
     {
       name: "Paiements",
       path: "/payments",
-      icon: <FaCreditCard className="text-purple-500" />,
+      icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />,
     },
     {
       name: "Statistiques",
       path: "/statistics",
-      icon: <FaChartBar className="text-blue-500" />,
+      icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
     },
   ];
 
@@ -890,8 +1077,8 @@ function Sidebar({ user, onLogout }) {
     user?.app_metadata?.role === "admin";
 
   return (
-    <aside className="w-64 bg-white shadow-md p-4 flex-col items-center hidden lg:flex">
-      <h1 className="text-center text-lg font-bold text-red-600 mb-2">
+    <aside className="w-64 bg-white dark:bg-gray-800 shadow-md p-4 flex-col items-center hidden lg:flex border-r border-gray-200 dark:border-gray-700">
+      <h1 className="text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2">
         CLUB BODY FORCE
       </h1>
       <img
@@ -902,12 +1089,12 @@ function Sidebar({ user, onLogout }) {
           e.target.style.display = "none";
         }}
       />
-      <div className="mb-4 text-sm text-gray-600 flex items-center gap-2">
-        <FaUserCircle className="text-xl text-blue-600" />
+      <div className="mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+        <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400" />
         <div className="flex flex-col">
           <span className="font-medium">{user?.email}</span>
           {isAdmin && (
-            <span className="text-xs text-purple-600 font-bold">Admin</span>
+            <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">Admin</span>
           )}
         </div>
       </div>
@@ -916,11 +1103,11 @@ function Sidebar({ user, onLogout }) {
           <li key={item.path}>
             <Link
               to={item.path}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-blue-100 transition duration-200 ${
-                location.pathname === item.path ? "bg-blue-200" : ""
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition duration-200 ${
+                location.pathname === item.path ? "bg-blue-200 dark:bg-blue-900/40" : ""
               }`}
             >
-              {item.icon} {item.name}
+              {item.icon} <span className="text-gray-700 dark:text-gray-300">{item.name}</span>
             </Link>
           </li>
         ))}
@@ -928,18 +1115,28 @@ function Sidebar({ user, onLogout }) {
           <li>
             <Link
               to="/admin/users"
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-purple-100 transition duration-200 ${
-                location.pathname === "/admin/users" ? "bg-purple-200" : ""
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-purple-100 dark:hover:bg-purple-900/20 transition duration-200 ${
+                location.pathname === "/admin/users" ? "bg-purple-200 dark:bg-purple-900/40" : ""
               }`}
             >
-              <FaUserCircle className="text-purple-500" /> Utilisateurs
+              <FaUserCircle className="text-purple-500 dark:text-purple-400" /> 
+              <span className="text-gray-700 dark:text-gray-300">Utilisateurs</span>
             </Link>
           </li>
         )}
         <li>
           <button
+            onClick={toggleDarkMode}
+            className="flex items-center gap-2 rounded-lg px-4 py-2 w-full text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-200"
+            title={getDarkModeLabel()}
+          >
+            {getDarkModeIcon()} {getDarkModeLabel()}
+          </button>
+        </li>
+        <li>
+          <button
             onClick={onLogout}
-            className="flex items-center gap-2 rounded-lg px-4 py-2 w-full text-left text-red-600 hover:bg-red-100 transition duration-200"
+            className="flex items-center gap-2 rounded-lg px-4 py-2 w-full text-left text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition duration-200"
           >
             <FaSignOutAlt /> Déconnexion
           </button>
@@ -957,6 +1154,9 @@ function AnimatedMobileMenu({
   isAdmin,
   location,
   onLogout,
+  toggleDarkMode,
+  getDarkModeIcon,
+  getDarkModeLabel,
 }) {
   const [animate, setAnimate] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -1015,6 +1215,10 @@ function AnimatedMobileMenu({
     setAnimate(false);
     setIsClosing(true);
     setTimeout(onClose, 200);
+  };
+
+  const handleDarkModeToggle = () => {
+    toggleDarkMode();
   };
 
   if (!shouldRender) return null;
@@ -1163,6 +1367,18 @@ function AnimatedMobileMenu({
           )}
 
           <button
+            onClick={handleDarkModeToggle}
+            className={`menu-item ${
+              animate ? "animate" : ""
+            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
+          >
+            <div className="text-xl text-gray-300">
+              {getDarkModeIcon()}
+            </div>
+            <span className="font-medium">{getDarkModeLabel()}</span>
+          </button>
+
+          <button
             onClick={handleLogout}
             className={`menu-item ${
               animate ? "animate" : ""
@@ -1188,6 +1404,9 @@ function AppRoutes({ user, setUser }) {
   
   // Hook PWA
   const { isInstallable, isInstalled, installApp, toast, closeToast } = usePWA();
+  
+  // Hook Dark Mode
+  const { darkMode, actualDarkMode, toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
   
   // Hook Swipe Navigation avec animation
   const { 
@@ -1246,11 +1465,11 @@ function AppRoutes({ user, setUser }) {
     user?.app_metadata?.role === "admin";
 
   return user ? (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
       <style>{mobileMenuStyles}</style>
       
       {/* Header mobile */}
-      <div className="lg:hidden p-4 bg-white shadow-md flex justify-between items-center">
+      <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <img
             src="/images/logo.png"
@@ -1260,17 +1479,32 @@ function AppRoutes({ user, setUser }) {
               e.target.style.display = "none";
             }}
           />
-          <h1 className="text-lg font-bold text-red-600">BODY FORCE</h1>
+          <h1 className="text-lg font-bold text-red-600 dark:text-red-400">BODY FORCE</h1>
         </div>
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="text-2xl text-gray-700 hover:text-blue-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <FaBars />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleDarkMode}
+            className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            title={getDarkModeLabel()}
+          >
+            {getDarkModeIcon()}
+          </button>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          >
+            <FaBars />
+          </button>
+        </div>
       </div>
 
-      <Sidebar user={user} onLogout={handleLogout} />
+      <Sidebar 
+        user={user} 
+        onLogout={handleLogout} 
+        toggleDarkMode={toggleDarkMode}
+        getDarkModeIcon={getDarkModeIcon}
+        getDarkModeLabel={getDarkModeLabel}
+      />
 
       {/* Menu mobile animé */}
       <AnimatedMobileMenu
@@ -1280,6 +1514,9 @@ function AppRoutes({ user, setUser }) {
         isAdmin={isAdmin}
         location={location}
         onLogout={handleLogout}
+        toggleDarkMode={toggleDarkMode}
+        getDarkModeIcon={getDarkModeIcon}
+        getDarkModeLabel={getDarkModeLabel}
       />
 
       {/* Bouton d'installation PWA */}
@@ -1431,10 +1668,10 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
         </div>
       </div>
     );
