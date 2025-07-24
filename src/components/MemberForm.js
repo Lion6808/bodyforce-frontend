@@ -56,8 +56,8 @@ function InputField({ label, icon: Icon, error, ...props }) {
         <input
           {...props}
           className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error
-              ? "border-red-300 bg-red-50 dark:bg-red-950"
-              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+            ? "border-red-300 bg-red-50 dark:bg-red-950"
+            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
             }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -78,8 +78,8 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
         <select
           {...props}
           className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error
-              ? "border-red-300 bg-red-50 dark:bg-red-950"
-              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+            ? "border-red-300 bg-red-50 dark:bg-red-950"
+            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
             }`}
         >
           {options.map((opt) => (
@@ -100,8 +100,8 @@ function TabButton({ active, onClick, icon: Icon, children, count }) {
       type="button"
       onClick={onClick}
       className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${active
-          ? "bg-white bg-opacity-30 text-white shadow-lg"
-          : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+        ? "bg-white bg-opacity-30 text-white shadow-lg"
+        : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
         }`}
     >
       <Icon className="w-4 h-4" />
@@ -687,8 +687,8 @@ function MemberForm({ member, onSave, onCancel }) {
                   setForm((f) => ({ ...f, etudiant: !f.etudiant }))
                 }
                 className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant
-                    ? "bg-gradient-to-r from-blue-500 to-purple-600"
-                    : "bg-gray-300 dark:bg-gray-600"
+                  ? "bg-gradient-to-r from-blue-500 to-purple-600"
+                  : "bg-gray-300 dark:bg-gray-600"
                   }`}
               >
                 <span
@@ -1002,8 +1002,8 @@ function MemberForm({ member, onSave, onCancel }) {
               />
               <div
                 className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${newPayment.is_paid
-                    ? "bg-green-500 border-green-500"
-                    : "border-gray-300 dark:border-gray-500"
+                  ? "bg-green-500 border-green-500"
+                  : "border-gray-300 dark:border-gray-500"
                   }`}
               >
                 {newPayment.is_paid && (
@@ -1070,8 +1070,8 @@ function MemberForm({ member, onSave, onCancel }) {
                     <button
                       onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${pay.is_paid
-                          ? "bg-green-500 border-green-500"
-                          : "border-gray-300 dark:border-gray-500 hover:border-green-400"
+                        ? "bg-green-500 border-green-500"
+                        : "border-gray-300 dark:border-gray-500 hover:border-green-400"
                         }`}
                     >
                       {pay.is_paid && (
@@ -1245,8 +1245,8 @@ function MemberForm({ member, onSave, onCancel }) {
             onClick={() => goToTab(currentTabIndex - 1)}
             disabled={currentTabIndex === 0}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${currentTabIndex === 0
-                ? "text-white text-opacity-40 cursor-not-allowed"
-                : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+              ? "text-white text-opacity-40 cursor-not-allowed"
+              : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
               }`}
           >
             <FaChevronLeft className="w-3 h-3" />
@@ -1259,8 +1259,8 @@ function MemberForm({ member, onSave, onCancel }) {
                 key={index}
                 onClick={() => goToTab(index)}
                 className={`w-2 h-2 rounded-full transition-colors ${currentTabIndex === index
-                    ? "bg-white"
-                    : "bg-white bg-opacity-40"
+                  ? "bg-white"
+                  : "bg-white bg-opacity-40"
                   }`}
               />
             ))}
@@ -1270,8 +1270,8 @@ function MemberForm({ member, onSave, onCancel }) {
             onClick={() => goToTab(currentTabIndex + 1)}
             disabled={currentTabIndex === tabs.length - 1}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${currentTabIndex === tabs.length - 1
-                ? "text-white text-opacity-40 cursor-not-allowed"
-                : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+              ? "text-white text-opacity-40 cursor-not-allowed"
+              : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
               }`}
           >
             <span className="hidden sm:inline">Suivant</span>
@@ -1333,7 +1333,6 @@ function MemberForm({ member, onSave, onCancel }) {
           </div>
         </div>
       </div>
-// 🔹 Partie 17 — Modal Webcam + export final
 
       {/* Modal Webcam */}
       {webcamOpen && (
