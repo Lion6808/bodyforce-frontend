@@ -17,3 +17,5 @@ root.render(
     <App />
   </React.StrictMode>
 );
+import { register } from './serviceWorkerRegistration';
+register();
