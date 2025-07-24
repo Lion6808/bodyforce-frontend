@@ -27,61 +27,10 @@
     "react-webcam": "^7.2.0",
     "recharts": "^3.0.2"
   },
-  {
-  "name": "club-musculation-frontend",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "@aldabil/react-scheduler": "^2.3.1",
-    "@emotion/react": "11.11.1",
-    "@emotion/styled": "11.11.0",
-    "@heroicons/react": "^2.2.0",
-    "@mui/icons-material": "5.15.14",
-    "@mui/material": "5.15.14",
-    "@mui/x-date-pickers": "7.4.0",
-    "@supabase/supabase-js": "^2.50.5",
-    "ajv": "^8.11.0",
-    "ajv-keywords": "^5.1.0",
-    "axios": "^1.10.0",
-    "date-fns": "^2.30.0",
-    "jspdf": "^3.0.1",
-    "jspdf-autotable": "^5.0.2",
-    "lucide-react": "^0.525.0",
-    "multer": "^2.0.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-icons": "^4.12.0",
-    "react-modal": "^3.16.3",
-    "react-router-dom": "^6.22.3",
-    "react-webcam": "^7.2.0",
-    "recharts": "^3.0.2"
-  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build && workbox generateSW workbox-config.js"
   },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.11",
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.6",
-    "react-scripts": "^5.0.1",
-    "tailwindcss": "^3.4.1",
-    "workbox-cli": "^7.3.0"
-  }
-}
-
   "browserslist": {
     "production": [
       ">0.2%",
