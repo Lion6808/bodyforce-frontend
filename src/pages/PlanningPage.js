@@ -256,6 +256,7 @@ function PlanningPage() {
   const toLocalDate = (timestamp) => {
     return parseTimestamp(timestamp);
   };
+
   // Écrans de chargement et d'erreur avec mode sombre
   const renderConnectionError = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
@@ -343,7 +344,8 @@ function PlanningPage() {
             .includes(filterName.toLowerCase())) &&
         (!filterBadge || m.badgeId?.includes(filterBadge))
     );
-    // Vue liste pour mobile - Version compacte avec mode sombre
+
+  // Vue liste pour mobile - Version compacte avec mode sombre
   const ListView = () => (
     <div className="space-y-3">
       {visibleMembers.map((member) => {
@@ -450,6 +452,7 @@ function PlanningPage() {
       })}
     </div>
   );
+
   // Vue compacte pour tablettes avec mode sombre
   const CompactView = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
@@ -559,6 +562,7 @@ function PlanningPage() {
       </div>
     </div>
   );
+
   // Vue grille complète pour desktop avec mode sombre
   const GridView = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
@@ -586,6 +590,24 @@ function PlanningPage() {
                     isWeekend(day)
                       ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
                       : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {hIdx === 0 && (
+                    <div className="font-bold whitespace-nowrap mb-1">
+                      {formatDate(day, "EEE dd/MM")}
+                    </div>
+                  )}
+                  <div className="font-semibold">{`${h
+                    .toString()
+                    .padStart(2, "0")}h`}</div>
+                </div>
+              ))
+            )}
+            {visibleMembers.map((member, idx) => (
+              <React.Fragment key={member.badgeId}>
+                <div
+                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3 ${
+                    idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
                   }`}
                 >
                   {member.photo ? (
@@ -660,26 +682,9 @@ function PlanningPage() {
         </div>
       </div>
     </div>
-  );hIdx === 0 && (
-                    <div className="font-bold whitespace-nowrap mb-1">
-                      {formatDate(day, "EEE dd/MM")}
-                    </div>
-                  )}
-                  <div className="font-semibold">{`${h
-                    .toString()
-                    .padStart(2, "0")}h`}</div>
-                </div>
-              ))
-            )}
-            {visibleMembers.map((member, idx) => (
-              <React.Fragment key={member.badgeId}>
-                <div
-                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
-                  }`}
-                >
-                  {
-                    return (
+  );
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4">
       <div className="max-w-7xl mx-auto">
         {/* En-tête */}
@@ -894,6 +899,7 @@ function PlanningPage() {
             </div>
           </div>
         </div>
+
         {/* Filtres */}
         {showFilters && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
