@@ -55,11 +55,10 @@ function InputField({ label, icon: Icon, error, ...props }) {
       <div className="relative">
         <input
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-            error
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error
               ? "border-red-300 bg-red-50 dark:bg-red-950"
               : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-          }`}
+            }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
@@ -78,11 +77,10 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
       <div className="relative">
         <select
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-            error
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error
               ? "border-red-300 bg-red-50 dark:bg-red-950"
               : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-          }`}
+            }`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -101,19 +99,17 @@ function TabButton({ active, onClick, icon: Icon, children, count }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${
-        active
+      className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${active
           ? "bg-white bg-opacity-30 text-white shadow-lg"
           : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
-      }`}
+        }`}
     >
       <Icon className="w-4 h-4" />
       <span className="hidden xs:inline sm:inline">{children}</span>
       {count !== undefined && count > 0 && (
         <span
-          className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${
-            active ? "bg-white bg-opacity-30" : "bg-white bg-opacity-20"
-          }`}
+          className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${active ? "bg-white bg-opacity-30" : "bg-white bg-opacity-20"
+            }`}
         >
           {count}
         </span>
@@ -214,8 +210,8 @@ function MemberForm({ member, onSave, onCancel }) {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-          ? JSON.parse(member.files || "[]")
-          : [],
+            ? JSON.parse(member.files || "[]")
+            : [],
         etudiant: !!member.etudiant,
       });
 
@@ -224,7 +220,7 @@ function MemberForm({ member, onSave, onCancel }) {
       }
     }
   }, [member]);
-// 🔹 Partie 4
+  // 🔹 Partie 4
 
   // Gestion des événements tactiles pour le swipe - Version simplifiée
   const handleTouchStart = (e) => {
@@ -331,7 +327,7 @@ function MemberForm({ member, onSave, onCancel }) {
       }, 150);
     }
   };
-// 🔹 Partie 5 (chargement paiements, formulaires, etc.)
+  // 🔹 Partie 5 (chargement paiements, formulaires, etc.)
 
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
@@ -422,7 +418,7 @@ function MemberForm({ member, onSave, onCancel }) {
       setForm((f) => ({ ...f, endDate: end.toISOString().slice(0, 10) }));
     }
   }, [form.subscriptionType, form.startDate]);
-// 🔹 Partie 6
+  // 🔹 Partie 6
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -434,8 +430,8 @@ function MemberForm({ member, onSave, onCancel }) {
 
   const age = form.birthdate
     ? Math.floor(
-        (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
-      )
+      (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
+    )
     : null;
 
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
@@ -444,7 +440,7 @@ function MemberForm({ member, onSave, onCancel }) {
     e.preventDefault();
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
-// 🔹 Partie 7 (upload de fichiers)
+  // 🔹 Partie 7 (upload de fichiers)
 
   const handleFileUpload = async (e) => {
     const files = e.target.files;
@@ -484,7 +480,7 @@ function MemberForm({ member, onSave, onCancel }) {
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
   };
-// 🔹 Partie 8 — Gestion capture photo et document via webcam
+  // 🔹 Partie 8 — Gestion capture photo et document via webcam
 
   const capturePhoto = () => {
     try {
@@ -586,7 +582,7 @@ function MemberForm({ member, onSave, onCancel }) {
       });
     }
   };
-// 🔹 Partie 9 — Suppression des fichiers uploadés
+  // 🔹 Partie 9 — Suppression des fichiers uploadés
 
   const removeFile = async (fileToRemove, event) => {
     event?.stopPropagation();
@@ -626,7 +622,7 @@ function MemberForm({ member, onSave, onCancel }) {
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
   };
-// 🔹 Partie 10 — Fonctions `renderIdentityTab`, `renderContactTab`, `renderSubscriptionTab`
+  // 🔹 Partie 10 — Fonctions `renderIdentityTab`, `renderContactTab`, `renderSubscriptionTab`
 
   const renderIdentityTab = () => (
     <div className="space-y-6">
@@ -690,16 +686,14 @@ function MemberForm({ member, onSave, onCancel }) {
                 onClick={() =>
                   setForm((f) => ({ ...f, etudiant: !f.etudiant }))
                 }
-                className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  form.etudiant
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant
                     ? "bg-gradient-to-r from-blue-500 to-purple-600"
                     : "bg-gray-300 dark:bg-gray-600"
-                }`}
+                  }`}
               >
                 <span
-                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${
-                    form.etudiant ? "translate-x-7" : ""
-                  }`}
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${form.etudiant ? "translate-x-7" : ""
+                    }`}
                 />
               </button>
             </div>
@@ -839,7 +833,7 @@ function MemberForm({ member, onSave, onCancel }) {
       )}
     </div>
   );
-// 🔹 Partie 11 — Fonctions `renderDocumentsTab()` et `renderPaymentsTab()`
+  // 🔹 Partie 11 — Fonctions `renderDocumentsTab()` et `renderPaymentsTab()`
 
   const renderDocumentsTab = () => (
     <div className="space-y-6">
@@ -1007,11 +1001,10 @@ function MemberForm({ member, onSave, onCancel }) {
                 className="sr-only"
               />
               <div
-                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                  newPayment.is_paid
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${newPayment.is_paid
                     ? "bg-green-500 border-green-500"
                     : "border-gray-300 dark:border-gray-500"
-                }`}
+                  }`}
               >
                 {newPayment.is_paid && (
                   <FaCheck className="w-3 h-3 text-white" />
@@ -1049,14 +1042,12 @@ function MemberForm({ member, onSave, onCancel }) {
                 <div className="flex-1 w-full sm:w-auto">
                   <div className="flex items-center gap-3 mb-3">
                     <div
-                      className={`p-2 rounded-lg ${
-                        pay.is_paid ? "bg-green-100 dark:bg-green-900" : "bg-orange-100 dark:bg-orange-900"
-                      }`}
+                      className={`p-2 rounded-lg ${pay.is_paid ? "bg-green-100 dark:bg-green-900" : "bg-orange-100 dark:bg-orange-900"
+                        }`}
                     >
                       <FaEuroSign
-                        className={`w-4 h-4 ${
-                          pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
-                        }`}
+                        className={`w-4 h-4 ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
+                          }`}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1078,20 +1069,18 @@ function MemberForm({ member, onSave, onCancel }) {
                     />
                     <button
                       onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                        pay.is_paid
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${pay.is_paid
                           ? "bg-green-500 border-green-500"
                           : "border-gray-300 dark:border-gray-500 hover:border-green-400"
-                      }`}
+                        }`}
                     >
                       {pay.is_paid && (
                         <FaCheck className="w-3 h-3 text-white" />
                       )}
                     </button>
                     <span
-                      className={`text-sm font-medium ${
-                        pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
-                      }`}
+                      className={`text-sm font-medium ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
+                        }`}
                     >
                       {pay.is_paid ? "Encaissé" : "En attente"}
                     </span>
@@ -1151,7 +1140,7 @@ function MemberForm({ member, onSave, onCancel }) {
       )}
     </div>
   );
-// 🔹 Partie 14 — `renderCurrentTab()` et début du `return()` principal
+  // 🔹 Partie 14 — `renderCurrentTab()` et début du `return()` principal
 
   const renderCurrentTab = () => {
     switch (activeTab) {
@@ -1212,7 +1201,6 @@ function MemberForm({ member, onSave, onCancel }) {
               </div>
             </div>
           </div>
-// 🔹 Partie 15 — Navigation onglets, progression, notifications (suite du `return()`)
 
           <div className="flex gap-2 w-full sm:w-auto">
             <button
@@ -1256,11 +1244,10 @@ function MemberForm({ member, onSave, onCancel }) {
           <button
             onClick={() => goToTab(currentTabIndex - 1)}
             disabled={currentTabIndex === 0}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-              currentTabIndex === 0
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${currentTabIndex === 0
                 ? "text-white text-opacity-40 cursor-not-allowed"
                 : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
-            }`}
+              }`}
           >
             <FaChevronLeft className="w-3 h-3" />
             <span className="hidden sm:inline">Précédent</span>
@@ -1271,11 +1258,10 @@ function MemberForm({ member, onSave, onCancel }) {
               <button
                 key={index}
                 onClick={() => goToTab(index)}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  currentTabIndex === index
+                className={`w-2 h-2 rounded-full transition-colors ${currentTabIndex === index
                     ? "bg-white"
                     : "bg-white bg-opacity-40"
-                }`}
+                  }`}
               />
             ))}
           </div>
@@ -1283,11 +1269,10 @@ function MemberForm({ member, onSave, onCancel }) {
           <button
             onClick={() => goToTab(currentTabIndex + 1)}
             disabled={currentTabIndex === tabs.length - 1}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-              currentTabIndex === tabs.length - 1
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${currentTabIndex === tabs.length - 1
                 ? "text-white text-opacity-40 cursor-not-allowed"
                 : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
-            }`}
+              }`}
           >
             <span className="hidden sm:inline">Suivant</span>
             <FaChevronRight className="w-3 h-3" />
