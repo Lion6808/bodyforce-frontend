@@ -45,16 +45,21 @@ const SWIPE_PAGES = [
   { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500" />, component: "StatisticsPage" },
 ];
 
-// Hook personnalisé pour la navigation par swipe
+// Hook personnalisé pour la navigation par swipe avec animation
 function useSwipeNavigation() {
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwipping, setIsSwipping] = useState(false);
+  const [swipeDirection, setSwipeDirection] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   // Distance minimum pour déclencher un swipe (en pixels)
   const minSwipeDistance = 100;
+  // Distance maximum pour l'effet de résistance
+  const maxSwipeDistance = 200;
 
   const getCurrentPageIndex = () => {
     return SWIPE_PAGES.findIndex(page => page.path === location.pathname);
@@ -75,23 +80,62 @@ function useSwipeNavigation() {
       if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1; // Boucle à la fin
     }
 
-    navigate(SWIPE_PAGES[newIndex].path);
+    // Animation de sortie puis navigation
+    setIsSwipping(true);
+    setSwipeOffset(direction === 'left' ? -window.innerWidth : window.innerWidth);
+    
+    setTimeout(() => {
+      navigate(SWIPE_PAGES[newIndex].path);
+      // Reset après navigation
+      setTimeout(() => {
+        setSwipeOffset(0);
+        setIsSwipping(false);
+        setSwipeDirection(null);
+      }, 50);
+    }, 200);
   };
 
   const onTouchStart = (e) => {
     if (!isSwipeEnabled) return;
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
+    setIsSwipping(true);
+    setSwipeDirection(null);
   };
 
   const onTouchMove = (e) => {
-    if (!isSwipeEnabled) return;
-    setTouchEnd(e.targetTouches[0].clientX);
+    if (!isSwipeEnabled || !touchStart) return;
+    
+    const currentTouch = e.targetTouches[0].clientX;
+    const distance = currentTouch - touchStart;
+    
+    // Déterminer la direction
+    const direction = distance > 0 ? 'right' : 'left';
+    setSwipeDirection(direction);
+    
+    // Appliquer une résistance progressive
+    let offset = distance;
+    const absDistance = Math.abs(distance);
+    
+    if (absDistance > maxSwipeDistance) {
+      // Résistance exponentielle au-delà de maxSwipeDistance
+      const excess = absDistance - maxSwipeDistance;
+      const resistance = Math.log(excess / 50 + 1) * 50;
+      offset = distance > 0 ? maxSwipeDistance + resistance : -maxSwipeDistance - resistance;
+    }
+    
+    setSwipeOffset(offset);
+    setTouchEnd(currentTouch);
   };
 
   const onTouchEnd = () => {
-    if (!isSwipeEnabled) return;
-    if (!touchStart || !touchEnd) return;
+    if (!isSwipeEnabled || !touchStart || !touchEnd) {
+      // Reset si pas de swipe valide
+      setSwipeOffset(0);
+      setIsSwipping(false);
+      setSwipeDirection(null);
+      return;
+    }
     
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
@@ -101,6 +145,13 @@ function useSwipeNavigation() {
       navigateToPage('left');
     } else if (isRightSwipe) {
       navigateToPage('right');
+    } else {
+      // Retour à la position initiale avec animation
+      setSwipeOffset(0);
+      setTimeout(() => {
+        setIsSwipping(false);
+        setSwipeDirection(null);
+      }, 200);
     }
   };
 
@@ -112,7 +163,10 @@ function useSwipeNavigation() {
     navigateToPage,
     isSwipeEnabled,
     setIsSwipeEnabled,
-    totalPages: SWIPE_PAGES.length
+    totalPages: SWIPE_PAGES.length,
+    swipeOffset,
+    isSwipping,
+    swipeDirection
   };
 }
 
@@ -311,6 +365,88 @@ const mobileMenuStyles = `
   .swipe-container {
     touch-action: pan-y;
     user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .swipe-content {
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: transform;
+  }
+
+  .swipe-content.swiping {
+    transition: none;
+  }
+
+  .swipe-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .swipe-preview.active {
+    opacity: 1;
+  }
+
+  .swipe-preview-content {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transform: scale(0.9);
+    transition: transform 0.2s ease;
+  }
+
+  .swipe-preview.active .swipe-preview-content {
+    transform: scale(1);
+  }
+
+  .swipe-preview-icon {
+    font-size: 24px;
+  }
+
+  .swipe-preview-text {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 16px;
+  }
+
+  .swipe-resistance-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 2;
+  }
+
+  .swipe-resistance-indicator.left {
+    right: 10px;
+  }
+
+  .swipe-resistance-indicator.right {
+    left: 10px;
+  }
+
+  .swipe-resistance-indicator.active {
+    opacity: 0.7;
   }
 
   .swipe-hint {
@@ -524,7 +660,48 @@ function usePWA() {
   };
 }
 
-// Composant indicateur de pages
+// Composant pour l'aperçu de la page suivante/précédente
+function SwipePreview({ direction, swipeOffset, currentPageIndex }) {
+  if (!direction || Math.abs(swipeOffset) < 50) return null;
+
+  const nextPageIndex = direction === 'right' 
+    ? (currentPageIndex - 1 + SWIPE_PAGES.length) % SWIPE_PAGES.length
+    : (currentPageIndex + 1) % SWIPE_PAGES.length;
+  
+  const nextPage = SWIPE_PAGES[nextPageIndex];
+  const opacity = Math.min(Math.abs(swipeOffset) / 150, 1);
+
+  return (
+    <div 
+      className={`swipe-preview ${Math.abs(swipeOffset) > 50 ? 'active' : ''}`}
+      style={{ opacity }}
+    >
+      <div className="swipe-preview-content">
+        <div className="swipe-preview-icon">
+          {nextPage.icon}
+        </div>
+        <div className="swipe-preview-text">
+          {nextPage.name}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Composant indicateur de résistance
+function SwipeResistanceIndicator({ swipeOffset, direction }) {
+  if (!direction || Math.abs(swipeOffset) < 100) return null;
+
+  const resistance = Math.min((Math.abs(swipeOffset) - 100) / 100, 1);
+  const height = `${resistance * 80}%`;
+
+  return (
+    <div 
+      className={`swipe-resistance-indicator ${direction} ${resistance > 0 ? 'active' : ''}`}
+      style={{ height }}
+    />
+  );
+}
 function PageIndicator({ currentIndex, totalPages, isMobile }) {
   if (!isMobile) return null;
 
@@ -1012,7 +1189,7 @@ function AppRoutes({ user, setUser }) {
   // Hook PWA
   const { isInstallable, isInstalled, installApp, toast, closeToast } = usePWA();
   
-  // Hook Swipe Navigation
+  // Hook Swipe Navigation avec animation
   const { 
     onTouchStart, 
     onTouchMove, 
@@ -1021,7 +1198,10 @@ function AppRoutes({ user, setUser }) {
     navigateToPage,
     isSwipeEnabled,
     setIsSwipeEnabled,
-    totalPages
+    totalPages,
+    swipeOffset,
+    isSwipping,
+    swipeDirection
   } = useSwipeNavigation();
 
   // Détecter mobile et afficher hint au premier chargement
@@ -1133,36 +1313,63 @@ function AppRoutes({ user, setUser }) {
       {/* Hint de swipe */}
       <SwipeHint show={showSwipeHint} />
 
-      {/* Main content avec support du swipe */}
+      {/* Main content avec support du swipe et animation */}
       <main 
         className={`flex-1 p-4 ${isMobile ? 'swipe-container' : ''}`}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route
-            path="/members"
-            element={
-              <MembersPage
-                onEdit={(member) => {
-                  setEditingMember(member);
-                  setShowForm(true);
-                }}
-              />
-            }
+        {/* Contenu principal avec transformation */}
+        <div 
+          className={`swipe-content ${isSwipping ? 'swiping' : ''}`}
+          style={{
+            transform: isMobile && swipeOffset !== 0 
+              ? `translateX(${swipeOffset}px)` 
+              : 'translateX(0)',
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route
+              path="/members"
+              element={
+                <MembersPage
+                  onEdit={(member) => {
+                    setEditingMember(member);
+                    setShowForm(true);
+                  }}
+                />
+              }
+            />
+            <Route path="/planning" element={<PlanningPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/statistics" element={<StatisticsPage />} />
+            <Route
+              path="/admin/users"
+              element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
+            />
+            <Route path="/profile" element={<ProfilePage user={user} />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </div>
+
+        {/* Aperçu de la page suivante/précédente */}
+        {isMobile && (
+          <SwipePreview 
+            direction={swipeDirection}
+            swipeOffset={swipeOffset}
+            currentPageIndex={getCurrentPageIndex()}
           />
-          <Route path="/planning" element={<PlanningPage />} />
-          <Route path="/payments" element={<PaymentsPage />} />
-          <Route path="/statistics" element={<StatisticsPage />} />
-          <Route
-            path="/admin/users"
-            element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
+        )}
+
+        {/* Indicateur de résistance */}
+        {isMobile && (
+          <SwipeResistanceIndicator 
+            swipeOffset={swipeOffset}
+            direction={swipeDirection}
           />
-          <Route path="/profile" element={<ProfilePage user={user} />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+        )}
 
         {showForm && (
           <MemberForm
