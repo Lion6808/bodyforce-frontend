@@ -1,7 +1,3 @@
-// 📄 PaymentsPage.js — BODYFORCE
-// 🎨 Adaptation : Ajout du support du mode sombre (classes Tailwind `dark:`)
-// 🔹 Partie 1
-
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import {
@@ -20,11 +16,14 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
-  Edit,
+  Edit, // ✅ Nouvel import pour l'icône Edit
 } from "lucide-react";
+// ✅ Import corrigé - utilise le fichier supabaseClient existant
 import { supabase } from "../supabaseClient";
+// ✅ Import du composant MemberForm
 import MemberForm from "../components/MemberForm";
 
+// ✅ Suppression de la prop onEdit - gestion interne des états
 function PaymentsPage() {
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -38,6 +37,7 @@ function PaymentsPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
 
+  // ✅ États pour la gestion du formulaire (comme dans MembersPage)
   const [selectedMember, setSelectedMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
@@ -47,6 +47,7 @@ function PaymentsPage() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) setIsRetrying(true);
@@ -65,9 +66,9 @@ function PaymentsPage() {
         .from("payments")
         .select(
           `
-            *,
-            members (id, badgeId, name, firstName, email, phone, photo)
-          `
+                    *,
+                    members (id, badgeId, name, firstName, email, phone, photo)
+                `
         )
         .order("date_paiement", { ascending: false });
 
@@ -94,7 +95,10 @@ function PaymentsPage() {
     loadData(true);
   };
 
+  // ✅ Fonction pour gérer l'édition d'un membre (comme dans MembersPage)
+  // ✅ Fonction corrigée pour gérer l'édition d'un membre
   const handleEditMember = (member) => {
+    // Filtrer seulement les champs qui appartiennent à la table members
     const memberOnlyData = {
       id: member.id,
       name: member.name,
@@ -112,11 +116,15 @@ function PaymentsPage() {
       emergencyContact: member.emergencyContact,
       emergencyPhone: member.emergencyPhone,
       medicalInfo: member.medicalInfo,
+      // ❌ Exclure les champs calculés comme overallStatus, payments, totalDue, etc.
     };
+
+    console.log("🔧 Données membre filtrées pour l'édition:", memberOnlyData);
 
     setSelectedMember(memberOnlyData);
     setShowForm(true);
   };
+
   function isOverdue(payment) {
     if (payment.is_paid) return false;
     if (!payment.encaissement_prevu) return false;
@@ -153,7 +161,6 @@ function PaymentsPage() {
     stats.totalExpected > 0
       ? (stats.totalReceived / stats.totalExpected) * 100
       : 0;
-
   const enrichedMembers = members.map((member) => {
     const memberPayments = payments.filter((p) => p.member_id === member.id);
     const totalDue = memberPayments.reduce(
@@ -200,36 +207,50 @@ function PaymentsPage() {
       statusFilter === "all" || member.overallStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  // Export PDF CORRIGÉ - 100% manuel sans autoTable
   const exportToPDF = () => {
     try {
       const doc = new jsPDF("landscape", "mm", "a4");
+
+      // Configuration des couleurs
       const primaryColor = [59, 130, 246];
       const textColor = [0, 0, 0];
       const whiteColor = [255, 255, 255];
+
+      // En-tête du document
       doc.setFillColor(...primaryColor);
       doc.rect(0, 0, 297, 25, "F");
 
+      // Titre principal
       doc.setTextColor(...whiteColor);
       doc.setFontSize(18);
       doc.text("CLUB BODY FORCE - RAPPORT PAIEMENTS", 148, 15, {
         align: "center",
       });
 
+      // Date du rapport
       const now = new Date();
       const dateStr = now.toLocaleDateString("fr-FR");
       doc.setFontSize(10);
       doc.text(`Genere le ${dateStr}`, 148, 22, { align: "center" });
 
+      // Reset couleur texte
       doc.setTextColor(...textColor);
       let yPos = 35;
+
+      // === STATISTIQUES GLOBALES ===
       doc.setFontSize(14);
       doc.text("STATISTIQUES GLOBALES", 20, yPos);
       yPos += 10;
 
+      // Cadre pour les statistiques
       doc.setDrawColor(200, 200, 200);
       doc.rect(15, yPos - 2, 267, 35);
+
       doc.setFontSize(10);
 
+      // Ligne 1
       doc.text(
         `Total Attendu: ${stats.totalExpected.toLocaleString("fr-FR")} €`,
         20,
@@ -242,6 +263,8 @@ function PaymentsPage() {
         150,
         yPos + 5
       );
+
+      // Ligne 2
       doc.text(
         `En Attente: ${stats.totalPending.toLocaleString("fr-FR")} € (${
           stats.pendingCount
@@ -256,18 +279,25 @@ function PaymentsPage() {
         150,
         yPos + 15
       );
+
+      // Ligne 3
       doc.text(`Nombre de membres: ${stats.totalMembers}`, 20, yPos + 25);
       doc.text(`Paiements effectues: ${stats.paidCount}`, 150, yPos + 25);
 
       yPos += 45;
+
+      // === REPARTITION PAR METHODE ===
       doc.setFontSize(14);
       doc.text("REPARTITION PAR METHODE DE PAIEMENT", 20, yPos);
       yPos += 10;
+
+      // Cadre méthodes
       doc.rect(15, yPos - 2, 267, 30);
+
       doc.setFontSize(10);
       let xPos = 20;
 
-      ["carte", "cheque", "especes", "autre"].forEach((method) => {
+      ["carte", "cheque", "especes", "autre"].forEach((method, index) => {
         const methodPayments = payments.filter(
           (p) => p.method === method && p.is_paid
         );
@@ -281,10 +311,13 @@ function PaymentsPage() {
         doc.text(`${method.toUpperCase()}:`, xPos, yPos + 8);
         doc.text(`${total.toFixed(2)} €`, xPos, yPos + 15);
         doc.text(`${percentage.toFixed(1)}%`, xPos, yPos + 22);
+
         xPos += 65;
       });
 
       yPos += 40;
+
+      // === LISTE DES MEMBRES ===
       doc.setFontSize(14);
       doc.text(
         `DETAIL DES MEMBRES (${filteredMembers.length} affiches)`,
@@ -293,6 +326,7 @@ function PaymentsPage() {
       );
       yPos += 10;
 
+      // En-têtes du tableau
       doc.setFontSize(9);
       doc.text("NOM PRENOM", 20, yPos);
       doc.text("BADGE", 80, yPos);
@@ -302,15 +336,21 @@ function PaymentsPage() {
       doc.text("DERNIER PAIEMENT", 235, yPos);
       yPos += 5;
 
+      // Ligne de séparation
       doc.setDrawColor(0, 0, 0);
       doc.line(15, yPos, 280, yPos);
       yPos += 8;
+
+      // Données des membres
       doc.setFontSize(8);
 
       filteredMembers.forEach((member, index) => {
+        // Nouvelle page si nécessaire
         if (yPos > 190) {
           doc.addPage();
           yPos = 20;
+
+          // Répéter les en-têtes
           doc.setFontSize(9);
           doc.text("NOM PRENOM", 20, yPos);
           doc.text("BADGE", 80, yPos);
@@ -324,13 +364,18 @@ function PaymentsPage() {
           doc.setFontSize(8);
         }
 
+        // Nom complet (tronqué)
         const fullName = `${member.firstName || ""} ${
           member.name || ""
         }`.trim();
         const truncatedName =
           fullName.length > 25 ? fullName.substring(0, 22) + "..." : fullName;
         doc.text(truncatedName, 20, yPos);
+
+        // Badge
         doc.text(member.badgeId || "N/A", 80, yPos);
+
+        // Statut
         const statusText =
           member.overallStatus === "paid"
             ? "Paye"
@@ -340,18 +385,26 @@ function PaymentsPage() {
             ? "Retard"
             : "Aucun";
         doc.text(statusText, 110, yPos);
+
+        // Progression
         doc.text(`${member.progressPercentage.toFixed(0)}%`, 145, yPos);
+
+        // Montants
         doc.text(
           `${member.totalPaid.toFixed(0)}€/${member.totalDue.toFixed(0)}€`,
           185,
           yPos
         );
+
+        // Dernier paiement
         const lastPayment = member.lastPaymentDate
           ? formatDate(member.lastPaymentDate)
           : "Aucun";
         doc.text(lastPayment, 235, yPos);
+
         yPos += 6;
 
+        // Ligne séparatrice légère tous les 5 membres
         if ((index + 1) % 5 === 0) {
           doc.setDrawColor(220, 220, 220);
           doc.line(15, yPos - 1, 280, yPos - 1);
@@ -359,6 +412,7 @@ function PaymentsPage() {
         }
       });
 
+      // Pied de page sur toutes les pages
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
@@ -370,14 +424,20 @@ function PaymentsPage() {
         });
       }
 
+      // Nom du fichier avec timestamp
       const timestamp = now.toISOString().slice(0, 16).replace(/[T:]/g, "_");
       const fileName = `Rapport_Paiements_${timestamp}.pdf`;
+
+      // Sauvegarder
       doc.save(fileName);
+
+      console.log("✅ Export PDF réussi:", fileName);
     } catch (error) {
       console.error("❌ Erreur lors de l'export PDF:", error);
       alert("Erreur lors de la génération du PDF. Veuillez réessayer.");
     }
   };
+
   const exportToCSV = () => {
     try {
       const csvData = filteredMembers.map((member) => ({
@@ -421,19 +481,18 @@ function PaymentsPage() {
       alert("Erreur lors de la génération du CSV. Veuillez réessayer.");
     }
   };
-
   const getStatusColor = (status) => {
     switch (status) {
       case "paid":
-        return "text-green-600 bg-green-100 dark:bg-green-800/30 dark:text-green-400";
+        return "text-green-600 bg-green-100";
       case "pending":
-        return "text-yellow-600 bg-yellow-100 dark:bg-yellow-800/30 dark:text-yellow-400";
+        return "text-yellow-600 bg-yellow-100";
       case "overdue":
-        return "text-red-600 bg-red-100 dark:bg-red-800/30 dark:text-red-400";
+        return "text-red-600 bg-red-100";
       case "no_payments":
-        return "text-gray-600 bg-gray-100 dark:bg-gray-800/30 dark:text-gray-300";
+        return "text-gray-600 bg-gray-100";
       default:
-        return "text-gray-600 bg-gray-100 dark:bg-gray-800/30 dark:text-gray-300";
+        return "text-gray-600 bg-gray-100";
     }
   };
 
@@ -486,7 +545,7 @@ function PaymentsPage() {
     if (!dateString) return "Non définie";
     try {
       return new Date(dateString).toLocaleDateString("fr-FR");
-    } catch {
+    } catch (error) {
       return "Date invalide";
     }
   };
@@ -495,19 +554,21 @@ function PaymentsPage() {
     if (!dateString) return "Non définie";
     try {
       return new Date(dateString).toLocaleString("fr-FR");
-    } catch {
+    } catch (error) {
       return "Date invalide";
     }
   };
+
+  // Vue mobile CORRIGÉE - Badge repositionné + Bouton Modifier ajouté
   const renderMobileView = () => (
     <div className="space-y-4">
       {filteredMembers.map((member) => (
         <div
           key={member.id}
-          className="bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden"
+          className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden"
         >
           <div className="p-4">
-            {/* En-tête mobile */}
+            {/* En-tête CORRIGÉ - Badge en haut à droite */}
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center space-x-3 flex-1 min-w-0">
                 <div className="flex-shrink-0">
@@ -515,7 +576,7 @@ function PaymentsPage() {
                     <img
                       src={member.photo}
                       alt="avatar"
-                      className="h-12 w-12 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"
+                      className="h-12 w-12 rounded-full object-cover border-2 border-gray-300"
                     />
                   ) : (
                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
@@ -525,14 +586,15 @@ function PaymentsPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                  <h4 className="text-lg font-semibold text-gray-900 truncate">
                     {member.firstName || "Prénom"} {member.name || "Nom"}
                   </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-500">
                     Badge: {member.badgeId || "N/A"}
                   </p>
                 </div>
               </div>
+              {/* Badge REPOSITIONNÉ en haut à droite */}
               <div className="flex-shrink-0 ml-2">
                 <span
                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
@@ -547,18 +609,19 @@ function PaymentsPage() {
               </div>
             </div>
 
-            {/* Contenu résumé */}
+            {/* Informations principales */}
             <div className="grid grid-cols-1 gap-3">
-              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+              {/* Progression */}
+              <div className="bg-gray-50 p-3 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  <span className="text-sm font-medium text-gray-600">
                     Progression
                   </span>
-                  <span className="text-sm font-bold text-gray-900 dark:text-white">
+                  <span className="text-sm font-bold text-gray-900">
                     {member.progressPercentage.toFixed(0)}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${
                       member.progressPercentage === 100
@@ -574,30 +637,31 @@ function PaymentsPage() {
                 </div>
               </div>
 
+              {/* Montants et infos */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-sm font-medium text-gray-600 mb-1">
                     Montants
                   </div>
                   <div className="text-sm">
                     <div className="font-bold text-green-600">
                       {member.totalPaid.toFixed(2)} €
                     </div>
-                    <div className="text-gray-500 dark:text-gray-400">
+                    <div className="text-gray-500">
                       sur {member.totalDue.toFixed(2)} €
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="text-sm font-medium text-gray-600 mb-1">
                     Paiements
                   </div>
                   <div className="text-sm">
                     <div className="font-bold text-blue-600">
                       {member.payments.filter((p) => p.is_paid).length}
                     </div>
-                    <div className="text-gray-500 dark:text-gray-400">
+                    <div className="text-gray-500">
                       sur {member.payments.length}
                     </div>
                   </div>
@@ -605,7 +669,7 @@ function PaymentsPage() {
               </div>
             </div>
 
-            {/* Boutons d’action mobile */}
+            {/* ✅ Boutons d'action - Responsive */}
             <div className="mt-3 flex flex-col sm:flex-row gap-2">
               <button
                 onClick={() =>
@@ -613,7 +677,7 @@ function PaymentsPage() {
                     expandedMember === member.id ? null : member.id
                   )
                 }
-                className="flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border border-blue-200 dark:border-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
+                className="flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
               >
                 {expandedMember === member.id ? (
                   <>
@@ -628,9 +692,10 @@ function PaymentsPage() {
                 )}
               </button>
 
+              {/* ✅ Nouveau bouton Modifier */}
               <button
                 onClick={() => handleEditMember(member)}
-                className="flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border border-orange-200 dark:border-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900 transition-colors"
+                className="flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
               >
                 <Edit className="w-4 h-4" />
                 Modifier
@@ -638,9 +703,9 @@ function PaymentsPage() {
             </div>
           </div>
           {expandedMember === member.id && (
-            <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="border-t border-gray-200 bg-gray-50">
               <div className="p-4 space-y-4">
-                <h5 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h5 className="font-semibold text-gray-900 flex items-center gap-2">
                   <CreditCard className="w-4 h-4" />
                   Détail des paiements
                 </h5>
@@ -650,7 +715,7 @@ function PaymentsPage() {
                     {member.payments.map((payment) => (
                       <div
                         key={payment.id}
-                        className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700"
+                        className="bg-white rounded-lg p-3 border"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span
@@ -661,59 +726,51 @@ function PaymentsPage() {
                             {getStatusIcon(getPaymentStatus(payment))}
                             {getStatusLabel(getPaymentStatus(payment))}
                           </span>
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          <span className="text-sm font-medium text-gray-900">
                             #{payment.id}
                           </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">
-                              Montant:
-                            </span>
-                            <div className="font-bold text-gray-900 dark:text-white">
+                            <span className="text-gray-500">Montant:</span>
+                            <div className="font-bold">
                               {parseFloat(payment.amount || 0).toFixed(2)} €
                             </div>
                           </div>
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">
-                              Méthode:
-                            </span>
+                            <span className="text-gray-500">Méthode:</span>
                             <div className="flex items-center gap-1">
                               <span>
                                 {getPaymentMethodIcon(payment.method)}
                               </span>
-                              <span className="capitalize dark:text-white">
+                              <span className="capitalize">
                                 {payment.method}
                               </span>
                             </div>
                           </div>
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">
+                            <span className="text-gray-500">
                               Date paiement:
                             </span>
-                            <div className="font-medium dark:text-white">
+                            <div className="font-medium">
                               {payment.is_paid
                                 ? formatDate(payment.date_paiement)
                                 : "Non payé"}
                             </div>
                           </div>
                           <div>
-                            <span className="text-gray-500 dark:text-gray-400">
-                              Échéance:
-                            </span>
-                            <div className="font-medium dark:text-white">
+                            <span className="text-gray-500">Échéance:</span>
+                            <div className="font-medium">
                               {formatDate(payment.encaissement_prevu)}
                             </div>
                           </div>
                         </div>
 
                         {payment.commentaire && (
-                          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-sm">
-                            <span className="text-gray-500 dark:text-gray-300">
-                              Commentaire:
-                            </span>
-                            <div className="text-gray-700 dark:text-white mt-1">
+                          <div className="mt-2 p-2 bg-gray-100 rounded text-sm">
+                            <span className="text-gray-500">Commentaire:</span>
+                            <div className="text-gray-700 mt-1">
                               {payment.commentaire}
                             </div>
                           </div>
@@ -723,48 +780,42 @@ function PaymentsPage() {
                   </div>
                 ) : (
                   <div className="text-center py-6">
-                    <CreditCard className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    <CreditCard className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">
                       Aucun paiement enregistré
                     </p>
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 gap-3">
-                  <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg">
-                    <h6 className="font-medium text-blue-900 dark:text-blue-200 mb-2">
-                      Contact
-                    </h6>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <h6 className="font-medium text-blue-900 mb-2">Contact</h6>
                     <div className="space-y-1 text-sm">
-                      <div className="text-blue-700 dark:text-blue-100">
+                      <div className="text-blue-700">
                         📧 {member.email || "Non renseigné"}
                       </div>
-                      <div className="text-blue-700 dark:text-blue-100">
+                      <div className="text-blue-700">
                         📞 {member.phone || "Non renseigné"}
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-green-50 dark:bg-green-900 p-3 rounded-lg">
-                    <h6 className="font-medium text-green-900 dark:text-green-200 mb-2">
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <h6 className="font-medium text-green-900 mb-2">
                       Résumé financier
                     </h6>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <div className="font-bold text-green-700 dark:text-green-200">
+                        <div className="font-bold text-green-700">
                           {member.totalPaid.toFixed(2)} €
                         </div>
-                        <div className="text-green-600 dark:text-green-300">
-                          Payé
-                        </div>
+                        <div className="text-green-600">Payé</div>
                       </div>
                       <div>
-                        <div className="font-bold text-orange-700 dark:text-orange-200">
+                        <div className="font-bold text-orange-700">
                           {(member.totalDue - member.totalPaid).toFixed(2)} €
                         </div>
-                        <div className="text-orange-600 dark:text-orange-300">
-                          Restant
-                        </div>
+                        <div className="text-orange-600">Restant</div>
                       </div>
                     </div>
                   </div>
@@ -776,22 +827,21 @@ function PaymentsPage() {
       ))}
     </div>
   );
+
   const renderConnectionError = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200">
         <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">
           Problème de connexion
         </h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
-          {error}
-        </p>
+        <p className="text-gray-600 mb-8 leading-relaxed">{error}</p>
         <button
           onClick={handleRetry}
           disabled={isRetrying}
           className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                   disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 
-                   rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
+                       disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 
+                       rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
         >
           {isRetrying ? (
             <>
@@ -806,7 +856,7 @@ function PaymentsPage() {
           )}
         </button>
         {retryCount > 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+          <p className="text-sm text-gray-500 mt-4">
             Tentative {retryCount + 1}
           </p>
         )}
@@ -815,17 +865,17 @@ function PaymentsPage() {
   );
 
   const renderLoading = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
       <div className="text-center">
         <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <RefreshCw className="w-8 h-8 animate-spin text-white" />
         </div>
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">
           {isRetrying
             ? "Reconnexion en cours..."
             : "Chargement des paiements..."}
         </h2>
-        <p className="text-gray-600 dark:text-gray-300">Veuillez patienter</p>
+        <p className="text-gray-600">Veuillez patienter</p>
       </div>
     </div>
   );
@@ -834,26 +884,26 @@ function PaymentsPage() {
   if (error && !isRetrying) return renderConnectionError();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 p-4 lg:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header - Responsive */}
         <div className="mb-6 lg:mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h1 className="text-2xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+              <h1 className="text-2xl lg:text-4xl font-bold text-gray-900 mb-2">
                 Suivi des Paiements
               </h1>
-              <p className="text-gray-600 dark:text-gray-300">
+              <p className="text-gray-600">
                 Gérez et suivez les paiements de vos membres
               </p>
             </div>
 
-            {/* Boutons d'action */}
+            {/* Boutons d'action - Responsive */}
             <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
               <button
                 onClick={exportToCSV}
                 disabled={loading || filteredMembers.length === 0}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 transition-colors text-sm font-medium"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors text-sm font-medium"
               >
                 <Download className="w-4 h-4" />
                 Exporter CSV
@@ -882,111 +932,112 @@ function PaymentsPage() {
         {/* Widgets statistiques - Responsive */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8">
           {/* Total Attendu */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
-                <p className="text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-xs lg:text-sm font-medium text-gray-600">
                   Total Attendu
                 </p>
-                <p className="text-lg lg:text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-lg lg:text-2xl font-bold text-gray-900">
                   {stats.totalExpected.toLocaleString()} €
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   {payments.length} paiement(s)
                 </p>
               </div>
-              <div className="hidden lg:block p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
-                <DollarSign className="w-6 h-6 text-blue-600 dark:text-blue-300" />
+              <div className="hidden lg:block p-3 bg-blue-100 rounded-full">
+                <DollarSign className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
 
           {/* Total Reçu */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
-                <p className="text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-xs lg:text-sm font-medium text-gray-600">
                   Total Reçu
                 </p>
-                <p className="text-lg lg:text-2xl font-bold text-green-600 dark:text-green-400">
+                <p className="text-lg lg:text-2xl font-bold text-green-600">
                   {stats.totalReceived.toLocaleString()} €
                 </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" />
                   {stats.collectionRate.toFixed(1)}%
                 </p>
               </div>
-              <div className="hidden lg:block p-3 bg-green-100 dark:bg-green-900 rounded-full">
-                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-300" />
+              <div className="hidden lg:block p-3 bg-green-100 rounded-full">
+                <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
 
           {/* En Attente */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
-                <p className="text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-xs lg:text-sm font-medium text-gray-600">
                   En Attente
                 </p>
-                <p className="text-lg lg:text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                <p className="text-lg lg:text-2xl font-bold text-yellow-600">
                   {stats.totalPending.toLocaleString()} €
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   {stats.pendingCount} paiement(s)
                 </p>
               </div>
-              <div className="hidden lg:block p-3 bg-yellow-100 dark:bg-yellow-900 rounded-full">
-                <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-300" />
+              <div className="hidden lg:block p-3 bg-yellow-100 rounded-full">
+                <Clock className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
           </div>
 
           {/* En Retard */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
-                <p className="text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-xs lg:text-sm font-medium text-gray-600">
                   En Retard
                 </p>
-                <p className="text-lg lg:text-2xl font-bold text-red-600 dark:text-red-400">
+                <p className="text-lg lg:text-2xl font-bold text-red-600">
                   {stats.totalOverdue.toLocaleString()} €
                 </p>
-                <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                   <TrendingDown className="w-3 h-3" />
                   {stats.overdueCount} paiement(s)
                 </p>
               </div>
-              <div className="hidden lg:block p-3 bg-red-100 dark:bg-red-900 rounded-full">
-                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              <div className="hidden lg:block p-3 bg-red-100 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Barre de progression globale */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border border-gray-200">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-gray-900">
               Progression Globale
             </h3>
-            <span className="text-xl lg:text-2xl font-bold text-blue-600 dark:text-blue-400">
+            <span className="text-xl lg:text-2xl font-bold text-blue-600">
               {stats.collectionRate.toFixed(1)}%
             </span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 lg:h-4">
+          <div className="w-full bg-gray-200 rounded-full h-3 lg:h-4">
             <div
               className="bg-gradient-to-r from-blue-500 to-green-500 h-3 lg:h-4 rounded-full transition-all duration-1000 ease-out"
               style={{ width: `${Math.min(stats.collectionRate, 100)}%` }}
             ></div>
           </div>
-          <div className="flex justify-between text-sm text-gray-600 dark:text-gray-300 mt-2">
+          <div className="flex justify-between text-sm text-gray-600 mt-2">
             <span>{stats.totalReceived.toLocaleString()} € reçus</span>
             <span>{stats.totalExpected.toLocaleString()} € attendus</span>
           </div>
         </div>
-        {/* Filtres et recherche */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 lg:p-6 mb-6 border border-gray-200 dark:border-gray-700">
+
+        {/* Filtres et recherche - Responsive */}
+        <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 mb-6 border border-gray-200">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
@@ -996,14 +1047,14 @@ function PaymentsPage() {
                   placeholder="Rechercher par nom, prénom ou badge..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-white"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:w-48"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:w-48"
               >
                 <option value="all">Tous les statuts</option>
                 <option value="paid">Payé</option>
@@ -1016,8 +1067,8 @@ function PaymentsPage() {
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${
                   showFilters
-                    ? "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-200"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    ? "bg-blue-100 text-blue-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
                 <Filter className="w-4 h-4" />
@@ -1026,7 +1077,7 @@ function PaymentsPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
+              <p className="text-sm text-gray-600">
                 {filteredMembers.length} membre(s) affiché(s) sur{" "}
                 {members.length}
               </p>
@@ -1036,7 +1087,7 @@ function PaymentsPage() {
                     setSearchTerm("");
                     setStatusFilter("all");
                   }}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium self-start sm:self-auto"
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium self-start sm:self-auto"
                 >
                   Réinitialiser les filtres
                 </button>
@@ -1045,12 +1096,12 @@ function PaymentsPage() {
           </div>
         </div>
 
-        {/* Vue mobile ou desktop */}
+        {/* Contenu principal - Basculement entre vue mobile et desktop */}
         {isMobile ? (
-          // Vue mobile
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          // Vue mobile avec tuiles
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+            <div className="px-4 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Membres ({filteredMembers.length})
               </h3>
             </div>
@@ -1059,11 +1110,11 @@ function PaymentsPage() {
                 renderMobileView()
               ) : (
                 <div className="text-center py-12">
-                  <Users className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
                     Aucun membre trouvé
                   </h3>
-                  <p className="text-gray-500 dark:text-gray-400">
+                  <p className="text-gray-500">
                     Essayez de modifier vos critères de recherche
                   </p>
                 </div>
@@ -1071,42 +1122,42 @@ function PaymentsPage() {
             </div>
           </div>
         ) : (
-          // Vue desktop (tableau) — à suivre dans la Partie 11
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          // Vue desktop avec tableau
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Détail par Membre ({filteredMembers.length})
               </h3>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Membre
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Statut
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Progression
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Montants
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Dernier Paiement
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-white divide-y divide-gray-200">
                   {filteredMembers.map((member) => (
                     <React.Fragment key={member.id}>
-                      <tr className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <tr className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
@@ -1114,7 +1165,7 @@ function PaymentsPage() {
                                 <img
                                   src={member.photo}
                                   alt="avatar"
-                                  className="h-10 w-10 rounded-full object-cover border border-gray-300 dark:border-gray-600"
+                                  className="h-10 w-10 rounded-full object-cover border border-gray-300"
                                 />
                               ) : (
                                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
@@ -1124,16 +1175,17 @@ function PaymentsPage() {
                               )}
                             </div>
                             <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              <div className="text-sm font-medium text-gray-900">
                                 {member.firstName || "Prénom"}{" "}
                                 {member.name || "Nom"}
                               </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                              <div className="text-sm text-gray-500">
                                 Badge: {member.badgeId || "N/A"}
                               </div>
                             </div>
                           </div>
                         </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
@@ -1144,18 +1196,19 @@ function PaymentsPage() {
                             {getStatusLabel(member.overallStatus)}
                           </span>
                         </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="w-32">
                             <div className="flex items-center justify-between text-sm mb-1">
-                              <span className="text-gray-600 dark:text-gray-300">
+                              <span className="text-gray-600">
                                 {member.progressPercentage.toFixed(0)}%
                               </span>
-                              <span className="text-gray-500 dark:text-gray-400 text-xs">
+                              <span className="text-gray-500 text-xs">
                                 {member.totalPaid.toFixed(0)}€/
                                 {member.totalDue.toFixed(0)}€
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
                               <div
                                 className={`h-2 rounded-full transition-all duration-500 ${
                                   member.progressPercentage === 100
@@ -1174,31 +1227,37 @@ function PaymentsPage() {
                             </div>
                           </div>
                         </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm">
-                            <div className="font-medium text-gray-900 dark:text-white">
+                            <div className="font-medium text-gray-900">
                               {member.totalPaid.toFixed(2)} € /{" "}
                               {member.totalDue.toFixed(2)} €
                             </div>
-                            <div className="text-gray-500 dark:text-gray-400">
+                            <div className="text-gray-500">
                               {member.payments.length} paiement(s)
                             </div>
                           </div>
                         </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">
+                          <div className="text-sm text-gray-900">
                             {member.lastPaymentDate ? (
-                              <div className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-300" />
-                                {formatDate(member.lastPaymentDate)}
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4 text-gray-400" />
+                                  {formatDate(member.lastPaymentDate)}
+                                </div>
                               </div>
                             ) : (
-                              <span className="text-gray-400 dark:text-gray-500 italic">
+                              <span className="text-gray-400 italic">
                                 Aucun paiement
                               </span>
                             )}
                           </div>
                         </td>
+
+                        {/* ✅ Colonne Actions modifiée - Ajout du bouton Modifier */}
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center gap-2">
                             <button
@@ -1209,7 +1268,7 @@ function PaymentsPage() {
                                     : member.id
                                 )
                               }
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors flex items-center gap-1"
+                              className="text-blue-600 hover:text-blue-900 transition-colors flex items-center gap-1"
                             >
                               {expandedMember === member.id ? (
                                 <EyeOff className="w-4 h-4" />
@@ -1220,9 +1279,11 @@ function PaymentsPage() {
                                 ? "Masquer"
                                 : "Détails"}
                             </button>
+
+                            {/* ✅ Nouveau bouton Modifier */}
                             <button
                               onClick={() => handleEditMember(member)}
-                              className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 transition-colors flex items-center gap-1"
+                              className="text-orange-600 hover:text-orange-900 transition-colors flex items-center gap-1"
                             >
                               <Edit className="w-4 h-4" />
                               Modifier
@@ -1230,58 +1291,164 @@ function PaymentsPage() {
                           </div>
                         </td>
                       </tr>
+                      {/* Ligne étendue avec détails des paiements */}
                       {expandedMember === member.id && (
-                        <tr className="bg-gray-50 dark:bg-gray-800 transition-all duration-300">
-                          <td colSpan="6" className="px-6 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                        <tr>
+                          <td colSpan="6" className="px-6 py-4 bg-gray-50">
+                            <div className="space-y-4">
+                              <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                                <CreditCard className="w-4 h-4" />
+                                Détail des paiements de {member.firstName}{" "}
+                                {member.name}
+                              </h4>
+
                               {member.payments.length > 0 ? (
-                                member.payments.map((p, index) => (
-                                  <div
-                                    key={index}
-                                    className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm"
-                                  >
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className="font-medium text-gray-900 dark:text-white">
-                                        {getPaymentMethodIcon(p.method)}{" "}
-                                        {p.method || "Méthode inconnue"}
-                                      </span>
-                                      <span
-                                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                          p.is_paid
-                                            ? "bg-green-100 text-green-700 dark:bg-green-800/40 dark:text-green-400"
-                                            : isOverdue(p)
-                                            ? "bg-red-100 text-red-700 dark:bg-red-800/40 dark:text-red-400"
-                                            : "bg-yellow-100 text-yellow-700 dark:bg-yellow-800/40 dark:text-yellow-400"
-                                        }`}
-                                      >
-                                        {p.is_paid
-                                          ? "Payé"
-                                          : isOverdue(p)
-                                          ? "En retard"
-                                          : "En attente"}
-                                      </span>
-                                    </div>
-                                    <div className="text-gray-600 dark:text-gray-300">
-                                      Montant :{" "}
-                                      <span className="font-semibold text-gray-900 dark:text-white">
-                                        {p.amount?.toFixed(2)} €
-                                      </span>
-                                    </div>
-                                    <div className="text-gray-500 dark:text-gray-400">
-                                      Date prévue : {formatDate(p.due_date)}
-                                    </div>
-                                    {p.is_paid && (
-                                      <div className="text-gray-500 dark:text-gray-400">
-                                        Payé le : {formatDate(p.payment_date)}
+                                <div className="grid gap-3">
+                                  {member.payments.map((payment) => (
+                                    <div
+                                      key={payment.id}
+                                      className="bg-white rounded-lg p-4 border border-gray-200"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3">
+                                            <span
+                                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                                getPaymentStatus(payment)
+                                              )}`}
+                                            >
+                                              {getStatusIcon(
+                                                getPaymentStatus(payment)
+                                              )}
+                                              {getStatusLabel(
+                                                getPaymentStatus(payment)
+                                              )}
+                                            </span>
+                                            <span className="font-medium text-gray-900">
+                                              Paiement #{payment.id}
+                                            </span>
+                                          </div>
+
+                                          <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                            <div>
+                                              <span className="text-gray-500">
+                                                Montant:
+                                              </span>
+                                              <div className="font-medium">
+                                                {parseFloat(
+                                                  payment.amount || 0
+                                                ).toFixed(2)}{" "}
+                                                €
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500">
+                                                Méthode:
+                                              </span>
+                                              <div className="font-medium flex items-center gap-1">
+                                                <span>
+                                                  {getPaymentMethodIcon(
+                                                    payment.method
+                                                  )}
+                                                </span>
+                                                <span className="capitalize">
+                                                  {payment.method}
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500">
+                                                Date de paiement:
+                                              </span>
+                                              <div className="font-medium">
+                                                {payment.is_paid
+                                                  ? formatDateTime(
+                                                      payment.date_paiement
+                                                    )
+                                                  : "Non payé"}
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500">
+                                                Encaissement prévu:
+                                              </span>
+                                              <div className="font-medium">
+                                                {formatDate(
+                                                  payment.encaissement_prevu
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {payment.commentaire && (
+                                            <div className="mt-3 p-2 bg-gray-50 rounded">
+                                              <span className="text-gray-500 text-sm">
+                                                Commentaire:
+                                              </span>
+                                              <div className="text-gray-700 text-sm mt-1">
+                                                {payment.commentaire}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
-                                    )}
-                                  </div>
-                                ))
+                                    </div>
+                                  ))}
+                                </div>
                               ) : (
-                                <div className="text-gray-500 dark:text-gray-400 italic">
-                                  Aucun paiement enregistré.
+                                <div className="text-center py-8">
+                                  <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                  <p className="text-gray-500">
+                                    Aucun paiement enregistré pour ce membre
+                                  </p>
                                 </div>
                               )}
+
+                              {/* Contact et résumé */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-blue-50 p-3 rounded-lg">
+                                  <h5 className="font-medium text-blue-900 mb-2">
+                                    Informations de contact
+                                  </h5>
+                                  <div className="space-y-1 text-sm">
+                                    <div className="text-blue-700">
+                                      📧 {member.email || "Email non renseigné"}
+                                    </div>
+                                    <div className="text-blue-700">
+                                      📞{" "}
+                                      {member.phone ||
+                                        "Téléphone non renseigné"}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="bg-green-50 p-3 rounded-lg">
+                                  <h5 className="font-medium text-green-900 mb-2">
+                                    Résumé financier
+                                  </h5>
+                                  <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                      <div className="text-green-700 font-medium">
+                                        {member.totalPaid.toFixed(2)} €
+                                      </div>
+                                      <div className="text-green-600">
+                                        Total payé
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-yellow-700 font-medium">
+                                        {(
+                                          member.totalDue - member.totalPaid
+                                        ).toFixed(2)}{" "}
+                                        €
+                                      </div>
+                                      <div className="text-yellow-600">
+                                        Reste à payer
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -1291,9 +1458,208 @@ function PaymentsPage() {
                 </tbody>
               </table>
             </div>
+
+            {filteredMembers.length === 0 && (
+              <div className="text-center py-12">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Aucun membre trouvé
+                </h3>
+                <p className="text-gray-500">
+                  Essayez de modifier vos critères de recherche
+                </p>
+              </div>
+            )}
           </div>
         )}
+
+        {/* Statistiques détaillées par méthode de paiement - Responsive */}
+        <div className="mt-6 lg:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Répartition par Méthode
+            </h3>
+            <div className="space-y-3">
+              {["carte", "chèque", "espèces", "autre"].map((method) => {
+                const methodPayments = payments.filter(
+                  (p) => p.method === method && p.is_paid
+                );
+                const total = methodPayments.reduce(
+                  (sum, p) => sum + parseFloat(p.amount || 0),
+                  0
+                );
+                const percentage =
+                  stats.totalReceived > 0
+                    ? (total / stats.totalReceived) * 100
+                    : 0;
+
+                return (
+                  <div
+                    key={method}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg lg:text-xl">
+                        {getPaymentMethodIcon(method)}
+                      </span>
+                      <span className="font-medium capitalize text-gray-900">
+                        {method}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-sm lg:text-base">
+                        {total.toFixed(2)} €
+                      </div>
+                      <div className="text-xs lg:text-sm text-gray-500">
+                        {percentage.toFixed(1)}% • {methodPayments.length}{" "}
+                        paiement(s)
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-lg p-4 lg:p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Paiements Récents
+            </h3>
+            <div className="space-y-3">
+              {payments
+                .filter((p) => p.is_paid)
+                .slice(0, 5)
+                .map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-lg">
+                        {getPaymentMethodIcon(payment.method)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm text-gray-900 truncate">
+                          {payment.members?.firstName} {payment.members?.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatDate(payment.date_paiement)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-medium text-sm lg:text-base text-green-600">
+                        {parseFloat(payment.amount).toFixed(2)} €
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              {payments.filter((p) => p.is_paid).length === 0 && (
+                <div className="text-center py-6 lg:py-8 text-gray-500">
+                  <Clock className="w-8 lg:w-12 h-8 lg:h-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">Aucun paiement récent</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* Résumé global en pied de page */}
+        <div className="mt-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg p-4 lg:p-6 text-white">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-2xl lg:text-3xl font-bold">
+                {stats.totalMembers}
+              </div>
+              <div className="text-sm lg:text-base text-blue-100">
+                Membres total
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl lg:text-3xl font-bold">
+                {stats.collectionRate.toFixed(1)}%
+              </div>
+              <div className="text-sm lg:text-base text-blue-100">
+                Taux de collecte
+              </div>
+            </div>
+            <div>
+              <div className="text-2xl lg:text-3xl font-bold">
+                {stats.paidCount + stats.pendingCount + stats.overdueCount}
+              </div>
+              <div className="text-sm lg:text-base text-blue-100">
+                Total paiements
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pied de page avec informations */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Dernière mise à jour : {new Date().toLocaleString("fr-FR")}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Club Body Force - Système de Gestion des Paiements v2.0
+          </p>
+        </div>
       </div>
+
+      {/* ✅ Modal du formulaire MemberForm (comme dans MembersPage) */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
+          <div className="bg-white mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
+            <MemberForm
+              member={selectedMember}
+              onSave={async (memberData, closeModal) => {
+                try {
+                  console.log(
+                    "💾 Sauvegarde membre depuis PaymentsPage:",
+                    selectedMember ? "Modification" : "Création"
+                  );
+
+                  if (selectedMember?.id) {
+                    // Modification d'un membre existant
+                    const { error } = await supabase
+                      .from("members")
+                      .update(memberData)
+                      .eq("id", selectedMember.id);
+
+                    if (error) throw error;
+                    console.log("✅ Membre modifié:", selectedMember.id);
+                  } else {
+                    // Création d'un nouveau membre
+                    const { data, error } = await supabase
+                      .from("members")
+                      .insert([memberData])
+                      .select();
+
+                    if (error) throw error;
+                    console.log("✅ Nouveau membre créé:", data[0]?.id);
+                  }
+
+                  // Fermer le modal si demandé
+                  if (closeModal) {
+                    setShowForm(false);
+                    setSelectedMember(null);
+                  }
+
+                  // Recharger les données
+                  await loadData();
+                } catch (error) {
+                  console.error("❌ Erreur sauvegarde membre:", error);
+                  alert(`Erreur lors de la sauvegarde: ${error.message}`);
+                }
+              }}
+              onCancel={() => {
+                setShowForm(false);
+                setSelectedMember(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+export default PaymentsPage;
