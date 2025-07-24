@@ -19,6 +19,9 @@ import {
   FaUserCircle,
   FaSignOutAlt,
   FaCreditCard,
+  FaDownload,
+  FaCheck,
+  FaTimes as FaTimesIcon,
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 
@@ -124,7 +127,224 @@ const mobileMenuStyles = `
   .close-button.animate {
     transform: rotate(0deg);
   }
+
+  /* Styles PWA */
+  .pwa-install-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 15px 20px;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    cursor: pointer;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation: pulse-install 2s infinite;
+  }
+
+  .pwa-install-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+  }
+
+  @keyframes pulse-install {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  .pwa-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    padding: 20px;
+    z-index: 1001;
+    max-width: 350px;
+    border-left: 4px solid;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform: translateX(400px);
+  }
+
+  .pwa-toast.show {
+    transform: translateX(0);
+  }
+
+  .pwa-toast.success {
+    border-left-color: #10b981;
+  }
+
+  .pwa-toast.error {
+    border-left-color: #ef4444;
+  }
+
+  .pwa-toast-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .pwa-toast-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: white;
+  }
+
+  .pwa-toast-icon.success {
+    background-color: #10b981;
+  }
+
+  .pwa-toast-icon.error {
+    background-color: #ef4444;
+  }
+
+  .pwa-toast-title {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 16px;
+  }
+
+  .pwa-toast-message {
+    color: #6b7280;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 640px) {
+    .pwa-install-button {
+      bottom: 80px;
+      right: 15px;
+      padding: 12px 16px;
+      font-size: 13px;
+    }
+
+    .pwa-toast {
+      right: 15px;
+      left: 15px;
+      max-width: none;
+    }
+  }
 `;
+
+// Composant Toast PWA
+function PWAToast({ toast, onClose }) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (toast) {
+      setShow(true);
+      const timer = setTimeout(() => {
+        setShow(false);
+        setTimeout(onClose, 400);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast, onClose]);
+
+  if (!toast) return null;
+
+  return (
+    <div className={`pwa-toast ${toast.type} ${show ? 'show' : ''}`}>
+      <div className="pwa-toast-header">
+        <div className={`pwa-toast-icon ${toast.type}`}>
+          {toast.type === 'success' ? <FaCheck /> : <FaTimesIcon />}
+        </div>
+        <div className="pwa-toast-title">{toast.title}</div>
+      </div>
+      <div className="pwa-toast-message">{toast.message}</div>
+    </div>
+  );
+}
+
+// Hook PWA
+function usePWA() {
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    // Vérifier si l'app est déjà installée
+    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+      setIsInstalled(true);
+      return;
+    }
+
+    // Écouter l'événement beforeinstallprompt
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    // Écouter l'événement appinstalled
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+      showToast('success', 'Application installée !', 'Body Force a été ajouté à votre écran d\'accueil.');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const showToast = (type, title, message) => {
+    setToast({ type, title, message });
+  };
+
+  const installApp = async () => {
+    if (!deferredPrompt) return;
+
+    try {
+      const result = await deferredPrompt.prompt();
+      
+      if (result.outcome === 'accepted') {
+        showToast('success', 'Installation en cours...', 'Body Force va être ajouté à votre écran d\'accueil.');
+      } else {
+        showToast('error', 'Installation annulée', 'Vous pouvez toujours installer l\'application plus tard.');
+      }
+      
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+    } catch (error) {
+      console.error('Erreur lors de l\'installation PWA:', error);
+      showToast('error', 'Erreur d\'installation', 'Une erreur s\'est produite lors de l\'installation.');
+    }
+  };
+
+  const closeToast = () => {
+    setToast(null);
+  };
+
+  return {
+    isInstallable,
+    isInstalled,
+    installApp,
+    toast,
+    closeToast
+  };
+}
 
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -566,6 +786,9 @@ function AppRoutes({ user, setUser }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Hook PWA
+  const { isInstallable, isInstalled, installApp, toast, closeToast } = usePWA();
 
   const handleLogout = async () => {
     try {
@@ -584,6 +807,8 @@ function AppRoutes({ user, setUser }) {
 
   return user ? (
     <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100">
+      <style>{mobileMenuStyles}</style>
+      
       {/* Header mobile */}
       <div className="lg:hidden p-4 bg-white shadow-md flex justify-between items-center">
         <div className="flex items-center gap-2">
@@ -616,6 +841,21 @@ function AppRoutes({ user, setUser }) {
         location={location}
         onLogout={handleLogout} // ✅ Passage de la fonction handleLogout
       />
+
+      {/* Bouton d'installation PWA */}
+      {isInstallable && !isInstalled && (
+        <button
+          onClick={installApp}
+          className="pwa-install-button"
+          title="Installer Body Force"
+        >
+          <FaDownload />
+          <span className="hidden sm:inline">Installer l'app</span>
+        </button>
+      )}
+
+      {/* Toast PWA */}
+      <PWAToast toast={toast} onClose={closeToast} />
 
       <main className="flex-1 p-4">
         <Routes>
