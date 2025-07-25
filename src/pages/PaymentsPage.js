@@ -981,7 +981,7 @@ function PaymentsPage() {
         ? "bg-gradient-to-br from-gray-900 to-black"
         : "bg-gradient-to-br from-blue-50 to-purple-50"
       } p-4 lg:p-6`}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-full mx-auto">
         {/* Header - Responsive */}
         <div className="mb-6 lg:mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
