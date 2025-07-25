@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect, Suspense, lazy } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -32,15 +32,14 @@ import {
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 
-// Lazy load pages for better performance
-const HomePage = lazy(() => import("./pages/HomePage"));
-const MembersPage = lazy(() => import("./pages/MembersPage"));
-const PlanningPage = lazy(() => import("./pages/PlanningPage"));
-const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
-const StatisticsPage = lazy(() => import("./pages/StatisticsPage"));
-const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const MemberForm = lazy(() => import("./components/MemberForm"));
+import HomePage from "./pages/HomePage";
+import MembersPage from "./pages/MembersPage";
+import PlanningPage from "./pages/PlanningPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import StatisticsPage from "./pages/StatisticsPage";
+import UserManagementPage from "./pages/UserManagementPage";
+import ProfilePage from "./pages/ProfilePage";
+import MemberForm from "./components/MemberForm";
 
 // Configuration des pages pour la navigation swipe
 const SWIPE_PAGES = [
@@ -51,7 +50,7 @@ const SWIPE_PAGES = [
   { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
 ];
 
-// Hook pour la gestion du mode sombre
+// Hook pour la gestion du mode sombre - VERSION CORRIGÉE
 function useDarkMode() {
   const [darkMode, setDarkMode] = useState('auto');
   const [actualDarkMode, setActualDarkMode] = useState(false);
@@ -402,7 +401,7 @@ const mobileMenuStyles = `
     transform: rotate(0deg);
   }
 
-  /* STYLES SIDEBAR DESKTOP AMÉLIORÉE */
+  /* ===== STYLES SIDEBAR DESKTOP AMÉLIORÉE ===== */
   .enhanced-sidebar {
     background: linear-gradient(180deg, 
       rgba(255, 255, 255, 0.95) 0%, 
@@ -425,6 +424,7 @@ const mobileMenuStyles = `
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
   }
 
+/* ✅ Nouvelle largeur optimisée */
 .enhanced-sidebar.collapsed {
   width: 64px !important;
 }
@@ -450,7 +450,7 @@ const mobileMenuStyles = `
   justify-content: center;
   box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  z-index: 9999; /* Ensure high z-index for visibility */
+  z-index: 9999;
 }
 
 .enhanced-sidebar .sidebar-toggle {
@@ -487,7 +487,7 @@ const mobileMenuStyles = `
     transform-origin: center;
   }
 
-.enhanced-sidebar.collapsed .sidebar-logo {
+  .enhanced-sidebar.collapsed .sidebar-logo {
   padding: 8px 4px !important;
 }
 
@@ -502,6 +502,7 @@ const mobileMenuStyles = `
     transform: translateX(0);
   }
 
+ /* ✅ Masquer complètement le titre */
 .enhanced-sidebar.collapsed .sidebar-title {
   display: none !important;
 }
@@ -512,6 +513,7 @@ const mobileMenuStyles = `
     transform: translateX(0);
   }
 
+  /* ✅ Masquer complètement les infos utilisateur */
 .enhanced-sidebar.collapsed .sidebar-user-info {
   display: none !important;
 }
@@ -578,10 +580,10 @@ const mobileMenuStyles = `
     text-decoration: none;
   }
 
-.enhanced-sidebar.collapsed .sidebar-menu-item .menu-link {
-  justify-content: center;
-  padding: 12px 8px;
-}
+  .enhanced-sidebar.collapsed .sidebar-menu-item .menu-link {
+    justify-content: center;
+    padding: 12px 8px;
+  }
 
   .menu-link-icon {
     font-size: 20px;
@@ -610,11 +612,13 @@ const mobileMenuStyles = `
     color: #d1d5db;
   }
 
+/* ✅ Centrer les liens du menu */
 .enhanced-sidebar.collapsed .menu-link {
   padding: 12px 8px !important;
   justify-content: center !important;
 }
 
+/* ✅ Masquer complètement le texte */
 .enhanced-sidebar.collapsed .menu-link-text {
   display: none !important;
 }
@@ -684,6 +688,7 @@ const mobileMenuStyles = `
     );
   }
 
+ /* ✅ Masquer les séparateurs */
 .enhanced-sidebar.collapsed .sidebar-divider {
   display: none !important;
 }
@@ -1096,14 +1101,17 @@ const mobileMenuStyles = `
       padding: 12px 16px;
       font-size: 13px;
     }
+
     .pwa-toast {
       right: 15px;
       left: 15px;
       max-width: none;
     }
+
     .page-indicator {
       bottom: 60px;
     }
+
     .swipe-hint {
       bottom: 120px;
     }
@@ -1206,13 +1214,16 @@ function usePWA() {
 
   const installApp = async () => {
     if (!deferredPrompt) return;
+
     try {
       const result = await deferredPrompt.prompt();
+
       if (result.outcome === 'accepted') {
         showToast('success', 'Installation en cours...', 'Body Force va être ajouté à votre écran d\'accueil.');
       } else {
         showToast('error', 'Installation annulée', 'Vous pouvez toujours installer l\'application plus tard.');
       }
+
       setDeferredPrompt(null);
       setIsInstallable(false);
     } catch (error) {
@@ -1225,19 +1236,31 @@ function usePWA() {
     setToast(null);
   };
 
-  return { isInstallable, isInstalled, installApp, toast, closeToast };
+  return {
+    isInstallable,
+    isInstalled,
+    installApp,
+    toast,
+    closeToast
+  };
 }
 
 // Composant pour l'aperçu de la page suivante/précédente
 function SwipePreview({ direction, swipeOffset, currentPageIndex }) {
   if (!direction || Math.abs(swipeOffset) < 50) return null;
 
-  const nextPageIndex = direction === 'right' ? (currentPageIndex - 1 + SWIPE_PAGES.length) % SWIPE_PAGES.length : (currentPageIndex + 1) % SWIPE_PAGES.length;
+  const nextPageIndex = direction === 'right'
+    ? (currentPageIndex - 1 + SWIPE_PAGES.length) % SWIPE_PAGES.length
+    : (currentPageIndex + 1) % SWIPE_PAGES.length;
+
   const nextPage = SWIPE_PAGES[nextPageIndex];
   const opacity = Math.min(Math.abs(swipeOffset) / 150, 1);
 
   return (
-    <div className={`swipe-preview ${Math.abs(swipeOffset) > 50 ? 'active' : ''}`} style={{ opacity }} >
+    <div
+      className={`swipe-preview ${Math.abs(swipeOffset) > 50 ? 'active' : ''}`}
+      style={{ opacity }}
+    >
       <div className="swipe-preview-content">
         <div className="swipe-preview-icon">
           {nextPage.icon}
@@ -1258,7 +1281,10 @@ function SwipeResistanceIndicator({ swipeOffset, direction }) {
   const height = `${resistance * 80}%`;
 
   return (
-    <div className={`swipe-resistance-indicator ${direction} ${resistance > 0 ? 'active' : ''}`} style={{ height }} />
+    <div
+      className={`swipe-resistance-indicator ${direction} ${resistance > 0 ? 'active' : ''}`}
+      style={{ height }}
+    />
   );
 }
 
@@ -1269,7 +1295,10 @@ function PageIndicator({ currentIndex, totalPages, isMobile }) {
   return (
     <div className="page-indicator">
       {SWIPE_PAGES.map((_, index) => (
-        <div key={index} className={`page-indicator-dot ${index === currentIndex ? 'active' : ''}`} />
+        <div
+          key={index}
+          className={`page-indicator-dot ${index === currentIndex ? 'active' : ''}`}
+        />
       ))}
     </div>
   );
@@ -1281,10 +1310,18 @@ function SwipeNavigationArrows({ onNavigate, isMobile }) {
 
   return (
     <div className="swipe-navigation-arrows">
-      <button className="swipe-arrow left" onClick={() => onNavigate('right')} aria-label="Page précédente" >
+      <button
+        className="swipe-arrow left"
+        onClick={() => onNavigate('right')}
+        aria-label="Page précédente"
+      >
         <FaChevronLeft />
       </button>
-      <button className="swipe-arrow right" onClick={() => onNavigate('left')} aria-label="Page suivante" >
+      <button
+        className="swipe-arrow right"
+        onClick={() => onNavigate('left')}
+        aria-label="Page suivante"
+      >
         <FaChevronRight />
       </button>
     </div>
@@ -1294,6 +1331,7 @@ function SwipeNavigationArrows({ onNavigate, isMobile }) {
 // Composant hint de swipe
 function SwipeHint({ show }) {
   if (!show) return null;
+
   return (
     <div className="swipe-hint">
       ← Glissez pour naviguer →
@@ -1312,8 +1350,13 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password, });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
       if (error) {
         setError(error.message);
       } else {
@@ -1332,18 +1375,31 @@ function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-md border border-gray-200 dark:border-gray-700">
         <div className="text-center mb-6">
-          <img src="/images/logo.png" alt="Logo BodyForce" className="h-24 w-auto mx-auto mb-4" onError={(e) => { e.target.style.display = "none"; }} />
-          <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2"> CLUB BODY FORCE </h1>
+          <img
+            src="/images/logo.png"
+            alt="Logo BodyForce"
+            className="h-24 w-auto mx-auto mb-4"
+            onError={(e) => {
+              e.target.style.display = "none";
+            }}
+          />
+          <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+            CLUB BODY FORCE
+          </h1>
           <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Connexion</h2>
         </div>
+
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded mb-4">
             {error}
           </div>
         )}
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"> Email </label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Email
+            </label>
             <input
               type="email"
               placeholder="votre@email.com"
@@ -1354,8 +1410,11 @@ function LoginPage() {
               disabled={loading}
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"> Mot de passe </label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Mot de passe
+            </label>
             <input
               type="password"
               placeholder="••••••••"
@@ -1366,44 +1425,440 @@ function LoginPage() {
               disabled={loading}
             />
           </div>
+
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-2 px-4 rounded-lg hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition duration-200 ease-in-out font-semibold flex items-center justify-center gap-2"
             disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-800 text-white py-2 px-4 rounded-lg transition duration-200 font-medium"
           >
-            {loading && (
-              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            )}
-            Connexion
+            {loading ? "Connexion..." : "Se connecter"}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Besoin d'un compte ? Contactez l'administrateur
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
-function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(
-    () => localStorage.getItem('isSidebarExpanded') === 'true'
+// ===== SIDEBAR DESKTOP AMÉLIORÉE =====
+function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getDarkModeLabel }) {
+  const location = useLocation();
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar-collapsed') === 'true';
+  });
+
+  const menu = [
+    { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" /> },
+    {
+      name: "Membres",
+      path: "/members",
+      icon: <FaUserFriends className="text-green-500 dark:text-green-400" />,
+    },
+    {
+      name: "Planning",
+      path: "/planning",
+      icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />,
+    },
+    {
+      name: "Paiements",
+      path: "/payments",
+      icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />,
+    },
+    {
+      name: "Statistiques",
+      path: "/statistics",
+      icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
+    },
+  ];
+
+  const isAdmin =
+    user?.user_metadata?.role === "admin" ||
+    user?.email === "admin@bodyforce.com" ||
+    user?.app_metadata?.role === "admin";
+
+  const toggleSidebar = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', newState.toString());
+  };
+
+  return (
+    <aside className={`enhanced-sidebar ${isCollapsed ? 'collapsed' : 'expanded'} flex-col items-center hidden lg:flex transition-all duration-400 ease-out`}>
+      {/* Bouton toggle */}
+      <button
+        className="sidebar-toggle"
+        onClick={toggleSidebar}
+        aria-label={isCollapsed ? "Étendre le menu" : "Réduire le menu"}
+      >
+        {/* ✅ Nouveau JSX avec icônes inversées */}
+        <div className="toggle-icon">
+          {isCollapsed ? <FaAngleDoubleRight /> : <FaAngleDoubleLeft />}
+        </div>
+      </button>
+
+      {/* En-tête avec logo et titre */}
+      <div className="sidebar-logo text-center p-4 pb-2">
+        <h1 className={`sidebar-title text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
+          CLUB BODY FORCE
+        </h1>
+        <img
+          src="/images/logo.png"
+          alt="Logo"
+          className="sidebar-logo-pulse h-32 w-auto mb-4 mx-auto transition-all duration-400"
+          onError={(e) => {
+            e.target.style.display = "none";
+          }}
+        />
+      </div>
+
+      {/* Informations utilisateur */}
+      <div className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
+        <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
+        <div className="flex flex-col min-w-0">
+          <span className="font-medium truncate">{user?.email}</span>
+          {isAdmin && (
+            <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">Admin</span>
+          )}
+        </div>
+      </div>
+
+      <div className="sidebar-divider"></div>
+
+      {/* Menu principal */}
+      <ul className="w-full space-y-2 px-4 flex-1">
+        {menu.map((item, index) => (
+          <li key={item.path} className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? 'active' : ''}`} style={{ animationDelay: `${index * 0.1}s` }}>
+            <Link
+              to={item.path}
+              className="menu-link"
+            >
+              <div className="menu-link-icon">
+                {item.icon}
+              </div>
+              <span className="menu-link-text">{item.name}</span>
+              {isCollapsed && (
+                <div className="menu-tooltip">
+                  {item.name}
+                </div>
+              )}
+            </Link>
+          </li>
+        ))}
+
+        {/* Menu admin */}
+        {isAdmin && (
+          <li className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? 'active' : ''}`} style={{ animationDelay: `${menu.length * 0.1}s` }}>
+            <Link
+              to="/admin/users"
+              className="menu-link"
+            >
+              <div className="menu-link-icon">
+                <FaUserCircle className="text-purple-500 dark:text-purple-400" />
+              </div>
+              <span className="menu-link-text">Utilisateurs</span>
+              {isCollapsed && (
+                <div className="menu-tooltip">
+                  Utilisateurs
+                </div>
+              )}
+            </Link>
+          </li>
+        )}
+      </ul>
+
+      <div className="sidebar-divider"></div>
+
+      {/* Footer avec actions */}
+      <div className="sidebar-footer w-full px-4 space-y-2">
+        <div className="sidebar-menu-item">
+          <button
+            onClick={toggleDarkMode}
+            className="menu-link w-full text-left"
+            title={getDarkModeLabel()}
+          >
+            <div className="menu-link-icon text-gray-600 dark:text-gray-400">
+              {getDarkModeIcon()}
+            </div>
+            <span className="menu-link-text">{isCollapsed ? '' : getDarkModeLabel()}</span>
+            {isCollapsed && (
+              <div className="menu-tooltip">
+                {getDarkModeLabel()}
+              </div>
+            )}
+          </button>
+        </div>
+
+        <div className="sidebar-menu-item">
+          <button
+            onClick={onLogout}
+            className="menu-link w-full text-left text-red-600 dark:text-red-400"
+          >
+            <div className="menu-link-icon">
+              <FaSignOutAlt />
+            </div>
+            <span className="menu-link-text">Déconnexion</span>
+            {isCollapsed && (
+              <div className="menu-tooltip">
+                Déconnexion
+              </div>
+            )}
+          </button>
+        </div>
+      </div>
+    </aside>
   );
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+}
+
+// Composant pour le menu mobile animé
+function AnimatedMobileMenu({
+  isOpen,
+  onClose,
+  user,
+  isAdmin,
+  location,
+  onLogout,
+  toggleDarkMode,
+  getDarkModeIcon,
+  getDarkModeLabel,
+}) {
+  const [animate, setAnimate] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      setIsClosing(false);
+      setIsOpening(true);
+      const openTimer = setTimeout(() => {
+        setIsOpening(false);
+      }, 10);
+      const animateTimer = setTimeout(() => setAnimate(true), 200);
+      return () => {
+        clearTimeout(openTimer);
+        clearTimeout(animateTimer);
+      };
+    } else if (shouldRender) {
+      setIsClosing(true);
+      setAnimate(false);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+        setIsOpening(false);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, shouldRender]);
+
+  const handleItemClick = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(onClose, 200);
+  };
+
+  const handleLogout = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+      if (typeof onLogout === "function") {
+        onLogout();
+      }
+    }, 200);
+  };
+
+  const handleOverlayClick = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(onClose, 200);
+  };
+
+  const handleCloseClick = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(onClose, 200);
+  };
+
+  const handleDarkModeToggle = () => {
+    toggleDarkMode();
+  };
+
+  if (!shouldRender) return null;
+
+  return (
+    <>
+      <style>{mobileMenuStyles}</style>
+
+      <div
+        className={`mobile-menu-overlay ${isOpen && !isClosing ? "open" : ""}`}
+        onClick={handleOverlayClick}
+      />
+
+      <div
+        className={`mobile-menu-container ${!isOpening && isOpen && !isClosing ? "open" : ""
+          } ${isClosing ? "closing" : ""}`}
+      >
+        <div
+          className={`menu-header ${animate ? "animate" : ""
+            } p-6 border-b border-white/20`}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-3">
+              <img
+                src="/images/logo.png"
+                alt="Logo BodyForce"
+                className="h-12 w-auto"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+              <h1 className="text-lg font-bold text-white">BODY FORCE</h1>
+            </div>
+            <button
+              onClick={handleCloseClick}
+              className={`close-button ${animate ? "animate" : ""
+                } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
+            >
+              <FaTimes className="text-xl" />
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={`user-profile ${animate ? "animate" : ""
+            } p-6 border-b border-white/20`}
+        >
+          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            <FaUserCircle className="text-2xl text-white" />
+            <div className="flex flex-col">
+              <span className="font-medium text-white text-sm">
+                {user?.email}
+              </span>
+              {isAdmin && (
+                <span className="text-xs text-yellow-300 font-bold">
+                  Administrateur
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-3">
+          <Link
+            to="/"
+            onClick={handleItemClick}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/" ? "bg-white/20" : ""
+              }`}
+          >
+            <FaHome className="text-xl text-red-300" />
+            <span className="font-medium">Accueil</span>
+          </Link>
+
+          <Link
+            to="/members"
+            onClick={handleItemClick}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/members" ? "bg-white/20" : ""
+              }`}
+          >
+            <FaUserFriends className="text-xl text-green-300" />
+            <span className="font-medium">Membres</span>
+          </Link>
+
+          <Link
+            to="/planning"
+            onClick={handleItemClick}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/planning" ? "bg-white/20" : ""
+              }`}
+          >
+            <FaCalendarAlt className="text-xl text-yellow-300" />
+            <span className="font-medium">Planning</span>
+          </Link>
+
+          <Link
+            to="/payments"
+            onClick={handleItemClick}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/payments" ? "bg-white/20" : ""
+              }`}
+          >
+            <FaCreditCard className="text-xl text-purple-300" />
+            <span className="font-medium">Paiements</span>
+          </Link>
+
+          <Link
+            to="/statistics"
+            onClick={handleItemClick}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/statistics" ? "bg-white/20" : ""
+              }`}
+          >
+            <FaChartBar className="text-xl text-blue-300" />
+            <span className="font-medium">Statistiques</span>
+          </Link>
+
+          {isAdmin && (
+            <Link
+              to="/admin/users"
+              onClick={handleItemClick}
+              className={`menu-item ${animate ? "animate" : ""
+                } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/admin/users" ? "bg-white/20" : ""
+                }`}
+            >
+              <FaUserCircle className="text-xl text-purple-300" />
+              <span className="font-medium">Utilisateurs</span>
+            </Link>
+          )}
+
+          <button
+            onClick={handleDarkModeToggle}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
+          >
+            <div className="text-xl text-gray-300">
+              {getDarkModeIcon()}
+            </div>
+            <span className="font-medium">{getDarkModeLabel()}</span>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
+          >
+            <FaSignOutAlt className="text-xl" />
+            <span className="font-medium">Déconnexion</span>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AppRoutes({ user, setUser }) {
+  const [editingMember, setEditingMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Hook PWA
   const { isInstallable, isInstalled, installApp, toast, closeToast } = usePWA();
-  const {
-    darkMode,
-    actualDarkMode,
-    toggleDarkMode,
-    getDarkModeIcon,
-    getDarkModeLabel,
-  } = useDarkMode();
 
-  const isMobile = window.innerWidth <= 768; // Adjust breakpoint as needed
+  // Hook Dark Mode
+  const { darkMode, actualDarkMode, toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
 
-  // Custom hook for swipe navigation
+  // Hook Swipe Navigation avec animation
   const {
     onTouchStart,
     onTouchMove,
@@ -1418,12 +1873,215 @@ function App() {
     swipeDirection
   } = useSwipeNavigation();
 
-  const location = useLocation();
-  const navigate = useNavigate();
+  // Détecter mobile et afficher hint au premier chargement
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
 
-  const currentPageName = SWIPE_PAGES.find(
-    (page) => page.path === location.pathname
-  )?.name;
+      // Montrer le hint seulement sur mobile et au premier chargement
+      if (mobile && !localStorage.getItem('swipe_hint_shown')) {
+        setShowSwipeHint(true);
+        setTimeout(() => {
+          setShowSwipeHint(false);
+          localStorage.setItem('swipe_hint_shown', 'true');
+        }, 3000);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Désactiver le swipe quand le menu mobile est ouvert
+  useEffect(() => {
+    setIsSwipeEnabled(!mobileMenuOpen && !showForm);
+  }, [mobileMenuOpen, showForm, setIsSwipeEnabled]);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      navigate("/login");
+    } catch (error) {
+      console.error("Erreur déconnexion:", error);
+    }
+  };
+
+  const isAdmin =
+    user?.user_metadata?.role === "admin" ||
+    user?.email === "admin@bodyforce.com" ||
+    user?.app_metadata?.role === "admin";
+
+  return user ? (
+    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+      <style>{mobileMenuStyles}</style>
+
+      {/* Header mobile */}
+      <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2">
+          <img
+            src="/images/logo.png"
+            alt="Logo BodyForce"
+            className="h-8 w-auto"
+            onError={(e) => {
+              e.target.style.display = "none";
+            }}
+          />
+          <h1 className="text-lg font-bold text-red-600 dark:text-red-400">BODY FORCE</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleDarkMode}
+            className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            title={getDarkModeLabel()}
+          >
+            {getDarkModeIcon()}
+          </button>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          >
+            <FaBars />
+          </button>
+        </div>
+      </div>
+
+      {/* Sidebar desktop améliorée */}
+      <EnhancedSidebar
+        user={user}
+        onLogout={handleLogout}
+        toggleDarkMode={toggleDarkMode}
+        getDarkModeIcon={getDarkModeIcon}
+        getDarkModeLabel={getDarkModeLabel}
+      />
+
+      {/* Menu mobile animé */}
+      <AnimatedMobileMenu
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        user={user}
+        isAdmin={isAdmin}
+        location={location}
+        onLogout={handleLogout}
+        toggleDarkMode={toggleDarkMode}
+        getDarkModeIcon={getDarkModeIcon}
+        getDarkModeLabel={getDarkModeLabel}
+      />
+
+      {/* Bouton d'installation PWA */}
+      {isInstallable && !isInstalled && (
+        <button
+          onClick={installApp}
+          className="pwa-install-button"
+          title="Installer Body Force"
+        >
+          <FaDownload />
+          <span className="hidden sm:inline">Installer l'app</span>
+        </button>
+      )}
+
+      {/* Toast PWA */}
+      <PWAToast toast={toast} onClose={closeToast} />
+
+      {/* Indicateur de pages (mobile uniquement) */}
+      <PageIndicator
+        currentIndex={getCurrentPageIndex()}
+        totalPages={totalPages}
+        isMobile={isMobile}
+      />
+
+      {/* Flèches de navigation swipe (mobile uniquement) */}
+      <SwipeNavigationArrows
+        onNavigate={navigateToPage}
+        isMobile={isMobile}
+      />
+
+      {/* Hint de swipe */}
+      <SwipeHint show={showSwipeHint} />
+
+      {/* Main content avec support du swipe et animation */}
+      <main
+        className={`flex-1 p-4 ${isMobile ? 'swipe-container' : ''}`}
+        onTouchStart={isMobile ? onTouchStart : undefined}
+        onTouchMove={isMobile ? onTouchMove : undefined}
+        onTouchEnd={isMobile ? onTouchEnd : undefined}
+      >
+        {/* Contenu principal avec transformation */}
+        <div
+          className={`swipe-content ${isSwipping ? 'swiping' : ''}`}
+          style={{
+            transform: isMobile && swipeOffset !== 0
+              ? `translateX(${swipeOffset}px)`
+              : 'translateX(0)',
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route
+              path="/members"
+              element={
+                <MembersPage
+                  onEdit={(member) => {
+                    setEditingMember(member);
+                    setShowForm(true);
+                  }}
+                />
+              }
+            />
+            <Route path="/planning" element={<PlanningPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/statistics" element={<StatisticsPage />} />
+            <Route
+              path="/admin/users"
+              element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
+            />
+            <Route path="/profile" element={<ProfilePage user={user} />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </div>
+
+        {/* Aperçu de la page suivante/précédente */}
+        {isMobile && (
+          <SwipePreview
+            direction={swipeDirection}
+            swipeOffset={swipeOffset}
+            currentPageIndex={getCurrentPageIndex()}
+          />
+        )}
+
+        {/* Indicateur de résistance */}
+        {isMobile && (
+          <SwipeResistanceIndicator
+            swipeOffset={swipeOffset}
+            direction={swipeDirection}
+          />
+        )}
+
+        {showForm && (
+          <MemberForm
+            member={editingMember}
+            onSave={() => {
+              setShowForm(false);
+              setEditingMember(null);
+            }}
+            onCancel={() => {
+              setShowForm(false);
+              setEditingMember(null);
+            }}
+          />
+        )}
+      </main>
+    </div>
+  ) : (
+    <Navigate to="/login" />
+  );
+}
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const getInitialSession = async () => {
@@ -1459,49 +2117,6 @@ function App() {
     };
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error("Erreur déconnexion:", error.message);
-      } else {
-        setUser(null);
-        navigate("/login");
-      }
-    } catch (error) {
-      console.error("Erreur déconnexion inattendue:", error);
-    }
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarExpanded((prev) => {
-      const newState = !prev;
-      localStorage.setItem('isSidebarExpanded', newState);
-      return newState;
-    });
-  };
-
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
-
-  const renderPage = (Component) => {
-    // Dynamically import the component based on its name
-    const PageComponent = lazy(() => import(`./pages/${Component}`));
-    return (
-      <Suspense fallback={
-        <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Chargement de la page...</p>
-          </div>
-        </div>
-      }>
-        <PageComponent user={user} />
-      </Suspense>
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -1515,255 +2130,16 @@ function App() {
 
   return (
     <Router>
-      <style>{mobileMenuStyles}</style> {/* Inject global styles */}
-      {user ? (
-        <div className={`main-layout-container flex flex-1 h-screen overflow-hidden ${isSidebarExpanded ? '' : 'collapsed-sidebar'}`}>
-          {/* Desktop Sidebar */}
-          {!isMobile && (
-            <aside className={`enhanced-sidebar flex flex-col p-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-lg relative z-30
-              ${isSidebarExpanded ? 'expanded' : 'collapsed'}`}>
-              <div className={`sidebar-logo flex ${isSidebarExpanded ? 'justify-start px-2' : 'justify-center px-0'} items-center mb-6`}>
-                <img src="/images/logo.png" alt="Logo" className={`h-10 w-10 ${isSidebarExpanded ? '' : 'mx-auto'} sidebar-logo-pulse`} />
-                <h1 className={`text-xl font-bold ml-3 text-blue-600 dark:text-blue-400 whitespace-nowrap overflow-hidden sidebar-title ${isSidebarExpanded ? '' : 'hidden'}`}>
-                  Body Force
-                </h1>
-              </div>
-
-              <div className={`sidebar-user-info flex items-center ${isSidebarExpanded ? 'px-2' : 'justify-center'} py-4 mb-6 border-b border-gray-200 dark:border-gray-700 transition-all duration-300`}>
-                <FaUserCircle className="text-gray-500 dark:text-gray-400 text-3xl flex-shrink-0" />
-                <div className={`ml-3 overflow-hidden whitespace-nowrap sidebar-user-info ${isSidebarExpanded ? '' : 'hidden'}`}>
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">{user.email}</p>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Membre</span>
-                </div>
-              </div>
-
-              <nav className="flex-1">
-                {SWIPE_PAGES.map((page, index) => (
-                  <div key={index} className={`sidebar-menu-item ${location.pathname === page.path ? 'active' : ''}`}>
-                    <Link to={page.path} className="menu-link text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                      <span className="menu-link-icon">{page.icon}</span>
-                      <span className="menu-link-text">{page.name}</span>
-                      {!isSidebarExpanded && <span className="menu-tooltip">{page.name}</span>}
-                    </Link>
-                  </div>
-                ))}
-                <div className="sidebar-divider"></div>
-                <div className="sidebar-menu-item">
-                  <Link to="/profile" className="menu-link text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                    <span className="menu-link-icon"><FaUserCircle /></span>
-                    <span className="menu-link-text">Mon Profil</span>
-                    {!isSidebarExpanded && <span className="menu-tooltip">Mon Profil</span>}
-                  </Link>
-                </div>
-                {user.user_metadata.role === 'admin' && (
-                  <div className="sidebar-menu-item">
-                    <Link to="/users" className="menu-link text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                      <span className="menu-link-icon"><FaUserFriends /></span>
-                      <span className="menu-link-text">Gestion Utilisateurs</span>
-                      {!isSidebarExpanded && <span className="menu-tooltip">Gestion Utilisateurs</span>}
-                    </Link>
-                  </div>
-                )}
-              </nav>
-
-              <div className="sidebar-footer pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col items-center">
-                <button
-                  onClick={toggleDarkMode}
-                  className="w-full flex items-center justify-center p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 mb-2"
-                >
-                  <span className="mr-2">{getDarkModeIcon()}</span>
-                  {isSidebarExpanded && <span>{getDarkModeLabel()}</span>}
-                  {!isSidebarExpanded && <span className="menu-tooltip">{getDarkModeLabel()}</span>}
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center p-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 transition-colors duration-200"
-                >
-                  <span className="mr-2"><FaSignOutAlt /></span>
-                  {isSidebarExpanded && <span>Déconnexion</span>}
-                  {!isSidebarExpanded && <span className="menu-tooltip">Déconnexion</span>}
-                </button>
-              </div>
-
-              {/* Sidebar toggle button - Now fixed and visible */}
-              <button
-                className="sidebar-toggle"
-                onClick={toggleSidebar}
-                aria-label={isSidebarExpanded ? "Réduire la sidebar" : "Étendre la sidebar"}
-              >
-                <FaAngleDoubleLeft className={`toggle-icon ${isSidebarExpanded ? '' : 'rotate-180'}`} />
-              </button>
-            </aside>
-          )}
-
-          {/* Main content area */}
-          <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Header for both desktop (collapsed) and mobile */}
-            <header className="bg-white dark:bg-gray-800 shadow-md p-4 flex items-center justify-between z-20 sticky top-0">
-              {isMobile ? (
-                <button onClick={() => setIsMobileMenuOpen(true)} className="text-gray-600 dark:text-gray-300 text-2xl">
-                  <FaBars />
-                </button>
-              ) : (
-                <div className="flex items-center">
-                  <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                    {currentPageName || "Tableau de bord"}
-                  </h1>
-                </div>
-              )}
-              <div className="flex items-center space-x-4">
-                {isInstallable && !isInstalled && (
-                  <button
-                    onClick={installApp}
-                    className="pwa-install-button hidden md:flex" // Hide on mobile, show on desktop
-                  >
-                    <FaDownload />
-                    <span>Installer l'application</span>
-                  </button>
-                )}
-                <div className="relative">
-                  <button onClick={toggleDarkMode} className="text-gray-600 dark:text-gray-300 text-xl p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
-                    {getDarkModeIcon()}
-                  </button>
-                </div>
-                {/* User dropdown - simplified for brevity */}
-              </div>
-            </header>
-
-            {/* Mobile Menu */}
-            {isMobile && (
-              <>
-                <div
-                  className={`mobile-menu-overlay ${isMobileMenuOpen ? 'open' : ''}`}
-                  onClick={closeMobileMenu}
-                ></div>
-                <div className={`mobile-menu-container ${isMobileMenuOpen ? 'open' : 'closing'}`}>
-                  <div className="p-6 flex flex-col h-full">
-                    <div className="flex justify-between items-center mb-8 menu-header animate">
-                      <h2 className="text-2xl font-bold text-white">Menu</h2>
-                      <button onClick={closeMobileMenu} className="text-white text-2xl close-button animate">
-                        <FaTimes />
-                      </button>
-                    </div>
-                    <div className="flex items-center mb-8 text-white user-profile animate">
-                      <FaUserCircle className="text-4xl" />
-                      <div className="ml-4">
-                        <p className="font-semibold text-lg">{user.email}</p>
-                        <span className="text-sm opacity-80">Membre</span>
-                      </div>
-                    </div>
-                    <nav className="flex-1">
-                      {SWIPE_PAGES.map((page, index) => (
-                        <Link
-                          key={index}
-                          to={page.path}
-                          className={`flex items-center p-4 text-white text-lg rounded-lg mb-3 hover:bg-white hover:bg-opacity-20 transition-colors menu-item animate`}
-                          onClick={closeMobileMenu}
-                          style={{ transitionDelay: `${0.1 + index * 0.05}s` }}
-                        >
-                          <span className="mr-4">{page.icon}</span>
-                          {page.name}
-                        </Link>
-                      ))}
-                      <Link
-                        to="/profile"
-                        className={`flex items-center p-4 text-white text-lg rounded-lg mb-3 hover:bg-white hover:bg-opacity-20 transition-colors menu-item animate`}
-                        onClick={closeMobileMenu}
-                        style={{ transitionDelay: `${0.1 + SWIPE_PAGES.length * 0.05}s` }}
-                      >
-                        <span className="mr-4"><FaUserCircle /></span>
-                        Mon Profil
-                      </Link>
-                      {user.user_metadata.role === 'admin' && (
-                        <Link
-                          to="/users"
-                          className={`flex items-center p-4 text-white text-lg rounded-lg mb-3 hover:bg-white hover:bg-opacity-20 transition-colors menu-item animate`}
-                          onClick={closeMobileMenu}
-                          style={{ transitionDelay: `${0.1 + (SWIPE_PAGES.length + 1) * 0.05}s` }}
-                        >
-                          <span className="mr-4"><FaUserFriends /></span>
-                          Gestion Utilisateurs
-                        </Link>
-                      )}
-                    </nav>
-                    <div className="mt-auto pt-6 border-t border-white border-opacity-20">
-                      <button
-                        onClick={() => { toggleDarkMode(); closeMobileMenu(); }}
-                        className="flex items-center p-4 text-white text-lg rounded-lg mb-3 hover:bg-white hover:bg-opacity-20 transition-colors w-full text-left menu-item animate"
-                        style={{ transitionDelay: `${0.1 + (SWIPE_PAGES.length + (user.user_metadata.role === 'admin' ? 2 : 1)) * 0.05}s` }}
-                      >
-                        <span className="mr-4">{getDarkModeIcon()}</span>
-                        {getDarkModeLabel()}
-                      </button>
-                      <button
-                        onClick={() => { handleLogout(); closeMobileMenu(); }}
-                        className="flex items-center p-4 text-white text-lg rounded-lg hover:bg-white hover:bg-opacity-20 transition-colors w-full text-left menu-item animate"
-                        style={{ transitionDelay: `${0.1 + (SWIPE_PAGES.length + (user.user_metadata.role === 'admin' ? 3 : 2)) * 0.05}s` }}
-                      >
-                        <span className="mr-4"><FaSignOutAlt /></span>
-                        Déconnexion
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Main content with swipe functionality */}
-            <div
-              className="flex-1 relative overflow-hidden" // Ensure container for swipe is relative
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
-            >
-              <div
-                className={`swipe-content flex flex-col min-h-full transition-transform duration-200 ${isSwipping ? 'swiping' : ''}`}
-                style={{ transform: `translateX(${swipeOffset}px)` }}
-              >
-                <Routes>
-                  <Route path="/" element={renderPage('HomePage')} />
-                  <Route path="/members" element={renderPage('MembersPage')} />
-                  <Route path="/planning" element={renderPage('PlanningPage')} />
-                  <Route path="/payments" element={renderPage('PaymentsPage')} />
-                  <Route path="/statistics" element={renderPage('StatisticsPage')} />
-                  <Route path="/profile" element={renderPage('ProfilePage')} />
-                  {user.user_metadata.role === 'admin' && (
-                    <>
-                      <Route path="/users" element={renderPage('UserManagementPage')} />
-                      <Route path="/members/new" element={renderPage('MemberForm')} />
-                      <Route path="/members/edit/:id" element={renderPage('MemberForm')} />
-                    </>
-                  )}
-                  <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
-              </div>
-
-              {/* Swipe Preview and Resistance Indicator rendered outside the swipe-content but within the swipe-container's flow */}
-              <SwipePreview
-                direction={swipeDirection}
-                swipeOffset={swipeOffset}
-                currentPageIndex={getCurrentPageIndex()}
-              />
-              <SwipeResistanceIndicator
-                swipeOffset={swipeOffset}
-                direction={swipeDirection}
-              />
-            </div>
-
-            {isMobile && <PageIndicator currentIndex={getCurrentPageIndex()} totalPages={totalPages} isMobile={isMobile} />}
-            {isMobile && <SwipeNavigationArrows onNavigate={navigateToPage} isMobile={isMobile} />}
-            {isMobile && SWIPE_PAGES.some(page => page.path === location.pathname) && (
-              <SwipeHint show={!isSwipping && Math.abs(swipeOffset) < 10 && !isMobileMenuOpen} />
-            )}
-          </div>
-          <PWAToast toast={toast} onClose={closeToast} />
-        </div>
-      ) : (
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<Navigate to="/login" />} />
-        </Routes>
-      )}
+      <Routes>
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/" /> : <LoginPage />}
+        />
+        <Route
+          path="/*"
+          element={<AppRoutes user={user} setUser={setUser} />}
+        />
+      </Routes>
     </Router>
   );
 }
