@@ -297,6 +297,7 @@ function useSwipeNavigation() {
   };
 }
 
+
 // Styles CSS pour les animations, swipe et mode sombre + Sidebar améliorée
 const mobileMenuStyles = `
   .mobile-menu-overlay {
@@ -882,7 +883,7 @@ const mobileMenuStyles = `
     touch-action: pan-y;
     user-select: none;
     position: relative;
-    overflow: hidden;
+    /* overflow: hidden;  <-- LA LIGNE FAUTIVE A ÉTÉ SUPPRIMÉE ICI */
   }
 
   .swipe-content {
