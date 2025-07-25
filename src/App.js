@@ -2042,10 +2042,7 @@ function AppRoutes({ user, setUser }) {
   return user ? (
     <div className="flex flex-col lg:flex-row h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200 overflow-hidden">
       <style>{mobileMenuStyles}</style>
-
       {/* Header mobile */}
-      <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-        {/* Header mobile */}
         <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
             <div className="mobile-header-logo-3d">
