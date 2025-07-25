@@ -472,7 +472,7 @@ const mobileMenuStyles = `
 
 .sidebar-toggle .toggle-icon {
   transition: transform 0.3s ease;
-  transform: rotate(0deg);
+  transform: rotate(180deg);
 }
 
 .enhanced-sidebar.collapsed .sidebar-toggle {
@@ -480,7 +480,7 @@ const mobileMenuStyles = `
 }
 
 .enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
-  transform: rotate(180deg);
+  transform: rotate(0deg);
 }
 
   .sidebar-logo {
