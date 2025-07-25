@@ -424,53 +424,62 @@ const mobileMenuStyles = `
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
   }
 
- /* ✅ Nouvelle largeur optimisée */
+/* ✅ Nouvelle largeur optimisée */
 .enhanced-sidebar.collapsed {
   width: 64px !important;
 }
 
-  .enhanced-sidebar.expanded {
-    width: 280px !important;
-  }
+.enhanced-sidebar.expanded {
+  width: 280px !important;
+}
 
-  .sidebar-toggle {
-    position: absolute;
-    top: 50%;
-    right: -12px;
-    transform: translateY(-50%);
-    width: 24px;
-    height: 48px;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    border: none;
-    border-radius: 0 12px 12px 0;
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    z-index: 10;
-  }
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border: none;
+  border-radius: 0 12px 12px 0;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 9999;
+}
 
-  .dark .sidebar-toggle {
-    background: linear-gradient(135deg, #1e40af, #7c3aed);
-    box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
-  }
+.enhanced-sidebar .sidebar-toggle {
+  display: flex !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
 
-  .sidebar-toggle:hover {
-    transform: translateY(-50%) scale(1.1);
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-  }
+.dark .sidebar-toggle {
+  background: linear-gradient(135deg, #1e40af, #7c3aed);
+  box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
+}
 
- .sidebar-toggle .toggle-icon {
+.sidebar-toggle:hover {
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.sidebar-toggle .toggle-icon {
   transition: transform 0.3s ease;
   transform: rotate(0deg);
 }
 
-/* ✅ Ajuster la position du bouton toggle */
 .enhanced-sidebar.collapsed .sidebar-toggle {
   right: -12px;
+}
+
+.enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
+  transform: rotate(180deg);
 }
 
   .sidebar-logo {
