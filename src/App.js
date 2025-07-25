@@ -1197,6 +1197,72 @@ const mobileMenuStyles = `
   }
 }
   
+.mobile-header-logo-3d {
+ perspective: 600px;
+ display: flex;
+ align-items: center;
+ justify-content: center;
+}
+
+.mobile-header-logo-3d img {
+ transform-style: preserve-3d;
+ animation: rotate3DMobile 6s linear infinite;
+ filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+ transition: animation-play-state 0.3s ease;
+ border-radius: 8px;
+}
+
+.mobile-header-logo-3d:hover img,
+.mobile-header-logo-3d:active img {
+ animation-play-state: paused;
+}
+
+.dark .mobile-header-logo-3d img {
+ filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+}
+
+@keyframes rotate3DMobile {
+ 0% { 
+   transform: rotateY(0deg) rotateX(0deg);
+ }
+ 25% { 
+   transform: rotateY(90deg) rotateX(3deg);
+ }
+ 50% { 
+   transform: rotateY(180deg) rotateX(0deg);
+ }
+ 75% { 
+   transform: rotateY(270deg) rotateX(-3deg);
+ }
+ 100% { 
+   transform: rotateY(360deg) rotateX(0deg);
+ }
+}
+
+@media (max-width: 640px) {
+ .mobile-header-logo-3d img {
+   animation-duration: 8s;
+ }
+}
+
+@media (prefers-reduced-motion: reduce) {
+ .mobile-header-logo-3d img {
+   animation: none;
+   transform: none;
+   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
+ }
+}
+
+.mobile-menu-container .menu-header .mobile-header-logo-3d img {
+ animation-duration: 4s;
+ filter: drop-shadow(0 6px 15px rgba(0,0,0,0.3));
+}
+
+.dark .mobile-menu-container .menu-header .mobile-header-logo-3d img {
+ filter: drop-shadow(0 6px 15px rgba(0,0,0,0.5));
+}
+
+
 `;
 
 // Composant Toast PWA
@@ -1766,14 +1832,16 @@ function AnimatedMobileMenu({
         >
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
-              <img
-                src="/images/logo.png"
-                alt="Logo BodyForce"
-                className="h-12 w-auto"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
+              <div className="mobile-header-logo-3d">
+                <img
+                  src="/images/logo.png"
+                  alt="Logo BodyForce"
+                  className="h-12 w-auto"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              </div>
               <h1 className="text-lg font-bold text-white">BODY FORCE</h1>
             </div>
             <button
@@ -1977,182 +2045,186 @@ function AppRoutes({ user, setUser }) {
 
       {/* Header mobile */}
       <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2">
-          <img
-            src="/images/logo.png"
-            alt="Logo BodyForce"
-            className="h-8 w-auto"
-            onError={(e) => {
-              e.target.style.display = "none";
+        {/* Header mobile */}
+        <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <div className="mobile-header-logo-3d">
+              <img
+                src="/images/logo.png"
+                alt="Logo BodyForce"
+                className="h-8 w-auto"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+            </div>
+            <h1 className="text-lg font-bold text-red-600 dark:text-red-400">BODY FORCE</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleDarkMode}
+              className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              title={getDarkModeLabel()}
+            >
+              {getDarkModeIcon()}
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            >
+              <FaBars />
+            </button>
+          </div>
+        </div>
+
+        {/* Sidebar desktop améliorée */}
+        <EnhancedSidebar
+          user={user}
+          onLogout={handleLogout}
+          toggleDarkMode={toggleDarkMode}
+          getDarkModeIcon={getDarkModeIcon}
+          getDarkModeLabel={getDarkModeLabel}
+        />
+
+        {/* Menu mobile animé */}
+        <AnimatedMobileMenu
+          isOpen={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          user={user}
+          isAdmin={isAdmin}
+          location={location}
+          onLogout={handleLogout}
+          toggleDarkMode={toggleDarkMode}
+          getDarkModeIcon={getDarkModeIcon}
+          getDarkModeLabel={getDarkModeLabel}
+        />
+
+        {/* Bouton d'installation PWA */}
+        {isInstallable && !isInstalled && (
+          <button
+            onClick={installApp}
+            className="pwa-install-button"
+            title="Installer Body Force"
+          >
+            <FaDownload />
+            <span className="hidden sm:inline">Installer l'app</span>
+          </button>
+        )}
+
+        {/* Toast PWA */}
+        <PWAToast toast={toast} onClose={closeToast} />
+
+        {/* Indicateur de pages (mobile uniquement) */}
+        <PageIndicator
+          currentIndex={getCurrentPageIndex()}
+          totalPages={totalPages}
+          isMobile={isMobile}
+        />
+
+        {/* Flèches de navigation swipe (mobile uniquement) */}
+        <SwipeNavigationArrows
+          onNavigate={navigateToPage}
+          isMobile={isMobile}
+        />
+
+        {/* Hint de swipe */}
+        <SwipeHint show={showSwipeHint} />
+
+        {/* Main content avec support du swipe et animation */}
+        <main
+          className={`flex-1 p-4 overflow-y-auto ${isMobile ? 'swipe-container' : ''}`}
+          onTouchStart={isMobile ? onTouchStart : undefined}
+          onTouchMove={isMobile ? onTouchMove : undefined}
+          onTouchEnd={isMobile ? onTouchEnd : undefined}
+        >
+          {/* Contenu principal avec transformation */}
+          <div
+            className={`swipe-content ${isSwipping ? 'swiping' : ''}`}
+            style={{
+              transform: isMobile && swipeOffset !== 0
+                ? `translateX(${swipeOffset}px)`
+                : 'translateX(0)',
             }}
-          />
-          <h1 className="text-lg font-bold text-red-600 dark:text-red-400">BODY FORCE</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={toggleDarkMode}
-            className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-            title={getDarkModeLabel()}
           >
-            {getDarkModeIcon()}
-          </button>
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-          >
-            <FaBars />
-          </button>
-        </div>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route
+                path="/members"
+                element={
+                  <MembersPage
+                    onEdit={(member) => {
+                      setEditingMember(member);
+                      setShowForm(true);
+                    }}
+                  />
+                }
+              />
+              <Route path="/planning" element={<PlanningPage />} />
+              <Route path="/payments" element={<PaymentsPage />} />
+              <Route path="/statistics" element={<StatisticsPage />} />
+              <Route
+                path="/admin/users"
+                element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
+              />
+              <Route path="/profile" element={<ProfilePage user={user} />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </div>
+
+          {/* Aperçu de la page suivante/précédente */}
+          {isMobile && (
+            <SwipePreview
+              direction={swipeDirection}
+              swipeOffset={swipeOffset}
+              currentPageIndex={getCurrentPageIndex()}
+            />
+          )}
+
+          {/* Indicateur de résistance */}
+          {isMobile && (
+            <SwipeResistanceIndicator
+              swipeOffset={swipeOffset}
+              direction={swipeDirection}
+            />
+          )}
+
+          {showForm && (
+            <MemberForm
+              member={editingMember}
+              onSave={() => {
+                setShowForm(false);
+                setEditingMember(null);
+              }}
+              onCancel={() => {
+                setShowForm(false);
+                setEditingMember(null);
+              }}
+            />
+          )}
+        </main>
       </div>
-
-      {/* Sidebar desktop améliorée */}
-      <EnhancedSidebar
-        user={user}
-        onLogout={handleLogout}
-        toggleDarkMode={toggleDarkMode}
-        getDarkModeIcon={getDarkModeIcon}
-        getDarkModeLabel={getDarkModeLabel}
-      />
-
-      {/* Menu mobile animé */}
-      <AnimatedMobileMenu
-        isOpen={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)}
-        user={user}
-        isAdmin={isAdmin}
-        location={location}
-        onLogout={handleLogout}
-        toggleDarkMode={toggleDarkMode}
-        getDarkModeIcon={getDarkModeIcon}
-        getDarkModeLabel={getDarkModeLabel}
-      />
-
-      {/* Bouton d'installation PWA */}
-      {isInstallable && !isInstalled && (
-        <button
-          onClick={installApp}
-          className="pwa-install-button"
-          title="Installer Body Force"
-        >
-          <FaDownload />
-          <span className="hidden sm:inline">Installer l'app</span>
-        </button>
-      )}
-
-      {/* Toast PWA */}
-      <PWAToast toast={toast} onClose={closeToast} />
-
-      {/* Indicateur de pages (mobile uniquement) */}
-      <PageIndicator
-        currentIndex={getCurrentPageIndex()}
-        totalPages={totalPages}
-        isMobile={isMobile}
-      />
-
-      {/* Flèches de navigation swipe (mobile uniquement) */}
-      <SwipeNavigationArrows
-        onNavigate={navigateToPage}
-        isMobile={isMobile}
-      />
-
-      {/* Hint de swipe */}
-      <SwipeHint show={showSwipeHint} />
-
-      {/* Main content avec support du swipe et animation */}
-      <main
-        className={`flex-1 p-4 overflow-y-auto ${isMobile ? 'swipe-container' : ''}`}
-        onTouchStart={isMobile ? onTouchStart : undefined}
-        onTouchMove={isMobile ? onTouchMove : undefined}
-        onTouchEnd={isMobile ? onTouchEnd : undefined}
-      >
-        {/* Contenu principal avec transformation */}
-        <div
-          className={`swipe-content ${isSwipping ? 'swiping' : ''}`}
-          style={{
-            transform: isMobile && swipeOffset !== 0
-              ? `translateX(${swipeOffset}px)`
-              : 'translateX(0)',
-          }}
-        >
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route
-              path="/members"
-              element={
-                <MembersPage
-                  onEdit={(member) => {
-                    setEditingMember(member);
-                    setShowForm(true);
-                  }}
-                />
-              }
-            />
-            <Route path="/planning" element={<PlanningPage />} />
-            <Route path="/payments" element={<PaymentsPage />} />
-            <Route path="/statistics" element={<StatisticsPage />} />
-            <Route
-              path="/admin/users"
-              element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
-            />
-            <Route path="/profile" element={<ProfilePage user={user} />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </div>
-
-        {/* Aperçu de la page suivante/précédente */}
-        {isMobile && (
-          <SwipePreview
-            direction={swipeDirection}
-            swipeOffset={swipeOffset}
-            currentPageIndex={getCurrentPageIndex()}
-          />
-        )}
-
-        {/* Indicateur de résistance */}
-        {isMobile && (
-          <SwipeResistanceIndicator
-            swipeOffset={swipeOffset}
-            direction={swipeDirection}
-          />
-        )}
-
-        {showForm && (
-          <MemberForm
-            member={editingMember}
-            onSave={() => {
-              setShowForm(false);
-              setEditingMember(null);
-            }}
-            onCancel={() => {
-              setShowForm(false);
-              setEditingMember(null);
-            }}
-          />
-        )}
-      </main>
-    </div>
-  ) : (
-    <Navigate to="/login" />
-  );
+      ) : (
+      <Navigate to="/login" />
+      );
 }
-// ============== FIN DU COMPOSANT CORRIGÉ ==============
+      // ============== FIN DU COMPOSANT CORRIGÉ ==============
 
 
-function App() {
+      function App() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+      const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const getInitialSession = async () => {
       try {
         const {
-          data: { session },
-          error,
+        data: {session},
+      error,
         } = await supabase.auth.getSession();
-        if (error) {
-          console.error("Erreur récupération session:", error);
+      if (error) {
+        console.error("Erreur récupération session:", error);
         } else {
-          setUser(session?.user || null);
+        setUser(session?.user || null);
         }
       } catch (error) {
         console.error("Erreur session:", error);
@@ -2161,22 +2233,22 @@ function App() {
       }
     };
 
-    getInitialSession();
+      getInitialSession();
 
-    const {
-      data: { subscription },
+      const {
+        data: {subscription},
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.email);
+        console.log("Auth state changed:", event, session?.user?.email);
       setUser(session?.user || null);
       setLoading(false);
     });
 
     return () => {
-      subscription?.unsubscribe();
+        subscription?.unsubscribe();
     };
   }, []);
 
-  if (loading) {
+      if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
         <div className="text-center">
@@ -2184,23 +2256,23 @@ function App() {
           <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
         </div>
       </div>
-    );
+      );
   }
 
-  return (
-    <Router>
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/" /> : <LoginPage />}
-        />
-        <Route
-          path="/*"
-          element={<AppRoutes user={user} setUser={setUser} />}
-        />
-      </Routes>
-    </Router>
-  );
+      return (
+      <Router>
+        <Routes>
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/" /> : <LoginPage />}
+          />
+          <Route
+            path="/*"
+            element={<AppRoutes user={user} setUser={setUser} />}
+          />
+        </Routes>
+      </Router>
+      );
 }
 
-export default App;
+      export default App;
