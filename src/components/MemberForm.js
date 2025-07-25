@@ -1,5 +1,5 @@
 // 📄 MemberForm.js — Composant principal avec sélecteur caméra — Dossier : components — Date : 2025-07-25
-// 🎯 Ajout du sélecteur caméra avant/arrière + support mode sombre
+// 🎯 Ajout du sélecteur caméra avant/arrière + support mode sombre + CORRECTIONS WEBCAM
 // 🔹 Partie 1 - Imports et composants utilitaires
 
 import React, { useEffect, useRef, useState } from "react";
@@ -44,8 +44,7 @@ function sanitizeFileName(name) {
     .replace(/\s+/g, "_")
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
-
-// ✅ NOUVEAU COMPOSANT - Modal Caméra avec sélecteur avant/arrière
+// ✅ COMPOSANT CAMÉRA CORRIGÉ - Modal Caméra avec sélecteur avant/arrière + corrections webcam
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -57,8 +56,42 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const [selectedCameraId, setSelectedCameraId] = useState(null);
   const [facingMode, setFacingMode] = useState('user'); // 'user' = avant, 'environment' = arrière
 
+  // ✅ FONCTION DIAGNOSTIC - Vérifier le support caméra
+  const checkCameraSupport = () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('❌ API getUserMedia non supportée');
+      return false;
+    }
+    
+    console.log('✅ Support caméra détecté');
+    console.log('📱 User Agent:', navigator.userAgent);
+    return true;
+  };
+
+  // ✅ FONCTION NETTOYAGE - Libérer les ressources caméra
+  const cleanupStreams = () => {
+    if (stream) {
+      console.log('🧹 Nettoyage du stream caméra');
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('⏹️ Track arrêté:', track.label);
+      });
+      setStream(null);
+    }
+    
+    // Nettoyer aussi la vidéo
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
   // ✅ Fonction pour détecter les caméras disponibles
   const detectCameras = async () => {
+    if (!checkCameraSupport()) {
+      setError('Votre navigateur ne supporte pas l\'accès à la caméra');
+      return;
+    }
+
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
@@ -80,21 +113,27 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       }
     } catch (error) {
       console.error('❌ Erreur détection caméras:', error);
+      setError('Impossible de détecter les caméras disponibles');
     }
   };
 
-  // ✅ Fonction pour démarrer la caméra avec l'appareil sélectionné
+  // ✅ FONCTION CORRIGÉE - Démarrer la caméra avec gestion robuste
   const startCamera = async (cameraId = null, facing = null) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Arrêter le stream précédent s'il existe
+      // ✅ CORRECTION : Nettoyage complet avant de démarrer
       if (stream) {
+        console.log('🔄 Arrêt du stream précédent');
         stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+        
+        // ✅ ATTENDRE que le stream soit complètement libéré
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
 
-      // ✅ Configuration des contraintes avec sélection d'appareil
+      // Configuration des contraintes
       let constraints = {
         video: {
           width: { ideal: 1280 },
@@ -104,36 +143,56 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
         audio: false
       };
 
-      // Si un ID de caméra spécifique est fourni, l'utiliser
       if (cameraId) {
         constraints.video = {
           ...constraints.video,
           deviceId: { exact: cameraId }
         };
-        // Supprimer facingMode quand on utilise deviceId
         delete constraints.video.facingMode;
       }
 
       console.log('📹 Démarrage caméra avec contraintes:', constraints);
 
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // ✅ VÉRIFIER que le composant est toujours monté
+      if (!isOpen) {
+        newStream.getTracks().forEach(track => track.stop());
+        return;
+      }
+      
       setStream(newStream);
 
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
-        await videoRef.current.play();
+        
+        // ✅ GESTION ROBUSTE de la lecture vidéo
+        try {
+          await videoRef.current.play();
+          console.log('✅ Vidéo démarrée avec succès');
+        } catch (playError) {
+          console.warn('⚠️ Erreur lecture vidéo:', playError);
+          // Essayer sans await
+          videoRef.current.play().catch(e => console.warn('Lecture vidéo échouée:', e));
+        }
       }
 
     } catch (error) {
       console.error('❌ Erreur accès caméra:', error);
+      
+      // ✅ MESSAGES D'ERREUR AMÉLIORÉS
       let errorMessage = 'Impossible d\'accéder à la caméra';
       
       if (error.name === 'NotAllowedError') {
-        errorMessage = 'Accès à la caméra refusé. Veuillez autoriser l\'accès dans les paramètres.';
+        errorMessage = 'Accès à la caméra refusé. Veuillez autoriser l\'accès dans les paramètres du navigateur.';
       } else if (error.name === 'NotFoundError') {
         errorMessage = 'Aucune caméra trouvée sur cet appareil.';
       } else if (error.name === 'NotReadableError') {
-        errorMessage = 'La caméra est utilisée par une autre application.';
+        errorMessage = 'La caméra est occupée. Fermez les autres applications utilisant la caméra et réessayez.';
+      } else if (error.name === 'OverconstrainedError') {
+        errorMessage = 'Les paramètres de la caméra ne sont pas supportés. Essayez avec une autre caméra.';
+      } else if (error.name === 'SecurityError') {
+        errorMessage = 'Accès à la caméra bloqué pour des raisons de sécurité.';
       }
       
       setError(errorMessage);
@@ -142,12 +201,16 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     }
   };
 
-  // ✅ Fonction pour basculer entre caméra avant/arrière
+  // ✅ FONCTION CORRIGÉE - Basculer entre caméra avant/arrière
   const switchCamera = async () => {
+    console.log('🔄 Basculement de caméra...');
+    
     const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(newFacingMode);
     
-    // Essayer de trouver une caméra correspondante
+    // ✅ ATTENDRE avant de basculer
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const targetCamera = availableCameras.find(camera => {
       const label = camera.label.toLowerCase();
       if (newFacingMode === 'user') {
@@ -161,31 +224,37 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       setSelectedCameraId(targetCamera.deviceId);
       await startCamera(targetCamera.deviceId, newFacingMode);
     } else {
-      // Fallback: utiliser facingMode si pas de caméra spécifique trouvée
       await startCamera(null, newFacingMode);
     }
   };
-
-  // ✅ Initialisation lors de l'ouverture du modal
+  // ✅ USEEFFECT CORRIGÉ - Initialisation avec nettoyage robuste
   useEffect(() => {
     if (isOpen) {
-      detectCameras().then(() => {
-        startCamera();
-      });
+      // Attendre un peu avant d'initialiser pour éviter les conflits
+      const initCamera = async () => {
+        try {
+          await detectCameras();
+          // Petit délai pour s'assurer que les streams précédents sont libérés
+          setTimeout(() => {
+            startCamera();
+          }, 100);
+        } catch (error) {
+          console.error('❌ Erreur initialisation caméra:', error);
+          setError('Impossible d\'initialiser la caméra');
+        }
+      };
+      
+      initCamera();
     } else {
-      // Nettoyer lors de la fermeture
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
+      // ✅ NETTOYAGE COMPLET ET ORDONNÉ
+      cleanupStreams();
       setCapturedPhoto(null);
       setError(null);
     }
 
+    // ✅ Nettoyage lors du démontage
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      cleanupStreams();
     };
   }, [isOpen]);
 
@@ -322,7 +391,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
               <canvas ref={canvasRef} className="hidden" />
             </div>
           )}
-
           {/* ✅ Contrôles */}
           {!error && !isLoading && (
             <div className="mt-6 flex items-center gap-4">
@@ -401,6 +469,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   );
 }
 
+// ✅ Composants utilitaires
 function InputField({ label, icon: Icon, error, ...props }) {
   return (
     <div className="space-y-2">
@@ -491,7 +560,7 @@ function StatusBadge({ isExpired, isStudent }) {
     </div>
   );
 }
-// 🔹 Partie 2 - Fonction MemberForm principale avec nouveaux états
+// 🔹 Partie 5 - Fonction MemberForm principale avec nouveaux états
 
 function MemberForm({ member, onSave, onCancel }) {
   const [activeTab, setActiveTab] = useState("identity");
@@ -699,7 +768,6 @@ function MemberForm({ member, onSave, onCancel }) {
       }, 150);
     }
   };
-
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
       .from("payments")
@@ -918,7 +986,6 @@ function MemberForm({ member, onSave, onCancel }) {
       });
     }
   };
-
   const removeFile = async (fileToRemove, event) => {
     event?.stopPropagation();
     event?.preventDefault();
@@ -957,7 +1024,8 @@ function MemberForm({ member, onSave, onCancel }) {
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
   };
-  // 🔹 Partie 3 - Fonctions de rendu des onglets avec section photo modernisée
+
+  // 🔹 Partie 7 - Fonctions de rendu des onglets avec section photo modernisée
 
   // ✅ ONGLET IDENTITÉ MODIFIÉ - Nouvelle section photo avec sélecteur caméra
   const renderIdentityTab = () => (
@@ -1120,7 +1188,6 @@ function MemberForm({ member, onSave, onCancel }) {
       </div>
     </div>
   );
-
   const renderContactTab = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1303,7 +1370,6 @@ function MemberForm({ member, onSave, onCancel }) {
       )}
     </div>
   );
-
   const renderPaymentsTab = () => (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-xl border border-green-200 dark:border-green-600">
@@ -1398,7 +1464,6 @@ function MemberForm({ member, onSave, onCancel }) {
           </button>
         </div>
       </div>
-      // 🔹 Partie 4 - Suite de l'onglet Paiements et début du JSX principal
 
       {/* Liste des paiements */}
       {payments.length > 0 ? (
@@ -1513,7 +1578,6 @@ function MemberForm({ member, onSave, onCancel }) {
       )}
     </div>
   );
-
   const renderCurrentTab = () => {
     switch (activeTab) {
       case "identity":
@@ -1655,7 +1719,6 @@ function MemberForm({ member, onSave, onCancel }) {
           💡 Glissez horizontalement ou utilisez les flèches pour naviguer
         </div>
       </div>
-
       {/* Notifications de statut */}
       {uploadStatus.loading && (
         <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
@@ -1704,13 +1767,15 @@ function MemberForm({ member, onSave, onCancel }) {
           </div>
         </div>
       </div>
-      // 🔹 Partie 5 (Finale) - Modal Caméra intégré et fermeture du composant
 
-      {/* ✅ NOUVEAU MODAL CAMÉRA - Intégration complète */}
+      {/* ✅ NOUVEAU MODAL CAMÉRA - Intégration complète avec corrections */}
       {showCamera && (
         <CameraModal
           isOpen={!!showCamera}
-          onClose={() => setShowCamera(false)}
+          onClose={() => {
+            console.log('🚪 Fermeture du modal caméra');
+            setShowCamera(false);
+          }}
           onCapture={(imageData) => {
             console.log('📸 Photo capturée depuis le modal:', imageData.slice(0, 50) + '...');
             
@@ -1722,7 +1787,10 @@ function MemberForm({ member, onSave, onCancel }) {
               handleCameraCapture(imageData);
             }
             
-            setShowCamera(false);
+            // ✅ ATTENDRE avant de fermer pour éviter les conflits
+            setTimeout(() => {
+              setShowCamera(false);
+            }, 100);
           }}
           isDarkMode={isDarkMode}
         />
@@ -1733,51 +1801,44 @@ function MemberForm({ member, onSave, onCancel }) {
 
 export default MemberForm;
 
-// ✅ RÉSUMÉ DES NOUVEAUTÉS AJOUTÉES :
+// ✅ RÉSUMÉ DES CORRECTIONS APPLIQUÉES :
 
 /*
-🆕 NOUVELLES FONCTIONNALITÉS :
+🔧 CORRECTIONS POUR L'ERREUR WEBCAM :
 
-1. 📸 SÉLECTEUR CAMÉRA AVANT/ARRIÈRE
-   - Détection automatique des caméras disponibles
-   - Bouton de basculement entre caméra avant (selfie) et arrière
-   - Prévisualisation en temps réel avec effet miroir pour caméra avant
-   - Photo finale sans effet miroir (comme les vrais appareils)
+1. 🧹 NETTOYAGE ROBUSTE DES STREAMS
+   - Fonction cleanupStreams() dédiée avec logs détaillés
+   - Attente de 200ms après arrêt d'un stream avant d'en démarrer un nouveau
+   - Nettoyage de videoRef.current.srcObject
 
-2. 🎯 INTERFACE MODERNISÉE
-   - Remplacement des icônes React Icons par Lucide React
-   - Boutons "📱 Prendre une photo" et "📄 Photographier un document"
-   - Design cohérent avec le mode sombre
-   - Tooltips informatifs sur les fonctionnalités
+2. 🚦 GESTION D'ERREURS AMÉLIORÉE
+   - Messages spécifiques pour NotReadableError ("caméra occupée")
+   - Support de tous les types d'erreur (OverconstrainedError, SecurityError)
+   - Vérification que le composant est encore monté avant d'appliquer le stream
 
-3. 🔧 LOGIQUE AMÉLIORÉE
-   - Distinction automatique entre photo de profil et document
-   - Gestion d'erreurs robuste avec messages explicites
-   - Fallback intelligent si caméra spécifique indisponible
-   - Support complet des contraintes mobiles/desktop
+3. ⏱️ DÉLAIS DE SÉCURITÉ
+   - 100ms d'attente lors de l'initialisation caméra
+   - 100ms d'attente lors du basculement entre caméras
+   - 100ms d'attente avant fermeture du modal après capture
 
-4. ✨ EXPÉRIENCE UTILISATEUR
-   - Modal plein écran avec contrôles intuitifs
-   - Indicateur de caméra active ("Caméra avant (selfie)" / "Caméra arrière")
-   - Boutons de confirmation/annulation après capture
-   - Animation fluide entre les modes
+4. 🔍 DIAGNOSTIC RENFORCÉ
+   - Fonction checkCameraSupport() pour vérifier la compatibilité
+   - Logs détaillés à chaque étape (démarrage, arrêt, basculement)
+   - Affichage du User Agent pour debug
 
-UTILISATION :
-- Bouton photo dans l'onglet Identité → setShowCamera(true)
-- Bouton document dans l'onglet Documents → setShowCamera('document')
-- Le modal détecte automatiquement le type et traite en conséquence
+5. 🎯 USEEFFECT OPTIMISÉ
+   - Initialisation asynchrone avec gestion d'erreur
+   - Nettoyage ordonné lors du démontage
+   - Évitement des conflits de concurrence
 
-COMPATIBILITÉ :
-- Fonctionne sur tous les navigateurs modernes
-- Support mobile natif avec sélection caméra
-- Fallback gracieux si API non supportée
-- Détection automatique du dark mode
+RÉSULTAT : L'erreur "La caméra est utilisée par une autre application" 
+devrait être résolue grâce à la gestion propre des streams et aux 
+délais de sécurité entre les opérations.
 
-PERFORMANCE :
-- Stream caméra géré proprement (start/stop)
-- Canvas optimisé pour la capture
-- Nettoyage automatique des ressources
-- Logs détaillés pour le debug
+🎯 UTILISATION :
+- Photo profil : setShowCamera(true)
+- Document : setShowCamera('document')
+- Le modal gère automatiquement le type et traite en conséquence
 
-🎯 RÉSULTAT : Interface moderne et intuitive pour la capture photo avec sélecteur caméra avant/arrière ! 📱✨
+📱 COMPATIBLE : Mobile + Desktop avec sélecteur caméra avant/arrière
 */
