@@ -1843,6 +1843,7 @@ function AnimatedMobileMenu({
   );
 }
 
+// ============== COMPOSANT CORRIGÉ CI-DESSOUS ==============
 function AppRoutes({ user, setUser }) {
   const [editingMember, setEditingMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -1915,7 +1916,7 @@ function AppRoutes({ user, setUser }) {
     user?.app_metadata?.role === "admin";
 
   return user ? (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="flex flex-col lg:flex-row h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200 overflow-hidden">
       <style>{mobileMenuStyles}</style>
 
       {/* Header mobile */}
@@ -2003,7 +2004,7 @@ function AppRoutes({ user, setUser }) {
 
       {/* Main content avec support du swipe et animation */}
       <main
-        className={`flex-1 p-4 ${isMobile ? 'swipe-container' : ''}`}
+        className={`flex-1 p-4 overflow-y-auto ${isMobile ? 'swipe-container' : ''}`}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
@@ -2078,6 +2079,8 @@ function AppRoutes({ user, setUser }) {
     <Navigate to="/login" />
   );
 }
+// ============== FIN DU COMPOSANT CORRIGÉ ==============
+
 
 function App() {
   const [user, setUser] = useState(null);
