@@ -611,13 +611,13 @@ const mobileMenuStyles = `
     color: #d1d5db;
   }
 
-* ✅ Centrer les liens du menu */
+/* ✅ Centrer les liens du menu */
 .enhanced-sidebar.collapsed .menu-link {
   padding: 12px 8px !important;
   justify-content: center !important;
 }
 
-  * ✅ Masquer complètement le texte */
+/* ✅ Masquer complètement le texte */
 .enhanced-sidebar.collapsed .menu-link-text {
   display: none !important;
 }
@@ -1494,7 +1494,7 @@ function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getD
         onClick={toggleSidebar}
         aria-label={isCollapsed ? "Étendre le menu" : "Réduire le menu"}
       >
-        /* ✅ Nouveau JSX avec icônes inversées */
+        {/* ✅ Nouveau JSX avec icônes inversées */}
         <div className="toggle-icon">
           {isCollapsed ? <FaAngleDoubleRight /> : <FaAngleDoubleLeft />}
         </div>
