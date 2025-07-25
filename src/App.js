@@ -1142,6 +1142,61 @@ const mobileMenuStyles = `
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.02); }
   }
+
+/* ANIMATION 3D LOGO - ROTATION ÉLÉGANTE */
+.sidebar-logo-3d {
+  perspective: 1000px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sidebar-logo-3d img {
+  transform-style: preserve-3d;
+  animation: rotate3DElegant 8s linear infinite;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+  transition: animation-play-state 0.3s ease;
+  border-radius: 15px;
+}
+
+.sidebar-logo-3d:hover img {
+  animation-play-state: paused;
+}
+
+.enhanced-sidebar.collapsed .sidebar-logo-3d img {
+  animation-duration: 6s;
+}
+
+.dark .sidebar-logo-3d img {
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+}
+
+@keyframes rotate3DElegant {
+  0% { transform: rotateY(0deg) rotateX(0deg); }
+  25% { transform: rotateY(90deg) rotateX(5deg); }
+  50% { transform: rotateY(180deg) rotateX(0deg); }
+  75% { transform: rotateY(270deg) rotateX(-5deg); }
+  100% { transform: rotateY(360deg) rotateX(0deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-logo-3d img {
+    animation: none;
+    transform: none;
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.2));
+  }
+}
+
+@media (max-width: 1024px) {
+  .sidebar-logo-3d {
+    perspective: 800px;
+  }
+  
+  .sidebar-logo-3d img {
+    animation-duration: 10s;
+  }
+}
+  
 `;
 
 // Composant Toast PWA
