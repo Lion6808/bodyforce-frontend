@@ -463,22 +463,14 @@ const mobileMenuStyles = `
     box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
   }
 
-  .sidebar-toggle .toggle-icon {
-    transition: transform 0.3s ease;
-  }
-
-  /* ✅ Ajuster la position du bouton toggle */
-.enhanced-sidebar.collapsed .sidebar-toggle {
-  right: -12px;
-}
- /* ✅ Par cette nouvelle règle */
-.sidebar-toggle .toggle-icon {
+ .sidebar-toggle .toggle-icon {
   transition: transform 0.3s ease;
   transform: rotate(0deg);
 }
 
-.enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
-  transform: rotate(180deg);
+/* ✅ Ajuster la position du bouton toggle */
+.enhanced-sidebar.collapsed .sidebar-toggle {
+  right: -12px;
 }
 
   .sidebar-logo {
