@@ -26,6 +26,8 @@ import MemberForm from "../components/MemberForm";
 
 // ✅ Suppression de la prop onEdit - gestion interne des états
 function PaymentsPage() {
+  // ✅ Détection du dark mode
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,11 +44,21 @@ function PaymentsPage() {
   const [selectedMember, setSelectedMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
+  // ✅ Détection du dark mode
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+
+    checkDarkMode();
+
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   const loadData = async (showRetryIndicator = false) => {
@@ -267,15 +279,13 @@ function PaymentsPage() {
 
       // Ligne 2
       doc.text(
-        `En Attente: ${stats.totalPending.toLocaleString("fr-FR")} € (${
-          stats.pendingCount
+        `En Attente: ${stats.totalPending.toLocaleString("fr-FR")} € (${stats.pendingCount
         } paiements)`,
         20,
         yPos + 15
       );
       doc.text(
-        `En Retard: ${stats.totalOverdue.toLocaleString("fr-FR")} € (${
-          stats.overdueCount
+        `En Retard: ${stats.totalOverdue.toLocaleString("fr-FR")} € (${stats.overdueCount
         } paiements)`,
         150,
         yPos + 15
@@ -366,9 +376,8 @@ function PaymentsPage() {
         }
 
         // Nom complet (tronqué)
-        const fullName = `${member.firstName || ""} ${
-          member.name || ""
-        }`.trim();
+        const fullName = `${member.firstName || ""} ${member.name || ""
+          }`.trim();
         const truncatedName =
           fullName.length > 25 ? fullName.substring(0, 22) + "..." : fullName;
         doc.text(truncatedName, 20, yPos);
@@ -381,10 +390,10 @@ function PaymentsPage() {
           member.overallStatus === "paid"
             ? "Paye"
             : member.overallStatus === "pending"
-            ? "Attente"
-            : member.overallStatus === "overdue"
-            ? "Retard"
-            : "Aucun";
+              ? "Attente"
+              : member.overallStatus === "overdue"
+                ? "Retard"
+                : "Aucun";
         doc.text(statusText, 110, yPos);
 
         // Progression
@@ -483,20 +492,20 @@ function PaymentsPage() {
     }
   };
   const getStatusColor = (status) => {
-    const baseClasses = isDarkMode 
+    const baseClasses = isDarkMode
       ? {
-          paid: "text-green-400 bg-green-900/30",
-          pending: "text-yellow-400 bg-yellow-900/30",
-          overdue: "text-red-400 bg-red-900/30",
-          no_payments: "text-gray-400 bg-gray-800/30",
-        }
+        paid: "text-green-400 bg-green-900/30",
+        pending: "text-yellow-400 bg-yellow-900/30",
+        overdue: "text-red-400 bg-red-900/30",
+        no_payments: "text-gray-400 bg-gray-800/30",
+      }
       : {
-          paid: "text-green-600 bg-green-100",
-          pending: "text-yellow-600 bg-yellow-100",
-          overdue: "text-red-600 bg-red-100",
-          no_payments: "text-gray-600 bg-gray-100",
-        };
-    
+        paid: "text-green-600 bg-green-100",
+        pending: "text-yellow-600 bg-yellow-100",
+        overdue: "text-red-600 bg-red-100",
+        no_payments: "text-gray-600 bg-gray-100",
+      };
+
     return baseClasses[status] || baseClasses.no_payments;
   };
 
@@ -569,11 +578,10 @@ function PaymentsPage() {
       {filteredMembers.map((member) => (
         <div
           key={member.id}
-          className={`${
-            isDarkMode
+          className={`${isDarkMode
               ? "bg-gray-800 border-gray-700"
               : "bg-white border-gray-200"
-          } rounded-lg shadow border overflow-hidden`}
+            } rounded-lg shadow border overflow-hidden`}
         >
           <div className="p-4">
             {/* En-tête CORRIGÉ - Badge en haut à droite */}
@@ -594,14 +602,12 @@ function PaymentsPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className={`text-lg font-semibold ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  } truncate`}>
+                  <h4 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
+                    } truncate`}>
                     {member.firstName || "Prénom"} {member.name || "Nom"}
                   </h4>
-                  <p className={`text-sm ${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}>
+                  <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}>
                     Badge: {member.badgeId || "N/A"}
                   </p>
                 </div>
@@ -624,32 +630,27 @@ function PaymentsPage() {
             {/* Informations principales */}
             <div className="grid grid-cols-1 gap-3">
               {/* Progression */}
-              <div className={`${
-                isDarkMode ? "bg-gray-700" : "bg-gray-50"
-              } p-3 rounded-lg`}>
+              <div className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                } p-3 rounded-lg`}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-sm font-medium ${
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                  }`}>
+                  <span className={`text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-600"
+                    }`}>
                     Progression
                   </span>
-                  <span className={`text-sm font-bold ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  }`}>
+                  <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"
+                    }`}>
                     {member.progressPercentage.toFixed(0)}%
                   </span>
                 </div>
-                <div className={`w-full ${
-                  isDarkMode ? "bg-gray-600" : "bg-gray-200"
-                } rounded-full h-2`}>
+                <div className={`w-full ${isDarkMode ? "bg-gray-600" : "bg-gray-200"
+                  } rounded-full h-2`}>
                   <div
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      member.progressPercentage === 100
+                    className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
                         ? "bg-gradient-to-r from-green-400 to-green-600"
                         : member.progressPercentage > 50
-                        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                        : "bg-gradient-to-r from-red-400 to-red-600"
-                    }`}
+                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                          : "bg-gradient-to-r from-red-400 to-red-600"
+                      }`}
                     style={{
                       width: `${Math.min(member.progressPercentage, 100)}%`,
                     }}
@@ -659,41 +660,35 @@ function PaymentsPage() {
 
               {/* Montants et infos */}
               <div className="grid grid-cols-2 gap-3">
-                <div className={`${
-                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                } p-3 rounded-lg`}>
-                  <div className={`text-sm font-medium ${
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                  } mb-1`}>
+                <div className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                  } p-3 rounded-lg`}>
+                  <div className={`text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-600"
+                    } mb-1`}>
                     Montants
                   </div>
                   <div className="text-sm">
                     <div className="font-bold text-green-600">
                       {member.totalPaid.toFixed(2)} €
                     </div>
-                    <div className={`${
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    }`}>
+                    <div className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}>
                       sur {member.totalDue.toFixed(2)} €
                     </div>
                   </div>
                 </div>
 
-                <div className={`${
-                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                } p-3 rounded-lg`}>
-                  <div className={`text-sm font-medium ${
-                    isDarkMode ? "text-gray-300" : "text-gray-600"
-                  } mb-1`}>
+                <div className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                  } p-3 rounded-lg`}>
+                  <div className={`text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-600"
+                    } mb-1`}>
                     Paiements
                   </div>
                   <div className="text-sm">
                     <div className="font-bold text-blue-600">
                       {member.payments.filter((p) => p.is_paid).length}
                     </div>
-                    <div className={`${
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    }`}>
+                    <div className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                      }`}>
                       sur {member.payments.length}
                     </div>
                   </div>
@@ -709,11 +704,10 @@ function PaymentsPage() {
                     expandedMember === member.id ? null : member.id
                   )
                 }
-                className={`flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border ${
-                  isDarkMode 
+                className={`flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border ${isDarkMode
                     ? "border-blue-500 hover:bg-blue-900/20"
                     : "border-blue-200 hover:bg-blue-50"
-                } rounded-lg transition-colors`}
+                  } rounded-lg transition-colors`}
               >
                 {expandedMember === member.id ? (
                   <>
@@ -731,11 +725,10 @@ function PaymentsPage() {
               {/* ✅ Nouveau bouton Modifier */}
               <button
                 onClick={() => handleEditMember(member)}
-                className={`flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border ${
-                  isDarkMode
+                className={`flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border ${isDarkMode
                     ? "border-orange-500 hover:bg-orange-900/20"
                     : "border-orange-200 hover:bg-orange-50"
-                } rounded-lg transition-colors`}
+                  } rounded-lg transition-colors`}
               >
                 <Edit className="w-4 h-4" />
                 Modifier
@@ -743,15 +736,13 @@ function PaymentsPage() {
             </div>
           </div>
           {expandedMember === member.id && (
-            <div className={`border-t ${
-              isDarkMode 
-                ? "border-gray-700 bg-gray-900" 
+            <div className={`border-t ${isDarkMode
+                ? "border-gray-700 bg-gray-900"
                 : "border-gray-200 bg-gray-50"
-            }`}>
+              }`}>
               <div className="p-4 space-y-4">
-                <h5 className={`font-semibold ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                } flex items-center gap-2`}>
+                <h5 className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
+                  } flex items-center gap-2`}>
                   <CreditCard className="w-4 h-4" />
                   Détail des paiements
                 </h5>
@@ -761,9 +752,8 @@ function PaymentsPage() {
                     {member.payments.map((payment) => (
                       <div
                         key={payment.id}
-                        className={`${
-                          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border"
-                        } rounded-lg p-3`}
+                        className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border"
+                          } rounded-lg p-3`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span
@@ -774,26 +764,23 @@ function PaymentsPage() {
                             {getStatusIcon(getPaymentStatus(payment))}
                             {getStatusLabel(getPaymentStatus(payment))}
                           </span>
-                          <span className={`text-sm font-medium ${
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          }`}>
+                          <span className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-gray-900"
+                            }`}>
                             #{payment.id}
                           </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
-                            <span className={`${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}>Montant:</span>
+                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}>Montant:</span>
                             <div className="font-bold">
                               {parseFloat(payment.amount || 0).toFixed(2)} €
                             </div>
                           </div>
                           <div>
-                            <span className={`${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}>Méthode:</span>
+                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}>Méthode:</span>
                             <div className="flex items-center gap-1">
                               <span>
                                 {getPaymentMethodIcon(payment.method)}
@@ -804,9 +791,8 @@ function PaymentsPage() {
                             </div>
                           </div>
                           <div>
-                            <span className={`${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}>
+                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}>
                               Date paiement:
                             </span>
                             <div className="font-medium">
@@ -816,9 +802,8 @@ function PaymentsPage() {
                             </div>
                           </div>
                           <div>
-                            <span className={`${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}>Échéance:</span>
+                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}>Échéance:</span>
                             <div className="font-medium">
                               {formatDate(payment.encaissement_prevu)}
                             </div>
@@ -826,15 +811,12 @@ function PaymentsPage() {
                         </div>
 
                         {payment.commentaire && (
-                          <div className={`mt-2 p-2 ${
-                            isDarkMode ? "bg-gray-700" : "bg-gray-100"
-                          } rounded text-sm`}>
-                            <span className={`${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}>Commentaire:</span>
-                            <div className={`${
-                              isDarkMode ? "text-gray-300" : "text-gray-700"
-                            } mt-1`}>
+                          <div className={`mt-2 p-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-100"
+                            } rounded text-sm`}>
+                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}>Commentaire:</span>
+                            <div className={`${isDarkMode ? "text-gray-300" : "text-gray-700"
+                              } mt-1`}>
                               {payment.commentaire}
                             </div>
                           </div>
@@ -844,66 +826,54 @@ function PaymentsPage() {
                   </div>
                 ) : (
                   <div className="text-center py-6">
-                    <CreditCard className={`w-8 h-8 ${
-                      isDarkMode ? "text-gray-500" : "text-gray-400"
-                    } mx-auto mb-2`} />
-                    <p className={`${
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    } text-sm`}>
+                    <CreditCard className={`w-8 h-8 ${isDarkMode ? "text-gray-500" : "text-gray-400"
+                      } mx-auto mb-2`} />
+                    <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                      } text-sm`}>
                       Aucun paiement enregistré
                     </p>
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 gap-3">
-                  <div className={`${
-                    isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
-                  } p-3 rounded-lg`}>
-                    <h6 className={`font-medium ${
-                      isDarkMode ? "text-blue-300" : "text-blue-900"
-                    } mb-2`}>Contact</h6>
+                  <div className={`${isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
+                    } p-3 rounded-lg`}>
+                    <h6 className={`font-medium ${isDarkMode ? "text-blue-300" : "text-blue-900"
+                      } mb-2`}>Contact</h6>
                     <div className="space-y-1 text-sm">
-                      <div className={`${
-                        isDarkMode ? "text-blue-400" : "text-blue-700"
-                      }`}>
+                      <div className={`${isDarkMode ? "text-blue-400" : "text-blue-700"
+                        }`}>
                         📧 {member.email || "Non renseigné"}
                       </div>
-                      <div className={`${
-                        isDarkMode ? "text-blue-400" : "text-blue-700"
-                      }`}>
+                      <div className={`${isDarkMode ? "text-blue-400" : "text-blue-700"
+                        }`}>
                         📞 {member.phone || "Non renseigné"}
                       </div>
                     </div>
                   </div>
 
-                  <div className={`${
-                    isDarkMode ? "bg-green-900/30" : "bg-green-50"
-                  } p-3 rounded-lg`}>
-                    <h6 className={`font-medium ${
-                      isDarkMode ? "text-green-300" : "text-green-900"
-                    } mb-2`}>
+                  <div className={`${isDarkMode ? "bg-green-900/30" : "bg-green-50"
+                    } p-3 rounded-lg`}>
+                    <h6 className={`font-medium ${isDarkMode ? "text-green-300" : "text-green-900"
+                      } mb-2`}>
                       Résumé financier
                     </h6>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <div className={`font-bold ${
-                          isDarkMode ? "text-green-400" : "text-green-700"
-                        }`}>
+                        <div className={`font-bold ${isDarkMode ? "text-green-400" : "text-green-700"
+                          }`}>
                           {member.totalPaid.toFixed(2)} €
                         </div>
-                        <div className={`${
-                          isDarkMode ? "text-green-300" : "text-green-600"
-                        }`}>Payé</div>
+                        <div className={`${isDarkMode ? "text-green-300" : "text-green-600"
+                          }`}>Payé</div>
                       </div>
                       <div>
-                        <div className={`font-bold ${
-                          isDarkMode ? "text-orange-400" : "text-orange-700"
-                        }`}>
+                        <div className={`font-bold ${isDarkMode ? "text-orange-400" : "text-orange-700"
+                          }`}>
                           {(member.totalDue - member.totalPaid).toFixed(2)} €
                         </div>
-                        <div className={`${
-                          isDarkMode ? "text-orange-300" : "text-orange-600"
-                        }`}>Restant</div>
+                        <div className={`${isDarkMode ? "text-orange-300" : "text-orange-600"
+                          }`}>Restant</div>
                       </div>
                     </div>
                   </div>
@@ -917,25 +887,21 @@ function PaymentsPage() {
   );
 
   const renderConnectionError = () => (
-    <div className={`min-h-screen ${
-      isDarkMode 
-        ? "bg-gradient-to-br from-gray-900 to-black" 
+    <div className={`min-h-screen ${isDarkMode
+        ? "bg-gradient-to-br from-gray-900 to-black"
         : "bg-gradient-to-br from-blue-50 to-purple-50"
-    } flex items-center justify-center p-4`}>
-      <div className={`${
-        isDarkMode 
-          ? "bg-gray-800 border-gray-700" 
+      } flex items-center justify-center p-4`}>
+      <div className={`${isDarkMode
+          ? "bg-gray-800 border-gray-700"
           : "bg-white border-gray-200"
-      } rounded-xl shadow-lg p-8 max-w-md w-full text-center border`}>
+        } rounded-xl shadow-lg p-8 max-w-md w-full text-center border`}>
         <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-        <h2 className={`text-2xl font-bold ${
-          isDarkMode ? "text-white" : "text-gray-800"
-        } mb-4`}>
+        <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-800"
+          } mb-4`}>
           Problème de connexion
         </h2>
-        <p className={`${
-          isDarkMode ? "text-gray-300" : "text-gray-600"
-        } mb-8 leading-relaxed`}>{error}</p>
+        <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"
+          } mb-8 leading-relaxed`}>{error}</p>
         <button
           onClick={handleRetry}
           disabled={isRetrying}
@@ -956,9 +922,8 @@ function PaymentsPage() {
           )}
         </button>
         {retryCount > 0 && (
-          <p className={`text-sm ${
-            isDarkMode ? "text-gray-400" : "text-gray-500"
-          } mt-4`}>
+          <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"
+            } mt-4`}>
             Tentative {retryCount + 1}
           </p>
         )}
@@ -967,25 +932,22 @@ function PaymentsPage() {
   );
 
   const renderLoading = () => (
-    <div className={`min-h-screen ${
-      isDarkMode 
-        ? "bg-gradient-to-br from-gray-900 to-black" 
+    <div className={`min-h-screen ${isDarkMode
+        ? "bg-gradient-to-br from-gray-900 to-black"
         : "bg-gradient-to-br from-blue-50 to-purple-50"
-    } flex items-center justify-center`}>
+      } flex items-center justify-center`}>
       <div className="text-center">
         <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <RefreshCw className="w-8 h-8 animate-spin text-white" />
         </div>
-        <h2 className={`text-xl font-semibold ${
-          isDarkMode ? "text-white" : "text-gray-800"
-        } mb-2`}>
+        <h2 className={`text-xl font-semibold ${isDarkMode ? "text-white" : "text-gray-800"
+          } mb-2`}>
           {isRetrying
             ? "Reconnexion en cours..."
             : "Chargement des paiements..."}
         </h2>
-        <p className={`${
-          isDarkMode ? "text-gray-300" : "text-gray-600"
-        }`}>Veuillez patienter</p>
+        <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"
+          }`}>Veuillez patienter</p>
       </div>
     </div>
   );
@@ -994,24 +956,21 @@ function PaymentsPage() {
   if (error && !isRetrying) return renderConnectionError();
 
   return (
-    <div className={`min-h-screen ${
-      isDarkMode 
-        ? "bg-gradient-to-br from-gray-900 to-black" 
+    <div className={`min-h-screen ${isDarkMode
+        ? "bg-gradient-to-br from-gray-900 to-black"
         : "bg-gradient-to-br from-blue-50 to-purple-50"
-    } p-4 lg:p-6`}>
+      } p-4 lg:p-6`}>
       <div className="max-w-7xl mx-auto">
         {/* Header - Responsive */}
         <div className="mb-6 lg:mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h1 className={`text-2xl lg:text-4xl font-bold ${
-                isDarkMode ? "text-white" : "text-gray-900"
-              } mb-2`}>
+              <h1 className={`text-2xl lg:text-4xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"
+                } mb-2`}>
                 Suivi des Paiements
               </h1>
-              <p className={`${
-                isDarkMode ? "text-gray-300" : "text-gray-600"
-              }`}>
+              <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"
+                }`}>
                 Gérez et suivez les paiements de vos membres
               </p>
             </div>
@@ -1021,11 +980,10 @@ function PaymentsPage() {
               <button
                 onClick={exportToCSV}
                 disabled={loading || filteredMembers.length === 0}
-                className={`flex items-center justify-center gap-2 px-4 py-2 ${
-                  isDarkMode 
+                className={`flex items-center justify-center gap-2 px-4 py-2 ${isDarkMode
                     ? "bg-gray-800 border-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:text-gray-500 text-white"
                     : "bg-white border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                } border rounded-lg transition-colors text-sm font-medium`}
+                  } border rounded-lg transition-colors text-sm font-medium`}
               >
                 <Download className="w-4 h-4" />
                 Exporter CSV
@@ -1054,44 +1012,37 @@ function PaymentsPage() {
         {/* Widgets statistiques - Responsive */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8">
           {/* Total Attendu */}
-          <div className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-4 lg:p-6 border`}>
+          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg p-4 lg:p-6 border`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
-                <p className={`text-xs lg:text-sm font-medium ${
-                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                }`}>
+                <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}>
                   Total Attendu
                 </p>
-                <p className={`text-lg lg:text-2xl font-bold ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                }`}>
+                <p className={`text-lg lg:text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"
+                  }`}>
                   {stats.totalExpected.toLocaleString()} €
                 </p>
-                <p className={`text-xs ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                } mt-1`}>
+                <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                  } mt-1`}>
                   {payments.length} paiement(s)
                 </p>
               </div>
-              <div className={`hidden lg:block p-3 ${
-                isDarkMode ? "bg-blue-900/30" : "bg-blue-100"
-              } rounded-full`}>
+              <div className={`hidden lg:block p-3 ${isDarkMode ? "bg-blue-900/30" : "bg-blue-100"
+                } rounded-full`}>
                 <DollarSign className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
 
           {/* Total Reçu */}
-          <div className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-4 lg:p-6 border`}>
+          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg p-4 lg:p-6 border`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
-                <p className={`text-xs lg:text-sm font-medium ${
-                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                }`}>
+                <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}>
                   Total Reçu
                 </p>
                 <p className="text-lg lg:text-2xl font-bold text-green-600">
@@ -1102,51 +1053,44 @@ function PaymentsPage() {
                   {stats.collectionRate.toFixed(1)}%
                 </p>
               </div>
-              <div className={`hidden lg:block p-3 ${
-                isDarkMode ? "bg-green-900/30" : "bg-green-100"
-              } rounded-full`}>
+              <div className={`hidden lg:block p-3 ${isDarkMode ? "bg-green-900/30" : "bg-green-100"
+                } rounded-full`}>
                 <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
 
           {/* En Attente */}
-          <div className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-4 lg:p-6 border`}>
+          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg p-4 lg:p-6 border`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
-                <p className={`text-xs lg:text-sm font-medium ${
-                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                }`}>
+                <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}>
                   En Attente
                 </p>
                 <p className="text-lg lg:text-2xl font-bold text-yellow-600">
                   {stats.totalPending.toLocaleString()} €
                 </p>
-                <p className={`text-xs ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                } mt-1`}>
+                <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                  } mt-1`}>
                   {stats.pendingCount} paiement(s)
                 </p>
               </div>
-              <div className={`hidden lg:block p-3 ${
-                isDarkMode ? "bg-yellow-900/30" : "bg-yellow-100"
-              } rounded-full`}>
+              <div className={`hidden lg:block p-3 ${isDarkMode ? "bg-yellow-900/30" : "bg-yellow-100"
+                } rounded-full`}>
                 <Clock className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
           </div>
 
           {/* En Retard */}
-          <div className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-4 lg:p-6 border`}>
+          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg p-4 lg:p-6 border`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
-                <p className={`text-xs lg:text-sm font-medium ${
-                  isDarkMode ? "text-gray-400" : "text-gray-600"
-                }`}>
+                <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-600"
+                  }`}>
                   En Retard
                 </p>
                 <p className="text-lg lg:text-2xl font-bold text-red-600">
@@ -1157,9 +1101,8 @@ function PaymentsPage() {
                   {stats.overdueCount} paiement(s)
                 </p>
               </div>
-              <div className={`hidden lg:block p-3 ${
-                isDarkMode ? "bg-red-900/30" : "bg-red-100"
-              } rounded-full`}>
+              <div className={`hidden lg:block p-3 ${isDarkMode ? "bg-red-900/30" : "bg-red-100"
+                } rounded-full`}>
                 <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
             </div>
@@ -1167,66 +1110,58 @@ function PaymentsPage() {
         </div>
 
         {/* Barre de progression globale */}
-        <div className={`${
-          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-        } rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border`}>
+        <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+          } rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-            <h3 className={`text-lg font-semibold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}>
+            <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
+              }`}>
               Progression Globale
             </h3>
             <span className="text-xl lg:text-2xl font-bold text-blue-600">
               {stats.collectionRate.toFixed(1)}%
             </span>
           </div>
-          <div className={`w-full ${
-            isDarkMode ? "bg-gray-700" : "bg-gray-200"
-          } rounded-full h-3 lg:h-4`}>
+          <div className={`w-full ${isDarkMode ? "bg-gray-700" : "bg-gray-200"
+            } rounded-full h-3 lg:h-4`}>
             <div
               className="bg-gradient-to-r from-blue-500 to-green-500 h-3 lg:h-4 rounded-full transition-all duration-1000 ease-out"
               style={{ width: `${Math.min(stats.collectionRate, 100)}%` }}
             ></div>
           </div>
-          <div className={`flex justify-between text-sm ${
-            isDarkMode ? "text-gray-400" : "text-gray-600"
-          } mt-2`}>
+          <div className={`flex justify-between text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"
+            } mt-2`}>
             <span>{stats.totalReceived.toLocaleString()} € reçus</span>
             <span>{stats.totalExpected.toLocaleString()} € attendus</span>
           </div>
         </div>
 
         {/* Filtres et recherche - Responsive */}
-        <div className={`${
-          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-        } rounded-xl shadow-lg p-4 lg:p-6 mb-6 border`}>
+        <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+          } rounded-xl shadow-lg p-4 lg:p-6 mb-6 border`}>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
-                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${
-                  isDarkMode ? "text-gray-500" : "text-gray-400"
-                } w-5 h-5`} />
+                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? "text-gray-500" : "text-gray-400"
+                  } w-5 h-5`} />
                 <input
                   type="text"
                   placeholder="Rechercher par nom, prénom ou badge..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border ${
-                    isDarkMode 
+                  className={`w-full pl-10 pr-4 py-2 border ${isDarkMode
                       ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
                       : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  } rounded-lg`}
+                    } rounded-lg`}
                 />
               </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className={`px-4 py-2 border ${
-                  isDarkMode 
+                className={`px-4 py-2 border ${isDarkMode
                     ? "border-gray-600 bg-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
                     : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                } rounded-lg sm:w-48`}
+                  } rounded-lg sm:w-48`}
               >
                 <option value="all">Tous les statuts</option>
                 <option value="paid">Payé</option>
@@ -1237,13 +1172,12 @@ function PaymentsPage() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${
-                  showFilters
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${showFilters
                     ? "bg-blue-100 text-blue-600"
                     : isDarkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filtres</span>
@@ -1251,9 +1185,8 @@ function PaymentsPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <p className={`text-sm ${
-                isDarkMode ? "text-gray-400" : "text-gray-600"
-              }`}>
+              <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"
+                }`}>
                 {filteredMembers.length} membre(s) affiché(s) sur{" "}
                 {members.length}
               </p>
@@ -1275,15 +1208,12 @@ function PaymentsPage() {
         {/* Contenu principal - Basculement entre vue mobile et desktop */}
         {isMobile ? (
           // Vue mobile avec tuiles
-          <div className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg border`}>
-            <div className={`px-4 py-4 border-b ${
-              isDarkMode ? "border-gray-700" : "border-gray-200"
-            }`}>
-              <h3 className={`text-lg font-semibold ${
-                isDarkMode ? "text-white" : "text-gray-900"
+          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg border`}>
+            <div className={`px-4 py-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"
               }`}>
+              <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
+                }`}>
                 Membres ({filteredMembers.length})
               </h3>
             </div>
@@ -1292,17 +1222,14 @@ function PaymentsPage() {
                 renderMobileView()
               ) : (
                 <div className="text-center py-12">
-                  <Users className={`w-16 h-16 ${
-                    isDarkMode ? "text-gray-500" : "text-gray-400"
-                  } mx-auto mb-4`} />
-                  <h3 className={`text-lg font-medium ${
-                    isDarkMode ? "text-white" : "text-gray-900"
-                  } mb-2`}>
+                  <Users className={`w-16 h-16 ${isDarkMode ? "text-gray-500" : "text-gray-400"
+                    } mx-auto mb-4`} />
+                  <h3 className={`text-lg font-medium ${isDarkMode ? "text-white" : "text-gray-900"
+                    } mb-2`}>
                     Aucun membre trouvé
                   </h3>
-                  <p className={`${
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  }`}>
+                  <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                    }`}>
                     Essayez de modifier vos critères de recherche
                   </p>
                 </div>
@@ -1311,65 +1238,53 @@ function PaymentsPage() {
           </div>
         ) : (
           // Vue desktop avec tableau
-          <div className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg overflow-hidden border`}>
-            <div className={`px-6 py-4 border-b ${
-              isDarkMode ? "border-gray-700" : "border-gray-200"
-            }`}>
-              <h3 className={`text-lg font-semibold ${
-                isDarkMode ? "text-white" : "text-gray-900"
+          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg overflow-hidden border`}>
+            <div className={`px-6 py-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"
               }`}>
+              <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
+                }`}>
                 Détail par Membre ({filteredMembers.length})
               </h3>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className={`${
-                  isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                }`}>
+                <thead className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                  }`}>
                   <tr>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-500"
-                    } uppercase tracking-wider`}>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                      } uppercase tracking-wider`}>
                       Membre
                     </th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-500"
-                    } uppercase tracking-wider`}>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                      } uppercase tracking-wider`}>
                       Statut
                     </th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-500"
-                    } uppercase tracking-wider`}>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                      } uppercase tracking-wider`}>
                       Progression
                     </th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-500"
-                    } uppercase tracking-wider`}>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                      } uppercase tracking-wider`}>
                       Montants
                     </th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-500"
-                    } uppercase tracking-wider`}>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                      } uppercase tracking-wider`}>
                       Dernier Paiement
                     </th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${
-                      isDarkMode ? "text-gray-300" : "text-gray-500"
-                    } uppercase tracking-wider`}>
+                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                      } uppercase tracking-wider`}>
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className={`${
-                  isDarkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-gray-200"
-                } divide-y`}>
+                <tbody className={`${isDarkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-gray-200"
+                  } divide-y`}>
                   {filteredMembers.map((member) => (
                     <React.Fragment key={member.id}>
-                      <tr className={`${
-                        isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
-                      } transition-colors`}>
+                      <tr className={`${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"
+                        } transition-colors`}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
@@ -1387,15 +1302,13 @@ function PaymentsPage() {
                               )}
                             </div>
                             <div className="ml-4">
-                              <div className={`text-sm font-medium ${
-                                isDarkMode ? "text-white" : "text-gray-900"
-                              }`}>
+                              <div className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-gray-900"
+                                }`}>
                                 {member.firstName || "Prénom"}{" "}
                                 {member.name || "Nom"}
                               </div>
-                              <div className={`text-sm ${
-                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                              }`}>
+                              <div className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                }`}>
                                 Badge: {member.badgeId || "N/A"}
                               </div>
                             </div>
@@ -1416,29 +1329,25 @@ function PaymentsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="w-32">
                             <div className="flex items-center justify-between text-sm mb-1">
-                              <span className={`${
-                                isDarkMode ? "text-gray-300" : "text-gray-600"
-                              }`}>
+                              <span className={`${isDarkMode ? "text-gray-300" : "text-gray-600"
+                                }`}>
                                 {member.progressPercentage.toFixed(0)}%
                               </span>
-                              <span className={`${
-                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                              } text-xs`}>
+                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                } text-xs`}>
                                 {member.totalPaid.toFixed(0)}€/
                                 {member.totalDue.toFixed(0)}€
                               </span>
                             </div>
-                            <div className={`w-full ${
-                              isDarkMode ? "bg-gray-700" : "bg-gray-200"
-                            } rounded-full h-2`}>
+                            <div className={`w-full ${isDarkMode ? "bg-gray-700" : "bg-gray-200"
+                              } rounded-full h-2`}>
                               <div
-                                className={`h-2 rounded-full transition-all duration-500 ${
-                                  member.progressPercentage === 100
+                                className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
                                     ? "bg-gradient-to-r from-green-400 to-green-600"
                                     : member.progressPercentage > 50
-                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                                    : "bg-gradient-to-r from-red-400 to-red-600"
-                                }`}
+                                      ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                                      : "bg-gradient-to-r from-red-400 to-red-600"
+                                  }`}
                                 style={{
                                   width: `${Math.min(
                                     member.progressPercentage,
@@ -1452,37 +1361,32 @@ function PaymentsPage() {
 
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm">
-                            <div className={`font-medium ${
-                              isDarkMode ? "text-white" : "text-gray-900"
-                            }`}>
+                            <div className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"
+                              }`}>
                               {member.totalPaid.toFixed(2)} € /{" "}
                               {member.totalDue.toFixed(2)} €
                             </div>
-                            <div className={`${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}>
+                            <div className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}>
                               {member.payments.length} paiement(s)
                             </div>
                           </div>
                         </td>
 
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`text-sm ${
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          }`}>
+                          <div className={`text-sm ${isDarkMode ? "text-white" : "text-gray-900"
+                            }`}>
                             {member.lastPaymentDate ? (
                               <div>
                                 <div className="flex items-center gap-1">
-                                  <Calendar className={`w-4 h-4 ${
-                                    isDarkMode ? "text-gray-500" : "text-gray-400"
-                                  }`} />
+                                  <Calendar className={`w-4 h-4 ${isDarkMode ? "text-gray-500" : "text-gray-400"
+                                    }`} />
                                   {formatDate(member.lastPaymentDate)}
                                 </div>
                               </div>
                             ) : (
-                              <span className={`${
-                                isDarkMode ? "text-gray-500" : "text-gray-400"
-                              } italic`}>
+                              <span className={`${isDarkMode ? "text-gray-500" : "text-gray-400"
+                                } italic`}>
                                 Aucun paiement
                               </span>
                             )}
@@ -1526,13 +1430,11 @@ function PaymentsPage() {
                       {/* Ligne étendue avec détails des paiements */}
                       {expandedMember === member.id && (
                         <tr>
-                          <td colSpan="6" className={`px-6 py-4 ${
-                            isDarkMode ? "bg-gray-900" : "bg-gray-50"
-                          }`}>
+                          <td colSpan="6" className={`px-6 py-4 ${isDarkMode ? "bg-gray-900" : "bg-gray-50"
+                            }`}>
                             <div className="space-y-4">
-                              <h4 className={`font-medium ${
-                                isDarkMode ? "text-white" : "text-gray-900"
-                              } flex items-center gap-2`}>
+                              <h4 className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"
+                                } flex items-center gap-2`}>
                                 <CreditCard className="w-4 h-4" />
                                 Détail des paiements de {member.firstName}{" "}
                                 {member.name}
@@ -1543,11 +1445,10 @@ function PaymentsPage() {
                                   {member.payments.map((payment) => (
                                     <div
                                       key={payment.id}
-                                      className={`${
-                                        isDarkMode 
-                                          ? "bg-gray-800 border-gray-700" 
+                                      className={`${isDarkMode
+                                          ? "bg-gray-800 border-gray-700"
                                           : "bg-white border-gray-200"
-                                      } rounded-lg p-4 border`}
+                                        } rounded-lg p-4 border`}
                                     >
                                       <div className="flex items-center justify-between">
                                         <div className="flex-1">
@@ -1564,18 +1465,16 @@ function PaymentsPage() {
                                                 getPaymentStatus(payment)
                                               )}
                                             </span>
-                                            <span className={`font-medium ${
-                                              isDarkMode ? "text-white" : "text-gray-900"
-                                            }`}>
+                                            <span className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"
+                                              }`}>
                                               Paiement #{payment.id}
                                             </span>
                                           </div>
 
                                           <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                             <div>
-                                              <span className={`${
-                                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                                              }`}>
+                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                }`}>
                                                 Montant:
                                               </span>
                                               <div className="font-medium">
@@ -1586,9 +1485,8 @@ function PaymentsPage() {
                                               </div>
                                             </div>
                                             <div>
-                                              <span className={`${
-                                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                                              }`}>
+                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                }`}>
                                                 Méthode:
                                               </span>
                                               <div className="font-medium flex items-center gap-1">
@@ -1603,23 +1501,21 @@ function PaymentsPage() {
                                               </div>
                                             </div>
                                             <div>
-                                              <span className={`${
-                                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                                              }`}>
+                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                }`}>
                                                 Date de paiement:
                                               </span>
                                               <div className="font-medium">
                                                 {payment.is_paid
                                                   ? formatDateTime(
-                                                      payment.date_paiement
-                                                    )
+                                                    payment.date_paiement
+                                                  )
                                                   : "Non payé"}
                                               </div>
                                             </div>
                                             <div>
-                                              <span className={`${
-                                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                                              }`}>
+                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                }`}>
                                                 Encaissement prévu:
                                               </span>
                                               <div className="font-medium">
@@ -1631,17 +1527,14 @@ function PaymentsPage() {
                                           </div>
 
                                           {payment.commentaire && (
-                                            <div className={`mt-3 p-2 ${
-                                              isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                                            } rounded`}>
-                                              <span className={`${
-                                                isDarkMode ? "text-gray-400" : "text-gray-500"
-                                              } text-sm`}>
+                                            <div className={`mt-3 p-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                                              } rounded`}>
+                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                                } text-sm`}>
                                                 Commentaire:
                                               </span>
-                                              <div className={`${
-                                                isDarkMode ? "text-gray-300" : "text-gray-700"
-                                              } text-sm mt-1`}>
+                                              <div className={`${isDarkMode ? "text-gray-300" : "text-gray-700"
+                                                } text-sm mt-1`}>
                                                 {payment.commentaire}
                                               </div>
                                             </div>
@@ -1653,12 +1546,10 @@ function PaymentsPage() {
                                 </div>
                               ) : (
                                 <div className="text-center py-8">
-                                  <CreditCard className={`w-12 h-12 ${
-                                    isDarkMode ? "text-gray-500" : "text-gray-400"
-                                  } mx-auto mb-3`} />
-                                  <p className={`${
-                                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                                  }`}>
+                                  <CreditCard className={`w-12 h-12 ${isDarkMode ? "text-gray-500" : "text-gray-400"
+                                    } mx-auto mb-3`} />
+                                  <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                                    }`}>
                                     Aucun paiement enregistré pour ce membre
                                   </p>
                                 </div>
@@ -1666,23 +1557,19 @@ function PaymentsPage() {
 
                               {/* Contact et résumé */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className={`${
-                                  isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
-                                } p-3 rounded-lg`}>
-                                  <h5 className={`font-medium ${
-                                    isDarkMode ? "text-blue-300" : "text-blue-900"
-                                  } mb-2`}>
+                                <div className={`${isDarkMode ? "bg-blue-900/30" : "bg-blue-50"
+                                  } p-3 rounded-lg`}>
+                                  <h5 className={`font-medium ${isDarkMode ? "text-blue-300" : "text-blue-900"
+                                    } mb-2`}>
                                     Informations de contact
                                   </h5>
                                   <div className="space-y-1 text-sm">
-                                    <div className={`${
-                                      isDarkMode ? "text-blue-400" : "text-blue-700"
-                                    }`}>
+                                    <div className={`${isDarkMode ? "text-blue-400" : "text-blue-700"
+                                      }`}>
                                       📧 {member.email || "Email non renseigné"}
                                     </div>
-                                    <div className={`${
-                                      isDarkMode ? "text-blue-400" : "text-blue-700"
-                                    }`}>
+                                    <div className={`${isDarkMode ? "text-blue-400" : "text-blue-700"
+                                      }`}>
                                       📞{" "}
                                       {member.phone ||
                                         "Téléphone non renseigné"}
@@ -1690,39 +1577,33 @@ function PaymentsPage() {
                                   </div>
                                 </div>
 
-                                <div className={`${
-                                  isDarkMode ? "bg-green-900/30" : "bg-green-50"
-                                } p-3 rounded-lg`}>
-                                  <h5 className={`font-medium ${
-                                    isDarkMode ? "text-green-300" : "text-green-900"
-                                  } mb-2`}>
+                                <div className={`${isDarkMode ? "bg-green-900/30" : "bg-green-50"
+                                  } p-3 rounded-lg`}>
+                                  <h5 className={`font-medium ${isDarkMode ? "text-green-300" : "text-green-900"
+                                    } mb-2`}>
                                     Résumé financier
                                   </h5>
                                   <div className="grid grid-cols-2 gap-2 text-sm">
                                     <div>
-                                      <div className={`${
-                                        isDarkMode ? "text-green-400" : "text-green-700"
-                                      } font-medium`}>
+                                      <div className={`${isDarkMode ? "text-green-400" : "text-green-700"
+                                        } font-medium`}>
                                         {member.totalPaid.toFixed(2)} €
                                       </div>
-                                      <div className={`${
-                                        isDarkMode ? "text-green-300" : "text-green-600"
-                                      }`}>
+                                      <div className={`${isDarkMode ? "text-green-300" : "text-green-600"
+                                        }`}>
                                         Total payé
                                       </div>
                                     </div>
                                     <div>
-                                      <div className={`${
-                                        isDarkMode ? "text-yellow-400" : "text-yellow-700"
-                                      } font-medium`}>
+                                      <div className={`${isDarkMode ? "text-yellow-400" : "text-yellow-700"
+                                        } font-medium`}>
                                         {(
                                           member.totalDue - member.totalPaid
                                         ).toFixed(2)}{" "}
                                         €
                                       </div>
-                                      <div className={`${
-                                        isDarkMode ? "text-yellow-300" : "text-yellow-600"
-                                      }`}>
+                                      <div className={`${isDarkMode ? "text-yellow-300" : "text-yellow-600"
+                                        }`}>
                                         Reste à payer
                                       </div>
                                     </div>
@@ -1741,17 +1622,14 @@ function PaymentsPage() {
 
             {filteredMembers.length === 0 && (
               <div className="text-center py-12">
-                <Users className={`w-12 h-12 ${
-                  isDarkMode ? "text-gray-500" : "text-gray-400"
-                } mx-auto mb-4`} />
-                <h3 className={`text-lg font-medium ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                } mb-2`}>
+                <Users className={`w-12 h-12 ${isDarkMode ? "text-gray-500" : "text-gray-400"
+                  } mx-auto mb-4`} />
+                <h3 className={`text-lg font-medium ${isDarkMode ? "text-white" : "text-gray-900"
+                  } mb-2`}>
                   Aucun membre trouvé
                 </h3>
-                <p className={`${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}>
+                <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}>
                   Essayez de modifier vos critères de recherche
                 </p>
               </div>
@@ -1761,12 +1639,10 @@ function PaymentsPage() {
 
         {/* Statistiques détaillées par méthode de paiement - Responsive */}
         <div className="mt-6 lg:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-          <div className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-4 lg:p-6 border`}>
-            <h3 className={`text-lg font-semibold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            } mb-4`}>
+          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg p-4 lg:p-6 border`}>
+            <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
+              } mb-4`}>
               Répartition par Méthode
             </h3>
             <div className="space-y-3">
@@ -1786,17 +1662,15 @@ function PaymentsPage() {
                 return (
                   <div
                     key={method}
-                    className={`flex items-center justify-between p-3 ${
-                      isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                    } rounded-lg`}
+                    className={`flex items-center justify-between p-3 ${isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                      } rounded-lg`}
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-lg lg:text-xl">
                         {getPaymentMethodIcon(method)}
                       </span>
-                      <span className={`font-medium capitalize ${
-                        isDarkMode ? "text-white" : "text-gray-900"
-                      }`}>
+                      <span className={`font-medium capitalize ${isDarkMode ? "text-white" : "text-gray-900"
+                        }`}>
                         {method}
                       </span>
                     </div>
@@ -1804,9 +1678,8 @@ function PaymentsPage() {
                       <div className="font-medium text-sm lg:text-base">
                         {total.toFixed(2)} €
                       </div>
-                      <div className={`text-xs lg:text-sm ${
-                        isDarkMode ? "text-gray-400" : "text-gray-500"
-                      }`}>
+                      <div className={`text-xs lg:text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}>
                         {percentage.toFixed(1)}% • {methodPayments.length}{" "}
                         paiement(s)
                       </div>
@@ -1817,12 +1690,10 @@ function PaymentsPage() {
             </div>
           </div>
 
-          <div className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-4 lg:p-6 border`}>
-            <h3 className={`text-lg font-semibold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            } mb-4`}>
+          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg p-4 lg:p-6 border`}>
+            <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
+              } mb-4`}>
               Paiements Récents
             </h3>
             <div className="space-y-3">
@@ -1832,23 +1703,20 @@ function PaymentsPage() {
                 .map((payment) => (
                   <div
                     key={payment.id}
-                    className={`flex items-center justify-between p-3 ${
-                      isDarkMode ? "bg-gray-700" : "bg-gray-50"
-                    } rounded-lg`}
+                    className={`flex items-center justify-between p-3 ${isDarkMode ? "bg-gray-700" : "bg-gray-50"
+                      } rounded-lg`}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-lg">
                         {getPaymentMethodIcon(payment.method)}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <div className={`font-medium text-sm ${
-                          isDarkMode ? "text-white" : "text-gray-900"
-                        } truncate`}>
+                        <div className={`font-medium text-sm ${isDarkMode ? "text-white" : "text-gray-900"
+                          } truncate`}>
                           {payment.members?.firstName} {payment.members?.name}
                         </div>
-                        <div className={`text-xs ${
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        }`}>
+                        <div className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}>
                           {formatDate(payment.date_paiement)}
                         </div>
                       </div>
@@ -1861,12 +1729,10 @@ function PaymentsPage() {
                   </div>
                 ))}
               {payments.filter((p) => p.is_paid).length === 0 && (
-                <div className={`text-center py-6 lg:py-8 ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}>
-                  <Clock className={`w-8 lg:w-12 h-8 lg:h-12 mx-auto mb-2 ${
-                    isDarkMode ? "text-gray-600" : "text-gray-300"
-                  }`} />
+                <div className={`text-center py-6 lg:py-8 ${isDarkMode ? "text-gray-400" : "text-gray-500"
+                  }`}>
+                  <Clock className={`w-8 lg:w-12 h-8 lg:h-12 mx-auto mb-2 ${isDarkMode ? "text-gray-600" : "text-gray-300"
+                    }`} />
                   <p className="text-sm">Aucun paiement récent</p>
                 </div>
               )}
@@ -1905,14 +1771,12 @@ function PaymentsPage() {
 
         {/* Pied de page avec informations */}
         <div className="mt-6 text-center">
-          <p className={`text-sm ${
-            isDarkMode ? "text-gray-400" : "text-gray-500"
-          }`}>
+          <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"
+            }`}>
             Dernière mise à jour : {new Date().toLocaleString("fr-FR")}
           </p>
-          <p className={`text-xs ${
-            isDarkMode ? "text-gray-500" : "text-gray-400"
-          } mt-1`}>
+          <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"
+            } mt-1`}>
             Club Body Force - Système de Gestion des Paiements v2.0
           </p>
         </div>
@@ -1921,9 +1785,8 @@ function PaymentsPage() {
       {/* ✅ Modal du formulaire MemberForm (comme dans MembersPage) */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div className={`${
-            isDarkMode ? "bg-gray-800" : "bg-white"
-          } mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4`}>
+          <div className={`${isDarkMode ? "bg-gray-800" : "bg-white"
+            } mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4`}>
             <MemberForm
               member={selectedMember}
               onSave={async (memberData, closeModal) => {
