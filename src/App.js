@@ -1558,7 +1558,7 @@ function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getD
       </button>
 
       {/* En-tête avec logo et titre */}
-      <div className="sidebar-logo text-center p-4 pb-2">
+      <div className="sidebar-logo sidebar-logo-3d text-center p-4 pb-2">
         <h1 className={`sidebar-title text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
           CLUB BODY FORCE
         </h1>
