@@ -22,12 +22,10 @@ import {
 import { supabase } from "../supabaseClient";
 // ✅ Import du composant MemberForm
 import MemberForm from "../components/MemberForm";
-// ✅ Import du contexte de thème
-import { ThemeContext } from "../contexts/ThemeContext";
+
 
 // ✅ Suppression de la prop onEdit - gestion interne des états
 function PaymentsPage() {
-  const { isDarkMode } = useContext(ThemeContext);
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);

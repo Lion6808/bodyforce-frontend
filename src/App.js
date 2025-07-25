@@ -27,6 +27,8 @@ import {
   FaMoon,
   FaSun,
   FaAdjust,
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight,
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 
@@ -295,7 +297,7 @@ function useSwipeNavigation() {
   };
 }
 
-// Styles CSS pour les animations, swipe et mode sombre
+// Styles CSS pour les animations, swipe et mode sombre + Sidebar améliorée
 const mobileMenuStyles = `
   .mobile-menu-overlay {
     position: fixed;
@@ -397,6 +399,345 @@ const mobileMenuStyles = `
   
   .close-button.animate {
     transform: rotate(0deg);
+  }
+
+  /* ===== STYLES SIDEBAR DESKTOP AMÉLIORÉE ===== */
+  .enhanced-sidebar {
+    background: linear-gradient(180deg, 
+      rgba(255, 255, 255, 0.95) 0%, 
+      rgba(249, 250, 251, 0.95) 100%
+    );
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(229, 231, 235, 0.8);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.05);
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dark .enhanced-sidebar {
+    background: linear-gradient(180deg, 
+      rgba(31, 41, 55, 0.95) 0%, 
+      rgba(17, 24, 39, 0.95) 100%
+    );
+    border-right: 1px solid rgba(75, 85, 99, 0.3);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .enhanced-sidebar.collapsed {
+    width: 80px !important;
+  }
+
+  .enhanced-sidebar.expanded {
+    width: 280px !important;
+  }
+
+  .sidebar-toggle {
+    position: absolute;
+    top: 50%;
+    right: -12px;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 48px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border: none;
+    border-radius: 0 12px 12px 0;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 10;
+  }
+
+  .dark .sidebar-toggle {
+    background: linear-gradient(135deg, #1e40af, #7c3aed);
+    box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
+  }
+
+  .sidebar-toggle:hover {
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  }
+
+  .sidebar-toggle .toggle-icon {
+    transition: transform 0.3s ease;
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
+    transform: rotate(180deg);
+  }
+
+  .sidebar-logo {
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform-origin: center;
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-logo {
+    transform: scale(0.7);
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-logo img {
+    height: 48px !important;
+  }
+
+  .sidebar-title {
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-title {
+    opacity: 0;
+    transform: translateX(-20px);
+    pointer-events: none;
+  }
+
+  .sidebar-user-info {
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-user-info {
+    opacity: 0;
+    transform: translateX(-20px);
+    pointer-events: none;
+  }
+
+  .sidebar-menu-item {
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border-radius: 12px;
+    margin: 4px 0;
+    overflow: hidden;
+  }
+
+  .sidebar-menu-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, 
+      rgba(59, 130, 246, 0.1) 0%, 
+      rgba(139, 92, 246, 0.1) 100%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 12px;
+  }
+
+  .sidebar-menu-item:hover::before {
+    opacity: 1;
+  }
+
+  .sidebar-menu-item.active::before {
+    opacity: 1;
+    background: linear-gradient(135deg, 
+      rgba(59, 130, 246, 0.2) 0%, 
+      rgba(139, 92, 246, 0.2) 100%
+    );
+  }
+
+  .dark .sidebar-menu-item::before {
+    background: linear-gradient(135deg, 
+      rgba(96, 165, 250, 0.1) 0%, 
+      rgba(167, 139, 250, 0.1) 100%
+    );
+  }
+
+  .dark .sidebar-menu-item.active::before {
+    background: linear-gradient(135deg, 
+      rgba(96, 165, 250, 0.2) 0%, 
+      rgba(167, 139, 250, 0.2) 100%
+    );
+  }
+
+  .sidebar-menu-item .menu-link {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    text-decoration: none;
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-menu-item .menu-link {
+    justify-content: center;
+    padding: 12px 8px;
+  }
+
+  .menu-link-icon {
+    font-size: 20px;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    min-width: 20px;
+  }
+
+  .sidebar-menu-item:hover .menu-link-icon {
+    transform: scale(1.1);
+  }
+
+  .sidebar-menu-item.active .menu-link-icon {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+
+  .menu-link-text {
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    opacity: 1;
+    transform: translateX(0);
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .dark .menu-link-text {
+    color: #d1d5db;
+  }
+
+  .enhanced-sidebar.collapsed .menu-link-text {
+    opacity: 0;
+    transform: translateX(-10px);
+    pointer-events: none;
+  }
+
+  .menu-tooltip {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 8px;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 1000;
+  }
+
+  .dark .menu-tooltip {
+    background: rgba(255, 255, 255, 0.9);
+    color: #111827;
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-menu-item:hover .menu-tooltip {
+    opacity: 1;
+    transform: translateY(-50%) translateX(4px);
+  }
+
+  .menu-tooltip::before {
+    content: '';
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: rgba(0, 0, 0, 0.9);
+  }
+
+  .dark .menu-tooltip::before {
+    border-right-color: rgba(255, 255, 255, 0.9);
+  }
+
+  .sidebar-divider {
+    height: 1px;
+    background: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(229, 231, 235, 0.5) 20%, 
+      rgba(229, 231, 235, 0.8) 50%, 
+      rgba(229, 231, 235, 0.5) 80%, 
+      transparent 100%
+    );
+    margin: 16px 0;
+    transition: all 0.4s ease;
+  }
+
+  .dark .sidebar-divider {
+    background: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(75, 85, 99, 0.3) 20%, 
+      rgba(75, 85, 99, 0.6) 50%, 
+      rgba(75, 85, 99, 0.3) 80%, 
+      transparent 100%
+    );
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-divider {
+    margin: 12px 8px;
+  }
+
+  .sidebar-footer {
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    margin-top: auto;
+    padding-top: 16px;
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-footer {
+    padding-top: 8px;
+  }
+
+  /* Animation d'entrée pour les éléments du menu */
+  .sidebar-menu-item {
+    animation: slideInFromLeft 0.5s ease-out forwards;
+  }
+
+  .sidebar-menu-item:nth-child(1) { animation-delay: 0.1s; }
+  .sidebar-menu-item:nth-child(2) { animation-delay: 0.15s; }
+  .sidebar-menu-item:nth-child(3) { animation-delay: 0.2s; }
+  .sidebar-menu-item:nth-child(4) { animation-delay: 0.25s; }
+  .sidebar-menu-item:nth-child(5) { animation-delay: 0.3s; }
+  .sidebar-menu-item:nth-child(6) { animation-delay: 0.35s; }
+  .sidebar-menu-item:nth-child(7) { animation-delay: 0.4s; }
+
+  @keyframes slideInFromLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Effet de survol avancé */
+  .sidebar-menu-item:hover {
+    transform: translateX(4px);
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-menu-item:hover {
+    transform: translateX(0) scale(1.05);
+  }
+
+  /* Indicateur actif */
+  .sidebar-menu-item.active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 70%;
+    background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+    border-radius: 2px 0 0 2px;
+    transition: all 0.3s ease;
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-menu-item.active::after {
+    right: 8px;
+    width: 3px;
+    height: 50%;
+    border-radius: 2px;
   }
 
   /* Styles PWA */
@@ -758,6 +1099,31 @@ const mobileMenuStyles = `
       bottom: 120px;
     }
   }
+
+  /* Animations additionnelles pour la sidebar */
+  .sidebar-item-enter {
+    animation: slideInFade 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  @keyframes slideInFade {
+    from {
+      opacity: 0;
+      transform: translateX(-30px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
+  }
+
+  .sidebar-logo-pulse {
+    animation: logoPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes logoPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
 `;
 
 // Composant Toast PWA
@@ -1062,8 +1428,13 @@ function LoginPage() {
   );
 }
 
-function Sidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getDarkModeLabel }) {
+// ===== SIDEBAR DESKTOP AMÉLIORÉE =====
+function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getDarkModeLabel }) {
   const location = useLocation();
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar-collapsed') === 'true';
+  });
+
   const menu = [
     { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" /> },
     {
@@ -1093,72 +1464,134 @@ function Sidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getDarkModeL
     user?.email === "admin@bodyforce.com" ||
     user?.app_metadata?.role === "admin";
 
+  const toggleSidebar = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', newState.toString());
+  };
+
   return (
-    <aside className="w-64 bg-white dark:bg-gray-800 shadow-md p-4 flex-col items-center hidden lg:flex border-r border-gray-200 dark:border-gray-700">
-      <h1 className="text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2">
-        CLUB BODY FORCE
-      </h1>
-      <img
-        src="/images/logo.png"
-        alt="Logo"
-        className="mt-4 h-44 w-auto mb-6"
-        onError={(e) => {
-          e.target.style.display = "none";
-        }}
-      />
-      <div className="mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-        <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400" />
-        <div className="flex flex-col">
-          <span className="font-medium">{user?.email}</span>
+    <aside className={`enhanced-sidebar ${isCollapsed ? 'collapsed' : 'expanded'} flex-col items-center hidden lg:flex transition-all duration-400 ease-out`}>
+      {/* Bouton toggle */}
+      <button 
+        className="sidebar-toggle"
+        onClick={toggleSidebar}
+        aria-label={isCollapsed ? "Étendre le menu" : "Réduire le menu"}
+      >
+        <div className="toggle-icon">
+          {isCollapsed ? <FaAngleDoubleRight /> : <FaAngleDoubleLeft />}
+        </div>
+      </button>
+
+      {/* En-tête avec logo et titre */}
+      <div className="sidebar-logo text-center p-4 pb-2">
+        <h1 className={`sidebar-title text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
+          CLUB BODY FORCE
+        </h1>
+        <img
+          src="/images/logo.png"
+          alt="Logo"
+          className="sidebar-logo-pulse h-32 w-auto mb-4 mx-auto transition-all duration-400"
+          onError={(e) => {
+            e.target.style.display = "none";
+          }}
+        />
+      </div>
+
+      {/* Informations utilisateur */}
+      <div className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
+        <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
+        <div className="flex flex-col min-w-0">
+          <span className="font-medium truncate">{user?.email}</span>
           {isAdmin && (
             <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">Admin</span>
           )}
         </div>
       </div>
-      <ul className="w-full space-y-2">
-        {menu.map((item) => (
-          <li key={item.path}>
+
+      <div className="sidebar-divider"></div>
+
+      {/* Menu principal */}
+      <ul className="w-full space-y-2 px-4 flex-1">
+        {menu.map((item, index) => (
+          <li key={item.path} className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? 'active' : ''}`} style={{animationDelay: `${index * 0.1}s`}}>
             <Link
               to={item.path}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition duration-200 ${
-                location.pathname === item.path ? "bg-blue-200 dark:bg-blue-900/40" : ""
-              }`}
+              className="menu-link"
             >
-              {item.icon} <span className="text-gray-700 dark:text-gray-300">{item.name}</span>
+              <div className="menu-link-icon">
+                {item.icon}
+              </div>
+              <span className="menu-link-text">{item.name}</span>
+              {isCollapsed && (
+                <div className="menu-tooltip">
+                  {item.name}
+                </div>
+              )}
             </Link>
           </li>
         ))}
+        
+        {/* Menu admin */}
         {isAdmin && (
-          <li>
+          <li className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? 'active' : ''}`} style={{animationDelay: `${menu.length * 0.1}s`}}>
             <Link
               to="/admin/users"
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 hover:bg-purple-100 dark:hover:bg-purple-900/20 transition duration-200 ${
-                location.pathname === "/admin/users" ? "bg-purple-200 dark:bg-purple-900/40" : ""
-              }`}
+              className="menu-link"
             >
-              <FaUserCircle className="text-purple-500 dark:text-purple-400" /> 
-              <span className="text-gray-700 dark:text-gray-300">Utilisateurs</span>
+              <div className="menu-link-icon">
+                <FaUserCircle className="text-purple-500 dark:text-purple-400" />
+              </div>
+              <span className="menu-link-text">Utilisateurs</span>
+              {isCollapsed && (
+                <div className="menu-tooltip">
+                  Utilisateurs
+                </div>
+              )}
             </Link>
           </li>
         )}
-        <li>
+      </ul>
+
+      <div className="sidebar-divider"></div>
+
+      {/* Footer avec actions */}
+      <div className="sidebar-footer w-full px-4 space-y-2">
+        <div className="sidebar-menu-item">
           <button
             onClick={toggleDarkMode}
-            className="flex items-center gap-2 rounded-lg px-4 py-2 w-full text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-200"
+            className="menu-link w-full text-left"
             title={getDarkModeLabel()}
           >
-            {getDarkModeIcon()} {getDarkModeLabel()}
+            <div className="menu-link-icon text-gray-600 dark:text-gray-400">
+              {getDarkModeIcon()}
+            </div>
+            <span className="menu-link-text">{isCollapsed ? '' : getDarkModeLabel()}</span>
+            {isCollapsed && (
+              <div className="menu-tooltip">
+                {getDarkModeLabel()}
+              </div>
+            )}
           </button>
-        </li>
-        <li>
+        </div>
+
+        <div className="sidebar-menu-item">
           <button
             onClick={onLogout}
-            className="flex items-center gap-2 rounded-lg px-4 py-2 w-full text-left text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition duration-200"
+            className="menu-link w-full text-left text-red-600 dark:text-red-400"
           >
-            <FaSignOutAlt /> Déconnexion
+            <div className="menu-link-icon">
+              <FaSignOutAlt />
+            </div>
+            <span className="menu-link-text">Déconnexion</span>
+            {isCollapsed && (
+              <div className="menu-tooltip">
+                Déconnexion
+              </div>
+            )}
           </button>
-        </li>
-      </ul>
+        </div>
+      </div>
     </aside>
   );
 }
@@ -1515,7 +1948,8 @@ function AppRoutes({ user, setUser }) {
         </div>
       </div>
 
-      <Sidebar 
+      {/* Sidebar desktop améliorée */}
+      <EnhancedSidebar 
         user={user} 
         onLogout={handleLogout} 
         toggleDarkMode={toggleDarkMode}
