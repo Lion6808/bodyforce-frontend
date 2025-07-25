@@ -60,7 +60,6 @@ function PaymentsPage() {
   const [expandedMember, setExpandedMember] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
 
   // ✅ États pour la gestion du formulaire (comme dans MembersPage)
   const [selectedMember, setSelectedMember] = useState(null);
