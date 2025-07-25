@@ -77,13 +77,13 @@ function useDarkMode() {
   // Fonction pour appliquer le thème au DOM
   const applyTheme = (isDark) => {
     const htmlElement = document.documentElement;
-    
+
     if (isDark) {
       htmlElement.classList.add('dark');
     } else {
       htmlElement.classList.remove('dark');
     }
-    
+
     console.log(`🎨 Mode appliqué: ${isDark ? 'Sombre' : 'Clair'}`, {
       classList: Array.from(htmlElement.classList),
       darkMode,
@@ -95,9 +95,9 @@ function useDarkMode() {
   useEffect(() => {
     const savedMode = localStorage.getItem('darkMode') || 'auto';
     const newActualMode = determineActualMode(savedMode);
-    
+
     console.log('🚀 Initialisation mode sombre:', { savedMode, newActualMode });
-    
+
     setDarkMode(savedMode);
     setActualDarkMode(newActualMode);
     applyTheme(newActualMode);
@@ -108,7 +108,7 @@ function useDarkMode() {
     const newActualMode = determineActualMode(darkMode);
     setActualDarkMode(newActualMode);
     applyTheme(newActualMode);
-    
+
     console.log('🔄 Changement de mode:', { darkMode, newActualMode });
   }, [darkMode]);
 
@@ -132,9 +132,9 @@ function useDarkMode() {
     const modes = ['auto', 'light', 'dark'];
     const currentIndex = modes.indexOf(darkMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
-    
+
     console.log('👆 Toggle mode:', { current: darkMode, next: nextMode });
-    
+
     setDarkMode(nextMode);
     localStorage.setItem('darkMode', nextMode);
   };
@@ -210,7 +210,7 @@ function useSwipeNavigation() {
     // Animation de sortie puis navigation
     setIsSwipping(true);
     setSwipeOffset(direction === 'left' ? -window.innerWidth : window.innerWidth);
-    
+
     setTimeout(() => {
       navigate(SWIPE_PAGES[newIndex].path);
       // Reset après navigation
@@ -232,25 +232,25 @@ function useSwipeNavigation() {
 
   const onTouchMove = (e) => {
     if (!isSwipeEnabled || !touchStart) return;
-    
+
     const currentTouch = e.targetTouches[0].clientX;
     const distance = currentTouch - touchStart;
-    
+
     // Déterminer la direction
     const direction = distance > 0 ? 'right' : 'left';
     setSwipeDirection(direction);
-    
+
     // Appliquer une résistance progressive
     let offset = distance;
     const absDistance = Math.abs(distance);
-    
+
     if (absDistance > maxSwipeDistance) {
       // Résistance exponentielle au-delà de maxSwipeDistance
       const excess = absDistance - maxSwipeDistance;
       const resistance = Math.log(excess / 50 + 1) * 50;
       offset = distance > 0 ? maxSwipeDistance + resistance : -maxSwipeDistance - resistance;
     }
-    
+
     setSwipeOffset(offset);
     setTouchEnd(currentTouch);
   };
@@ -263,7 +263,7 @@ function useSwipeNavigation() {
       setSwipeDirection(null);
       return;
     }
-    
+
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
@@ -424,9 +424,10 @@ const mobileMenuStyles = `
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
   }
 
-  .enhanced-sidebar.collapsed {
-    width: 80px !important;
-  }
+ /* ✅ Nouvelle largeur optimisée */
+.enhanced-sidebar.collapsed {
+  width: 64px !important;
+}
 
   .enhanced-sidebar.expanded {
     width: 280px !important;
@@ -466,9 +467,19 @@ const mobileMenuStyles = `
     transition: transform 0.3s ease;
   }
 
-  .enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
-    transform: rotate(180deg);
-  }
+  /* ✅ Ajuster la position du bouton toggle */
+.enhanced-sidebar.collapsed .sidebar-toggle {
+  right: -12px;
+}
+ /* ✅ Par cette nouvelle règle */
+.sidebar-toggle .toggle-icon {
+  transition: transform 0.3s ease;
+  transform: rotate(0deg);
+}
+
+.enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
+  transform: rotate(180deg);
+}
 
   .sidebar-logo {
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -476,12 +487,13 @@ const mobileMenuStyles = `
   }
 
   .enhanced-sidebar.collapsed .sidebar-logo {
-    transform: scale(0.7);
-  }
+  padding: 8px 4px !important;
+}
 
-  .enhanced-sidebar.collapsed .sidebar-logo img {
-    height: 48px !important;
-  }
+.enhanced-sidebar.collapsed .sidebar-logo img {
+  height: 32px !important;
+  width: 32px !important;
+}
 
   .sidebar-title {
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -489,11 +501,10 @@ const mobileMenuStyles = `
     transform: translateX(0);
   }
 
-  .enhanced-sidebar.collapsed .sidebar-title {
-    opacity: 0;
-    transform: translateX(-20px);
-    pointer-events: none;
-  }
+ /* ✅ Masquer complètement le titre */
+.enhanced-sidebar.collapsed .sidebar-title {
+  display: none !important;
+}
 
   .sidebar-user-info {
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -501,11 +512,10 @@ const mobileMenuStyles = `
     transform: translateX(0);
   }
 
-  .enhanced-sidebar.collapsed .sidebar-user-info {
-    opacity: 0;
-    transform: translateX(-20px);
-    pointer-events: none;
-  }
+  /* ✅ Masquer complètement les infos utilisateur */
+.enhanced-sidebar.collapsed .sidebar-user-info {
+  display: none !important;
+}
 
   .sidebar-menu-item {
     position: relative;
@@ -601,11 +611,16 @@ const mobileMenuStyles = `
     color: #d1d5db;
   }
 
-  .enhanced-sidebar.collapsed .menu-link-text {
-    opacity: 0;
-    transform: translateX(-10px);
-    pointer-events: none;
-  }
+* ✅ Centrer les liens du menu */
+.enhanced-sidebar.collapsed .menu-link {
+  padding: 12px 8px !important;
+  justify-content: center !important;
+}
+
+  * ✅ Masquer complètement le texte */
+.enhanced-sidebar.collapsed .menu-link-text {
+  display: none !important;
+}
 
   .menu-tooltip {
     position: absolute;
@@ -672,9 +687,10 @@ const mobileMenuStyles = `
     );
   }
 
-  .enhanced-sidebar.collapsed .sidebar-divider {
-    margin: 12px 8px;
-  }
+ /* ✅ Masquer les séparateurs */
+.enhanced-sidebar.collapsed .sidebar-divider {
+  display: none !important;
+}
 
   .sidebar-footer {
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -1200,13 +1216,13 @@ function usePWA() {
 
     try {
       const result = await deferredPrompt.prompt();
-      
+
       if (result.outcome === 'accepted') {
         showToast('success', 'Installation en cours...', 'Body Force va être ajouté à votre écran d\'accueil.');
       } else {
         showToast('error', 'Installation annulée', 'Vous pouvez toujours installer l\'application plus tard.');
       }
-      
+
       setDeferredPrompt(null);
       setIsInstallable(false);
     } catch (error) {
@@ -1232,15 +1248,15 @@ function usePWA() {
 function SwipePreview({ direction, swipeOffset, currentPageIndex }) {
   if (!direction || Math.abs(swipeOffset) < 50) return null;
 
-  const nextPageIndex = direction === 'right' 
+  const nextPageIndex = direction === 'right'
     ? (currentPageIndex - 1 + SWIPE_PAGES.length) % SWIPE_PAGES.length
     : (currentPageIndex + 1) % SWIPE_PAGES.length;
-  
+
   const nextPage = SWIPE_PAGES[nextPageIndex];
   const opacity = Math.min(Math.abs(swipeOffset) / 150, 1);
 
   return (
-    <div 
+    <div
       className={`swipe-preview ${Math.abs(swipeOffset) > 50 ? 'active' : ''}`}
       style={{ opacity }}
     >
@@ -1264,7 +1280,7 @@ function SwipeResistanceIndicator({ swipeOffset, direction }) {
   const height = `${resistance * 80}%`;
 
   return (
-    <div 
+    <div
       className={`swipe-resistance-indicator ${direction} ${resistance > 0 ? 'active' : ''}`}
       style={{ height }}
     />
@@ -1278,7 +1294,7 @@ function PageIndicator({ currentIndex, totalPages, isMobile }) {
   return (
     <div className="page-indicator">
       {SWIPE_PAGES.map((_, index) => (
-        <div 
+        <div
           key={index}
           className={`page-indicator-dot ${index === currentIndex ? 'active' : ''}`}
         />
@@ -1293,14 +1309,14 @@ function SwipeNavigationArrows({ onNavigate, isMobile }) {
 
   return (
     <div className="swipe-navigation-arrows">
-      <button 
+      <button
         className="swipe-arrow left"
         onClick={() => onNavigate('right')}
         aria-label="Page précédente"
       >
         <FaChevronLeft />
       </button>
-      <button 
+      <button
         className="swipe-arrow right"
         onClick={() => onNavigate('left')}
         aria-label="Page suivante"
@@ -1473,11 +1489,12 @@ function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getD
   return (
     <aside className={`enhanced-sidebar ${isCollapsed ? 'collapsed' : 'expanded'} flex-col items-center hidden lg:flex transition-all duration-400 ease-out`}>
       {/* Bouton toggle */}
-      <button 
+      <button
         className="sidebar-toggle"
         onClick={toggleSidebar}
         aria-label={isCollapsed ? "Étendre le menu" : "Réduire le menu"}
       >
+        /* ✅ Nouveau JSX avec icônes inversées */
         <div className="toggle-icon">
           {isCollapsed ? <FaAngleDoubleRight /> : <FaAngleDoubleLeft />}
         </div>
@@ -1514,7 +1531,7 @@ function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getD
       {/* Menu principal */}
       <ul className="w-full space-y-2 px-4 flex-1">
         {menu.map((item, index) => (
-          <li key={item.path} className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? 'active' : ''}`} style={{animationDelay: `${index * 0.1}s`}}>
+          <li key={item.path} className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? 'active' : ''}`} style={{ animationDelay: `${index * 0.1}s` }}>
             <Link
               to={item.path}
               className="menu-link"
@@ -1531,10 +1548,10 @@ function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getD
             </Link>
           </li>
         ))}
-        
+
         {/* Menu admin */}
         {isAdmin && (
-          <li className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? 'active' : ''}`} style={{animationDelay: `${menu.length * 0.1}s`}}>
+          <li className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? 'active' : ''}`} style={{ animationDelay: `${menu.length * 0.1}s` }}>
             <Link
               to="/admin/users"
               className="menu-link"
@@ -1683,14 +1700,12 @@ function AnimatedMobileMenu({
       />
 
       <div
-        className={`mobile-menu-container ${
-          !isOpening && isOpen && !isClosing ? "open" : ""
-        } ${isClosing ? "closing" : ""}`}
+        className={`mobile-menu-container ${!isOpening && isOpen && !isClosing ? "open" : ""
+          } ${isClosing ? "closing" : ""}`}
       >
         <div
-          className={`menu-header ${
-            animate ? "animate" : ""
-          } p-6 border-b border-white/20`}
+          className={`menu-header ${animate ? "animate" : ""
+            } p-6 border-b border-white/20`}
         >
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
@@ -1706,9 +1721,8 @@ function AnimatedMobileMenu({
             </div>
             <button
               onClick={handleCloseClick}
-              className={`close-button ${
-                animate ? "animate" : ""
-              } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
+              className={`close-button ${animate ? "animate" : ""
+                } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
             >
               <FaTimes className="text-xl" />
             </button>
@@ -1716,9 +1730,8 @@ function AnimatedMobileMenu({
         </div>
 
         <div
-          className={`user-profile ${
-            animate ? "animate" : ""
-          } p-6 border-b border-white/20`}
+          className={`user-profile ${animate ? "animate" : ""
+            } p-6 border-b border-white/20`}
         >
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
             <FaUserCircle className="text-2xl text-white" />
@@ -1739,11 +1752,9 @@ function AnimatedMobileMenu({
           <Link
             to="/"
             onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/" ? "bg-white/20" : ""
-            }`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/" ? "bg-white/20" : ""
+              }`}
           >
             <FaHome className="text-xl text-red-300" />
             <span className="font-medium">Accueil</span>
@@ -1752,11 +1763,9 @@ function AnimatedMobileMenu({
           <Link
             to="/members"
             onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/members" ? "bg-white/20" : ""
-            }`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/members" ? "bg-white/20" : ""
+              }`}
           >
             <FaUserFriends className="text-xl text-green-300" />
             <span className="font-medium">Membres</span>
@@ -1765,11 +1774,9 @@ function AnimatedMobileMenu({
           <Link
             to="/planning"
             onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/planning" ? "bg-white/20" : ""
-            }`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/planning" ? "bg-white/20" : ""
+              }`}
           >
             <FaCalendarAlt className="text-xl text-yellow-300" />
             <span className="font-medium">Planning</span>
@@ -1778,11 +1785,9 @@ function AnimatedMobileMenu({
           <Link
             to="/payments"
             onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/payments" ? "bg-white/20" : ""
-            }`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/payments" ? "bg-white/20" : ""
+              }`}
           >
             <FaCreditCard className="text-xl text-purple-300" />
             <span className="font-medium">Paiements</span>
@@ -1791,11 +1796,9 @@ function AnimatedMobileMenu({
           <Link
             to="/statistics"
             onClick={handleItemClick}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-              location.pathname === "/statistics" ? "bg-white/20" : ""
-            }`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/statistics" ? "bg-white/20" : ""
+              }`}
           >
             <FaChartBar className="text-xl text-blue-300" />
             <span className="font-medium">Statistiques</span>
@@ -1805,11 +1808,9 @@ function AnimatedMobileMenu({
             <Link
               to="/admin/users"
               onClick={handleItemClick}
-              className={`menu-item ${
-                animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-                location.pathname === "/admin/users" ? "bg-white/20" : ""
-              }`}
+              className={`menu-item ${animate ? "animate" : ""
+                } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/admin/users" ? "bg-white/20" : ""
+                }`}
             >
               <FaUserCircle className="text-xl text-purple-300" />
               <span className="font-medium">Utilisateurs</span>
@@ -1818,9 +1819,8 @@ function AnimatedMobileMenu({
 
           <button
             onClick={handleDarkModeToggle}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
           >
             <div className="text-xl text-gray-300">
               {getDarkModeIcon()}
@@ -1830,9 +1830,8 @@ function AnimatedMobileMenu({
 
           <button
             onClick={handleLogout}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
           >
             <FaSignOutAlt className="text-xl" />
             <span className="font-medium">Déconnexion</span>
@@ -1851,18 +1850,18 @@ function AppRoutes({ user, setUser }) {
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Hook PWA
   const { isInstallable, isInstalled, installApp, toast, closeToast } = usePWA();
-  
+
   // Hook Dark Mode
   const { darkMode, actualDarkMode, toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
-  
+
   // Hook Swipe Navigation avec animation
-  const { 
-    onTouchStart, 
-    onTouchMove, 
-    onTouchEnd, 
+  const {
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
     getCurrentPageIndex,
     navigateToPage,
     isSwipeEnabled,
@@ -1878,7 +1877,7 @@ function AppRoutes({ user, setUser }) {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      
+
       // Montrer le hint seulement sur mobile et au premier chargement
       if (mobile && !localStorage.getItem('swipe_hint_shown')) {
         setShowSwipeHint(true);
@@ -1888,7 +1887,7 @@ function AppRoutes({ user, setUser }) {
         }, 3000);
       }
     };
-    
+
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
@@ -1917,7 +1916,7 @@ function AppRoutes({ user, setUser }) {
   return user ? (
     <div className="flex flex-col lg:flex-row min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
       <style>{mobileMenuStyles}</style>
-      
+
       {/* Header mobile */}
       <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
@@ -1949,9 +1948,9 @@ function AppRoutes({ user, setUser }) {
       </div>
 
       {/* Sidebar desktop améliorée */}
-      <EnhancedSidebar 
-        user={user} 
-        onLogout={handleLogout} 
+      <EnhancedSidebar
+        user={user}
+        onLogout={handleLogout}
         toggleDarkMode={toggleDarkMode}
         getDarkModeIcon={getDarkModeIcon}
         getDarkModeLabel={getDarkModeLabel}
@@ -1986,14 +1985,14 @@ function AppRoutes({ user, setUser }) {
       <PWAToast toast={toast} onClose={closeToast} />
 
       {/* Indicateur de pages (mobile uniquement) */}
-      <PageIndicator 
-        currentIndex={getCurrentPageIndex()} 
+      <PageIndicator
+        currentIndex={getCurrentPageIndex()}
         totalPages={totalPages}
         isMobile={isMobile}
       />
 
       {/* Flèches de navigation swipe (mobile uniquement) */}
-      <SwipeNavigationArrows 
+      <SwipeNavigationArrows
         onNavigate={navigateToPage}
         isMobile={isMobile}
       />
@@ -2002,18 +2001,18 @@ function AppRoutes({ user, setUser }) {
       <SwipeHint show={showSwipeHint} />
 
       {/* Main content avec support du swipe et animation */}
-      <main 
+      <main
         className={`flex-1 p-4 ${isMobile ? 'swipe-container' : ''}`}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
         {/* Contenu principal avec transformation */}
-        <div 
+        <div
           className={`swipe-content ${isSwipping ? 'swiping' : ''}`}
           style={{
-            transform: isMobile && swipeOffset !== 0 
-              ? `translateX(${swipeOffset}px)` 
+            transform: isMobile && swipeOffset !== 0
+              ? `translateX(${swipeOffset}px)`
               : 'translateX(0)',
           }}
         >
@@ -2044,7 +2043,7 @@ function AppRoutes({ user, setUser }) {
 
         {/* Aperçu de la page suivante/précédente */}
         {isMobile && (
-          <SwipePreview 
+          <SwipePreview
             direction={swipeDirection}
             swipeOffset={swipeOffset}
             currentPageIndex={getCurrentPageIndex()}
@@ -2053,7 +2052,7 @@ function AppRoutes({ user, setUser }) {
 
         {/* Indicateur de résistance */}
         {isMobile && (
-          <SwipeResistanceIndicator 
+          <SwipeResistanceIndicator
             swipeOffset={swipeOffset}
             direction={swipeDirection}
           />
