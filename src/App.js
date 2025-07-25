@@ -434,8 +434,8 @@ const mobileMenuStyles = `
 }
 
 .sidebar-toggle {
-  position: absolute;
-  top: 50%;
+  position: fixed;
+  top: 50vh;
   right: -12px;
   transform: translateY(-50%);
   width: 24px;
