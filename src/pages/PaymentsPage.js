@@ -26,6 +26,28 @@ import MemberForm from "../components/MemberForm";
 
 // ✅ Suppression de la prop onEdit - gestion interne des états
 function PaymentsPage() {
+  
+  // ✅ AJOUTEZ CETTE LIGNE - détection mobile manquante
+  const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ AJOUTEZ CE useEffect - détection responsive
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // Seuil lg: (1024px)
+    };
+
+    // Vérification initiale
+    checkIfMobile();
+
+    // Écouter les changements de taille d'écran
+    window.addEventListener('resize', checkIfMobile);
+
+    // Nettoyage
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
+  
+  
+  
   // ✅ Détection du dark mode
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [members, setMembers] = useState([]);
