@@ -1497,7 +1497,7 @@ function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getD
       >
         {/* ✅ Nouveau JSX avec icônes inversées */}
         <div className="toggle-icon">
-          {isCollapsed ? <FaAngleDoubleRight /> : <FaAngleDoubleLeft />}
+          <FaAngleDoubleRight />
         </div>
       </button>
 
