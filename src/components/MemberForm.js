@@ -109,7 +109,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     console.log("✅ === NETTOYAGE TERMINÉ ===");
   };
 
-  // ✅ DETECTCAMERAS OPTIMISÉE pour éviter les conflits
+  // ✅ FONCTION DETECTCAMERAS CORRIGÉE pour mobile
   const detectCameras = async () => {
     if (!checkCameraSupport()) {
       setError("Votre navigateur ne supporte pas l'accès à la caméra");
@@ -117,12 +117,8 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     }
 
     try {
-      // ✅ Demander les permissions d'abord si nécessaire
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-      } catch (permError) {
-        console.log("📱 Permissions en cours...");
-      }
+      // ✅ CORRECTION MOBILE : Ne PAS demander d'accès préalable sur mobile
+      // Cela crée un conflit car la caméra reste occupée
 
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(
@@ -139,100 +135,118 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
       setAvailableCameras(videoDevices);
 
-      // ✅ Sélection intelligente de la caméra par défaut
-      const frontCamera = videoDevices.find((device) => {
-        const label = device.label.toLowerCase();
-        return (
-          label.includes("front") ||
-          label.includes("user") ||
-          label.includes("selfie") ||
-          label.includes("facing")
-        );
-      });
-
-      if (frontCamera) {
-        console.log("📱 Caméra avant sélectionnée:", frontCamera.label);
-        setSelectedCameraId(frontCamera.deviceId);
-      } else if (videoDevices.length > 0) {
-        console.log("📱 Première caméra sélectionnée:", videoDevices[0].label);
+      // ✅ CORRECTION MOBILE : Sélection par défaut basée sur le nombre de caméras
+      if (videoDevices.length === 1) {
+        // Une seule caméra : l'utiliser directement
+        console.log("📱 Une seule caméra détectée, sélection automatique");
         setSelectedCameraId(videoDevices[0].deviceId);
+      } else if (videoDevices.length > 1) {
+        // Plusieurs caméras : essayer de trouver la caméra avant
+        const frontCamera = videoDevices.find((device) => {
+          const label = device.label.toLowerCase();
+          return (
+            label.includes("front") ||
+            label.includes("user") ||
+            label.includes("selfie") ||
+            label.includes("facing")
+          );
+        });
+
+        if (frontCamera) {
+          console.log("📱 Caméra avant sélectionnée:", frontCamera.label);
+          setSelectedCameraId(frontCamera.deviceId);
+        } else {
+          // Si pas de caméra avant identifiable, prendre la première
+          console.log(
+            "📱 Première caméra sélectionnée:",
+            videoDevices[0].label
+          );
+          setSelectedCameraId(videoDevices[0].deviceId);
+        }
       }
     } catch (error) {
       console.error("❌ Erreur détection caméras:", error);
-      setError("Impossible de détecter les caméras disponibles");
+      // ✅ CORRECTION : Ne pas bloquer si l'énumération échoue
+      console.log("📱 Échec énumération, utilisation facingMode par défaut");
+      setAvailableCameras([]);
+      setSelectedCameraId(null);
     }
   };
-  // ✅ FONCTION STARTCAMERA CORRIGÉE - Gestion robuste des contraintes
+  // ✅ FONCTION STARTCAMERA CORRIGÉE pour mobile
   const startCamera = async (cameraId = null, facing = null) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // ✅ CORRECTION MAJEURE : Nettoyage complet et attente plus longue
+      // ✅ CORRECTION MOBILE : Nettoyage plus agressif
       if (stream) {
-        console.log("🔄 Arrêt complet du stream précédent");
+        console.log("🔄 Arrêt complet du stream précédent (mobile)");
         stream.getTracks().forEach((track) => {
           console.log("⏹️ Arrêt track:", track.label, track.readyState);
           track.stop();
         });
 
-        // ✅ Vider explicitement la référence vidéo
         if (videoRef.current) {
           videoRef.current.srcObject = null;
-          // Forcer le garbage collection
           videoRef.current.load();
+          // ✅ MOBILE : Pause explicite
+          videoRef.current.pause();
         }
 
         setStream(null);
 
-        // ✅ ATTENTE PLUS LONGUE pour libération complète (était 200ms)
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // ✅ MOBILE : Attente encore plus longue pour libération
+        console.log("⏳ Attente 1000ms pour libération mobile...");
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
-      // ✅ CORRECTION : Configuration des contraintes plus robuste
+      // ✅ CORRECTION MOBILE : Contraintes simplifiées
       let constraints;
 
-      if (cameraId) {
-        // Mode avec ID caméra spécifique (plus fiable)
+      if (cameraId && cameraId !== "unknown") {
+        // Mode avec ID caméra spécifique
         constraints = {
           video: {
-            deviceId: { exact: cameraId },
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
+            deviceId: { ideal: cameraId }, // ✅ MOBILE : 'ideal' au lieu de 'exact'
+            width: { ideal: 640 }, // ✅ MOBILE : Résolution plus basse
+            height: { ideal: 480 },
           },
           audio: false,
         };
-        console.log("📹 Démarrage avec deviceId:", cameraId);
+        console.log("📹 Mobile - Démarrage avec deviceId:", cameraId);
       } else {
-        // Mode avec facingMode (fallback)
+        // Mode avec facingMode (plus compatible mobile)
         constraints = {
           video: {
             facingMode: facing || facingMode,
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1080 },
+            width: { ideal: 640 }, // ✅ MOBILE : Résolution adaptée
+            height: { ideal: 480 },
           },
           audio: false,
         };
-        console.log("📹 Démarrage avec facingMode:", facing || facingMode);
+        console.log(
+          "📹 Mobile - Démarrage avec facingMode:",
+          facing || facingMode
+        );
       }
 
-      console.log("📹 Contraintes finales:", constraints);
+      console.log("📹 Contraintes mobile:", constraints);
 
-      // ✅ VÉRIFICATION : S'assurer que le modal est toujours ouvert
+      // ✅ Vérification modal ouvert
       if (!isOpen) {
-        console.log("❌ Modal fermé, annulation du démarrage");
+        console.log("❌ Modal fermé, annulation");
         return;
       }
 
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log(
-        "✅ Nouveau stream obtenu:",
+        "✅ Stream mobile obtenu:",
         newStream.getTracks().map((t) => t.label)
       );
 
-      // ✅ Double vérification que le composant existe toujours
+      // ✅ Double vérification
       if (!isOpen || !videoRef.current) {
-        console.log("❌ Composant démonté, nettoyage du stream");
+        console.log("❌ Composant démonté, nettoyage");
         newStream.getTracks().forEach((track) => track.stop());
         return;
       }
@@ -240,42 +254,53 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       setStream(newStream);
       videoRef.current.srcObject = newStream;
 
-      // ✅ LECTURE VIDÉO ROBUSTE avec plusieurs tentatives
+      // ✅ MOBILE : Lecture vidéo simplifiée
       try {
-        await videoRef.current.play();
-        console.log("✅ Vidéo démarrée avec succès");
-      } catch (playError) {
-        console.warn("⚠️ Première tentative de lecture échouée:", playError);
+        // Attendre que les métadonnées soient chargées
+        await new Promise((resolve) => {
+          videoRef.current.onloadedmetadata = resolve;
+        });
 
-        // Deuxième tentative après un délai
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        try {
-          await videoRef.current.play();
-          console.log("✅ Vidéo démarrée à la deuxième tentative");
-        } catch (secondError) {
-          console.warn(
-            "⚠️ Deuxième tentative échouée, lecture en arrière-plan"
-          );
-          // Laisser la lecture se faire en arrière-plan
-        }
+        await videoRef.current.play();
+        console.log("✅ Vidéo mobile démarrée avec succès");
+      } catch (playError) {
+        console.warn("⚠️ Erreur lecture mobile:", playError);
+        // Sur mobile, parfois la lecture automatique échoue, mais ce n'est pas grave
       }
     } catch (error) {
-      console.error("❌ Erreur accès caméra:", error);
+      console.error("❌ Erreur accès caméra mobile:", error);
 
-      // ✅ GESTION D'ERREUR SPÉCIFIQUE pour caméra occupée
       let errorMessage = "Impossible d'accéder à la caméra";
 
       if (error.name === "NotAllowedError") {
         errorMessage =
-          "Accès à la caméra refusé. Veuillez autoriser l'accès dans les paramètres du navigateur.";
+          "Accès à la caméra refusé. Autorisez l'accès dans les paramètres de votre navigateur.";
       } else if (error.name === "NotFoundError") {
         errorMessage = "Aucune caméra trouvée sur cet appareil.";
       } else if (error.name === "NotReadableError") {
         errorMessage =
-          "La caméra est occupée par une autre application. Veuillez :\n• Fermer tous les onglets utilisant la caméra\n• Redémarrer votre navigateur\n• Vérifier qu'aucune autre app n'utilise la caméra";
+          "Caméra occupée. Essayez de :\n• Fermer tous les onglets\n• Redémarrer le navigateur\n• Redémarrer l'application caméra si ouverte";
       } else if (error.name === "OverconstrainedError") {
-        errorMessage =
-          "Les paramètres de la caméra ne sont pas supportés. Essayez avec une autre caméra.";
+        // ✅ MOBILE : Retry avec contraintes plus souples
+        console.log("🔄 Retry avec contraintes basiques...");
+        try {
+          const basicConstraints = {
+            video: { facingMode: facing || facingMode },
+            audio: false,
+          };
+          const basicStream = await navigator.mediaDevices.getUserMedia(
+            basicConstraints
+          );
+          setStream(basicStream);
+          videoRef.current.srcObject = basicStream;
+          await videoRef.current.play();
+          console.log("✅ Retry mobile réussi");
+          setIsLoading(false);
+          return;
+        } catch (retryError) {
+          errorMessage =
+            "Impossible de démarrer la caméra avec ces paramètres.";
+        }
       } else if (error.name === "SecurityError") {
         errorMessage = "Accès à la caméra bloqué pour des raisons de sécurité.";
       }
@@ -285,87 +310,50 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       setIsLoading(false);
     }
   };
-  // ✅ FONCTION SWITCHCAMERA COMPLÈTEMENT REÉCRITE
+  /// ✅ FONCTION SWITCHCAMERA CORRIGÉE pour mobile
   const switchCamera = async () => {
-    console.log("🔄 === DÉBUT BASCULEMENT CAMÉRA ===");
+    console.log("🔄 === DÉBUT BASCULEMENT MOBILE ===");
     console.log("Current facingMode:", facingMode);
     console.log("Available cameras:", availableCameras.length);
 
     try {
       setIsLoading(true);
 
-      // ✅ CORRECTION : Arrêter complètement le stream actuel AVANT de chercher la nouvelle caméra
+      // ✅ MOBILE : Arrêt encore plus agressif
       if (stream) {
-        console.log("🛑 Arrêt forcé du stream pour basculement");
+        console.log("🛑 Arrêt forcé stream mobile");
         stream.getTracks().forEach((track) => {
-          console.log("⏹️ Arrêt track pour basculement:", track.label);
+          console.log("⏹️ Stop track mobile:", track.label);
           track.stop();
         });
 
         if (videoRef.current) {
           videoRef.current.srcObject = null;
-          videoRef.current.load(); // Force le nettoyage
+          videoRef.current.load();
+          videoRef.current.pause();
         }
 
         setStream(null);
 
-        // ✅ ATTENTE PLUS LONGUE pour basculement (critique !)
-        console.log("⏳ Attente 800ms pour libération complète...");
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        // ✅ MOBILE : Attente maximale pour libération
+        console.log("⏳ Attente 1200ms libération mobile...");
+        await new Promise((resolve) => setTimeout(resolve, 1200));
       }
 
       const newFacingMode = facingMode === "user" ? "environment" : "user";
-      console.log("🎯 Nouveau facingMode:", newFacingMode);
+      console.log("🎯 Nouveau facingMode mobile:", newFacingMode);
 
       setFacingMode(newFacingMode);
 
-      // ✅ CORRECTION : Recherche intelligente de la caméra cible
-      let targetCamera = null;
+      // ✅ MOBILE : Utiliser facingMode plutôt que deviceId
+      console.log("🎯 Mobile - Utilisation facingMode direct");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await startCamera(null, newFacingMode);
 
-      if (availableCameras.length > 1) {
-        targetCamera = availableCameras.find((camera) => {
-          const label = camera.label.toLowerCase();
-          console.log("🔍 Analyse caméra:", label);
-
-          if (newFacingMode === "user") {
-            // Recherche caméra avant
-            return (
-              label.includes("front") ||
-              label.includes("user") ||
-              label.includes("selfie") ||
-              label.includes("facing")
-            );
-          } else {
-            // Recherche caméra arrière
-            return (
-              label.includes("back") ||
-              label.includes("rear") ||
-              label.includes("environment") ||
-              label.includes("wide") ||
-              (!label.includes("front") && !label.includes("user"))
-            ); // Fallback
-          }
-        });
-      }
-
-      if (targetCamera) {
-        console.log("🎯 Caméra cible trouvée:", targetCamera.label);
-        setSelectedCameraId(targetCamera.deviceId);
-
-        // ✅ Utiliser l'ID de la caméra (plus fiable que facingMode)
-        await startCamera(targetCamera.deviceId, newFacingMode);
-      } else {
-        console.log("🎯 Pas de caméra spécifique, utilisation facingMode");
-
-        // ✅ CORRECTION : Attente supplémentaire avant de redémarrer
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        await startCamera(null, newFacingMode);
-      }
-
-      console.log("✅ === BASCULEMENT TERMINÉ ===");
+      console.log("✅ === BASCULEMENT MOBILE TERMINÉ ===");
     } catch (error) {
-      console.error("❌ Erreur lors du basculement:", error);
-      setError(`Erreur lors du basculement de caméra: ${error.message}`);
+      console.error("❌ Erreur basculement mobile:", error);
+      setError(`Erreur basculement: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
