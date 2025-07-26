@@ -3,7 +3,15 @@
 // 🔹 Partie 1 - Imports et composants utilitaires
 
 import React, { useEffect, useRef, useState } from "react";
-import { Camera, RotateCcw, Check, X, SwitchCamera, Upload, User } from 'lucide-react';
+import {
+  Camera,
+  RotateCcw,
+  Check,
+  X,
+  SwitchCamera,
+  Upload,
+  User,
+} from "lucide-react";
 import Modal from "react-modal";
 import {
   FaCamera,
@@ -54,206 +62,363 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedCameraId, setSelectedCameraId] = useState(null);
-  const [facingMode, setFacingMode] = useState('user'); // 'user' = avant, 'environment' = arrière
+  const [facingMode, setFacingMode] = useState("user"); // 'user' = avant, 'environment' = arrière
 
   // ✅ FONCTION DIAGNOSTIC - Vérifier le support caméra
   const checkCameraSupport = () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      console.error('❌ API getUserMedia non supportée');
+      console.error("❌ API getUserMedia non supportée");
       return false;
     }
-    
-    console.log('✅ Support caméra détecté');
-    console.log('📱 User Agent:', navigator.userAgent);
+
+    console.log("✅ Support caméra détecté");
+    console.log("📱 User Agent:", navigator.userAgent);
     return true;
   };
 
-  // ✅ FONCTION NETTOYAGE - Libérer les ressources caméra
+  // ✅ FONCTION CLEANUPSTREAMS RENFORCÉE
   const cleanupStreams = () => {
     if (stream) {
-      console.log('🧹 Nettoyage du stream caméra');
-      stream.getTracks().forEach(track => {
+      console.log("🧹 === NETTOYAGE COMPLET STREAMS ===");
+
+      stream.getTracks().forEach((track) => {
+        console.log("⏹️ Arrêt track:", track.label, "État:", track.readyState);
         track.stop();
-        console.log('⏹️ Track arrêté:', track.label);
+
+        // ✅ Vérification que le track est bien arrêté
+        setTimeout(() => {
+          console.log(
+            "🔍 Vérification track:",
+            track.label,
+            "État final:",
+            track.readyState
+          );
+        }, 100);
       });
+
       setStream(null);
     }
-    
-    // Nettoyer aussi la vidéo
+
+    // ✅ Nettoyer la vidéo explicitement
     if (videoRef.current) {
+      console.log("🧹 Nettoyage élément vidéo");
       videoRef.current.srcObject = null;
+      videoRef.current.load(); // Force le garbage collection
     }
+
+    console.log("✅ === NETTOYAGE TERMINÉ ===");
   };
 
-  // ✅ Fonction pour détecter les caméras disponibles
+  // ✅ DETECTCAMERAS OPTIMISÉE pour éviter les conflits
   const detectCameras = async () => {
     if (!checkCameraSupport()) {
-      setError('Votre navigateur ne supporte pas l\'accès à la caméra');
+      setError("Votre navigateur ne supporte pas l'accès à la caméra");
       return;
     }
 
     try {
+      // ✅ Demander les permissions d'abord si nécessaire
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (permError) {
+        console.log("📱 Permissions en cours...");
+      }
+
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      
-      console.log('📱 Caméras détectées:', videoDevices);
-      setAvailableCameras(videoDevices);
-      
-      // Sélectionner la caméra avant par défaut si disponible
-      const frontCamera = videoDevices.find(device => 
-        device.label.toLowerCase().includes('front') || 
-        device.label.toLowerCase().includes('user') ||
-        device.label.toLowerCase().includes('facing')
+      const videoDevices = devices.filter(
+        (device) => device.kind === "videoinput"
       );
-      
+
+      console.log(
+        "📱 Caméras détectées:",
+        videoDevices.map((d) => ({
+          id: d.deviceId.slice(0, 8) + "...",
+          label: d.label || "Caméra inconnue",
+        }))
+      );
+
+      setAvailableCameras(videoDevices);
+
+      // ✅ Sélection intelligente de la caméra par défaut
+      const frontCamera = videoDevices.find((device) => {
+        const label = device.label.toLowerCase();
+        return (
+          label.includes("front") ||
+          label.includes("user") ||
+          label.includes("selfie") ||
+          label.includes("facing")
+        );
+      });
+
       if (frontCamera) {
+        console.log("📱 Caméra avant sélectionnée:", frontCamera.label);
         setSelectedCameraId(frontCamera.deviceId);
       } else if (videoDevices.length > 0) {
+        console.log("📱 Première caméra sélectionnée:", videoDevices[0].label);
         setSelectedCameraId(videoDevices[0].deviceId);
       }
     } catch (error) {
-      console.error('❌ Erreur détection caméras:', error);
-      setError('Impossible de détecter les caméras disponibles');
+      console.error("❌ Erreur détection caméras:", error);
+      setError("Impossible de détecter les caméras disponibles");
     }
   };
-
-  // ✅ FONCTION CORRIGÉE - Démarrer la caméra avec gestion robuste
+  // ✅ FONCTION STARTCAMERA CORRIGÉE - Gestion robuste des contraintes
   const startCamera = async (cameraId = null, facing = null) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // ✅ CORRECTION : Nettoyage complet avant de démarrer
+      // ✅ CORRECTION MAJEURE : Nettoyage complet et attente plus longue
       if (stream) {
-        console.log('🔄 Arrêt du stream précédent');
-        stream.getTracks().forEach(track => track.stop());
+        console.log("🔄 Arrêt complet du stream précédent");
+        stream.getTracks().forEach((track) => {
+          console.log("⏹️ Arrêt track:", track.label, track.readyState);
+          track.stop();
+        });
+
+        // ✅ Vider explicitement la référence vidéo
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+          // Forcer le garbage collection
+          videoRef.current.load();
+        }
+
         setStream(null);
-        
-        // ✅ ATTENDRE que le stream soit complètement libéré
-        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // ✅ ATTENTE PLUS LONGUE pour libération complète (était 200ms)
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      // Configuration des contraintes
-      let constraints = {
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: facing || facingMode
-        },
-        audio: false
-      };
+      // ✅ CORRECTION : Configuration des contraintes plus robuste
+      let constraints;
 
       if (cameraId) {
-        constraints.video = {
-          ...constraints.video,
-          deviceId: { exact: cameraId }
+        // Mode avec ID caméra spécifique (plus fiable)
+        constraints = {
+          video: {
+            deviceId: { exact: cameraId },
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+          },
+          audio: false,
         };
-        delete constraints.video.facingMode;
+        console.log("📹 Démarrage avec deviceId:", cameraId);
+      } else {
+        // Mode avec facingMode (fallback)
+        constraints = {
+          video: {
+            facingMode: facing || facingMode,
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+          },
+          audio: false,
+        };
+        console.log("📹 Démarrage avec facingMode:", facing || facingMode);
       }
 
-      console.log('📹 Démarrage caméra avec contraintes:', constraints);
+      console.log("📹 Contraintes finales:", constraints);
 
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      // ✅ VÉRIFIER que le composant est toujours monté
+      // ✅ VÉRIFICATION : S'assurer que le modal est toujours ouvert
       if (!isOpen) {
-        newStream.getTracks().forEach(track => track.stop());
+        console.log("❌ Modal fermé, annulation du démarrage");
         return;
       }
-      
-      setStream(newStream);
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
-        
-        // ✅ GESTION ROBUSTE de la lecture vidéo
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log(
+        "✅ Nouveau stream obtenu:",
+        newStream.getTracks().map((t) => t.label)
+      );
+
+      // ✅ Double vérification que le composant existe toujours
+      if (!isOpen || !videoRef.current) {
+        console.log("❌ Composant démonté, nettoyage du stream");
+        newStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      setStream(newStream);
+      videoRef.current.srcObject = newStream;
+
+      // ✅ LECTURE VIDÉO ROBUSTE avec plusieurs tentatives
+      try {
+        await videoRef.current.play();
+        console.log("✅ Vidéo démarrée avec succès");
+      } catch (playError) {
+        console.warn("⚠️ Première tentative de lecture échouée:", playError);
+
+        // Deuxième tentative après un délai
+        await new Promise((resolve) => setTimeout(resolve, 100));
         try {
           await videoRef.current.play();
-          console.log('✅ Vidéo démarrée avec succès');
-        } catch (playError) {
-          console.warn('⚠️ Erreur lecture vidéo:', playError);
-          // Essayer sans await
-          videoRef.current.play().catch(e => console.warn('Lecture vidéo échouée:', e));
+          console.log("✅ Vidéo démarrée à la deuxième tentative");
+        } catch (secondError) {
+          console.warn(
+            "⚠️ Deuxième tentative échouée, lecture en arrière-plan"
+          );
+          // Laisser la lecture se faire en arrière-plan
         }
       }
-
     } catch (error) {
-      console.error('❌ Erreur accès caméra:', error);
-      
-      // ✅ MESSAGES D'ERREUR AMÉLIORÉS
-      let errorMessage = 'Impossible d\'accéder à la caméra';
-      
-      if (error.name === 'NotAllowedError') {
-        errorMessage = 'Accès à la caméra refusé. Veuillez autoriser l\'accès dans les paramètres du navigateur.';
-      } else if (error.name === 'NotFoundError') {
-        errorMessage = 'Aucune caméra trouvée sur cet appareil.';
-      } else if (error.name === 'NotReadableError') {
-        errorMessage = 'La caméra est occupée. Fermez les autres applications utilisant la caméra et réessayez.';
-      } else if (error.name === 'OverconstrainedError') {
-        errorMessage = 'Les paramètres de la caméra ne sont pas supportés. Essayez avec une autre caméra.';
-      } else if (error.name === 'SecurityError') {
-        errorMessage = 'Accès à la caméra bloqué pour des raisons de sécurité.';
+      console.error("❌ Erreur accès caméra:", error);
+
+      // ✅ GESTION D'ERREUR SPÉCIFIQUE pour caméra occupée
+      let errorMessage = "Impossible d'accéder à la caméra";
+
+      if (error.name === "NotAllowedError") {
+        errorMessage =
+          "Accès à la caméra refusé. Veuillez autoriser l'accès dans les paramètres du navigateur.";
+      } else if (error.name === "NotFoundError") {
+        errorMessage = "Aucune caméra trouvée sur cet appareil.";
+      } else if (error.name === "NotReadableError") {
+        errorMessage =
+          "La caméra est occupée par une autre application. Veuillez :\n• Fermer tous les onglets utilisant la caméra\n• Redémarrer votre navigateur\n• Vérifier qu'aucune autre app n'utilise la caméra";
+      } else if (error.name === "OverconstrainedError") {
+        errorMessage =
+          "Les paramètres de la caméra ne sont pas supportés. Essayez avec une autre caméra.";
+      } else if (error.name === "SecurityError") {
+        errorMessage = "Accès à la caméra bloqué pour des raisons de sécurité.";
       }
-      
+
       setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
-
-  // ✅ FONCTION CORRIGÉE - Basculer entre caméra avant/arrière
+  // ✅ FONCTION SWITCHCAMERA COMPLÈTEMENT REÉCRITE
   const switchCamera = async () => {
-    console.log('🔄 Basculement de caméra...');
-    
-    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(newFacingMode);
-    
-    // ✅ ATTENDRE avant de basculer
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const targetCamera = availableCameras.find(camera => {
-      const label = camera.label.toLowerCase();
-      if (newFacingMode === 'user') {
-        return label.includes('front') || label.includes('user') || label.includes('selfie');
-      } else {
-        return label.includes('back') || label.includes('rear') || label.includes('environment');
-      }
-    });
+    console.log("🔄 === DÉBUT BASCULEMENT CAMÉRA ===");
+    console.log("Current facingMode:", facingMode);
+    console.log("Available cameras:", availableCameras.length);
 
-    if (targetCamera) {
-      setSelectedCameraId(targetCamera.deviceId);
-      await startCamera(targetCamera.deviceId, newFacingMode);
-    } else {
-      await startCamera(null, newFacingMode);
+    try {
+      setIsLoading(true);
+
+      // ✅ CORRECTION : Arrêter complètement le stream actuel AVANT de chercher la nouvelle caméra
+      if (stream) {
+        console.log("🛑 Arrêt forcé du stream pour basculement");
+        stream.getTracks().forEach((track) => {
+          console.log("⏹️ Arrêt track pour basculement:", track.label);
+          track.stop();
+        });
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+          videoRef.current.load(); // Force le nettoyage
+        }
+
+        setStream(null);
+
+        // ✅ ATTENTE PLUS LONGUE pour basculement (critique !)
+        console.log("⏳ Attente 800ms pour libération complète...");
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+
+      const newFacingMode = facingMode === "user" ? "environment" : "user";
+      console.log("🎯 Nouveau facingMode:", newFacingMode);
+
+      setFacingMode(newFacingMode);
+
+      // ✅ CORRECTION : Recherche intelligente de la caméra cible
+      let targetCamera = null;
+
+      if (availableCameras.length > 1) {
+        targetCamera = availableCameras.find((camera) => {
+          const label = camera.label.toLowerCase();
+          console.log("🔍 Analyse caméra:", label);
+
+          if (newFacingMode === "user") {
+            // Recherche caméra avant
+            return (
+              label.includes("front") ||
+              label.includes("user") ||
+              label.includes("selfie") ||
+              label.includes("facing")
+            );
+          } else {
+            // Recherche caméra arrière
+            return (
+              label.includes("back") ||
+              label.includes("rear") ||
+              label.includes("environment") ||
+              label.includes("wide") ||
+              (!label.includes("front") && !label.includes("user"))
+            ); // Fallback
+          }
+        });
+      }
+
+      if (targetCamera) {
+        console.log("🎯 Caméra cible trouvée:", targetCamera.label);
+        setSelectedCameraId(targetCamera.deviceId);
+
+        // ✅ Utiliser l'ID de la caméra (plus fiable que facingMode)
+        await startCamera(targetCamera.deviceId, newFacingMode);
+      } else {
+        console.log("🎯 Pas de caméra spécifique, utilisation facingMode");
+
+        // ✅ CORRECTION : Attente supplémentaire avant de redémarrer
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await startCamera(null, newFacingMode);
+      }
+
+      console.log("✅ === BASCULEMENT TERMINÉ ===");
+    } catch (error) {
+      console.error("❌ Erreur lors du basculement:", error);
+      setError(`Erreur lors du basculement de caméra: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
-  // ✅ USEEFFECT CORRIGÉ - Initialisation avec nettoyage robuste
+  // ✅ USEEFFECT CORRIGÉ - Éviter les conflits d'initialisation
   useEffect(() => {
+    let mounted = true; // Flag pour éviter les race conditions
+
     if (isOpen) {
-      // Attendre un peu avant d'initialiser pour éviter les conflits
       const initCamera = async () => {
         try {
+          console.log("🚀 Initialisation caméra...");
+
+          // ✅ Nettoyer d'abord au cas où il y aurait des résidus
+          if (stream) {
+            console.log("🧹 Nettoyage préventif...");
+            cleanupStreams();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+
+          if (!mounted) return; // Vérifier si toujours monté
+
           await detectCameras();
-          // Petit délai pour s'assurer que les streams précédents sont libérés
+
+          if (!mounted) return;
+
+          // ✅ Délai plus long pour l'initialisation
           setTimeout(() => {
-            startCamera();
-          }, 100);
+            if (mounted && isOpen) {
+              startCamera();
+            }
+          }, 200);
         } catch (error) {
-          console.error('❌ Erreur initialisation caméra:', error);
-          setError('Impossible d\'initialiser la caméra');
+          console.error("❌ Erreur initialisation caméra:", error);
+          if (mounted) {
+            setError("Impossible d'initialiser la caméra");
+          }
         }
       };
-      
+
       initCamera();
     } else {
-      // ✅ NETTOYAGE COMPLET ET ORDONNÉ
+      // ✅ NETTOYAGE IMMÉDIAT lors de la fermeture
+      console.log("🚪 Modal fermé, nettoyage immédiat");
       cleanupStreams();
       setCapturedPhoto(null);
       setError(null);
+      setIsLoading(false);
     }
 
-    // ✅ Nettoyage lors du démontage
+    // ✅ Nettoyage lors du démontage avec flag
     return () => {
+      mounted = false;
       cleanupStreams();
     };
   }, [isOpen]);
@@ -264,14 +429,14 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext("2d");
 
     // Définir la taille du canvas
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
     // ✅ Gérer le miroir pour la caméra avant
-    if (facingMode === 'user') {
+    if (facingMode === "user") {
       // Effet miroir pour caméra avant (plus naturel)
       context.scale(-1, 1);
       context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
@@ -281,7 +446,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     }
 
     // Convertir en base64
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    const imageData = canvas.toDataURL("image/jpeg", 0.8);
     setCapturedPhoto(imageData);
   };
 
@@ -300,33 +465,49 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
   // ✅ Obtenir le libellé de la caméra actuelle
   const getCurrentCameraLabel = () => {
-    if (facingMode === 'user') {
-      return 'Caméra avant (selfie)';
+    if (facingMode === "user") {
+      return "Caméra avant (selfie)";
     } else {
-      return 'Caméra arrière';
+      return "Caméra arrière";
     }
   };
-
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
-      <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}>
-        
+      <div
+        className={`${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
+      >
         {/* Header avec titre et sélecteur de caméra */}
-        <div className={`p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} flex items-center justify-between`}>
-          <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div
+          className={`p-4 border-b ${
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          } flex items-center justify-between`}
+        >
+          <h3
+            className={`text-lg font-semibold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             📸 Prendre une photo
           </h3>
-          
+
           {/* ✅ Affichage de la caméra actuelle */}
           <div className="flex items-center gap-2">
-            <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <span
+              className={`text-sm ${
+                isDarkMode ? "text-gray-300" : "text-gray-600"
+              }`}
+            >
               {getCurrentCameraLabel()}
             </span>
             <button
               onClick={onClose}
-              className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}
+              className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                isDarkMode ? "text-gray-300" : "text-gray-600"
+              }`}
             >
               <X className="w-5 h-5" />
             </button>
@@ -335,7 +516,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
         {/* Contenu principal */}
         <div className="flex-1 flex flex-col items-center justify-center p-6">
-          
           {/* ✅ Affichage d'erreur */}
           {error && (
             <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
@@ -353,7 +533,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           {/* ✅ Zone de prévisualisation */}
           {!error && (
             <div className="relative bg-black rounded-xl overflow-hidden max-w-md w-full aspect-[4/3]">
-              
               {/* Loading */}
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
@@ -373,7 +552,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   muted
                   className="w-full h-full object-cover"
                   style={{
-                    transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' // Effet miroir pour prévisualisation
+                    transform: facingMode === "user" ? "scaleX(-1)" : "none", // Effet miroir pour prévisualisation
                   }}
                 />
               )}
@@ -394,7 +573,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           {/* ✅ Contrôles */}
           {!error && !isLoading && (
             <div className="mt-6 flex items-center gap-4">
-              
               {!capturedPhoto ? (
                 // Contrôles pour la capture
                 <>
@@ -402,11 +580,16 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   {availableCameras.length > 1 && (
                     <button
                       onClick={switchCamera}
-                      className={`p-3 rounded-full border-2 ${isDarkMode 
-                        ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                        : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                      className={`p-3 rounded-full border-2 ${
+                        isDarkMode
+                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                          : "border-gray-300 text-gray-600 hover:bg-gray-100"
                       } transition-colors flex items-center justify-center`}
-                      title={`Basculer vers ${facingMode === 'user' ? 'caméra arrière' : 'caméra avant'}`}
+                      title={`Basculer vers ${
+                        facingMode === "user"
+                          ? "caméra arrière"
+                          : "caméra avant"
+                      }`}
                     >
                       <SwitchCamera className="w-6 h-6" />
                     </button>
@@ -424,9 +607,10 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   {/* Bouton fermer */}
                   <button
                     onClick={onClose}
-                    className={`p-3 rounded-full border-2 ${isDarkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                    className={`p-3 rounded-full border-2 ${
+                      isDarkMode
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-100"
                     } transition-colors`}
                   >
                     <X className="w-6 h-6" />
@@ -458,7 +642,11 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           {/* ✅ Informations sur les caméras disponibles */}
           {availableCameras.length > 0 && (
             <div className="mt-4 text-center">
-              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p
+                className={`text-xs ${
+                  isDarkMode ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
                 {availableCameras.length} caméra(s) détectée(s)
               </p>
             </div>
@@ -480,10 +668,11 @@ function InputField({ label, icon: Icon, error, ...props }) {
       <div className="relative">
         <input
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error
-            ? "border-red-300 bg-red-50 dark:bg-red-950"
-            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-            }`}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+            error
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+          }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
@@ -501,10 +690,11 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
       <div className="relative">
         <select
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error
-            ? "border-red-300 bg-red-50 dark:bg-red-950"
-            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-            }`}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+            error
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+          }`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -523,17 +713,19 @@ function TabButton({ active, onClick, icon: Icon, children, count }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${active
-        ? "bg-white bg-opacity-30 text-white shadow-lg"
-        : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
-        }`}
+      className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${
+        active
+          ? "bg-white bg-opacity-30 text-white shadow-lg"
+          : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+      }`}
     >
       <Icon className="w-4 h-4" />
       <span className="hidden xs:inline sm:inline">{children}</span>
       {count !== undefined && count > 0 && (
         <span
-          className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${active ? "bg-white bg-opacity-30" : "bg-white bg-opacity-20"
-            }`}
+          className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${
+            active ? "bg-white bg-opacity-30" : "bg-white bg-opacity-20"
+          }`}
         >
           {count}
         </span>
@@ -560,7 +752,7 @@ function StatusBadge({ isExpired, isStudent }) {
     </div>
   );
 }
-// 🔹 Partie 5 - Fonction MemberForm principale avec nouveaux états
+// 🔹 Partie 8 - Fonction MemberForm principale avec nouveaux états
 
 function MemberForm({ member, onSave, onCancel }) {
   const [activeTab, setActiveTab] = useState("identity");
@@ -632,16 +824,16 @@ function MemberForm({ member, onSave, onCancel }) {
   // ✅ NOUVEAU useEffect pour détecter le dark mode
   useEffect(() => {
     const checkDarkMode = () => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
     };
-    
+
     checkDarkMode();
     const observer = new MutationObserver(checkDarkMode);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class']
+      attributeFilter: ["class"],
     });
-    
+
     return () => observer.disconnect();
   }, []);
 
@@ -652,8 +844,8 @@ function MemberForm({ member, onSave, onCancel }) {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-            ? JSON.parse(member.files || "[]")
-            : [],
+          ? JSON.parse(member.files || "[]")
+          : [],
         etudiant: !!member.etudiant,
       });
 
@@ -662,7 +854,6 @@ function MemberForm({ member, onSave, onCancel }) {
       }
     }
   }, [member]);
-
   // Gestion des événements tactiles pour le swipe - Version simplifiée
   const handleTouchStart = (e) => {
     if (isTransitioning) return;
@@ -868,8 +1059,8 @@ function MemberForm({ member, onSave, onCancel }) {
 
   const age = form.birthdate
     ? Math.floor(
-      (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
-    )
+        (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
+      )
     : null;
 
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
@@ -878,7 +1069,6 @@ function MemberForm({ member, onSave, onCancel }) {
     e.preventDefault();
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
-
   const handleFileUpload = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
@@ -920,7 +1110,10 @@ function MemberForm({ member, onSave, onCancel }) {
 
   // ✅ FONCTION MODIFIÉE - Capture photo avec nouveau modal
   const handleCameraCapture = (imageData) => {
-    console.log('📸 Photo capturée depuis le nouveau modal:', imageData.slice(0, 50) + '...');
+    console.log(
+      "📸 Photo capturée depuis le nouveau modal:",
+      imageData.slice(0, 50) + "..."
+    );
     setForm((f) => ({ ...f, photo: imageData }));
     setUploadStatus({
       loading: false,
@@ -1025,7 +1218,7 @@ function MemberForm({ member, onSave, onCancel }) {
     }
   };
 
-  // 🔹 Partie 7 - Fonctions de rendu des onglets avec section photo modernisée
+  // 🔹 Partie 12 - Fonctions de rendu des onglets avec section photo modernisée
 
   // ✅ ONGLET IDENTITÉ MODIFIÉ - Nouvelle section photo avec sélecteur caméra
   const renderIdentityTab = () => (
@@ -1090,14 +1283,16 @@ function MemberForm({ member, onSave, onCancel }) {
                 onClick={() =>
                   setForm((f) => ({ ...f, etudiant: !f.etudiant }))
                 }
-                className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant
-                  ? "bg-gradient-to-r from-blue-500 to-purple-600"
-                  : "bg-gray-300 dark:bg-gray-600"
-                  }`}
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  form.etudiant
+                    ? "bg-gradient-to-r from-blue-500 to-purple-600"
+                    : "bg-gray-300 dark:bg-gray-600"
+                }`}
               >
                 <span
-                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${form.etudiant ? "translate-x-7" : ""
-                    }`}
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${
+                    form.etudiant ? "translate-x-7" : ""
+                  }`}
                 />
               </button>
             </div>
@@ -1114,7 +1309,6 @@ function MemberForm({ member, onSave, onCancel }) {
             </div>
           )}
         </div>
-
         {/* ✅ SECTION PHOTO MODERNISÉE avec sélecteur caméra */}
         <div className="flex flex-col items-center space-y-4">
           {/* Prévisualisation de la photo */}
@@ -1128,7 +1322,7 @@ function MemberForm({ member, onSave, onCancel }) {
                 />
                 <button
                   type="button"
-                  onClick={() => setForm(prev => ({ ...prev, photo: null }))}
+                  onClick={() => setForm((prev) => ({ ...prev, photo: null }))}
                   className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -1168,7 +1362,7 @@ function MemberForm({ member, onSave, onCancel }) {
                   if (file) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                      setForm(prev => ({ ...prev, photo: e.target.result }));
+                      setForm((prev) => ({ ...prev, photo: e.target.result }));
                     };
                     reader.readAsDataURL(file);
                   }
@@ -1181,13 +1375,15 @@ function MemberForm({ member, onSave, onCancel }) {
           {/* Info sur les caméras disponibles */}
           <div className="text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
-              📸 Utilisez le bouton caméra pour choisir entre caméra avant (selfie) et arrière
+              📸 Utilisez le bouton caméra pour choisir entre caméra avant
+              (selfie) et arrière
             </p>
           </div>
         </div>
       </div>
     </div>
   );
+
   const renderContactTab = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1277,7 +1473,6 @@ function MemberForm({ member, onSave, onCancel }) {
       )}
     </div>
   );
-
   // ✅ ONGLET DOCUMENTS MODIFIÉ - Nouveau bouton caméra pour documents
   const renderDocumentsTab = () => (
     <div className="space-y-6">
@@ -1297,11 +1492,11 @@ function MemberForm({ member, onSave, onCancel }) {
           onChange={handleFileUpload}
           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
         />
-        
+
         {/* ✅ NOUVEAU BOUTON - Caméra pour documents avec sélecteur */}
         <button
           type="button"
-          onClick={() => setShowCamera('document')}
+          onClick={() => setShowCamera("document")}
           className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <Camera className="w-4 h-4" />
@@ -1362,7 +1557,9 @@ function MemberForm({ member, onSave, onCancel }) {
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
           <FaFileAlt className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">Aucun document</p>
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">
+            Aucun document
+          </p>
           <p className="text-gray-400 dark:text-gray-500 text-sm">
             Importez des certificats, documents d'identité, etc.
           </p>
@@ -1440,10 +1637,11 @@ function MemberForm({ member, onSave, onCancel }) {
                 className="sr-only"
               />
               <div
-                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${newPayment.is_paid
-                  ? "bg-green-500 border-green-500"
-                  : "border-gray-300 dark:border-gray-500"
-                  }`}
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  newPayment.is_paid
+                    ? "bg-green-500 border-green-500"
+                    : "border-gray-300 dark:border-gray-500"
+                }`}
               >
                 {newPayment.is_paid && (
                   <FaCheck className="w-3 h-3 text-white" />
@@ -1464,7 +1662,6 @@ function MemberForm({ member, onSave, onCancel }) {
           </button>
         </div>
       </div>
-
       {/* Liste des paiements */}
       {payments.length > 0 ? (
         <div className="space-y-4">
@@ -1480,12 +1677,18 @@ function MemberForm({ member, onSave, onCancel }) {
                 <div className="flex-1 w-full sm:w-auto">
                   <div className="flex items-center gap-3 mb-3">
                     <div
-                      className={`p-2 rounded-lg ${pay.is_paid ? "bg-green-100 dark:bg-green-900" : "bg-orange-100 dark:bg-orange-900"
-                        }`}
+                      className={`p-2 rounded-lg ${
+                        pay.is_paid
+                          ? "bg-green-100 dark:bg-green-900"
+                          : "bg-orange-100 dark:bg-orange-900"
+                      }`}
                     >
                       <FaEuroSign
-                        className={`w-4 h-4 ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
-                          }`}
+                        className={`w-4 h-4 ${
+                          pay.is_paid
+                            ? "text-green-600 dark:text-green-300"
+                            : "text-orange-600 dark:text-orange-300"
+                        }`}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1507,18 +1710,22 @@ function MemberForm({ member, onSave, onCancel }) {
                     />
                     <button
                       onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${pay.is_paid
-                        ? "bg-green-500 border-green-500"
-                        : "border-gray-300 dark:border-gray-500 hover:border-green-400"
-                        }`}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                        pay.is_paid
+                          ? "bg-green-500 border-green-500"
+                          : "border-gray-300 dark:border-gray-500 hover:border-green-400"
+                      }`}
                     >
                       {pay.is_paid && (
                         <FaCheck className="w-3 h-3 text-white" />
                       )}
                     </button>
                     <span
-                      className={`text-sm font-medium ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
-                        }`}
+                      className={`text-sm font-medium ${
+                        pay.is_paid
+                          ? "text-green-600 dark:text-green-300"
+                          : "text-orange-600 dark:text-orange-300"
+                      }`}
                     >
                       {pay.is_paid ? "Encaissé" : "En attente"}
                     </span>
@@ -1535,7 +1742,9 @@ function MemberForm({ member, onSave, onCancel }) {
                       </p>
                     )}
                     {pay.commentaire && (
-                      <p className="italic text-gray-500 dark:text-gray-400">{pay.commentaire}</p>
+                      <p className="italic text-gray-500 dark:text-gray-400">
+                        {pay.commentaire}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -1657,7 +1866,6 @@ function MemberForm({ member, onSave, onCancel }) {
             </button>
           </div>
         </div>
-
         {/* Navigation par onglets avec scroll horizontal */}
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex gap-1 sm:gap-2 min-w-max pb-2 sm:pb-0">
@@ -1680,10 +1888,11 @@ function MemberForm({ member, onSave, onCancel }) {
           <button
             onClick={() => goToTab(currentTabIndex - 1)}
             disabled={currentTabIndex === 0}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${currentTabIndex === 0
-              ? "text-white text-opacity-40 cursor-not-allowed"
-              : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
-              }`}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+              currentTabIndex === 0
+                ? "text-white text-opacity-40 cursor-not-allowed"
+                : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+            }`}
           >
             <FaChevronLeft className="w-3 h-3" />
             <span className="hidden sm:inline">Précédent</span>
@@ -1694,10 +1903,11 @@ function MemberForm({ member, onSave, onCancel }) {
               <button
                 key={index}
                 onClick={() => goToTab(index)}
-                className={`w-2 h-2 rounded-full transition-colors ${currentTabIndex === index
-                  ? "bg-white"
-                  : "bg-white bg-opacity-40"
-                  }`}
+                className={`w-2 h-2 rounded-full transition-colors ${
+                  currentTabIndex === index
+                    ? "bg-white"
+                    : "bg-white bg-opacity-40"
+                }`}
               />
             ))}
           </div>
@@ -1705,10 +1915,11 @@ function MemberForm({ member, onSave, onCancel }) {
           <button
             onClick={() => goToTab(currentTabIndex + 1)}
             disabled={currentTabIndex === tabs.length - 1}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${currentTabIndex === tabs.length - 1
-              ? "text-white text-opacity-40 cursor-not-allowed"
-              : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
-              }`}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+              currentTabIndex === tabs.length - 1
+                ? "text-white text-opacity-40 cursor-not-allowed"
+                : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+            }`}
           >
             <span className="hidden sm:inline">Suivant</span>
             <FaChevronRight className="w-3 h-3" />
@@ -1719,12 +1930,15 @@ function MemberForm({ member, onSave, onCancel }) {
           💡 Glissez horizontalement ou utilisez les flèches pour naviguer
         </div>
       </div>
+
       {/* Notifications de statut */}
       {uploadStatus.loading && (
         <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
           <div className="flex items-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
-            <p className="text-blue-700 dark:text-blue-300">Téléversement en cours...</p>
+            <p className="text-blue-700 dark:text-blue-300">
+              Téléversement en cours...
+            </p>
           </div>
         </div>
       )}
@@ -1733,7 +1947,9 @@ function MemberForm({ member, onSave, onCancel }) {
         <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4">
           <div className="flex items-center">
             <FaTimes className="w-4 h-4 text-red-400 dark:text-red-300 mr-3" />
-            <p className="text-red-700 dark:text-red-200">{uploadStatus.error}</p>
+            <p className="text-red-700 dark:text-red-200">
+              {uploadStatus.error}
+            </p>
           </div>
         </div>
       )}
@@ -1742,7 +1958,9 @@ function MemberForm({ member, onSave, onCancel }) {
         <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-400 dark:border-green-700 p-4">
           <div className="flex items-center">
             <FaCheck className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
-            <p className="text-green-700 dark:text-green-100">{uploadStatus.success}</p>
+            <p className="text-green-700 dark:text-green-100">
+              {uploadStatus.success}
+            </p>
           </div>
         </div>
       )}
@@ -1773,20 +1991,23 @@ function MemberForm({ member, onSave, onCancel }) {
         <CameraModal
           isOpen={!!showCamera}
           onClose={() => {
-            console.log('🚪 Fermeture du modal caméra');
+            console.log("🚪 Fermeture du modal caméra");
             setShowCamera(false);
           }}
           onCapture={(imageData) => {
-            console.log('📸 Photo capturée depuis le modal:', imageData.slice(0, 50) + '...');
-            
-            if (showCamera === 'document') {
+            console.log(
+              "📸 Photo capturée depuis le modal:",
+              imageData.slice(0, 50) + "..."
+            );
+
+            if (showCamera === "document") {
               // Mode document : traiter comme un document
               captureDocument(imageData);
             } else {
               // Mode photo : traiter comme une photo de profil
               handleCameraCapture(imageData);
             }
-            
+
             // ✅ ATTENDRE avant de fermer pour éviter les conflits
             setTimeout(() => {
               setShowCamera(false);
@@ -1808,36 +2029,46 @@ export default MemberForm;
 
 1. 🧹 NETTOYAGE ROBUSTE DES STREAMS
    - Fonction cleanupStreams() dédiée avec logs détaillés
-   - Attente de 200ms après arrêt d'un stream avant d'en démarrer un nouveau
-   - Nettoyage de videoRef.current.srcObject
+   - Attente de 500ms après arrêt d'un stream avant d'en démarrer un nouveau (au lieu de 200ms)
+   - Attente de 800ms pour le basculement entre caméras (critique!)
+   - Nettoyage de videoRef.current.srcObject + .load() pour forcer le garbage collection
 
 2. 🚦 GESTION D'ERREURS AMÉLIORÉE
    - Messages spécifiques pour NotReadableError ("caméra occupée")
    - Support de tous les types d'erreur (OverconstrainedError, SecurityError)
    - Vérification que le composant est encore monté avant d'appliquer le stream
 
-3. ⏱️ DÉLAIS DE SÉCURITÉ
-   - 100ms d'attente lors de l'initialisation caméra
-   - 100ms d'attente lors du basculement entre caméras
+3. ⏱️ DÉLAIS DE SÉCURITÉ RENFORCÉS
+   - 200ms d'attente lors de l'initialisation caméra
+   - 800ms d'attente lors du basculement entre caméras (CRITIQUE pour éviter l'erreur)
    - 100ms d'attente avant fermeture du modal après capture
+   - 200ms d'attente supplémentaire si pas de caméra spécifique trouvée
 
 4. 🔍 DIAGNOSTIC RENFORCÉ
    - Fonction checkCameraSupport() pour vérifier la compatibilité
    - Logs détaillés à chaque étape (démarrage, arrêt, basculement)
    - Affichage du User Agent pour debug
+   - Vérification de l'état des tracks après arrêt
 
 5. 🎯 USEEFFECT OPTIMISÉ
+   - Flag 'mounted' pour éviter les race conditions
    - Initialisation asynchrone avec gestion d'erreur
    - Nettoyage ordonné lors du démontage
    - Évitement des conflits de concurrence
 
-RÉSULTAT : L'erreur "La caméra est utilisée par une autre application" 
-devrait être résolue grâce à la gestion propre des streams et aux 
-délais de sécurité entre les opérations.
+6. 🔄 SWITCHCAMERA COMPLÈTEMENT REÉCRITE
+   - Arrêt complet du stream AVANT de chercher la nouvelle caméra
+   - Recherche intelligente de la caméra cible (avant/arrière)
+   - Utilisation prioritaire de deviceId plutôt que facingMode
+   - Fallback robuste si détection échoue
+
+RÉSULTAT : L'erreur "La caméra est occupée par une autre application" 
+lors du basculement vers la caméra arrière devrait être complètement résolue 
+grâce à la gestion propre des streams et aux délais de sécurité renforcés.
 
 🎯 UTILISATION :
 - Photo profil : setShowCamera(true)
-- Document : setShowCamera('document')
+- Document : setShowCamera('document') 
 - Le modal gère automatiquement le type et traite en conséquence
 
 📱 COMPATIBLE : Mobile + Desktop avec sélecteur caméra avant/arrière
