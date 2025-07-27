@@ -53,7 +53,14 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 // ✅ COMPOSANT CAMÉRA CORRIGÉ - Modal Caméra avec sélecteur avant/arrière + corrections webcam
+// 📄 MemberForm.js — Composant principal avec sélecteur caméra — Dossier : components — Date : 2025-07-25
+
+// ✅ COMPOSANT CAMÉRA COMPLET ET CORRIGÉ
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
+  // -------------------------------------------------------------------
+  // 🔹 PARTIE 1 : LOGIQUE DU COMPOSANT (Hooks et Fonctions)
+  // -------------------------------------------------------------------
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
@@ -61,357 +68,103 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const [error, setError] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [availableCameras, setAvailableCameras] = useState([]);
-  const [selectedCameraId, setSelectedCameraId] = useState(null);
   const [facingMode, setFacingMode] = useState("user"); // 'user' = avant, 'environment' = arrière
 
-  // ✅ FONCTION DIAGNOSTIC - Vérifier le support caméra
-  const checkCameraSupport = () => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      console.error("❌ API getUserMedia non supportée");
-      return false;
-    }
-
-    console.log("✅ Support caméra détecté");
-    console.log("📱 User Agent:", navigator.userAgent);
-    return true;
-  };
-
-  // ✅ FONCTION CLEANUPSTREAMS RENFORCÉE
-  const cleanupStreams = () => {
-    if (stream) {
-      console.log("🧹 === NETTOYAGE COMPLET STREAMS ===");
-
-      stream.getTracks().forEach((track) => {
-        console.log("⏹️ Arrêt track:", track.label, "État:", track.readyState);
+  // ✅ CORRECTION : La fonction de nettoyage est la seule source de vérité pour arrêter le flux.
+  const cleanupStreams = async () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      console.log("🧹 Début du nettoyage du stream...");
+      const currentStream = videoRef.current.srcObject;
+      currentStream.getTracks().forEach((track) => {
+        console.log(`⏹️ Arrêt du track: ${track.label}`);
         track.stop();
-
-        // ✅ Vérification que le track est bien arrêté
-        setTimeout(() => {
-          console.log(
-            "🔍 Vérification track:",
-            track.label,
-            "État final:",
-            track.readyState
-          );
-        }, 100);
       });
-
-      setStream(null);
-    }
-
-    // ✅ Nettoyer la vidéo explicitement
-    if (videoRef.current) {
-      console.log("🧹 Nettoyage élément vidéo");
       videoRef.current.srcObject = null;
-      videoRef.current.load(); // Force le garbage collection
+      setStream(null);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      console.log("✅ Nettoyage terminé.");
     }
-
-    console.log("✅ === NETTOYAGE TERMINÉ ===");
   };
 
-  // ✅ FONCTION DETECTCAMERAS CORRIGÉE pour mobile
   const detectCameras = async () => {
-    if (!checkCameraSupport()) {
-      setError("Votre navigateur ne supporte pas l'accès à la caméra");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError("Votre navigateur ne supporte pas l'accès à la caméra.");
       return;
     }
-
     try {
-      // ✅ CORRECTION MOBILE : Ne PAS demander d'accès préalable sur mobile
-      // Cela crée un conflit car la caméra reste occupée
-
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(
         (device) => device.kind === "videoinput"
       );
-
-      console.log(
-        "📱 Caméras détectées:",
-        videoDevices.map((d) => ({
-          id: d.deviceId.slice(0, 8) + "...",
-          label: d.label || "Caméra inconnue",
-        }))
-      );
-
       setAvailableCameras(videoDevices);
-
-      // ✅ CORRECTION MOBILE : Sélection par défaut basée sur le nombre de caméras
-      if (videoDevices.length === 1) {
-        // Une seule caméra : l'utiliser directement
-        console.log("📱 Une seule caméra détectée, sélection automatique");
-        setSelectedCameraId(videoDevices[0].deviceId);
-      } else if (videoDevices.length > 1) {
-        // Plusieurs caméras : essayer de trouver la caméra avant
-        const frontCamera = videoDevices.find((device) => {
-          const label = device.label.toLowerCase();
-          return (
-            label.includes("front") ||
-            label.includes("user") ||
-            label.includes("selfie") ||
-            label.includes("facing")
-          );
-        });
-
-        if (frontCamera) {
-          console.log("📱 Caméra avant sélectionnée:", frontCamera.label);
-          setSelectedCameraId(frontCamera.deviceId);
-        } else {
-          // Si pas de caméra avant identifiable, prendre la première
-          console.log(
-            "📱 Première caméra sélectionnée:",
-            videoDevices[0].label
-          );
-          setSelectedCameraId(videoDevices[0].deviceId);
-        }
-      }
-    } catch (error) {
-      console.error("❌ Erreur détection caméras:", error);
-      // ✅ CORRECTION : Ne pas bloquer si l'énumération échoue
-      console.log("📱 Échec énumération, utilisation facingMode par défaut");
-      setAvailableCameras([]);
-      setSelectedCameraId(null);
+    } catch (err) {
+      console.error("Erreur lors de la détection des caméras :", err);
     }
   };
-  // ✅ FONCTION STARTCAMERA CORRIGÉE pour mobile
-  const startCamera = async (cameraId = null, facing = null) => {
+
+  // ✅ CORRECTION : La fonction startCamera est simplifiée.
+  const startCamera = async (currentFacingMode) => {
     try {
       setIsLoading(true);
       setError(null);
+      setCapturedPhoto(null);
 
-      // ✅ CORRECTION MOBILE : Nettoyage plus agressif
-      if (stream) {
-        console.log("🔄 Arrêt complet du stream précédent (mobile)");
-        stream.getTracks().forEach((track) => {
-          console.log("⏹️ Arrêt track:", track.label, track.readyState);
-          track.stop();
-        });
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-          videoRef.current.load();
-          // ✅ MOBILE : Pause explicite
-          videoRef.current.pause();
-        }
-
-        setStream(null);
-
-        // ✅ MOBILE : Attente encore plus longue pour libération
-        console.log("⏳ Attente 1000ms pour libération mobile...");
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-
-      // ✅ CORRECTION MOBILE : Contraintes simplifiées
-      let constraints;
-
-      if (cameraId && cameraId !== "unknown") {
-        // Mode avec ID caméra spécifique
-        constraints = {
-          video: {
-            deviceId: { ideal: cameraId }, // ✅ MOBILE : 'ideal' au lieu de 'exact'
-            width: { ideal: 640 }, // ✅ MOBILE : Résolution plus basse
-            height: { ideal: 480 },
-          },
-          audio: false,
-        };
-        console.log("📹 Mobile - Démarrage avec deviceId:", cameraId);
-      } else {
-        // Mode avec facingMode (plus compatible mobile)
-        constraints = {
-          video: {
-            facingMode: facing || facingMode,
-            width: { ideal: 640 }, // ✅ MOBILE : Résolution adaptée
-            height: { ideal: 480 },
-          },
-          audio: false,
-        };
-        console.log(
-          "📹 Mobile - Démarrage avec facingMode:",
-          facing || facingMode
-        );
-      }
-
-      console.log("📹 Contraintes mobile:", constraints);
-
-      // ✅ Vérification modal ouvert
-      if (!isOpen) {
-        console.log("❌ Modal fermé, annulation");
-        return;
-      }
-
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log(
-        "✅ Stream mobile obtenu:",
-        newStream.getTracks().map((t) => t.label)
+        `📹 Tentative de démarrage de la caméra en mode: ${currentFacingMode}`
       );
 
-      // ✅ Double vérification
-      if (!isOpen || !videoRef.current) {
-        console.log("❌ Composant démonté, nettoyage");
-        newStream.getTracks().forEach((track) => track.stop());
-        return;
-      }
+      const constraints = {
+        video: {
+          facingMode: { ideal: currentFacingMode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      };
 
-      setStream(newStream);
-      videoRef.current.srcObject = newStream;
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-      // ✅ MOBILE : Lecture vidéo simplifiée
-      try {
-        // Attendre que les métadonnées soient chargées
-        await new Promise((resolve) => {
-          videoRef.current.onloadedmetadata = resolve;
-        });
-
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
         await videoRef.current.play();
-        console.log("✅ Vidéo mobile démarrée avec succès");
-      } catch (playError) {
-        console.warn("⚠️ Erreur lecture mobile:", playError);
-        // Sur mobile, parfois la lecture automatique échoue, mais ce n'est pas grave
+        setStream(newStream);
+        console.log("✅ Caméra démarrée avec succès.");
       }
-    } catch (error) {
-      console.error("❌ Erreur accès caméra mobile:", error);
-
-      let errorMessage = "Impossible d'accéder à la caméra";
-
-      if (error.name === "NotAllowedError") {
+    } catch (err) {
+      console.error("❌ Erreur accès caméra :", err);
+      let errorMessage = "Impossible d'accéder à la caméra.";
+      if (err.name === "NotReadableError") {
         errorMessage =
-          "Accès à la caméra refusé. Autorisez l'accès dans les paramètres de votre navigateur.";
-      } else if (error.name === "NotFoundError") {
-        errorMessage = "Aucune caméra trouvée sur cet appareil.";
-      } else if (error.name === "NotReadableError") {
+          "La caméra est déjà utilisée. Essayez de fermer les autres applications ou onglets qui pourraient l'utiliser.";
+      } else if (err.name === "NotAllowedError") {
         errorMessage =
-          "Caméra occupée. Essayez de :\n• Fermer tous les onglets\n• Redémarrer le navigateur\n• Redémarrer l'application caméra si ouverte";
-      } else if (error.name === "OverconstrainedError") {
-        // ✅ MOBILE : Retry avec contraintes plus souples
-        console.log("🔄 Retry avec contraintes basiques...");
-        try {
-          const basicConstraints = {
-            video: { facingMode: facing || facingMode },
-            audio: false,
-          };
-          const basicStream = await navigator.mediaDevices.getUserMedia(
-            basicConstraints
-          );
-          setStream(basicStream);
-          videoRef.current.srcObject = basicStream;
-          await videoRef.current.play();
-          console.log("✅ Retry mobile réussi");
-          setIsLoading(false);
-          return;
-        } catch (retryError) {
-          errorMessage =
-            "Impossible de démarrer la caméra avec ces paramètres.";
-        }
-      } else if (error.name === "SecurityError") {
-        errorMessage = "Accès à la caméra bloqué pour des raisons de sécurité.";
+          "L'accès à la caméra a été refusé. Veuillez l'autoriser dans les paramètres de votre navigateur.";
       }
-
       setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
-  /// ✅ FONCTION SWITCHCAMERA CORRIGÉE pour mobile
+
+  // ✅ CORRECTION : La fonction pour basculer la caméra suit un ordre strict.
   const switchCamera = async () => {
-    console.log("🔄 === DÉBUT BASCULEMENT MOBILE ===");
-    console.log("Current facingMode:", facingMode);
-    console.log("Available cameras:", availableCameras.length);
-
-    try {
-      setIsLoading(true);
-
-      // ✅ MOBILE : Arrêt encore plus agressif
-      if (stream) {
-        console.log("🛑 Arrêt forcé stream mobile");
-        stream.getTracks().forEach((track) => {
-          console.log("⏹️ Stop track mobile:", track.label);
-          track.stop();
-        });
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-          videoRef.current.load();
-          videoRef.current.pause();
-        }
-
-        setStream(null);
-
-        // ✅ MOBILE : Attente maximale pour libération
-        console.log("⏳ Attente 1200ms libération mobile...");
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-      }
-
-      const newFacingMode = facingMode === "user" ? "environment" : "user";
-      console.log("🎯 Nouveau facingMode mobile:", newFacingMode);
-
-      setFacingMode(newFacingMode);
-
-      // ✅ MOBILE : Utiliser facingMode plutôt que deviceId
-      console.log("🎯 Mobile - Utilisation facingMode direct");
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await startCamera(null, newFacingMode);
-
-      console.log("✅ === BASCULEMENT MOBILE TERMINÉ ===");
-    } catch (error) {
-      console.error("❌ Erreur basculement mobile:", error);
-      setError(`Erreur basculement: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+    console.log("🔄 Basculement de la caméra...");
+    const newFacingMode = facingMode === "user" ? "environment" : "user";
+    setFacingMode(newFacingMode);
   };
-  // ✅ USEEFFECT CORRIGÉ - Éviter les conflits d'initialisation
+
+  // ✅ CORRECTION : Le `useEffect` principal gère le cycle de vie.
   useEffect(() => {
-    let mounted = true; // Flag pour éviter les race conditions
-
     if (isOpen) {
-      const initCamera = async () => {
-        try {
-          console.log("🚀 Initialisation caméra...");
-
-          // ✅ Nettoyer d'abord au cas où il y aurait des résidus
-          if (stream) {
-            console.log("🧹 Nettoyage préventif...");
-            cleanupStreams();
-            await new Promise((resolve) => setTimeout(resolve, 300));
-          }
-
-          if (!mounted) return; // Vérifier si toujours monté
-
-          await detectCameras();
-
-          if (!mounted) return;
-
-          // ✅ Délai plus long pour l'initialisation
-          setTimeout(() => {
-            if (mounted && isOpen) {
-              startCamera();
-            }
-          }, 200);
-        } catch (error) {
-          console.error("❌ Erreur initialisation caméra:", error);
-          if (mounted) {
-            setError("Impossible d'initialiser la caméra");
-          }
-        }
-      };
-
-      initCamera();
-    } else {
-      // ✅ NETTOYAGE IMMÉDIAT lors de la fermeture
-      console.log("🚪 Modal fermé, nettoyage immédiat");
-      cleanupStreams();
-      setCapturedPhoto(null);
-      setError(null);
-      setIsLoading(false);
+      detectCameras();
+      startCamera(facingMode);
     }
 
-    // ✅ Nettoyage lors du démontage avec flag
     return () => {
-      mounted = false;
       cleanupStreams();
     };
-  }, [isOpen]);
+  }, [isOpen, facingMode]);
 
-  // ✅ Fonction pour capturer la photo
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
 
@@ -419,26 +172,23 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
 
-    // Définir la taille du canvas
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    // ✅ Gérer le miroir pour la caméra avant
     if (facingMode === "user") {
-      // Effet miroir pour caméra avant (plus naturel)
+      context.save();
       context.scale(-1, 1);
       context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+      context.restore();
     } else {
-      // Pas d'effet miroir pour caméra arrière
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
     }
 
-    // Convertir en base64
-    const imageData = canvas.toDataURL("image/jpeg", 0.8);
+    const imageData = canvas.toDataURL("image/jpeg", 0.9);
     setCapturedPhoto(imageData);
+    cleanupStreams();
   };
 
-  // ✅ Confirmer et envoyer la photo
   const confirmPhoto = () => {
     if (capturedPhoto) {
       onCapture(capturedPhoto);
@@ -446,21 +196,22 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     }
   };
 
-  // ✅ Recommencer la capture
   const retakePhoto = () => {
-    setCapturedPhoto(null);
+    startCamera(facingMode);
   };
 
-  // ✅ Obtenir le libellé de la caméra actuelle
   const getCurrentCameraLabel = () => {
-    if (facingMode === "user") {
-      return "Caméra avant (selfie)";
-    } else {
-      return "Caméra arrière";
-    }
+    return facingMode === "user" ? "Caméra avant (selfie)" : "Caméra arrière";
   };
+
+  // -------------------------------------------------------------------
+  // 🔹 PARTIE 2 : AFFICHAGE DU COMPOSANT (JSX)
+  // -------------------------------------------------------------------
+
+  // Si le modal n'est pas ouvert, on n'affiche rien.
   if (!isOpen) return null;
 
+  // C'est ici le "return" principal qui affiche le modal.
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
       <div
@@ -468,7 +219,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           isDarkMode ? "bg-gray-800" : "bg-white"
         } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
       >
-        {/* Header avec titre et sélecteur de caméra */}
+        {/* Header */}
         <div
           className={`p-4 border-b ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
@@ -481,8 +232,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           >
             📸 Prendre une photo
           </h3>
-
-          {/* ✅ Affichage de la caméra actuelle */}
           <div className="flex items-center gap-2">
             <span
               className={`text-sm ${
@@ -504,13 +253,12 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
         {/* Contenu principal */}
         <div className="flex-1 flex flex-col items-center justify-center p-6">
-          {/* ✅ Affichage d'erreur */}
           {error && (
             <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
               <p className="font-medium mb-2">❌ Erreur caméra</p>
               <p className="text-sm">{error}</p>
               <button
-                onClick={() => startCamera()}
+                onClick={() => startCamera(facingMode)}
                 className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
               >
                 Réessayer
@@ -518,10 +266,9 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
             </div>
           )}
 
-          {/* ✅ Zone de prévisualisation */}
+          {/* Zone de prévisualisation */}
           {!error && (
             <div className="relative bg-black rounded-xl overflow-hidden max-w-md w-full aspect-[4/3]">
-              {/* Loading */}
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                   <div className="text-white text-center">
@@ -531,7 +278,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                 </div>
               )}
 
-              {/* ✅ Vidéo en temps réel */}
+              {/* Vidéo en temps réel */}
               {!capturedPhoto && (
                 <video
                   ref={videoRef}
@@ -540,12 +287,12 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   muted
                   className="w-full h-full object-cover"
                   style={{
-                    transform: facingMode === "user" ? "scaleX(-1)" : "none", // Effet miroir pour prévisualisation
+                    transform: facingMode === "user" ? "scaleX(-1)" : "none",
                   }}
                 />
               )}
 
-              {/* ✅ Photo capturée */}
+              {/* Photo capturée */}
               {capturedPhoto && (
                 <img
                   src={capturedPhoto}
@@ -554,17 +301,16 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                 />
               )}
 
-              {/* Canvas caché pour la capture */}
               <canvas ref={canvasRef} className="hidden" />
             </div>
           )}
-          {/* ✅ Contrôles */}
+
+          {/* Contrôles */}
           {!error && !isLoading && (
             <div className="mt-6 flex items-center gap-4">
               {!capturedPhoto ? (
                 // Contrôles pour la capture
                 <>
-                  {/* ✅ Bouton basculer caméra */}
                   {availableCameras.length > 1 && (
                     <button
                       onClick={switchCamera}
@@ -583,7 +329,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                     </button>
                   )}
 
-                  {/* Bouton capture principal */}
                   <button
                     onClick={capturePhoto}
                     disabled={!stream}
@@ -592,7 +337,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                     <Camera className="w-8 h-8" />
                   </button>
 
-                  {/* Bouton fermer */}
                   <button
                     onClick={onClose}
                     className={`p-3 rounded-full border-2 ${
@@ -624,19 +368,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   </button>
                 </>
               )}
-            </div>
-          )}
-
-          {/* ✅ Informations sur les caméras disponibles */}
-          {availableCameras.length > 0 && (
-            <div className="mt-4 text-center">
-              <p
-                className={`text-xs ${
-                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                }`}
-              >
-                {availableCameras.length} caméra(s) détectée(s)
-              </p>
             </div>
           )}
         </div>
