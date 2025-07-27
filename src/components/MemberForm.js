@@ -557,8 +557,8 @@ function MemberForm({ member, onSave, onCancel }) {
   }, []);
 
   useEffect(() => {
-    if (member && member.id) {
-      // ✅ Ne se déclenche QUE si c'est un nouveau membre (changement d'ID)
+    if (member && !form.name && !form.firstName) {
+      // ✅ Ne se déclenche QUE si le form est vide (nouveau membre)
       setForm({
         ...member,
         files: Array.isArray(member.files)
@@ -569,20 +569,12 @@ function MemberForm({ member, onSave, onCancel }) {
         etudiant: !!member.etudiant,
       });
 
-      fetchPayments(member.id);
-    } else if (member && !member.id) {
-      // ✅ Nouveau membre sans ID (création)
-      setForm({
-        ...member,
-        files: Array.isArray(member.files)
-          ? member.files
-          : typeof member.files === "string"
-          ? JSON.parse(member.files || "[]")
-          : [],
-        etudiant: !!member.etudiant,
-      });
+      if (member.id) {
+        fetchPayments(member.id);
+      }
     }
-  }, [member?.id]); // ✅ CORRECTION : Dépendance sur member.id uniquement
+  }, [member?.id, form.name, form.firstName]);
+
   // Gestion des événements tactiles pour le swipe - Version simplifiée
   const handleTouchStart = (e) => {
     if (isTransitioning) return;
@@ -834,28 +826,10 @@ function MemberForm({ member, onSave, onCancel }) {
         files: updatedFiles,
       }));
 
-      // ✅ AJOUT : Sauvegarder en base si membre existe
-      if (member?.id) {
-        // ✅ Utiliser les données à jour directement
-        const formData = {
-          ...form,
-          files: JSON.stringify(updatedFiles),
-        };
-
-        try {
-          await onSave(formData, false);
-          console.log("✅ Document sauvegardé avec succès");
-        } catch (error) {
-          console.error("❌ Erreur sauvegarde:", error);
-          // Remettre l'ancien état en cas d'erreur
-          setForm((f) => ({ ...f, files: form.files }));
-        }
-      }
-
       setUploadStatus({
         loading: false,
         error: null,
-        success: `${newFiles.length} fichier(s) ajouté(s) avec succès !`,
+        success: `${newFiles.length} fichier(s) ajouté(s) ! Cliquez "Enregistrer" pour sauvegarder.`,
       });
 
       setTimeout(
@@ -923,28 +897,10 @@ function MemberForm({ member, onSave, onCancel }) {
         files: updatedFiles,
       }));
 
-      // ✅ AJOUT : Sauvegarder en base si membre existe
-      if (member?.id) {
-        // ✅ Utiliser les données à jour directement
-        const formData = {
-          ...form,
-          files: JSON.stringify(updatedFiles),
-        };
-
-        try {
-          await onSave(formData, false);
-          console.log("✅ Document capturé et sauvegardé avec succès");
-        } catch (error) {
-          console.error("❌ Erreur sauvegarde:", error);
-          // Remettre l'ancien état en cas d'erreur
-          setForm((f) => ({ ...f, files: form.files }));
-        }
-      }
-
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Document capturé et sauvegardé avec succès !",
+        success: 'Document capturé ! Cliquez "Enregistrer" pour sauvegarder.',
       });
 
       setTimeout(
@@ -983,11 +939,10 @@ function MemberForm({ member, onSave, onCancel }) {
       const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
       setForm((f) => ({ ...f, files: newFiles }));
 
-      await onSave({ ...form, files: JSON.stringify(newFiles) }, false);
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Fichier supprimé avec succès !",
+        success: 'Fichier supprimé ! Cliquez "Enregistrer" pour sauvegarder.',
       });
       setTimeout(
         () => setUploadStatus({ loading: false, error: null, success: null }),
