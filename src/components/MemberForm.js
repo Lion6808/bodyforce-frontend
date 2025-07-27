@@ -503,7 +503,7 @@ function MemberForm({ member, onSave, onCancel }) {
   });
 
   // ✅ NOUVEAUX ÉTATS pour la caméra moderne
-  const [showCamera, setShowCamera] = useState(false);
+  const [showCamera, setShowCamera] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // ✅ États existants conservés (pour compatibilité)
@@ -795,28 +795,52 @@ function MemberForm({ member, onSave, onCancel }) {
     setUploadStatus({ loading: true, error: null, success: null });
 
     try {
+      const newFiles = []; // ✅ Collecter tous les nouveaux fichiers
+
       for (const file of files) {
         const safeName = sanitizeFileName(file.name);
         const filePath = `certificats/${Date.now()}_${safeName}`;
+
         const { error } = await supabase.storage
           .from("documents")
           .upload(filePath, file);
+
         if (error) {
           throw new Error(`Erreur lors du téléversement : ${error.message}`);
         }
+
         const { data } = supabase.storage
           .from("documents")
           .getPublicUrl(filePath);
-        setForm((f) => ({
-          ...f,
-          files: [...f.files, { name: safeName, url: data.publicUrl }],
-        }));
+
+        // ✅ Ajouter à la liste des nouveaux fichiers
+        newFiles.push({ name: safeName, url: data.publicUrl });
       }
+
+      // ✅ AJOUT : Mettre à jour le state local avec TOUS les fichiers
+      const updatedFiles = [...form.files, ...newFiles];
+      setForm((f) => ({
+        ...f,
+        files: updatedFiles,
+      }));
+
+      // ✅ AJOUT : Sauvegarder en base si membre existe
+      if (member?.id) {
+        await onSave(
+          {
+            ...form,
+            files: JSON.stringify(updatedFiles),
+          },
+          false
+        );
+      }
+
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Fichiers ajoutés avec succès !",
+        success: `${newFiles.length} fichier(s) ajouté(s) avec succès !`,
       });
+
       setTimeout(
         () => setUploadStatus({ loading: false, error: null, success: null }),
         3000
@@ -825,6 +849,9 @@ function MemberForm({ member, onSave, onCancel }) {
       console.error("Erreur lors du téléversement :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
+
+    // ✅ AJOUT : Réinitialiser l'input file
+    e.target.value = "";
   };
 
   // ✅ FONCTION MODIFIÉE - Capture photo avec nouveau modal
@@ -850,41 +877,52 @@ function MemberForm({ member, onSave, onCancel }) {
     setUploadStatus({ loading: true, error: null, success: null });
 
     try {
-      const blob = await (await fetch(imageData)).blob();
+      const response = await fetch(imageData);
+      const blob = await response.blob();
+
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
-      const { error } = await supabase.storage
+
+      const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(filePath, blob);
-      if (error) {
+
+      if (uploadError) {
         throw new Error(
-          `Erreur lors du téléversement du document : ${error.message}`
+          `Erreur lors du téléversement du document : ${uploadError.message}`
         );
       }
 
       const { data } = supabase.storage
         .from("documents")
         .getPublicUrl(filePath);
+
+      // ✅ AJOUT : Créer le nouveau fichier et mettre à jour le state local
+      const newFile = { name: fileName, url: data.publicUrl };
+      const updatedFiles = [...form.files, newFile];
+
       setForm((f) => ({
         ...f,
-        files: [...f.files, { name: fileName, url: data.publicUrl }],
+        files: updatedFiles,
       }));
+
+      // ✅ AJOUT : Sauvegarder en base si membre existe
+      if (member?.id) {
+        await onSave(
+          {
+            ...form,
+            files: JSON.stringify(updatedFiles),
+          },
+          false
+        );
+      }
+
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Document capturé avec succès !",
+        success: "Document capturé et sauvegardé avec succès !",
       });
 
-      await onSave(
-        {
-          ...form,
-          files: JSON.stringify([
-            ...form.files,
-            { name: fileName, url: data.publicUrl },
-          ]),
-        },
-        false
-      );
       setTimeout(
         () => setUploadStatus({ loading: false, error: null, success: null }),
         3000
@@ -1062,7 +1100,7 @@ function MemberForm({ member, onSave, onCancel }) {
             {/* Bouton caméra avec sélecteur avant/arrière */}
             <button
               type="button"
-              onClick={() => setShowCamera(true)}
+              onClick={() => setShowCamera("photo")}
               className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               <Camera className="w-4 h-4" />
@@ -1711,7 +1749,7 @@ function MemberForm({ member, onSave, onCancel }) {
           isOpen={!!showCamera}
           onClose={() => {
             console.log("🚪 Fermeture du modal caméra");
-            setShowCamera(false);
+            setShowCamera(null);
           }}
           onCapture={(imageData) => {
             console.log(
@@ -1729,7 +1767,7 @@ function MemberForm({ member, onSave, onCancel }) {
 
             // ✅ ATTENDRE avant de fermer pour éviter les conflits
             setTimeout(() => {
-              setShowCamera(false);
+              setShowCamera(null);
             }, 100);
           }}
           isDarkMode={isDarkMode}
