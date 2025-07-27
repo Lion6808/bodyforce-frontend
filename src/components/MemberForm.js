@@ -557,7 +557,8 @@ function MemberForm({ member, onSave, onCancel }) {
   }, []);
 
   useEffect(() => {
-    if (member) {
+    if (member && member.id) {
+      // ✅ Ne se déclenche QUE si c'est un nouveau membre (changement d'ID)
       setForm({
         ...member,
         files: Array.isArray(member.files)
@@ -568,11 +569,20 @@ function MemberForm({ member, onSave, onCancel }) {
         etudiant: !!member.etudiant,
       });
 
-      if (member.id) {
-        fetchPayments(member.id);
-      }
+      fetchPayments(member.id);
+    } else if (member && !member.id) {
+      // ✅ Nouveau membre sans ID (création)
+      setForm({
+        ...member,
+        files: Array.isArray(member.files)
+          ? member.files
+          : typeof member.files === "string"
+          ? JSON.parse(member.files || "[]")
+          : [],
+        etudiant: !!member.etudiant,
+      });
     }
-  }, [member]);
+  }, [member?.id]); // ✅ CORRECTION : Dépendance sur member.id uniquement
   // Gestion des événements tactiles pour le swipe - Version simplifiée
   const handleTouchStart = (e) => {
     if (isTransitioning) return;
@@ -826,13 +836,20 @@ function MemberForm({ member, onSave, onCancel }) {
 
       // ✅ AJOUT : Sauvegarder en base si membre existe
       if (member?.id) {
-        await onSave(
-          {
-            ...form,
-            files: JSON.stringify(updatedFiles),
-          },
-          false
-        );
+        // ✅ Utiliser les données à jour directement
+        const formData = {
+          ...form,
+          files: JSON.stringify(updatedFiles),
+        };
+
+        try {
+          await onSave(formData, false);
+          console.log("✅ Document sauvegardé avec succès");
+        } catch (error) {
+          console.error("❌ Erreur sauvegarde:", error);
+          // Remettre l'ancien état en cas d'erreur
+          setForm((f) => ({ ...f, files: form.files }));
+        }
       }
 
       setUploadStatus({
@@ -908,13 +925,20 @@ function MemberForm({ member, onSave, onCancel }) {
 
       // ✅ AJOUT : Sauvegarder en base si membre existe
       if (member?.id) {
-        await onSave(
-          {
-            ...form,
-            files: JSON.stringify(updatedFiles),
-          },
-          false
-        );
+        // ✅ Utiliser les données à jour directement
+        const formData = {
+          ...form,
+          files: JSON.stringify(updatedFiles),
+        };
+
+        try {
+          await onSave(formData, false);
+          console.log("✅ Document capturé et sauvegardé avec succès");
+        } catch (error) {
+          console.error("❌ Erreur sauvegarde:", error);
+          // Remettre l'ancien état en cas d'erreur
+          setForm((f) => ({ ...f, files: form.files }));
+        }
       }
 
       setUploadStatus({
