@@ -40,6 +40,8 @@ import StatisticsPage from "./pages/StatisticsPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
+import UserManagementPage from "./pages/UserManagementPage";
+
 
 // Configuration des pages pour la navigation swipe
 const SWIPE_PAGES = [
