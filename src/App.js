@@ -1570,29 +1570,18 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
 
+  // ✅ MENU CONDITIONNEL SELON LE RÔLE
   const menu = [
     { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" /> },
-    {
-      name: "Membres",
-      path: "/members",
-      icon: <FaUserFriends className="text-green-500 dark:text-green-400" />,
-    },
-    {
-      name: "Planning",
-      path: "/planning",
-      icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />,
-    },
-    {
-      name: "Paiements",
-      path: "/payments",
-      icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />,
-    },
-    {
-      name: "Statistiques",
-      path: "/statistics",
-      icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
-    },
-    { name: "Mon Profil", path: "/profile", icon: <FaUser className="text-blue-500 dark:text-blue-400" /> },
+    // Afficher différents menus selon le rôle
+    ...(isAdmin ? [
+      { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500 dark:text-green-400" /> },
+      { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" /> },
+      { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" /> },
+      { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" /> },
+    ] : [
+      { name: "Mon Profil", path: "/profile", icon: <FaUser className="text-blue-500 dark:text-blue-400" /> },
+    ])
   ];
 
   const toggleSidebar = () => {
@@ -1729,7 +1718,7 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
 
 // Composant pour le menu mobile animé
 function AnimatedMobileMenu({
-  isOpen,
+   isOpen,
   onClose,
   user,
   isAdmin,
