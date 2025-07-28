@@ -1,307 +1,3 @@
-// src/App.js
-import React, { useState, useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useNavigate,
-  Link,
-} from "react-router-dom";
-import {
-  FaHome,
-  FaUserFriends,
-  FaChartBar,
-  FaCalendarAlt,
-  FaBars,
-  FaTimes,
-  FaUserCircle,
-  FaSignOutAlt,
-  FaCreditCard,
-  FaDownload,
-  FaCheck,
-  FaTimes as FaTimesIcon,
-  FaChevronLeft,
-  FaChevronRight,
-  FaMoon,
-  FaSun,
-  FaAdjust,
-  FaAngleDoubleLeft,
-  FaAngleDoubleRight,
-} from "react-icons/fa";
-import { supabase } from "./supabaseClient";
-
-import HomePage from "./pages/HomePage";
-import MembersPage from "./pages/MembersPage";
-import PlanningPage from "./pages/PlanningPage";
-import PaymentsPage from "./pages/PaymentsPage";
-import StatisticsPage from "./pages/StatisticsPage";
-import UserManagementPage from "./pages/UserManagementPage";
-import ProfilePage from "./pages/ProfilePage";
-import MemberForm from "./components/MemberForm";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-
-
-
-// Configuration des pages pour la navigation swipe
-const SWIPE_PAGES = [
-  { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" />, component: "HomePage" },
-  { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500 dark:text-green-400" />, component: "MembersPage" },
-  { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, component: "PlanningPage" },
-  { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, component: "PaymentsPage" },
-  { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
-];
-
-// Hook pour la gestion du mode sombre - VERSION CORRIGÉE
-function useDarkMode() {
-  const [darkMode, setDarkMode] = useState('auto');
-  const [actualDarkMode, setActualDarkMode] = useState(false);
-
-  // Fonction pour vérifier si c'est la nuit (19h-7h)
-  const isNightTime = () => {
-    const hour = new Date().getHours();
-    return hour >= 19 || hour < 7;
-  };
-
-  // Fonction pour déterminer le mode sombre actuel
-  const determineActualMode = (mode) => {
-    switch (mode) {
-      case 'dark':
-        return true;
-      case 'light':
-        return false;
-      case 'auto':
-      default:
-        return isNightTime();
-    }
-  };
-
-  // Fonction pour appliquer le thème au DOM
-  const applyTheme = (isDark) => {
-    const htmlElement = document.documentElement;
-
-    if (isDark) {
-      htmlElement.classList.add('dark');
-    } else {
-      htmlElement.classList.remove('dark');
-    }
-
-    console.log(`🎨 Mode appliqué: ${isDark ? 'Sombre' : 'Clair'}`, {
-      classList: Array.from(htmlElement.classList),
-      darkMode,
-      actualDarkMode: isDark
-    });
-  };
-
-  // Charger les préférences au démarrage
-  useEffect(() => {
-    const savedMode = localStorage.getItem('darkMode') || 'auto';
-    const newActualMode = determineActualMode(savedMode);
-
-    console.log('🚀 Initialisation mode sombre:', { savedMode, newActualMode });
-
-    setDarkMode(savedMode);
-    setActualDarkMode(newActualMode);
-    applyTheme(newActualMode);
-  }, []);
-
-  // Mettre à jour le thème quand le mode change
-  useEffect(() => {
-    const newActualMode = determineActualMode(darkMode);
-    setActualDarkMode(newActualMode);
-    applyTheme(newActualMode);
-
-    console.log('🔄 Changement de mode:', { darkMode, newActualMode });
-  }, [darkMode]);
-
-  // Timer pour le mode automatique
-  useEffect(() => {
-    if (darkMode === 'auto') {
-      const interval = setInterval(() => {
-        const shouldBeDark = isNightTime();
-        if (shouldBeDark !== actualDarkMode) {
-          console.log('⏰ Basculement automatique:', { shouldBeDark, actualDarkMode });
-          setActualDarkMode(shouldBeDark);
-          applyTheme(shouldBeDark);
-        }
-      }, 60000); // Vérifier chaque minute
-
-      return () => clearInterval(interval);
-    }
-  }, [darkMode, actualDarkMode]);
-
-  const toggleDarkMode = () => {
-    const modes = ['auto', 'light', 'dark'];
-    const currentIndex = modes.indexOf(darkMode);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-
-    console.log('👆 Toggle mode:', { current: darkMode, next: nextMode });
-
-    setDarkMode(nextMode);
-    localStorage.setItem('darkMode', nextMode);
-  };
-
-  const getDarkModeIcon = () => {
-    switch (darkMode) {
-      case 'light':
-        return <FaSun className="w-5 h-5" />;
-      case 'dark':
-        return <FaMoon className="w-5 h-5" />;
-      case 'auto':
-      default:
-        return <FaAdjust className="w-5 h-5" />;
-    }
-  };
-
-  const getDarkModeLabel = () => {
-    switch (darkMode) {
-      case 'light':
-        return 'Mode clair';
-      case 'dark':
-        return 'Mode sombre';
-      case 'auto':
-      default:
-        return `Mode auto ${actualDarkMode ? '🌙' : '☀️'}`;
-    }
-  };
-
-  return {
-    darkMode,
-    actualDarkMode,
-    toggleDarkMode,
-    getDarkModeIcon,
-    getDarkModeLabel,
-  };
-}
-
-// Hook personnalisé pour la navigation par swipe avec animation
-function useSwipeNavigation() {
-  const [touchStart, setTouchStart] = useState(null);
-  const [touchEnd, setTouchEnd] = useState(null);
-  const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwipping, setIsSwipping] = useState(false);
-  const [swipeDirection, setSwipeDirection] = useState(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  // Distance minimum pour déclencher un swipe (en pixels)
-  const minSwipeDistance = 100;
-  // Distance maximum pour l'effet de résistance
-  const maxSwipeDistance = 200;
-
-  const getCurrentPageIndex = () => {
-    return SWIPE_PAGES.findIndex(page => page.path === location.pathname);
-  };
-
-  const navigateToPage = (direction) => {
-    const currentIndex = getCurrentPageIndex();
-    if (currentIndex === -1) return;
-
-    let newIndex;
-    if (direction === 'left') {
-      // Swipe gauche = page suivante
-      newIndex = currentIndex + 1;
-      if (newIndex >= SWIPE_PAGES.length) newIndex = 0; // Boucle au début
-    } else {
-      // Swipe droite = page précédente
-      newIndex = currentIndex - 1;
-      if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1; // Boucle à la fin
-    }
-
-    // Animation de sortie puis navigation
-    setIsSwipping(true);
-    setSwipeOffset(direction === 'left' ? -window.innerWidth : window.innerWidth);
-
-    setTimeout(() => {
-      navigate(SWIPE_PAGES[newIndex].path);
-      // Reset après navigation
-      setTimeout(() => {
-        setSwipeOffset(0);
-        setIsSwipping(false);
-        setSwipeDirection(null);
-      }, 50);
-    }, 200);
-  };
-
-  const onTouchStart = (e) => {
-    if (!isSwipeEnabled) return;
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-    setIsSwipping(true);
-    setSwipeDirection(null);
-  };
-
-  const onTouchMove = (e) => {
-    if (!isSwipeEnabled || !touchStart) return;
-
-    const currentTouch = e.targetTouches[0].clientX;
-    const distance = currentTouch - touchStart;
-
-    // Déterminer la direction
-    const direction = distance > 0 ? 'right' : 'left';
-    setSwipeDirection(direction);
-
-    // Appliquer une résistance progressive
-    let offset = distance;
-    const absDistance = Math.abs(distance);
-
-    if (absDistance > maxSwipeDistance) {
-      // Résistance exponentielle au-delà de maxSwipeDistance
-      const excess = absDistance - maxSwipeDistance;
-      const resistance = Math.log(excess / 50 + 1) * 50;
-      offset = distance > 0 ? maxSwipeDistance + resistance : -maxSwipeDistance - resistance;
-    }
-
-    setSwipeOffset(offset);
-    setTouchEnd(currentTouch);
-  };
-
-  const onTouchEnd = () => {
-    if (!isSwipeEnabled || !touchStart || !touchEnd) {
-      // Reset si pas de swipe valide
-      setSwipeOffset(0);
-      setIsSwipping(false);
-      setSwipeDirection(null);
-      return;
-    }
-
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe) {
-      navigateToPage('left');
-    } else if (isRightSwipe) {
-      navigateToPage('right');
-    } else {
-      // Retour à la position initiale avec animation
-      setSwipeOffset(0);
-      setTimeout(() => {
-        setIsSwipping(false);
-        setSwipeDirection(null);
-      }, 200);
-    }
-  };
-
-  return {
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd,
-    getCurrentPageIndex,
-    navigateToPage,
-    isSwipeEnabled,
-    setIsSwipeEnabled,
-    totalPages: SWIPE_PAGES.length,
-    swipeOffset,
-    isSwipping,
-    swipeDirection
-  };
-}
-
-
 // Styles CSS pour les animations, swipe et mode sombre + Sidebar améliorée
 const mobileMenuStyles = `
   .mobile-menu-overlay {
@@ -429,63 +125,62 @@ const mobileMenuStyles = `
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
   }
 
-/* ✅ Nouvelle largeur optimisée */
-.enhanced-sidebar.collapsed {
-  width: 64px !important;
-}
+  .enhanced-sidebar.collapsed {
+    width: 64px !important;
+  }
 
-.enhanced-sidebar.expanded {
-  width: 280px !important;
-}
+  .enhanced-sidebar.expanded {
+    width: 280px !important;
+  }
 
-.sidebar-toggle {
-  position: fixed;
-  top: 50vh;
-  right: -12px;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 48px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  border: none;
-  border-radius: 0 12px 12px 0;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  z-index: 9999;
-}
+  .sidebar-toggle {
+    position: fixed;
+    top: 50vh;
+    right: -12px;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 48px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border: none;
+    border-radius: 0 12px 12px 0;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 9999;
+  }
 
-.enhanced-sidebar .sidebar-toggle {
-  display: flex !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-}
+  .enhanced-sidebar .sidebar-toggle {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
 
-.dark .sidebar-toggle {
-  background: linear-gradient(135deg, #1e40af, #7c3aed);
-  box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
-}
+  .dark .sidebar-toggle {
+    background: linear-gradient(135deg, #1e40af, #7c3aed);
+    box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
+  }
 
-.sidebar-toggle:hover {
-  transform: translateY(-50%) scale(1.1);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-}
+  .sidebar-toggle:hover {
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  }
 
-.sidebar-toggle .toggle-icon {
-  transition: transform 0.3s ease;
-  transform: rotate(180deg);
-}
+  .sidebar-toggle .toggle-icon {
+    transition: transform 0.3s ease;
+    transform: rotate(180deg);
+  }
 
-.enhanced-sidebar.collapsed .sidebar-toggle {
-  right: -12px;
-}
+  .enhanced-sidebar.collapsed .sidebar-toggle {
+    right: -12px;
+  }
 
-.enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
-  transform: rotate(0deg);
-}
+  .enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
+    transform: rotate(0deg);
+  }
 
   .sidebar-logo {
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -493,13 +188,13 @@ const mobileMenuStyles = `
   }
 
   .enhanced-sidebar.collapsed .sidebar-logo {
-  padding: 8px 4px !important;
-}
+    padding: 8px 4px !important;
+  }
 
-.enhanced-sidebar.collapsed .sidebar-logo img {
-  height: 32px !important;
-  width: 32px !important;
-}
+  .enhanced-sidebar.collapsed .sidebar-logo img {
+    height: 32px !important;
+    width: 32px !important;
+  }
 
   .sidebar-title {
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -507,10 +202,9 @@ const mobileMenuStyles = `
     transform: translateX(0);
   }
 
- /* ✅ Masquer complètement le titre */
-.enhanced-sidebar.collapsed .sidebar-title {
-  display: none !important;
-}
+  .enhanced-sidebar.collapsed .sidebar-title {
+    display: none !important;
+  }
 
   .sidebar-user-info {
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -518,10 +212,9 @@ const mobileMenuStyles = `
     transform: translateX(0);
   }
 
-  /* ✅ Masquer complètement les infos utilisateur */
-.enhanced-sidebar.collapsed .sidebar-user-info {
-  display: none !important;
-}
+  .enhanced-sidebar.collapsed .sidebar-user-info {
+    display: none !important;
+  }
 
   .sidebar-menu-item {
     position: relative;
@@ -617,16 +310,14 @@ const mobileMenuStyles = `
     color: #d1d5db;
   }
 
-/* ✅ Centrer les liens du menu */
-.enhanced-sidebar.collapsed .menu-link {
-  padding: 12px 8px !important;
-  justify-content: center !important;
-}
+  .enhanced-sidebar.collapsed .menu-link {
+    padding: 12px 8px !important;
+    justify-content: center !important;
+  }
 
-/* ✅ Masquer complètement le texte */
-.enhanced-sidebar.collapsed .menu-link-text {
-  display: none !important;
-}
+  .enhanced-sidebar.collapsed .menu-link-text {
+    display: none !important;
+  }
 
   .menu-tooltip {
     position: absolute;
@@ -693,10 +384,9 @@ const mobileMenuStyles = `
     );
   }
 
- /* ✅ Masquer les séparateurs */
-.enhanced-sidebar.collapsed .sidebar-divider {
-  display: none !important;
-}
+  .enhanced-sidebar.collapsed .sidebar-divider {
+    display: none !important;
+  }
 
   .sidebar-footer {
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -887,7 +577,6 @@ const mobileMenuStyles = `
     touch-action: pan-y;
     user-select: none;
     position: relative;
-    /* overflow: hidden;  <-- LA LIGNE FAUTIVE A ÉTÉ SUPPRIMÉE ICI */
   }
 
   .swipe-content {
@@ -1147,126 +836,429 @@ const mobileMenuStyles = `
     50% { transform: scale(1.02); }
   }
 
-/* ANIMATION 3D LOGO - ROTATION ÉLÉGANTE */
-.sidebar-logo-3d {
-  perspective: 1000px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.sidebar-logo-3d img {
-  transform-style: preserve-3d;
-  animation: rotate3DElegant 8s linear infinite;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
-  transition: animation-play-state 0.3s ease;
-  border-radius: 15px;
-}
-
-.sidebar-logo-3d:hover img {
-  animation-play-state: paused;
-}
-
-.enhanced-sidebar.collapsed .sidebar-logo-3d img {
-  animation-duration: 6s;
-}
-
-.dark .sidebar-logo-3d img {
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
-}
-
-@keyframes rotate3DElegant {
-  0% { transform: rotateY(0deg) rotateX(0deg); }
-  25% { transform: rotateY(90deg) rotateX(5deg); }
-  50% { transform: rotateY(180deg) rotateX(0deg); }
-  75% { transform: rotateY(270deg) rotateX(-5deg); }
-  100% { transform: rotateY(360deg) rotateX(0deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-logo-3d img {
-    animation: none;
-    transform: none;
-    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.2));
-  }
-}
-
-@media (max-width: 1024px) {
+  /* ANIMATION 3D LOGO - ROTATION ÉLÉGANTE */
   .sidebar-logo-3d {
-    perspective: 800px;
+    perspective: 1000px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  
+
   .sidebar-logo-3d img {
-    animation-duration: 10s;
+    transform-style: preserve-3d;
+    animation: rotate3DElegant 8s linear infinite;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+    transition: animation-play-state 0.3s ease;
+    border-radius: 15px;
   }
-}
-  
-.mobile-header-logo-3d {
- perspective: 600px;
- display: flex;
- align-items: center;
- justify-content: center;
+
+  .sidebar-logo-3d:hover img {
+    animation-play-state: paused;
+  }
+
+  .enhanced-sidebar.collapsed .sidebar-logo-3d img {
+    animation-duration: 6s;
+  }
+
+  .dark .sidebar-logo-3d img {
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+  }
+
+  @keyframes rotate3DElegant {
+    0% { transform: rotateY(0deg) rotateX(0deg); }
+    25% { transform: rotateY(90deg) rotateX(5deg); }
+    50% { transform: rotateY(180deg) rotateX(0deg); }
+    75% { transform: rotateY(270deg) rotateX(-5deg); }
+    100% { transform: rotateY(360deg) rotateX(0deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-logo-3d img {
+      animation: none;
+      transform: none;
+      filter: drop-shadow(0 5px 15px rgba(0,0,0,0.2));
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .sidebar-logo-3d {
+      perspective: 800px;
+    }
+    
+    .sidebar-logo-3d img {
+      animation-duration: 10s;
+    }
+  }
+    
+  .mobile-header-logo-3d {
+   perspective: 600px;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+  }
+
+  .mobile-header-logo-3d img {
+   transform-style: preserve-3d;
+   animation: rotate3DMobile 6s linear infinite;
+   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+   transition: animation-play-state 0.3s ease;
+   border-radius: 8px;
+  }
+
+  .mobile-header-logo-3d:hover img,
+  .mobile-header-logo-3d:active img {
+   animation-play-state: paused;
+  }
+
+  .dark .mobile-header-logo-3d img {
+   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+  }
+
+  @keyframes rotate3DMobile {
+   0% { 
+     transform: rotateY(0deg) rotateX(0deg);
+   }
+   25% { 
+     transform: rotateY(90deg) rotateX(3deg);
+   }
+   50% { 
+     transform: rotateY(180deg) rotateX(0deg);
+   }
+   75% { 
+     transform: rotateY(270deg) rotateX(-3deg);
+   }
+   100% { 
+     transform: rotateY(360deg) rotateX(0deg);
+   }
+  }
+
+  @media (max-width: 640px) {
+   .mobile-header-logo-3d img {
+     animation-duration: 8s;
+   }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+   .mobile-header-logo-3d img {
+     animation: none;
+     transform: none;
+     filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
+   }
+  }
+
+  .mobile-menu-container .menu-header .mobile-header-logo-3d img {
+   animation-duration: 4s;
+   filter: drop-shadow(0 6px 15px rgba(0,0,0,0.3));
+  }
+
+  .dark .mobile-menu-container .menu-header .mobile-header-logo-3d img {
+   filter: drop-shadow(0 6px 15px rgba(0,0,0,0.5));
+  }
+`;// src/App.js
+import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+  Link,
+} from "react-router-dom";
+import {
+  FaHome,
+  FaUserFriends,
+  FaChartBar,
+  FaCalendarAlt,
+  FaBars,
+  FaTimes,
+  FaUserCircle,
+  FaSignOutAlt,
+  FaCreditCard,
+  FaDownload,
+  FaCheck,
+  FaTimes as FaTimesIcon,
+  FaChevronLeft,
+  FaChevronRight,
+  FaMoon,
+  FaSun,
+  FaAdjust,
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight,
+} from "react-icons/fa";
+import { supabase } from "./supabaseClient";
+import { useAuth } from "./contexts/AuthContext";
+
+import HomePage from "./pages/HomePage";
+import MembersPage from "./pages/MembersPage";
+import PlanningPage from "./pages/PlanningPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import StatisticsPage from "./pages/StatisticsPage";
+import UserManagementPage from "./pages/UserManagementPage";
+import ProfilePage from "./pages/ProfilePage";
+import MemberForm from "./components/MemberForm";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+// Configuration des pages pour la navigation swipe
+const SWIPE_PAGES = [
+  { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" />, component: "HomePage" },
+  { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500 dark:text-green-400" />, component: "MembersPage" },
+  { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, component: "PlanningPage" },
+  { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, component: "PaymentsPage" },
+  { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
+];
+
+// Hook pour la gestion du mode sombre - VERSION CORRIGÉE
+function useDarkMode() {
+  const [darkMode, setDarkMode] = useState('auto');
+  const [actualDarkMode, setActualDarkMode] = useState(false);
+
+  // Fonction pour vérifier si c'est la nuit (19h-7h)
+  const isNightTime = () => {
+    const hour = new Date().getHours();
+    return hour >= 19 || hour < 7;
+  };
+
+  // Fonction pour déterminer le mode sombre actuel
+  const determineActualMode = (mode) => {
+    switch (mode) {
+      case 'dark':
+        return true;
+      case 'light':
+        return false;
+      case 'auto':
+      default:
+        return isNightTime();
+    }
+  };
+
+  // Fonction pour appliquer le thème au DOM
+  const applyTheme = (isDark) => {
+    const htmlElement = document.documentElement;
+
+    if (isDark) {
+      htmlElement.classList.add('dark');
+    } else {
+      htmlElement.classList.remove('dark');
+    }
+
+    console.log(`🎨 Mode appliqué: ${isDark ? 'Sombre' : 'Clair'}`, {
+      classList: Array.from(htmlElement.classList),
+      darkMode,
+      actualDarkMode: isDark
+    });
+  };
+
+  // Charger les préférences au démarrage
+  useEffect(() => {
+    const savedMode = localStorage.getItem('darkMode') || 'auto';
+    const newActualMode = determineActualMode(savedMode);
+
+    console.log('🚀 Initialisation mode sombre:', { savedMode, newActualMode });
+
+    setDarkMode(savedMode);
+    setActualDarkMode(newActualMode);
+    applyTheme(newActualMode);
+  }, []);
+
+  // Mettre à jour le thème quand le mode change
+  useEffect(() => {
+    const newActualMode = determineActualMode(darkMode);
+    setActualDarkMode(newActualMode);
+    applyTheme(newActualMode);
+
+    console.log('🔄 Changement de mode:', { darkMode, newActualMode });
+  }, [darkMode]);
+
+  // Timer pour le mode automatique
+  useEffect(() => {
+    if (darkMode === 'auto') {
+      const interval = setInterval(() => {
+        const shouldBeDark = isNightTime();
+        if (shouldBeDark !== actualDarkMode) {
+          console.log('⏰ Basculement automatique:', { shouldBeDark, actualDarkMode });
+          setActualDarkMode(shouldBeDark);
+          applyTheme(shouldBeDark);
+        }
+      }, 60000); // Vérifier chaque minute
+
+      return () => clearInterval(interval);
+    }
+  }, [darkMode, actualDarkMode]);
+
+  const toggleDarkMode = () => {
+    const modes = ['auto', 'light', 'dark'];
+    const currentIndex = modes.indexOf(darkMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    console.log('👆 Toggle mode:', { current: darkMode, next: nextMode });
+
+    setDarkMode(nextMode);
+    localStorage.setItem('darkMode', nextMode);
+  };
+
+  const getDarkModeIcon = () => {
+    switch (darkMode) {
+      case 'light':
+        return <FaSun className="w-5 h-5" />;
+      case 'dark':
+        return <FaMoon className="w-5 h-5" />;
+      case 'auto':
+      default:
+        return <FaAdjust className="w-5 h-5" />;
+    }
+  };
+
+  const getDarkModeLabel = () => {
+    switch (darkMode) {
+      case 'light':
+        return 'Mode clair';
+      case 'dark':
+        return 'Mode sombre';
+      case 'auto':
+      default:
+        return `Mode auto ${actualDarkMode ? '🌙' : '☀️'}`;
+    }
+  };
+
+  return {
+    darkMode,
+    actualDarkMode,
+    toggleDarkMode,
+    getDarkModeIcon,
+    getDarkModeLabel,
+  };
 }
 
-.mobile-header-logo-3d img {
- transform-style: preserve-3d;
- animation: rotate3DMobile 6s linear infinite;
- filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
- transition: animation-play-state 0.3s ease;
- border-radius: 8px;
+// Hook personnalisé pour la navigation par swipe avec animation
+function useSwipeNavigation() {
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwipping, setIsSwipping] = useState(false);
+  const [swipeDirection, setSwipeDirection] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Distance minimum pour déclencher un swipe (en pixels)
+  const minSwipeDistance = 100;
+  // Distance maximum pour l'effet de résistance
+  const maxSwipeDistance = 200;
+
+  const getCurrentPageIndex = () => {
+    return SWIPE_PAGES.findIndex(page => page.path === location.pathname);
+  };
+
+  const navigateToPage = (direction) => {
+    const currentIndex = getCurrentPageIndex();
+    if (currentIndex === -1) return;
+
+    let newIndex;
+    if (direction === 'left') {
+      // Swipe gauche = page suivante
+      newIndex = currentIndex + 1;
+      if (newIndex >= SWIPE_PAGES.length) newIndex = 0; // Boucle au début
+    } else {
+      // Swipe droite = page précédente
+      newIndex = currentIndex - 1;
+      if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1; // Boucle à la fin
+    }
+
+    // Animation de sortie puis navigation
+    setIsSwipping(true);
+    setSwipeOffset(direction === 'left' ? -window.innerWidth : window.innerWidth);
+
+    setTimeout(() => {
+      navigate(SWIPE_PAGES[newIndex].path);
+      // Reset après navigation
+      setTimeout(() => {
+        setSwipeOffset(0);
+        setIsSwipping(false);
+        setSwipeDirection(null);
+      }, 50);
+    }, 200);
+  };
+
+  const onTouchStart = (e) => {
+    if (!isSwipeEnabled) return;
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+    setIsSwipping(true);
+    setSwipeDirection(null);
+  };
+
+  const onTouchMove = (e) => {
+    if (!isSwipeEnabled || !touchStart) return;
+
+    const currentTouch = e.targetTouches[0].clientX;
+    const distance = currentTouch - touchStart;
+
+    // Déterminer la direction
+    const direction = distance > 0 ? 'right' : 'left';
+    setSwipeDirection(direction);
+
+    // Appliquer une résistance progressive
+    let offset = distance;
+    const absDistance = Math.abs(distance);
+
+    if (absDistance > maxSwipeDistance) {
+      // Résistance exponentielle au-delà de maxSwipeDistance
+      const excess = absDistance - maxSwipeDistance;
+      const resistance = Math.log(excess / 50 + 1) * 50;
+      offset = distance > 0 ? maxSwipeDistance + resistance : -maxSwipeDistance - resistance;
+    }
+
+    setSwipeOffset(offset);
+    setTouchEnd(currentTouch);
+  };
+
+  const onTouchEnd = () => {
+    if (!isSwipeEnabled || !touchStart || !touchEnd) {
+      // Reset si pas de swipe valide
+      setSwipeOffset(0);
+      setIsSwipping(false);
+      setSwipeDirection(null);
+      return;
+    }
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      navigateToPage('left');
+    } else if (isRightSwipe) {
+      navigateToPage('right');
+    } else {
+      // Retour à la position initiale avec animation
+      setSwipeOffset(0);
+      setTimeout(() => {
+        setIsSwipping(false);
+        setSwipeDirection(null);
+      }, 200);
+    }
+  };
+
+  return {
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    getCurrentPageIndex,
+    navigateToPage,
+    isSwipeEnabled,
+    setIsSwipeEnabled,
+    totalPages: SWIPE_PAGES.length,
+    swipeOffset,
+    isSwipping,
+    swipeDirection
+  };
 }
 
-.mobile-header-logo-3d:hover img,
-.mobile-header-logo-3d:active img {
- animation-play-state: paused;
-}
-
-.dark .mobile-header-logo-3d img {
- filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
-}
-
-@keyframes rotate3DMobile {
- 0% { 
-   transform: rotateY(0deg) rotateX(0deg);
- }
- 25% { 
-   transform: rotateY(90deg) rotateX(3deg);
- }
- 50% { 
-   transform: rotateY(180deg) rotateX(0deg);
- }
- 75% { 
-   transform: rotateY(270deg) rotateX(-3deg);
- }
- 100% { 
-   transform: rotateY(360deg) rotateX(0deg);
- }
-}
-
-@media (max-width: 640px) {
- .mobile-header-logo-3d img {
-   animation-duration: 8s;
- }
-}
-
-@media (prefers-reduced-motion: reduce) {
- .mobile-header-logo-3d img {
-   animation: none;
-   transform: none;
-   filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
- }
-}
-
-.mobile-menu-container .menu-header .mobile-header-logo-3d img {
- animation-duration: 4s;
- filter: drop-shadow(0 6px 15px rgba(0,0,0,0.3));
-}
-
-.dark .mobile-menu-container .menu-header .mobile-header-logo-3d img {
- filter: drop-shadow(0 6px 15px rgba(0,0,0,0.5));
-}
-
-
+// Styles CSS pour les animations, swipe et mode sombre + Sidebar améliorée
+const mobileMenuStyles = `
+  /* Vos styles CSS existants ici */
 `;
 
 // Composant Toast PWA
@@ -1572,7 +1564,7 @@ function LoginPage() {
 }
 
 // ===== SIDEBAR DESKTOP AMÉLIORÉE =====
-function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getDarkModeLabel }) {
+function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeIcon, getDarkModeLabel }) {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
@@ -1602,9 +1594,6 @@ function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getD
     },
   ];
 
-const { isAdmin } = user; // ou simplement passer isAdmin en prop directement
-
-
   const toggleSidebar = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
@@ -1619,7 +1608,6 @@ const { isAdmin } = user; // ou simplement passer isAdmin en prop directement
         onClick={toggleSidebar}
         aria-label={isCollapsed ? "Étendre le menu" : "Réduire le menu"}
       >
-        {/* ✅ Nouveau JSX avec icônes inversées */}
         <div className="toggle-icon">
           <FaAngleDoubleRight />
         </div>
@@ -1817,8 +1805,6 @@ function AnimatedMobileMenu({
 
   return (
     <>
-      <style>{mobileMenuStyles}</style>
-
       <div
         className={`mobile-menu-overlay ${isOpen && !isClosing ? "open" : ""}`}
         onClick={handleOverlayClick}
@@ -1969,15 +1955,10 @@ function AnimatedMobileMenu({
   );
 }
 
-// ============== COMPOSANT CORRIGÉ CI-DESSOUS ==============
-import { useAuth } from "./contexts/AuthContext";
-
-
+// ============== COMPOSANT PRINCIPAL CORRIGÉ ==============
 function AppRoutes() {
-  const { user, role } = useAuth();  // Utilise le contexte ici aussi
-  const isAdmin = true; // pour test temporaire
-
-
+  const { user, role, setUser } = useAuth(); // ✅ Maintenant setUser est disponible
+  const isAdmin = role === 'admin'; // ✅ Utiliser le rôle du contexte
 
   const [editingMember, setEditingMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
@@ -2037,7 +2018,7 @@ function AppRoutes() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      setUser(null);
+      setUser(null); // ✅ Maintenant ça fonctionne
       navigate("/login");
     } catch (error) {
       console.error("Erreur déconnexion:", error);
@@ -2082,13 +2063,12 @@ function AppRoutes() {
       {/* Sidebar desktop améliorée */}
       <EnhancedSidebar
         user={user}
-        isAdmin={isAdmin} // ⬅️ Ajoute ceci
+        isAdmin={isAdmin} // ✅ Utilise le rôle du contexte
         onLogout={handleLogout}
         toggleDarkMode={toggleDarkMode}
         getDarkModeIcon={getDarkModeIcon}
         getDarkModeLabel={getDarkModeLabel}
       />
-
 
       {/* Menu mobile animé */}
       <AnimatedMobileMenu
@@ -2211,20 +2191,10 @@ function AppRoutes() {
     <Navigate to="/login" />
   );
 }
-// ============== FIN DU COMPOSANT CORRIGÉ ==============
-function App() {
-  const { user, loading, setUser } = useAuth();
-  const navigate = useNavigate(); // ✅ aussi à l’intérieur
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);  // ✅ fonctionne maintenant
-      navigate("/login");
-    } catch (error) {
-      console.error("Erreur déconnexion:", error);
-    }
-  };
+// ============== COMPOSANT PRINCIPAL APP ==============
+function App() {
+  const { user, loading } = useAuth(); // ✅ Utilise seulement le contexte
 
   if (loading) {
     return (
@@ -2247,6 +2217,5 @@ function App() {
     </Router>
   );
 }
-
 
 export default App;
