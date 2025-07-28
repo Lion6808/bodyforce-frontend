@@ -1598,10 +1598,8 @@ function EnhancedSidebar({ user, onLogout, toggleDarkMode, getDarkModeIcon, getD
     },
   ];
 
-  const isAdmin =
-    user?.user_metadata?.role === "admin" ||
-    user?.email === "admin@bodyforce.com" ||
-    user?.app_metadata?.role === "admin";
+const { isAdmin } = user; // ou simplement passer isAdmin en prop directement
+
 
   const toggleSidebar = () => {
     const newState = !isCollapsed;
@@ -1968,7 +1966,15 @@ function AnimatedMobileMenu({
 }
 
 // ============== COMPOSANT CORRIGÉ CI-DESSOUS ==============
-function AppRoutes({ user, setUser }) {
+import { useAuth } from "../contexts/AuthContext";
+import UserManagementPage from "./pages/UserManagementPage";
+
+
+function AppRoutes() {
+  const { user, role } = useAuth();  // Utilise le contexte ici aussi
+  const isAdmin = role === "admin";
+
+
   const [editingMember, setEditingMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -2034,218 +2040,183 @@ function AppRoutes({ user, setUser }) {
     }
   };
 
-  const isAdmin =
-    user?.user_metadata?.role === "admin" ||
-    user?.email === "admin@bodyforce.com" ||
-    user?.app_metadata?.role === "admin";
-
   return user ? (
     <div className="flex flex-col lg:flex-row h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200 overflow-hidden">
       <style>{mobileMenuStyles}</style>
       {/* Header mobile */}
-        <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <div className="mobile-header-logo-3d">
-              <img
-                src="/images/logo.png"
-                alt="Logo BodyForce"
-                className="h-8 w-auto"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            </div>
-            <h1 className="text-lg font-bold text-red-600 dark:text-red-400">BODY FORCE</h1>
+      <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2">
+          <div className="mobile-header-logo-3d">
+            <img
+              src="/images/logo.png"
+              alt="Logo BodyForce"
+              className="h-8 w-auto"
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleDarkMode}
-              className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-              title={getDarkModeLabel()}
-            >
-              {getDarkModeIcon()}
-            </button>
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-            >
-              <FaBars />
-            </button>
-          </div>
+          <h1 className="text-lg font-bold text-red-600 dark:text-red-400">BODY FORCE</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleDarkMode}
+            className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            title={getDarkModeLabel()}
+          >
+            {getDarkModeIcon()}
+          </button>
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          >
+            <FaBars />
+          </button>
+        </div>
+      </div>
+
+      {/* Sidebar desktop améliorée */}
+      <EnhancedSidebar
+        user={user}
+        isAdmin={isAdmin} // ⬅️ Ajoute ceci
+        onLogout={handleLogout}
+        toggleDarkMode={toggleDarkMode}
+        getDarkModeIcon={getDarkModeIcon}
+        getDarkModeLabel={getDarkModeLabel}
+      />
+
+
+      {/* Menu mobile animé */}
+      <AnimatedMobileMenu
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        user={user}
+        isAdmin={isAdmin}
+        location={location}
+        onLogout={handleLogout}
+        toggleDarkMode={toggleDarkMode}
+        getDarkModeIcon={getDarkModeIcon}
+        getDarkModeLabel={getDarkModeLabel}
+      />
+
+      {/* Bouton d'installation PWA */}
+      {isInstallable && !isInstalled && (
+        <button
+          onClick={installApp}
+          className="pwa-install-button"
+          title="Installer Body Force"
+        >
+          <FaDownload />
+          <span className="hidden sm:inline">Installer l'app</span>
+        </button>
+      )}
+
+      {/* Toast PWA */}
+      <PWAToast toast={toast} onClose={closeToast} />
+
+      {/* Indicateur de pages (mobile uniquement) */}
+      <PageIndicator
+        currentIndex={getCurrentPageIndex()}
+        totalPages={totalPages}
+        isMobile={isMobile}
+      />
+
+      {/* Flèches de navigation swipe (mobile uniquement) */}
+      <SwipeNavigationArrows
+        onNavigate={navigateToPage}
+        isMobile={isMobile}
+      />
+
+      {/* Hint de swipe */}
+      <SwipeHint show={showSwipeHint} />
+
+      {/* Main content avec support du swipe et animation */}
+      <main
+        className={`flex-1 p-4 overflow-y-auto ${isMobile ? 'swipe-container' : ''}`}
+        onTouchStart={isMobile ? onTouchStart : undefined}
+        onTouchMove={isMobile ? onTouchMove : undefined}
+        onTouchEnd={isMobile ? onTouchEnd : undefined}
+      >
+        {/* Contenu principal avec transformation */}
+        <div
+          className={`swipe-content ${isSwipping ? 'swiping' : ''}`}
+          style={{
+            transform: isMobile && swipeOffset !== 0
+              ? `translateX(${swipeOffset}px)`
+              : 'translateX(0)',
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route
+              path="/members"
+              element={
+                <MembersPage
+                  onEdit={(member) => {
+                    setEditingMember(member);
+                    setShowForm(true);
+                  }}
+                />
+              }
+            />
+            <Route path="/planning" element={<PlanningPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/statistics" element={<StatisticsPage />} />
+            <Route
+              path="/admin/users"
+              element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
+            />
+            <Route path="/profile" element={<ProfilePage user={user} />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
         </div>
 
-        {/* Sidebar desktop améliorée */}
-        <EnhancedSidebar
-          user={user}
-          onLogout={handleLogout}
-          toggleDarkMode={toggleDarkMode}
-          getDarkModeIcon={getDarkModeIcon}
-          getDarkModeLabel={getDarkModeLabel}
-        />
-
-        {/* Menu mobile animé */}
-        <AnimatedMobileMenu
-          isOpen={mobileMenuOpen}
-          onClose={() => setMobileMenuOpen(false)}
-          user={user}
-          isAdmin={isAdmin}
-          location={location}
-          onLogout={handleLogout}
-          toggleDarkMode={toggleDarkMode}
-          getDarkModeIcon={getDarkModeIcon}
-          getDarkModeLabel={getDarkModeLabel}
-        />
-
-        {/* Bouton d'installation PWA */}
-        {isInstallable && !isInstalled && (
-          <button
-            onClick={installApp}
-            className="pwa-install-button"
-            title="Installer Body Force"
-          >
-            <FaDownload />
-            <span className="hidden sm:inline">Installer l'app</span>
-          </button>
+        {/* Aperçu de la page suivante/précédente */}
+        {isMobile && (
+          <SwipePreview
+            direction={swipeDirection}
+            swipeOffset={swipeOffset}
+            currentPageIndex={getCurrentPageIndex()}
+          />
         )}
 
-        {/* Toast PWA */}
-        <PWAToast toast={toast} onClose={closeToast} />
+        {/* Indicateur de résistance */}
+        {isMobile && (
+          <SwipeResistanceIndicator
+            swipeOffset={swipeOffset}
+            direction={swipeDirection}
+          />
+        )}
 
-        {/* Indicateur de pages (mobile uniquement) */}
-        <PageIndicator
-          currentIndex={getCurrentPageIndex()}
-          totalPages={totalPages}
-          isMobile={isMobile}
-        />
-
-        {/* Flèches de navigation swipe (mobile uniquement) */}
-        <SwipeNavigationArrows
-          onNavigate={navigateToPage}
-          isMobile={isMobile}
-        />
-
-        {/* Hint de swipe */}
-        <SwipeHint show={showSwipeHint} />
-
-        {/* Main content avec support du swipe et animation */}
-        <main
-          className={`flex-1 p-4 overflow-y-auto ${isMobile ? 'swipe-container' : ''}`}
-          onTouchStart={isMobile ? onTouchStart : undefined}
-          onTouchMove={isMobile ? onTouchMove : undefined}
-          onTouchEnd={isMobile ? onTouchEnd : undefined}
-        >
-          {/* Contenu principal avec transformation */}
-          <div
-            className={`swipe-content ${isSwipping ? 'swiping' : ''}`}
-            style={{
-              transform: isMobile && swipeOffset !== 0
-                ? `translateX(${swipeOffset}px)`
-                : 'translateX(0)',
+        {showForm && (
+          <MemberForm
+            member={editingMember}
+            onSave={() => {
+              setShowForm(false);
+              setEditingMember(null);
             }}
-          >
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route
-                path="/members"
-                element={
-                  <MembersPage
-                    onEdit={(member) => {
-                      setEditingMember(member);
-                      setShowForm(true);
-                    }}
-                  />
-                }
-              />
-              <Route path="/planning" element={<PlanningPage />} />
-              <Route path="/payments" element={<PaymentsPage />} />
-              <Route path="/statistics" element={<StatisticsPage />} />
-              <Route
-                path="/admin/users"
-                element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
-              />
-              <Route path="/profile" element={<ProfilePage user={user} />} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </div>
-
-          {/* Aperçu de la page suivante/précédente */}
-          {isMobile && (
-            <SwipePreview
-              direction={swipeDirection}
-              swipeOffset={swipeOffset}
-              currentPageIndex={getCurrentPageIndex()}
-            />
-          )}
-
-          {/* Indicateur de résistance */}
-          {isMobile && (
-            <SwipeResistanceIndicator
-              swipeOffset={swipeOffset}
-              direction={swipeDirection}
-            />
-          )}
-
-          {showForm && (
-            <MemberForm
-              member={editingMember}
-              onSave={() => {
-                setShowForm(false);
-                setEditingMember(null);
-              }}
-              onCancel={() => {
-                setShowForm(false);
-                setEditingMember(null);
-              }}
-            />
-          )}
-        </main>
-      </div>
-      ) : (
-      <Navigate to="/login" />
-      );
+            onCancel={() => {
+              setShowForm(false);
+              setEditingMember(null);
+            }}
+          />
+        )}
+      </main>
+    </div>
+  ) : (
+    <Navigate to="/login" />
+  );
 }
-      // ============== FIN DU COMPOSANT CORRIGÉ ==============
+// ============== FIN DU COMPOSANT CORRIGÉ ==============
 
 
-      function App() {
-  const [user, setUser] = useState(null);
-      const [loading, setLoading] = useState(true);
+import { useAuth } from "./contexts/AuthContext";
 
-  useEffect(() => {
-    const getInitialSession = async () => {
-      try {
-        const {
-        data: {session},
-      error,
-        } = await supabase.auth.getSession();
-      if (error) {
-        console.error("Erreur récupération session:", error);
-        } else {
-        setUser(session?.user || null);
-        }
-      } catch (error) {
-        console.error("Erreur session:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+function App() {
+  const { user, loading } = useAuth();  // ✅ Récupère les infos depuis le contexte
 
-      getInitialSession();
 
-      const {
-        data: {subscription},
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log("Auth state changed:", event, session?.user?.email);
-      setUser(session?.user || null);
-      setLoading(false);
-    });
-
-    return () => {
-        subscription?.unsubscribe();
-    };
-  }, []);
-
-      if (loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
         <div className="text-center">
@@ -2253,23 +2224,23 @@ function AppRoutes({ user, setUser }) {
           <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
         </div>
       </div>
-      );
+    );
   }
 
-      return (
-      <Router>
-        <Routes>
-          <Route
-            path="/login"
-            element={user ? <Navigate to="/" /> : <LoginPage />}
-          />
-          <Route
-            path="/*"
-            element={<AppRoutes user={user} setUser={setUser} />}
-          />
-        </Routes>
-      </Router>
-      );
+  return (
+    <Router>
+      <Routes>
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/" /> : <LoginPage />}
+        />
+        <Route
+          path="/*"
+          element={<AppRoutes user={user} setUser={setUser} />}
+        />
+      </Routes>
+    </Router>
+  );
 }
 
-      export default App;
+export default App;
