@@ -2245,5 +2245,6 @@ function App() {
 
   );
 }
+<AppRoutes user={user} setUser={setUser} />
 
 export default App;
