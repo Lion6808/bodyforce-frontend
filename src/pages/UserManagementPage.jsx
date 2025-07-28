@@ -218,11 +218,16 @@ function UserManagementPage() {
                         <div className="flex items-center gap-2">
                           <FaUserCircle className="text-gray-400 dark:text-gray-500" />
                           <span className="font-medium text-gray-900 dark:text-white">
-                            {u.email}
+                            {u.user_email || u.email}
                           </span>
-                          {u.id === user.id && (
+                          {(u.user_id || u.id) === user.id && (
                             <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
                               Vous
+                            </span>
+                          )}
+                          {u.is_disabled && (
+                            <span className="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded">
+                              Désactivé
                             </span>
                           )}
                         </div>
@@ -230,10 +235,10 @@ function UserManagementPage() {
                       
                       <td className="p-4 border-b border-gray-200 dark:border-gray-600">
                         <select
-                          value={u.role || 'user'}
-                          onChange={(e) => updateRole(u.id, e.target.value)}
+                          value={u.user_role || u.role || 'user'}
+                          onChange={(e) => updateRole(u.user_id || u.id, e.target.value)}
                           className="border border-gray-300 dark:border-gray-600 rounded px-3 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          disabled={u.id === user.id}
+                          disabled={(u.user_id || u.id) === user.id || u.is_disabled}
                         >
                           <option value="user">Utilisateur</option>
                           <option value="admin">Administrateur</option>
@@ -266,13 +271,13 @@ function UserManagementPage() {
                       
                       <td className="p-4 border-b border-gray-200 dark:border-gray-600">
                         <button
-                          onClick={() => deleteUser(u.id, u.email)}
-                          disabled={u.id === user.id}
+                          onClick={() => deleteUser(u.user_id || u.id, u.user_email || u.email)}
+                          disabled={(u.user_id || u.id) === user.id}
                           className="flex items-center gap-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={u.id === user.id ? "Vous ne pouvez pas supprimer votre propre compte" : "Supprimer cet utilisateur"}
+                          title={(u.user_id || u.id) === user.id ? "Vous ne pouvez pas supprimer votre propre compte" : "Désactiver cet utilisateur"}
                         >
                           <FaTrash className="w-4 h-4" />
-                          Supprimer
+                          {u.is_disabled ? 'Réactiver' : 'Désactiver'}
                         </button>
                       </td>
                     </tr>
