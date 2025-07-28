@@ -1,3 +1,305 @@
+// src/App.js
+import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+  Link,
+} from "react-router-dom";
+import {
+  FaHome,
+  FaUserFriends,
+  FaChartBar,
+  FaCalendarAlt,
+  FaBars,
+  FaTimes,
+  FaUserCircle,
+  FaSignOutAlt,
+  FaCreditCard,
+  FaDownload,
+  FaCheck,
+  FaTimes as FaTimesIcon,
+  FaChevronLeft,
+  FaChevronRight,
+  FaMoon,
+  FaSun,
+  FaAdjust,
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight,
+} from "react-icons/fa";
+import { supabase } from "./supabaseClient";
+import { useAuth } from "./contexts/AuthContext";
+
+import HomePage from "./pages/HomePage";
+import MembersPage from "./pages/MembersPage";
+import PlanningPage from "./pages/PlanningPage";
+import PaymentsPage from "./pages/PaymentsPage";
+import StatisticsPage from "./pages/StatisticsPage";
+import UserManagementPage from "./pages/UserManagementPage";
+import ProfilePage from "./pages/ProfilePage";
+import MemberForm from "./components/MemberForm";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+// Configuration des pages pour la navigation swipe
+const SWIPE_PAGES = [
+  { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" />, component: "HomePage" },
+  { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500 dark:text-green-400" />, component: "MembersPage" },
+  { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, component: "PlanningPage" },
+  { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, component: "PaymentsPage" },
+  { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
+];
+
+// Hook pour la gestion du mode sombre - VERSION CORRIGÉE
+function useDarkMode() {
+  const [darkMode, setDarkMode] = useState('auto');
+  const [actualDarkMode, setActualDarkMode] = useState(false);
+
+  // Fonction pour vérifier si c'est la nuit (19h-7h)
+  const isNightTime = () => {
+    const hour = new Date().getHours();
+    return hour >= 19 || hour < 7;
+  };
+
+  // Fonction pour déterminer le mode sombre actuel
+  const determineActualMode = (mode) => {
+    switch (mode) {
+      case 'dark':
+        return true;
+      case 'light':
+        return false;
+      case 'auto':
+      default:
+        return isNightTime();
+    }
+  };
+
+  // Fonction pour appliquer le thème au DOM
+  const applyTheme = (isDark) => {
+    const htmlElement = document.documentElement;
+
+    if (isDark) {
+      htmlElement.classList.add('dark');
+    } else {
+      htmlElement.classList.remove('dark');
+    }
+
+    console.log(`🎨 Mode appliqué: ${isDark ? 'Sombre' : 'Clair'}`, {
+      classList: Array.from(htmlElement.classList),
+      darkMode,
+      actualDarkMode: isDark
+    });
+  };
+
+  // Charger les préférences au démarrage
+  useEffect(() => {
+    const savedMode = localStorage.getItem('darkMode') || 'auto';
+    const newActualMode = determineActualMode(savedMode);
+
+    console.log('🚀 Initialisation mode sombre:', { savedMode, newActualMode });
+
+    setDarkMode(savedMode);
+    setActualDarkMode(newActualMode);
+    applyTheme(newActualMode);
+  }, []);
+
+  // Mettre à jour le thème quand le mode change
+  useEffect(() => {
+    const newActualMode = determineActualMode(darkMode);
+    setActualDarkMode(newActualMode);
+    applyTheme(newActualMode);
+
+    console.log('🔄 Changement de mode:', { darkMode, newActualMode });
+  }, [darkMode]);
+
+  // Timer pour le mode automatique
+  useEffect(() => {
+    if (darkMode === 'auto') {
+      const interval = setInterval(() => {
+        const shouldBeDark = isNightTime();
+        if (shouldBeDark !== actualDarkMode) {
+          console.log('⏰ Basculement automatique:', { shouldBeDark, actualDarkMode });
+          setActualDarkMode(shouldBeDark);
+          applyTheme(shouldBeDark);
+        }
+      }, 60000); // Vérifier chaque minute
+
+      return () => clearInterval(interval);
+    }
+  }, [darkMode, actualDarkMode]);
+
+  const toggleDarkMode = () => {
+    const modes = ['auto', 'light', 'dark'];
+    const currentIndex = modes.indexOf(darkMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+
+    console.log('👆 Toggle mode:', { current: darkMode, next: nextMode });
+
+    setDarkMode(nextMode);
+    localStorage.setItem('darkMode', nextMode);
+  };
+
+  const getDarkModeIcon = () => {
+    switch (darkMode) {
+      case 'light':
+        return <FaSun className="w-5 h-5" />;
+      case 'dark':
+        return <FaMoon className="w-5 h-5" />;
+      case 'auto':
+      default:
+        return <FaAdjust className="w-5 h-5" />;
+    }
+  };
+
+  const getDarkModeLabel = () => {
+    switch (darkMode) {
+      case 'light':
+        return 'Mode clair';
+      case 'dark':
+        return 'Mode sombre';
+      case 'auto':
+      default:
+        return `Mode auto ${actualDarkMode ? '🌙' : '☀️'}`;
+    }
+  };
+
+  return {
+    darkMode,
+    actualDarkMode,
+    toggleDarkMode,
+    getDarkModeIcon,
+    getDarkModeLabel,
+  };
+}
+
+// Hook personnalisé pour la navigation par swipe avec animation
+function useSwipeNavigation() {
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+  const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwipping, setIsSwipping] = useState(false);
+  const [swipeDirection, setSwipeDirection] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Distance minimum pour déclencher un swipe (en pixels)
+  const minSwipeDistance = 100;
+  // Distance maximum pour l'effet de résistance
+  const maxSwipeDistance = 200;
+
+  const getCurrentPageIndex = () => {
+    return SWIPE_PAGES.findIndex(page => page.path === location.pathname);
+  };
+
+  const navigateToPage = (direction) => {
+    const currentIndex = getCurrentPageIndex();
+    if (currentIndex === -1) return;
+
+    let newIndex;
+    if (direction === 'left') {
+      // Swipe gauche = page suivante
+      newIndex = currentIndex + 1;
+      if (newIndex >= SWIPE_PAGES.length) newIndex = 0; // Boucle au début
+    } else {
+      // Swipe droite = page précédente
+      newIndex = currentIndex - 1;
+      if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1; // Boucle à la fin
+    }
+
+    // Animation de sortie puis navigation
+    setIsSwipping(true);
+    setSwipeOffset(direction === 'left' ? -window.innerWidth : window.innerWidth);
+
+    setTimeout(() => {
+      navigate(SWIPE_PAGES[newIndex].path);
+      // Reset après navigation
+      setTimeout(() => {
+        setSwipeOffset(0);
+        setIsSwipping(false);
+        setSwipeDirection(null);
+      }, 50);
+    }, 200);
+  };
+
+  const onTouchStart = (e) => {
+    if (!isSwipeEnabled) return;
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+    setIsSwipping(true);
+    setSwipeDirection(null);
+  };
+
+  const onTouchMove = (e) => {
+    if (!isSwipeEnabled || !touchStart) return;
+
+    const currentTouch = e.targetTouches[0].clientX;
+    const distance = currentTouch - touchStart;
+
+    // Déterminer la direction
+    const direction = distance > 0 ? 'right' : 'left';
+    setSwipeDirection(direction);
+
+    // Appliquer une résistance progressive
+    let offset = distance;
+    const absDistance = Math.abs(distance);
+
+    if (absDistance > maxSwipeDistance) {
+      // Résistance exponentielle au-delà de maxSwipeDistance
+      const excess = absDistance - maxSwipeDistance;
+      const resistance = Math.log(excess / 50 + 1) * 50;
+      offset = distance > 0 ? maxSwipeDistance + resistance : -maxSwipeDistance - resistance;
+    }
+
+    setSwipeOffset(offset);
+    setTouchEnd(currentTouch);
+  };
+
+  const onTouchEnd = () => {
+    if (!isSwipeEnabled || !touchStart || !touchEnd) {
+      // Reset si pas de swipe valide
+      setSwipeOffset(0);
+      setIsSwipping(false);
+      setSwipeDirection(null);
+      return;
+    }
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      navigateToPage('left');
+    } else if (isRightSwipe) {
+      navigateToPage('right');
+    } else {
+      // Retour à la position initiale avec animation
+      setSwipeOffset(0);
+      setTimeout(() => {
+        setIsSwipping(false);
+        setSwipeDirection(null);
+      }, 200);
+    }
+  };
+
+  return {
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    getCurrentPageIndex,
+    navigateToPage,
+    isSwipeEnabled,
+    setIsSwipeEnabled,
+    totalPages: SWIPE_PAGES.length,
+    swipeOffset,
+    isSwipping,
+    swipeDirection
+  };
+}
+
 // Styles CSS pour les animations, swipe et mode sombre + Sidebar améliorée
 const mobileMenuStyles = `
   .mobile-menu-overlay {
@@ -954,311 +1256,6 @@ const mobileMenuStyles = `
   .dark .mobile-menu-container .menu-header .mobile-header-logo-3d img {
    filter: drop-shadow(0 6px 15px rgba(0,0,0,0.5));
   }
-`;// src/App.js
-import React, { useState, useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useNavigate,
-  Link,
-} from "react-router-dom";
-import {
-  FaHome,
-  FaUserFriends,
-  FaChartBar,
-  FaCalendarAlt,
-  FaBars,
-  FaTimes,
-  FaUserCircle,
-  FaSignOutAlt,
-  FaCreditCard,
-  FaDownload,
-  FaCheck,
-  FaTimes as FaTimesIcon,
-  FaChevronLeft,
-  FaChevronRight,
-  FaMoon,
-  FaSun,
-  FaAdjust,
-  FaAngleDoubleLeft,
-  FaAngleDoubleRight,
-} from "react-icons/fa";
-import { supabase } from "./supabaseClient";
-import { useAuth } from "./contexts/AuthContext";
-
-import HomePage from "./pages/HomePage";
-import MembersPage from "./pages/MembersPage";
-import PlanningPage from "./pages/PlanningPage";
-import PaymentsPage from "./pages/PaymentsPage";
-import StatisticsPage from "./pages/StatisticsPage";
-import UserManagementPage from "./pages/UserManagementPage";
-import ProfilePage from "./pages/ProfilePage";
-import MemberForm from "./components/MemberForm";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-
-// Configuration des pages pour la navigation swipe
-const SWIPE_PAGES = [
-  { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" />, component: "HomePage" },
-  { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500 dark:text-green-400" />, component: "MembersPage" },
-  { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, component: "PlanningPage" },
-  { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, component: "PaymentsPage" },
-  { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
-];
-
-// Hook pour la gestion du mode sombre - VERSION CORRIGÉE
-function useDarkMode() {
-  const [darkMode, setDarkMode] = useState('auto');
-  const [actualDarkMode, setActualDarkMode] = useState(false);
-
-  // Fonction pour vérifier si c'est la nuit (19h-7h)
-  const isNightTime = () => {
-    const hour = new Date().getHours();
-    return hour >= 19 || hour < 7;
-  };
-
-  // Fonction pour déterminer le mode sombre actuel
-  const determineActualMode = (mode) => {
-    switch (mode) {
-      case 'dark':
-        return true;
-      case 'light':
-        return false;
-      case 'auto':
-      default:
-        return isNightTime();
-    }
-  };
-
-  // Fonction pour appliquer le thème au DOM
-  const applyTheme = (isDark) => {
-    const htmlElement = document.documentElement;
-
-    if (isDark) {
-      htmlElement.classList.add('dark');
-    } else {
-      htmlElement.classList.remove('dark');
-    }
-
-    console.log(`🎨 Mode appliqué: ${isDark ? 'Sombre' : 'Clair'}`, {
-      classList: Array.from(htmlElement.classList),
-      darkMode,
-      actualDarkMode: isDark
-    });
-  };
-
-  // Charger les préférences au démarrage
-  useEffect(() => {
-    const savedMode = localStorage.getItem('darkMode') || 'auto';
-    const newActualMode = determineActualMode(savedMode);
-
-    console.log('🚀 Initialisation mode sombre:', { savedMode, newActualMode });
-
-    setDarkMode(savedMode);
-    setActualDarkMode(newActualMode);
-    applyTheme(newActualMode);
-  }, []);
-
-  // Mettre à jour le thème quand le mode change
-  useEffect(() => {
-    const newActualMode = determineActualMode(darkMode);
-    setActualDarkMode(newActualMode);
-    applyTheme(newActualMode);
-
-    console.log('🔄 Changement de mode:', { darkMode, newActualMode });
-  }, [darkMode]);
-
-  // Timer pour le mode automatique
-  useEffect(() => {
-    if (darkMode === 'auto') {
-      const interval = setInterval(() => {
-        const shouldBeDark = isNightTime();
-        if (shouldBeDark !== actualDarkMode) {
-          console.log('⏰ Basculement automatique:', { shouldBeDark, actualDarkMode });
-          setActualDarkMode(shouldBeDark);
-          applyTheme(shouldBeDark);
-        }
-      }, 60000); // Vérifier chaque minute
-
-      return () => clearInterval(interval);
-    }
-  }, [darkMode, actualDarkMode]);
-
-  const toggleDarkMode = () => {
-    const modes = ['auto', 'light', 'dark'];
-    const currentIndex = modes.indexOf(darkMode);
-    const nextMode = modes[(currentIndex + 1) % modes.length];
-
-    console.log('👆 Toggle mode:', { current: darkMode, next: nextMode });
-
-    setDarkMode(nextMode);
-    localStorage.setItem('darkMode', nextMode);
-  };
-
-  const getDarkModeIcon = () => {
-    switch (darkMode) {
-      case 'light':
-        return <FaSun className="w-5 h-5" />;
-      case 'dark':
-        return <FaMoon className="w-5 h-5" />;
-      case 'auto':
-      default:
-        return <FaAdjust className="w-5 h-5" />;
-    }
-  };
-
-  const getDarkModeLabel = () => {
-    switch (darkMode) {
-      case 'light':
-        return 'Mode clair';
-      case 'dark':
-        return 'Mode sombre';
-      case 'auto':
-      default:
-        return `Mode auto ${actualDarkMode ? '🌙' : '☀️'}`;
-    }
-  };
-
-  return {
-    darkMode,
-    actualDarkMode,
-    toggleDarkMode,
-    getDarkModeIcon,
-    getDarkModeLabel,
-  };
-}
-
-// Hook personnalisé pour la navigation par swipe avec animation
-function useSwipeNavigation() {
-  const [touchStart, setTouchStart] = useState(null);
-  const [touchEnd, setTouchEnd] = useState(null);
-  const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwipping, setIsSwipping] = useState(false);
-  const [swipeDirection, setSwipeDirection] = useState(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  // Distance minimum pour déclencher un swipe (en pixels)
-  const minSwipeDistance = 100;
-  // Distance maximum pour l'effet de résistance
-  const maxSwipeDistance = 200;
-
-  const getCurrentPageIndex = () => {
-    return SWIPE_PAGES.findIndex(page => page.path === location.pathname);
-  };
-
-  const navigateToPage = (direction) => {
-    const currentIndex = getCurrentPageIndex();
-    if (currentIndex === -1) return;
-
-    let newIndex;
-    if (direction === 'left') {
-      // Swipe gauche = page suivante
-      newIndex = currentIndex + 1;
-      if (newIndex >= SWIPE_PAGES.length) newIndex = 0; // Boucle au début
-    } else {
-      // Swipe droite = page précédente
-      newIndex = currentIndex - 1;
-      if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1; // Boucle à la fin
-    }
-
-    // Animation de sortie puis navigation
-    setIsSwipping(true);
-    setSwipeOffset(direction === 'left' ? -window.innerWidth : window.innerWidth);
-
-    setTimeout(() => {
-      navigate(SWIPE_PAGES[newIndex].path);
-      // Reset après navigation
-      setTimeout(() => {
-        setSwipeOffset(0);
-        setIsSwipping(false);
-        setSwipeDirection(null);
-      }, 50);
-    }, 200);
-  };
-
-  const onTouchStart = (e) => {
-    if (!isSwipeEnabled) return;
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-    setIsSwipping(true);
-    setSwipeDirection(null);
-  };
-
-  const onTouchMove = (e) => {
-    if (!isSwipeEnabled || !touchStart) return;
-
-    const currentTouch = e.targetTouches[0].clientX;
-    const distance = currentTouch - touchStart;
-
-    // Déterminer la direction
-    const direction = distance > 0 ? 'right' : 'left';
-    setSwipeDirection(direction);
-
-    // Appliquer une résistance progressive
-    let offset = distance;
-    const absDistance = Math.abs(distance);
-
-    if (absDistance > maxSwipeDistance) {
-      // Résistance exponentielle au-delà de maxSwipeDistance
-      const excess = absDistance - maxSwipeDistance;
-      const resistance = Math.log(excess / 50 + 1) * 50;
-      offset = distance > 0 ? maxSwipeDistance + resistance : -maxSwipeDistance - resistance;
-    }
-
-    setSwipeOffset(offset);
-    setTouchEnd(currentTouch);
-  };
-
-  const onTouchEnd = () => {
-    if (!isSwipeEnabled || !touchStart || !touchEnd) {
-      // Reset si pas de swipe valide
-      setSwipeOffset(0);
-      setIsSwipping(false);
-      setSwipeDirection(null);
-      return;
-    }
-
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe) {
-      navigateToPage('left');
-    } else if (isRightSwipe) {
-      navigateToPage('right');
-    } else {
-      // Retour à la position initiale avec animation
-      setSwipeOffset(0);
-      setTimeout(() => {
-        setIsSwipping(false);
-        setSwipeDirection(null);
-      }, 200);
-    }
-  };
-
-  return {
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd,
-    getCurrentPageIndex,
-    navigateToPage,
-    isSwipeEnabled,
-    setIsSwipeEnabled,
-    totalPages: SWIPE_PAGES.length,
-    swipeOffset,
-    isSwipping,
-    swipeDirection
-  };
-}
-
-// Styles CSS pour les animations, swipe et mode sombre + Sidebar améliorée
-const mobileMenuStyles = `
-  /* Vos styles CSS existants ici */
 `;
 
 // Composant Toast PWA
