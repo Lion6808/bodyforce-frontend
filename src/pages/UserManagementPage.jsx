@@ -1,4 +1,4 @@
-// UserManagementPage.jsx - VERSION CORRIGÉE
+// UserManagementPage.jsx - Avec liaison aux membres
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,7 +10,9 @@ import {
   FaCheck,
   FaTimes,
   FaExclamationTriangle,
-  FaUserCircle, // ← Cette ligne était manquante
+  FaUserCircle,
+  FaLink,
+  FaUnlink,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -19,6 +21,7 @@ function UserManagementPage() {
   const isAdmin = role === 'admin';
 
   const [users, setUsers] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -26,6 +29,7 @@ function UserManagementPage() {
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
+      fetchMembers();
     } else {
       setError("Accès refusé : Vous devez être administrateur pour accéder à cette page.");
       setLoading(false);
@@ -39,7 +43,6 @@ function UserManagementPage() {
     try {
       console.log("🔍 Récupération des utilisateurs...");
       
-      // Utiliser la fonction RPC au lieu de l'API admin
       const { data: usersData, error: usersError } = await supabase
         .rpc('get_users_with_roles');
 
@@ -61,6 +64,21 @@ function UserManagementPage() {
     }
   };
 
+  const fetchMembers = async () => {
+    try {
+      const { data: membersData, error: membersError } = await supabase
+        .from('members')
+        .select('id, nom, prenom, user_id')
+        .order('nom', { ascending: true });
+
+      if (membersError) throw membersError;
+
+      setMembers(membersData || []);
+    } catch (err) {
+      console.error("❌ Erreur récupération membres:", err);
+    }
+  };
+
   const updateRole = async (userId, newRole) => {
     try {
       console.log(`🔄 Mise à jour du rôle pour ${userId}: ${newRole}`);
@@ -77,7 +95,6 @@ function UserManagementPage() {
       console.log("✅ Rôle mis à jour avec succès");
       toast.success(`Rôle mis à jour vers: ${newRole}`);
       
-      // Rafraîchir la liste
       await fetchUsers();
       
     } catch (err) {
@@ -86,41 +103,92 @@ function UserManagementPage() {
     }
   };
 
+  const linkUserToMember = async (userId, memberId) => {
+    try {
+      const { data, error } = await supabase
+        .rpc('link_user_to_member', {
+          target_user_id: userId,
+          target_member_id: memberId
+        });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(`Utilisateur lié au membre ${data.member_name}`);
+        await fetchUsers();
+        await fetchMembers();
+      } else {
+        throw new Error(data?.error || 'Erreur inconnue');
+      }
+    } catch (err) {
+      toast.error(`Erreur liaison: ${err.message}`);
+    }
+  };
+
+  const unlinkUserFromMember = async (memberId) => {
+    try {
+      const { data, error } = await supabase
+        .rpc('unlink_user_from_member', {
+          target_member_id: memberId
+        });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(`Utilisateur délié du membre ${data.member_name}`);
+        await fetchUsers();
+        await fetchMembers();
+      } else {
+        throw new Error(data?.error || 'Erreur inconnue');
+      }
+    } catch (err) {
+      toast.error(`Erreur délaison: ${err.message}`);
+    }
+  };
+
   const deleteUser = async (userId, userEmail) => {
     if (userId === user.id) {
-      toast.warning("Vous ne pouvez pas supprimer votre propre compte.");
+      toast.warning("Vous ne pouvez pas désactiver votre propre compte.");
       return;
     }
 
-    const confirmMessage = `Êtes-vous sûr de vouloir supprimer l'utilisateur "${userEmail}" ?\n\nCette action est irréversible.`;
+    const confirmMessage = `Êtes-vous sûr de vouloir désactiver l'utilisateur "${userEmail}" ?\n\nL'utilisateur ne pourra plus se connecter.`;
     
     if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
-      console.log(`🗑️ Suppression de l'utilisateur: ${userEmail}`);
+      console.log(`🚫 Désactivation de l'utilisateur: ${userEmail}`);
 
-      // Utiliser la fonction RPC pour supprimer
       const { data, error } = await supabase
-        .rpc('delete_user_admin', { target_user_id: userId });
+        .rpc('disable_user_admin', { target_user_id: userId });
 
       if (error) throw error;
 
       if (data?.success) {
-        console.log("✅ Utilisateur supprimé avec succès");
-        toast.success(`Utilisateur "${userEmail}" supprimé avec succès`);
+        console.log("✅ Utilisateur désactivé avec succès");
+        toast.success(`Utilisateur "${userEmail}" désactivé avec succès`);
         
-        // Rafraîchir la liste
         await fetchUsers();
       } else {
-        throw new Error(data?.error || "Erreur inconnue lors de la suppression");
+        throw new Error(data?.error || "Erreur inconnue lors de la désactivation");
       }
       
     } catch (err) {
-      console.error("❌ Erreur suppression:", err);
-      toast.error(`Échec de la suppression: ${err.message}`);
+      console.error("❌ Erreur désactivation:", err);
+      toast.error(`Échec de la désactivation: ${err.message}`);
     }
+  };
+
+  // Obtenir le membre lié à un utilisateur
+  const getLinkedMember = (userId) => {
+    return members.find(member => member.user_id === userId);
+  };
+
+  // Obtenir les membres non liés
+  const getUnlinkedMembers = () => {
+    return members.filter(member => !member.user_id);
   };
 
   // Vérification des permissions
@@ -146,7 +214,7 @@ function UserManagementPage() {
   }
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
+    <div className="p-4 max-w-7xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
         {/* En-tête */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -159,7 +227,10 @@ function UserManagementPage() {
             </div>
             
             <button
-              onClick={fetchUsers}
+              onClick={() => {
+                fetchUsers();
+                fetchMembers();
+              }}
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-200"
             >
@@ -196,10 +267,10 @@ function UserManagementPage() {
                       Rôle
                     </th>
                     <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600">
-                      Statut
+                      Membre lié
                     </th>
                     <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600">
-                      Inscription
+                      Statut
                     </th>
                     <th className="text-left p-4 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600">
                       Actions
@@ -207,82 +278,110 @@ function UserManagementPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u, index) => (
-                    <tr 
-                      key={u.id} 
-                      className={`
-                        ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}
-                        hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors duration-150
-                      `}
-                    >
-                      <td className="p-4 border-b border-gray-200 dark:border-gray-600">
-                        <div className="flex items-center gap-2">
-                          <FaUserCircle className="text-gray-400 dark:text-gray-500" />
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {u.user_email || u.email}
-                          </span>
-                          {(u.user_id || u.id) === user.id && (
-                            <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                              Vous
+                  {users.map((u, index) => {
+                    const linkedMember = getLinkedMember(u.user_id || u.id);
+                    return (
+                      <tr 
+                        key={u.user_id || u.id} 
+                        className={`
+                          ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}
+                          hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors duration-150
+                        `}
+                      >
+                        <td className="p-4 border-b border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center gap-2">
+                            <FaUserCircle className="text-gray-400 dark:text-gray-500" />
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {u.user_email || u.email}
+                            </span>
+                            {(u.user_id || u.id) === user.id && (
+                              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                                Vous
+                              </span>
+                            )}
+                            {u.is_disabled && (
+                              <span className="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded">
+                                Désactivé
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        
+                        <td className="p-4 border-b border-gray-200 dark:border-gray-600">
+                          <select
+                            value={u.user_role || u.role || 'user'}
+                            onChange={(e) => updateRole(u.user_id || u.id, e.target.value)}
+                            className="border border-gray-300 dark:border-gray-600 rounded px-3 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            disabled={(u.user_id || u.id) === user.id || u.is_disabled}
+                          >
+                            <option value="user">Utilisateur</option>
+                            <option value="admin">Administrateur</option>
+                          </select>
+                        </td>
+
+                        <td className="p-4 border-b border-gray-200 dark:border-gray-600">
+                          {linkedMember ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-green-600 dark:text-green-400">
+                                {linkedMember.prenom} {linkedMember.nom}
+                              </span>
+                              <button
+                                onClick={() => unlinkUserFromMember(linkedMember.id)}
+                                className="text-red-500 hover:text-red-700 p-1"
+                                title="Délier"
+                              >
+                                <FaUnlink className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  linkUserToMember(u.user_id || u.id, parseInt(e.target.value));
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                              disabled={u.is_disabled}
+                            >
+                              <option value="">Sélectionner un membre</option>
+                              {getUnlinkedMembers().map(member => (
+                                <option key={member.id} value={member.id}>
+                                  {member.prenom} {member.nom}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </td>
+                        
+                        <td className="p-4 border-b border-gray-200 dark:border-gray-600">
+                          {u.confirmed_at ? (
+                            <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                              <FaCheck className="w-4 h-4" />
+                              Confirmé
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+                              <FaTimes className="w-4 h-4" />
+                              En attente
                             </span>
                           )}
-                          {u.is_disabled && (
-                            <span className="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded">
-                              Désactivé
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      
-                      <td className="p-4 border-b border-gray-200 dark:border-gray-600">
-                        <select
-                          value={u.user_role || u.role || 'user'}
-                          onChange={(e) => updateRole(u.user_id || u.id, e.target.value)}
-                          className="border border-gray-300 dark:border-gray-600 rounded px-3 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          disabled={(u.user_id || u.id) === user.id || u.is_disabled}
-                        >
-                          <option value="user">Utilisateur</option>
-                          <option value="admin">Administrateur</option>
-                        </select>
-                      </td>
-                      
-                      <td className="p-4 border-b border-gray-200 dark:border-gray-600">
-                        {u.confirmed_at ? (
-                          <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                            <FaCheck className="w-4 h-4" />
-                            Confirmé
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
-                            <FaTimes className="w-4 h-4" />
-                            En attente
-                          </span>
-                        )}
-                      </td>
-                      
-                      <td className="p-4 border-b border-gray-200 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-400">
-                        {new Date(u.created_at).toLocaleDateString('fr-FR', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </td>
-                      
-                      <td className="p-4 border-b border-gray-200 dark:border-gray-600">
-                        <button
-                          onClick={() => deleteUser(u.user_id || u.id, u.user_email || u.email)}
-                          disabled={(u.user_id || u.id) === user.id}
-                          className="flex items-center gap-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={(u.user_id || u.id) === user.id ? "Vous ne pouvez pas supprimer votre propre compte" : "Désactiver cet utilisateur"}
-                        >
-                          <FaTrash className="w-4 h-4" />
-                          {u.is_disabled ? 'Réactiver' : 'Désactiver'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        
+                        <td className="p-4 border-b border-gray-200 dark:border-gray-600">
+                          <button
+                            onClick={() => deleteUser(u.user_id || u.id, u.user_email || u.email)}
+                            disabled={(u.user_id || u.id) === user.id}
+                            className="flex items-center gap-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={(u.user_id || u.id) === user.id ? "Vous ne pouvez pas supprimer votre propre compte" : "Désactiver cet utilisateur"}
+                          >
+                            <FaTrash className="w-4 h-4" />
+                            {u.is_disabled ? 'Réactiver' : 'Désactiver'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               

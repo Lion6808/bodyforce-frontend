@@ -41,6 +41,7 @@ import StatisticsPage from "./pages/StatisticsPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
+import UserProfilePage from "./pages/UserProfilePage";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -51,6 +52,7 @@ const SWIPE_PAGES = [
   { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, component: "PlanningPage" },
   { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, component: "PaymentsPage" },
   { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
+  
 ];
 
 // Hook pour la gestion du mode sombre - VERSION CORRIGÉE
@@ -1589,6 +1591,7 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
       path: "/statistics",
       icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
     },
+    { name: "Mon Profil", path: "/profile", icon: <FaUser className="text-blue-500 dark:text-blue-400" /> },
   ];
 
   const toggleSidebar = () => {
