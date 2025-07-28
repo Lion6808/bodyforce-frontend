@@ -2233,10 +2233,8 @@ function App() {
       path="/login"
       element={user ? <Navigate to="/" /> : <LoginPage />}
     />
-    <Route
-      path="/*"
-      element={<AppRoutes user={user} setUser={setUser} />}
-    />
+    <Route path="/*" element={<AppRoutes />} />
+
   </Routes>
 
   {/* ✅ Affiche les notifications Toast */}
@@ -2245,6 +2243,5 @@ function App() {
 
   );
 }
-<AppRoutes user={user} setUser={setUser} />
 
 export default App;
