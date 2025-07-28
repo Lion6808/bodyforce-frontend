@@ -1967,7 +1967,7 @@ function AnimatedMobileMenu({
 }
 
 // ============== COMPOSANT CORRIGÉ CI-DESSOUS ==============
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "./contexts/AuthContext";
 
 
 function AppRoutes() {
