@@ -10,6 +10,7 @@ import {
   FaCheck,
   FaTimes,
   FaExclamationTriangle,
+  FaUserCircle, // ← Cette ligne était manquante
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 
