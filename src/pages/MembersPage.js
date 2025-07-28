@@ -206,51 +206,58 @@ function MembersPage() {
   };
 
   // Component for avatar with fallback
-  const MemberAvatar = ({ member }) => {
-    const [imageLoaded, setImageLoaded] = useState(false);
-    const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
+// REMPLACEZ votre MemberAvatar existant par ceci :
+const MemberAvatar = ({ member }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
 
-    // If we know the image failed before or there's no photo, show fallback immediately
-    const shouldShowFallback = !member.photo || imageFailed;
+  // Si on sait que l'image a échoué ou qu'il n'y a pas de photo, afficher directement le fallback
+  const shouldShowFallback = !member.photo || imageFailed;
 
-    if (shouldShowFallback) {
-      return (
-        <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-          <FaUser
-            className={`text-xl ${
-              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-            }`}
-          />
-        </div>
-      );
-    }
-
+  if (shouldShowFallback) {
     return (
-      <div className="relative w-12 h-12">
-        {!imageLoaded && (
-          <div className="absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-            <FaUser
-              className={`text-xl ${
-                member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-              }`}
-            />
-          </div>
-        )}
-        <img
-          src={member.photo}
-          alt="avatar"
-          className={`w-12 h-12 object-cover rounded-full border border-gray-200 dark:border-gray-600 ${
-            imageLoaded ? "opacity-100" : "opacity-0"
-          } transition-opacity duration-200`}
-          onLoad={() => setImageLoaded(true)}
-          onError={() => {
-            setImageFailed(true);
-            setImageErrors((prev) => new Set([...prev, member.id]));
-          }}
+      <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+        <FaUser
+          className={`text-xl ${
+            member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+          }`}
         />
       </div>
     );
-  };
+  }
+
+  return (
+    <div className="relative w-12 h-12 transform-gpu">
+      {/* Fallback qui reste visible jusqu'au chargement complet */}
+      <div 
+        className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
+          imageLoaded ? 'opacity-0' : 'opacity-100'
+        }`}
+      >
+        <FaUser
+          className={`text-xl ${
+            member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+          }`}
+        />
+      </div>
+      
+      {/* Image qui se superpose au fallback */}
+      <img
+        src={member.photo}
+        alt="avatar"
+        className={`absolute inset-0 w-12 h-12 object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
+          imageLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+        onLoad={() => setImageLoaded(true)}
+        onError={() => {
+          setImageFailed(true);
+          setImageErrors((prev) => new Set([...prev, member.id]));
+        }}
+        loading="lazy"
+      />
+    </div>
+  );
+};
 
   if (loading) {
     return (
@@ -282,7 +289,7 @@ function MembersPage() {
   }
 
   return (
-    <div className="px-2 sm:px-4">
+     <div className="px-2 sm:px-4 members-container">
       <div className="flex justify-between items-center mb-4">
         <div>
           <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Liste des membres</h1>
@@ -494,7 +501,7 @@ function MembersPage() {
                     return (
                       <tr
                         key={member.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150 transform-gpu member-row"
                       >
                         <td className="p-3">
                           <input
@@ -692,7 +699,7 @@ function MembersPage() {
               return (
                 <div
                   key={member.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-150 transform-gpu member-card"
                 >
                   {/* En-tête de la carte */}
                   <div className="flex items-start justify-between mb-3">
@@ -916,11 +923,12 @@ function MembersPage() {
 }
 
 // Composant Widget pour les statistiques
+// REMPLACEZ votre Widget existant par ceci :
 function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-all hover:scale-105 border-2 ${
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
         active
           ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
           : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
