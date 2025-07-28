@@ -40,7 +40,6 @@ import StatisticsPage from "./pages/StatisticsPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
-import UserManagementPage from "./pages/UserManagementPage";
 
 
 // Configuration des pages pour la navigation swipe
@@ -1969,7 +1968,6 @@ function AnimatedMobileMenu({
 
 // ============== COMPOSANT CORRIGÉ CI-DESSOUS ==============
 import { useAuth } from "../contexts/AuthContext";
-import UserManagementPage from "./pages/UserManagementPage";
 
 
 function AppRoutes() {
