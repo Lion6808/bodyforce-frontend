@@ -40,6 +40,9 @@ import StatisticsPage from "./pages/StatisticsPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 
 
 // Configuration des pages pour la navigation swipe
@@ -2225,17 +2228,21 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/" /> : <LoginPage />}
-        />
-        <Route
-          path="/*"
-          element={<AppRoutes user={user} setUser={setUser} />}
-        />
-      </Routes>
-    </Router>
+  <Routes>
+    <Route
+      path="/login"
+      element={user ? <Navigate to="/" /> : <LoginPage />}
+    />
+    <Route
+      path="/*"
+      element={<AppRoutes user={user} setUser={setUser} />}
+    />
+  </Routes>
+
+  {/* ✅ Affiche les notifications Toast */}
+  <ToastContainer position="top-right" autoClose={3000} />
+</Router>
+
   );
 }
 
