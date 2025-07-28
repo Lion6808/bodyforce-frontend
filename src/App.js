@@ -2213,8 +2213,18 @@ function AppRoutes() {
 }
 // ============== FIN DU COMPOSANT CORRIGÉ ==============
 function App() {
- const { user, loading, setUser } = useAuth();  // ✅ Récupère les infos depuis le contexte
+  const { user, loading, setUser } = useAuth();
+  const navigate = useNavigate(); // ✅ aussi à l’intérieur
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);  // ✅ fonctionne maintenant
+      navigate("/login");
+    } catch (error) {
+      console.error("Erreur déconnexion:", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -2229,20 +2239,14 @@ function App() {
 
   return (
     <Router>
-  <Routes>
-    <Route
-      path="/login"
-      element={user ? <Navigate to="/" /> : <LoginPage />}
-    />
-    <Route path="/*" element={<AppRoutes />} />
-
-  </Routes>
-
-  {/* ✅ Affiche les notifications Toast */}
-  <ToastContainer position="top-right" autoClose={3000} />
-</Router>
-
+      <Routes>
+        <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
+        <Route path="/*" element={<AppRoutes />} />
+      </Routes>
+      <ToastContainer position="top-right" autoClose={3000} />
+    </Router>
   );
 }
+
 
 export default App;
