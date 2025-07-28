@@ -1975,7 +1975,8 @@ import { useAuth } from "./contexts/AuthContext";
 
 function AppRoutes() {
   const { user, role } = useAuth();  // Utilise le contexte ici aussi
-  const isAdmin = role === "admin";
+  const isAdmin = true; // pour test temporaire
+
 
 
   const [editingMember, setEditingMember] = useState(null);
