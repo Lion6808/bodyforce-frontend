@@ -2213,7 +2213,7 @@ function AppRoutes() {
 }
 // ============== FIN DU COMPOSANT CORRIGÉ ==============
 function App() {
-  const { user, loading } = useAuth();  // ✅ Récupère les infos depuis le contexte
+ const { user, loading, setUser } = useAuth();  // ✅ Récupère les infos depuis le contexte
 
 
   if (loading) {
