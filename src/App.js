@@ -2208,10 +2208,6 @@ function AppRoutes() {
   );
 }
 // ============== FIN DU COMPOSANT CORRIGÉ ==============
-
-
-import { useAuth } from "./contexts/AuthContext";
-
 function App() {
   const { user, loading } = useAuth();  // ✅ Récupère les infos depuis le contexte
 
