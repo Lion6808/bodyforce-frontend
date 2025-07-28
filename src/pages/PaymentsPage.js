@@ -150,6 +150,7 @@ function PaymentsPage() {
       emergencyContact: member.emergencyContact,
       emergencyPhone: member.emergencyPhone,
       medicalInfo: member.medicalInfo,
+      files: member.files,
       // ❌ Exclure les champs calculés comme overallStatus, payments, totalDue, etc.
     };
 
