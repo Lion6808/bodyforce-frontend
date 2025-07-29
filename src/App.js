@@ -30,6 +30,7 @@ import {
   FaAdjust,
   FaAngleDoubleLeft,
   FaAngleDoubleRight,
+  FaClipboardList, // Nouvel icône pour les présences
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
@@ -44,11 +45,12 @@ import UserManagementPage from "./pages/UserManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
 import UserProfilePage from "./pages/UserProfilePage";
+import MyAttendancesPage from "./pages/MyAttendancesPage"; // ✅ Import de la nouvelle page
 
 // Import des styles et notifications
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import "./App.css"; // ✅ Styles externalisés
+import "./App.css";
 
 // Configuration des pages pour la navigation swipe - DYNAMIQUE selon le rôle
 const getSwipePages = (isAdmin) => {
@@ -92,6 +94,12 @@ const getSwipePages = (isAdmin) => {
   } else {
     return [
       ...basePage,
+      { 
+        name: "Mes Présences", // ✅ Nouvelle page pour les utilisateurs
+        path: "/my-attendances", 
+        icon: <FaClipboardList className="text-green-500 dark:text-green-400" />, 
+        component: "MyAttendancesPage" 
+      },
       { 
         name: "Mon Profil", 
         path: "/profile", 
@@ -686,6 +694,11 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
       },
     ] : [
       { 
+        name: "Mes Présences", // ✅ Nouveau menu pour les utilisateurs
+        path: "/my-attendances", 
+        icon: <FaClipboardList className="text-green-500 dark:text-green-400" /> 
+      },
+      { 
         name: "Mon Profil", 
         path: "/profile", 
         icon: <FaUser className="text-blue-500 dark:text-blue-400" /> 
@@ -1023,16 +1036,27 @@ function AnimatedMobileMenu({
             </>
           )}
 
-          {/* Profil pour utilisateurs non-admin */}
+          {/* Menu pour utilisateurs non-admin */}
           {!isAdmin && (
-            <Link
-              to="/profile"
-              onClick={handleItemClick}
-              className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/profile" ? "bg-white/20" : ""}`}
-            >
-              <FaUser className="text-xl text-blue-300" />
-              <span className="font-medium">Mon Profil</span>
-            </Link>
+            <>
+              <Link
+                to="/my-attendances"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/my-attendances" ? "bg-white/20" : ""}`}
+              >
+                <FaClipboardList className="text-xl text-green-300" />
+                <span className="font-medium">Mes Présences</span>
+              </Link>
+
+              <Link
+                to="/profile"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/profile" ? "bg-white/20" : ""}`}
+              >
+                <FaUser className="text-xl text-blue-300" />
+                <span className="font-medium">Mon Profil</span>
+              </Link>
+            </>
           )}
 
           {/* Actions */}
@@ -1270,6 +1294,11 @@ function AppRoutes() {
                 <Route path="/statistics" element={<StatisticsPage />} />
                 <Route path="/admin/users" element={<UserManagementPage />} />
               </>
+            )}
+            
+            {/* Routes pour les utilisateurs non-admin */}
+            {!isAdmin && (
+              <Route path="/my-attendances" element={<MyAttendancesPage />} />
             )}
             
             {/* Route profil accessible à tous */}
