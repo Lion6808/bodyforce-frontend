@@ -34,6 +34,7 @@ import {
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
 
+// Import des pages
 import HomePage from "./pages/HomePage";
 import MembersPage from "./pages/MembersPage";
 import PlanningPage from "./pages/PlanningPage";
@@ -43,28 +44,78 @@ import UserManagementPage from "./pages/UserManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
 import UserProfilePage from "./pages/UserProfilePage";
+
+// Import des styles et notifications
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "./App.css"; // ✅ Styles externalisés
 
-// Configuration des pages pour la navigation swipe
-const SWIPE_PAGES = [
-  { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" />, component: "HomePage" },
-  { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500 dark:text-green-400" />, component: "MembersPage" },
-  { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, component: "PlanningPage" },
-  { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, component: "PaymentsPage" },
-  { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, component: "StatisticsPage" },
-  
-];
+// Configuration des pages pour la navigation swipe - DYNAMIQUE selon le rôle
+const getSwipePages = (isAdmin) => {
+  const basePage = [
+    { 
+      name: "Accueil", 
+      path: "/", 
+      icon: <FaHome className="text-red-500 dark:text-red-400" />, 
+      component: "HomePage" 
+    }
+  ];
 
-// Hook pour la gestion du mode sombre - VERSION CORRIGÉE
+  if (isAdmin) {
+    return [
+      ...basePage,
+      { 
+        name: "Membres", 
+        path: "/members", 
+        icon: <FaUserFriends className="text-green-500 dark:text-green-400" />, 
+        component: "MembersPage" 
+      },
+      { 
+        name: "Planning", 
+        path: "/planning", 
+        icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, 
+        component: "PlanningPage" 
+      },
+      { 
+        name: "Paiements", 
+        path: "/payments", 
+        icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, 
+        component: "PaymentsPage" 
+      },
+      { 
+        name: "Statistiques", 
+        path: "/statistics", 
+        icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, 
+        component: "StatisticsPage" 
+      },
+    ];
+  } else {
+    return [
+      ...basePage,
+      { 
+        name: "Mon Profil", 
+        path: "/profile", 
+        icon: <FaUser className="text-blue-500 dark:text-blue-400" />, 
+        component: "UserProfilePage" 
+      }
+    ];
+  }
+};
+
+// ===== HOOK POUR LA GESTION DU MODE SOMBRE =====
 function useDarkMode() {
   const [darkMode, setDarkMode] = useState('auto');
   const [actualDarkMode, setActualDarkMode] = useState(false);
 
-  // Fonction pour vérifier si c'est la nuit (19h-7h)
+  // ✅ Constantes pour les heures de basculement
+  const NIGHT_START_HOUR = 19;
+  const NIGHT_END_HOUR = 7;
+  const AUTO_CHECK_INTERVAL = 60000; // 1 minute
+
+  // Fonction pour vérifier si c'est la nuit
   const isNightTime = () => {
     const hour = new Date().getHours();
-    return hour >= 19 || hour < 7;
+    return hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR;
   };
 
   // Fonction pour déterminer le mode sombre actuel
@@ -83,26 +134,27 @@ function useDarkMode() {
   // Fonction pour appliquer le thème au DOM
   const applyTheme = (isDark) => {
     const htmlElement = document.documentElement;
-
+    
     if (isDark) {
       htmlElement.classList.add('dark');
     } else {
       htmlElement.classList.remove('dark');
     }
 
-    console.log(`🎨 Mode appliqué: ${isDark ? 'Sombre' : 'Clair'}`, {
-      classList: Array.from(htmlElement.classList),
-      darkMode,
-      actualDarkMode: isDark
-    });
+    // ✅ Console log uniquement en développement
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎨 Mode appliqué: ${isDark ? 'Sombre' : 'Clair'}`, {
+        classList: Array.from(htmlElement.classList),
+        darkMode,
+        actualDarkMode: isDark
+      });
+    }
   };
 
   // Charger les préférences au démarrage
   useEffect(() => {
     const savedMode = localStorage.getItem('darkMode') || 'auto';
     const newActualMode = determineActualMode(savedMode);
-
-    console.log('🚀 Initialisation mode sombre:', { savedMode, newActualMode });
 
     setDarkMode(savedMode);
     setActualDarkMode(newActualMode);
@@ -114,8 +166,6 @@ function useDarkMode() {
     const newActualMode = determineActualMode(darkMode);
     setActualDarkMode(newActualMode);
     applyTheme(newActualMode);
-
-    console.log('🔄 Changement de mode:', { darkMode, newActualMode });
   }, [darkMode]);
 
   // Timer pour le mode automatique
@@ -124,11 +174,10 @@ function useDarkMode() {
       const interval = setInterval(() => {
         const shouldBeDark = isNightTime();
         if (shouldBeDark !== actualDarkMode) {
-          console.log('⏰ Basculement automatique:', { shouldBeDark, actualDarkMode });
           setActualDarkMode(shouldBeDark);
           applyTheme(shouldBeDark);
         }
-      }, 60000); // Vérifier chaque minute
+      }, AUTO_CHECK_INTERVAL);
 
       return () => clearInterval(interval);
     }
@@ -138,8 +187,6 @@ function useDarkMode() {
     const modes = ['auto', 'light', 'dark'];
     const currentIndex = modes.indexOf(darkMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
-
-    console.log('👆 Toggle mode:', { current: darkMode, next: nextMode });
 
     setDarkMode(nextMode);
     localStorage.setItem('darkMode', nextMode);
@@ -178,8 +225,8 @@ function useDarkMode() {
   };
 }
 
-// Hook personnalisé pour la navigation par swipe avec animation
-function useSwipeNavigation() {
+// ===== HOOK POUR LA NAVIGATION PAR SWIPE =====
+function useSwipeNavigation(isAdmin) {
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
@@ -189,10 +236,14 @@ function useSwipeNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Distance minimum pour déclencher un swipe (en pixels)
-  const minSwipeDistance = 100;
-  // Distance maximum pour l'effet de résistance
-  const maxSwipeDistance = 200;
+  // ✅ Constantes pour le swipe
+  const MIN_SWIPE_DISTANCE = 100;
+  const MAX_SWIPE_DISTANCE = 200;
+  const SWIPE_ANIMATION_DELAY = 200;
+  const SWIPE_RESET_DELAY = 50;
+
+  // Utilise les pages dynamiques selon le rôle
+  const SWIPE_PAGES = getSwipePages(isAdmin);
 
   const getCurrentPageIndex = () => {
     return SWIPE_PAGES.findIndex(page => page.path === location.pathname);
@@ -204,13 +255,11 @@ function useSwipeNavigation() {
 
     let newIndex;
     if (direction === 'left') {
-      // Swipe gauche = page suivante
       newIndex = currentIndex + 1;
-      if (newIndex >= SWIPE_PAGES.length) newIndex = 0; // Boucle au début
+      if (newIndex >= SWIPE_PAGES.length) newIndex = 0;
     } else {
-      // Swipe droite = page précédente
       newIndex = currentIndex - 1;
-      if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1; // Boucle à la fin
+      if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1;
     }
 
     // Animation de sortie puis navigation
@@ -219,13 +268,12 @@ function useSwipeNavigation() {
 
     setTimeout(() => {
       navigate(SWIPE_PAGES[newIndex].path);
-      // Reset après navigation
       setTimeout(() => {
         setSwipeOffset(0);
         setIsSwipping(false);
         setSwipeDirection(null);
-      }, 50);
-    }, 200);
+      }, SWIPE_RESET_DELAY);
+    }, SWIPE_ANIMATION_DELAY);
   };
 
   const onTouchStart = (e) => {
@@ -241,20 +289,18 @@ function useSwipeNavigation() {
 
     const currentTouch = e.targetTouches[0].clientX;
     const distance = currentTouch - touchStart;
-
-    // Déterminer la direction
     const direction = distance > 0 ? 'right' : 'left';
+    
     setSwipeDirection(direction);
 
     // Appliquer une résistance progressive
     let offset = distance;
     const absDistance = Math.abs(distance);
 
-    if (absDistance > maxSwipeDistance) {
-      // Résistance exponentielle au-delà de maxSwipeDistance
-      const excess = absDistance - maxSwipeDistance;
+    if (absDistance > MAX_SWIPE_DISTANCE) {
+      const excess = absDistance - MAX_SWIPE_DISTANCE;
       const resistance = Math.log(excess / 50 + 1) * 50;
-      offset = distance > 0 ? maxSwipeDistance + resistance : -maxSwipeDistance - resistance;
+      offset = distance > 0 ? MAX_SWIPE_DISTANCE + resistance : -MAX_SWIPE_DISTANCE - resistance;
     }
 
     setSwipeOffset(offset);
@@ -263,7 +309,6 @@ function useSwipeNavigation() {
 
   const onTouchEnd = () => {
     if (!isSwipeEnabled || !touchStart || !touchEnd) {
-      // Reset si pas de swipe valide
       setSwipeOffset(0);
       setIsSwipping(false);
       setSwipeDirection(null);
@@ -271,20 +316,19 @@ function useSwipeNavigation() {
     }
 
     const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    const isLeftSwipe = distance > MIN_SWIPE_DISTANCE;
+    const isRightSwipe = distance < -MIN_SWIPE_DISTANCE;
 
     if (isLeftSwipe) {
       navigateToPage('left');
     } else if (isRightSwipe) {
       navigateToPage('right');
     } else {
-      // Retour à la position initiale avec animation
       setSwipeOffset(0);
       setTimeout(() => {
         setIsSwipping(false);
         setSwipeDirection(null);
-      }, 200);
+      }, SWIPE_ANIMATION_DELAY); 
     }
   };
 
@@ -299,999 +343,12 @@ function useSwipeNavigation() {
     totalPages: SWIPE_PAGES.length,
     swipeOffset,
     isSwipping,
-    swipeDirection
+    swipeDirection,
+    SWIPE_PAGES
   };
 }
 
-// Styles CSS pour les animations, swipe et mode sombre + Sidebar améliorée
-const mobileMenuStyles = `
-  .mobile-menu-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0);
-    z-index: 40;
-    transition: background-color 0.4s ease-out;
-    pointer-events: none;
-  }
-  
-  .mobile-menu-overlay.open {
-    background-color: rgba(0, 0, 0, 0.6);
-    pointer-events: auto;
-  }
-  
-  .dark .mobile-menu-overlay.open {
-    background-color: rgba(0, 0, 0, 0.8);
-  }
-  
-  .mobile-menu-container {
-    position: fixed;
-    top: 0;
-    right: 0;
-    height: 100vh;
-    width: 320px;
-    max-width: 85vw;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    box-shadow: -15px 0 30px rgba(0, 0, 0, 0.2);
-    z-index: 50;
-    transform: translateX(100%);
-    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    overflow-y: auto;
-    border-radius: 20px 0 0 20px;
-  }
-  
-  .dark .mobile-menu-container {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    box-shadow: -15px 0 30px rgba(0, 0, 0, 0.5);
-  }
-  
-  .mobile-menu-container.open {
-    transform: translateX(0);
-  }
-  
-  .mobile-menu-container.closing {
-    transform: translateX(100%);
-    transition: transform 0.4s cubic-bezier(0.55, 0.085, 0.68, 0.53);
-  }
-  
-  .menu-item {
-    opacity: 0;
-    transform: translateX(20px);
-    transition: all 0.3s ease-out;
-  }
-  
-  .menu-item.animate {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  
-  .menu-item:nth-child(1) { transition-delay: 0.1s; }
-  .menu-item:nth-child(2) { transition-delay: 0.15s; }
-  .menu-item:nth-child(3) { transition-delay: 0.2s; }
-  .menu-item:nth-child(4) { transition-delay: 0.25s; }
-  .menu-item:nth-child(5) { transition-delay: 0.3s; }
-  .menu-item:nth-child(6) { transition-delay: 0.35s; }
-  .menu-item:nth-child(7) { transition-delay: 0.4s; }
-  .menu-item:nth-child(8) { transition-delay: 0.45s; }
-  
-  .menu-header {
-    opacity: 0;
-    transform: translateY(-20px);
-    transition: all 0.4s ease-out 0.2s;
-  }
-  
-  .menu-header.animate {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  
-  .user-profile {
-    opacity: 0;
-    transform: scale(0.8);
-    transition: all 0.3s ease-out 0.3s;
-  }
-  
-  .user-profile.animate {
-    opacity: 1;
-    transform: scale(1);
-  }
-  
-  .close-button {
-    transform: rotate(-180deg);
-    transition: transform 0.3s ease-out;
-  }
-  
-  .close-button.animate {
-    transform: rotate(0deg);
-  }
-
-  /* ===== STYLES SIDEBAR DESKTOP AMÉLIORÉE ===== */
-  .enhanced-sidebar {
-    background: linear-gradient(180deg, 
-      rgba(255, 255, 255, 0.95) 0%, 
-      rgba(249, 250, 251, 0.95) 100%
-    );
-    backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(229, 231, 235, 0.8);
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.05);
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .dark .enhanced-sidebar {
-    background: linear-gradient(180deg, 
-      rgba(31, 41, 55, 0.95) 0%, 
-      rgba(17, 24, 39, 0.95) 100%
-    );
-    border-right: 1px solid rgba(75, 85, 99, 0.3);
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
-  }
-
-  .enhanced-sidebar.collapsed {
-    width: 64px !important;
-  }
-
-  .enhanced-sidebar.expanded {
-    width: 280px !important;
-  }
-
-  .sidebar-toggle {
-    position: fixed;
-    top: 50vh;
-    right: -12px;
-    transform: translateY(-50%);
-    width: 24px;
-    height: 48px;
-    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    border: none;
-    border-radius: 0 12px 12px 0;
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    z-index: 9999;
-  }
-
-  .enhanced-sidebar .sidebar-toggle {
-    display: flex !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-  }
-
-  .dark .sidebar-toggle {
-    background: linear-gradient(135deg, #1e40af, #7c3aed);
-    box-shadow: 0 4px 15px rgba(30, 64, 175, 0.4);
-  }
-
-  .sidebar-toggle:hover {
-    transform: translateY(-50%) scale(1.1);
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-  }
-
-  .sidebar-toggle .toggle-icon {
-    transition: transform 0.3s ease;
-    transform: rotate(180deg);
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-toggle {
-    right: -12px;
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-toggle .toggle-icon {
-    transform: rotate(0deg);
-  }
-
-  .sidebar-logo {
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    transform-origin: center;
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-logo {
-    padding: 8px 4px !important;
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-logo img {
-    height: 32px !important;
-    width: 32px !important;
-  }
-
-  .sidebar-title {
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-title {
-    display: none !important;
-  }
-
-  .sidebar-user-info {
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-user-info {
-    display: none !important;
-  }
-
-  .sidebar-menu-item {
-    position: relative;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    border-radius: 12px;
-    margin: 4px 0;
-    overflow: hidden;
-  }
-
-  .sidebar-menu-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, 
-      rgba(59, 130, 246, 0.1) 0%, 
-      rgba(139, 92, 246, 0.1) 100%
-    );
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    border-radius: 12px;
-  }
-
-  .sidebar-menu-item:hover::before {
-    opacity: 1;
-  }
-
-  .sidebar-menu-item.active::before {
-    opacity: 1;
-    background: linear-gradient(135deg, 
-      rgba(59, 130, 246, 0.2) 0%, 
-      rgba(139, 92, 246, 0.2) 100%
-    );
-  }
-
-  .dark .sidebar-menu-item::before {
-    background: linear-gradient(135deg, 
-      rgba(96, 165, 250, 0.1) 0%, 
-      rgba(167, 139, 250, 0.1) 100%
-    );
-  }
-
-  .dark .sidebar-menu-item.active::before {
-    background: linear-gradient(135deg, 
-      rgba(96, 165, 250, 0.2) 0%, 
-      rgba(167, 139, 250, 0.2) 100%
-    );
-  }
-
-  .sidebar-menu-item .menu-link {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-radius: 12px;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    text-decoration: none;
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-menu-item .menu-link {
-    justify-content: center;
-    padding: 12px 8px;
-  }
-
-  .menu-link-icon {
-    font-size: 20px;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    min-width: 20px;
-  }
-
-  .sidebar-menu-item:hover .menu-link-icon {
-    transform: scale(1.1);
-  }
-
-  .sidebar-menu-item.active .menu-link-icon {
-    transform: scale(1.15);
-    filter: drop-shadow(0 0 8px currentColor);
-  }
-
-  .menu-link-text {
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    opacity: 1;
-    transform: translateX(0);
-    font-weight: 500;
-    color: #374151;
-  }
-
-  .dark .menu-link-text {
-    color: #d1d5db;
-  }
-
-  .enhanced-sidebar.collapsed .menu-link {
-    padding: 12px 8px !important;
-    justify-content: center !important;
-  }
-
-  .enhanced-sidebar.collapsed .menu-link-text {
-    display: none !important;
-  }
-
-  .menu-tooltip {
-    position: absolute;
-    left: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    margin-left: 8px;
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 14px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    z-index: 1000;
-  }
-
-  .dark .menu-tooltip {
-    background: rgba(255, 255, 255, 0.9);
-    color: #111827;
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-menu-item:hover .menu-tooltip {
-    opacity: 1;
-    transform: translateY(-50%) translateX(4px);
-  }
-
-  .menu-tooltip::before {
-    content: '';
-    position: absolute;
-    right: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    border: 6px solid transparent;
-    border-right-color: rgba(0, 0, 0, 0.9);
-  }
-
-  .dark .menu-tooltip::before {
-    border-right-color: rgba(255, 255, 255, 0.9);
-  }
-
-  .sidebar-divider {
-    height: 1px;
-    background: linear-gradient(90deg, 
-      transparent 0%, 
-      rgba(229, 231, 235, 0.5) 20%, 
-      rgba(229, 231, 235, 0.8) 50%, 
-      rgba(229, 231, 235, 0.5) 80%, 
-      transparent 100%
-    );
-    margin: 16px 0;
-    transition: all 0.4s ease;
-  }
-
-  .dark .sidebar-divider {
-    background: linear-gradient(90deg, 
-      transparent 0%, 
-      rgba(75, 85, 99, 0.3) 20%, 
-      rgba(75, 85, 99, 0.6) 50%, 
-      rgba(75, 85, 99, 0.3) 80%, 
-      transparent 100%
-    );
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-divider {
-    display: none !important;
-  }
-
-  .sidebar-footer {
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    margin-top: auto;
-    padding-top: 16px;
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-footer {
-    padding-top: 8px;
-  }
-
-  /* Animation d'entrée pour les éléments du menu */
-  .sidebar-menu-item {
-    animation: slideInFromLeft 0.5s ease-out forwards;
-  }
-
-  .sidebar-menu-item:nth-child(1) { animation-delay: 0.1s; }
-  .sidebar-menu-item:nth-child(2) { animation-delay: 0.15s; }
-  .sidebar-menu-item:nth-child(3) { animation-delay: 0.2s; }
-  .sidebar-menu-item:nth-child(4) { animation-delay: 0.25s; }
-  .sidebar-menu-item:nth-child(5) { animation-delay: 0.3s; }
-  .sidebar-menu-item:nth-child(6) { animation-delay: 0.35s; }
-  .sidebar-menu-item:nth-child(7) { animation-delay: 0.4s; }
-
-  @keyframes slideInFromLeft {
-    from {
-      opacity: 0;
-      transform: translateX(-20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-
-  /* Effet de survol avancé */
-  .sidebar-menu-item:hover {
-    transform: translateX(4px);
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-menu-item:hover {
-    transform: translateX(0) scale(1.05);
-  }
-
-  /* Indicateur actif */
-  .sidebar-menu-item.active::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 70%;
-    background: linear-gradient(180deg, #3b82f6, #8b5cf6);
-    border-radius: 2px 0 0 2px;
-    transition: all 0.3s ease;
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-menu-item.active::after {
-    right: 8px;
-    width: 3px;
-    height: 50%;
-    border-radius: 2px;
-  }
-
-  /* Styles PWA */
-  .pwa-install-button {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 50px;
-    padding: 15px 20px;
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-    cursor: pointer;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 600;
-    font-size: 14px;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    animation: pulse-install 2s infinite;
-  }
-
-  .dark .pwa-install-button {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-  }
-
-  .pwa-install-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
-  }
-
-  .dark .pwa-install-button:hover {
-    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
-  }
-
-  @keyframes pulse-install {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-  }
-
-  .pwa-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-    padding: 20px;
-    z-index: 1001;
-    max-width: 350px;
-    border-left: 4px solid;
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    transform: translateX(400px);
-  }
-
-  .dark .pwa-toast {
-    background: #1f2937;
-    color: white;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  }
-
-  .pwa-toast.show {
-    transform: translateX(0);
-  }
-
-  .pwa-toast.success {
-    border-left-color: #10b981;
-  }
-
-  .pwa-toast.error {
-    border-left-color: #ef4444;
-  }
-
-  .pwa-toast-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-  }
-
-  .pwa-toast-icon {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    color: white;
-  }
-
-  .pwa-toast-icon.success {
-    background-color: #10b981;
-  }
-
-  .pwa-toast-icon.error {
-    background-color: #ef4444;
-  }
-
-  .pwa-toast-title {
-    font-weight: 600;
-    color: #1f2937;
-    font-size: 16px;
-  }
-
-  .dark .pwa-toast-title {
-    color: #f9fafb;
-  }
-
-  .pwa-toast-message {
-    color: #6b7280;
-    font-size: 14px;
-    line-height: 1.4;
-  }
-
-  .dark .pwa-toast-message {
-    color: #d1d5db;
-  }
-
-  /* Styles pour la navigation swipe */
-  .swipe-container {
-    touch-action: pan-y;
-    user-select: none;
-    position: relative;
-  }
-
-  .swipe-content {
-    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    will-change: transform;
-  }
-
-  .swipe-content.swiping {
-    transition: none;
-  }
-
-  .swipe-preview {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    z-index: 1;
-    background: rgba(0, 0, 0, 0.05);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
-
-  .dark .swipe-preview {
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .swipe-preview.active {
-    opacity: 1;
-  }
-
-  .swipe-preview-content {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    transform: scale(0.9);
-    transition: transform 0.2s ease;
-  }
-
-  .dark .swipe-preview-content {
-    background: rgba(31, 41, 55, 0.95);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  }
-
-  .swipe-preview.active .swipe-preview-content {
-    transform: scale(1);
-  }
-
-  .swipe-preview-icon {
-    font-size: 24px;
-  }
-
-  .swipe-preview-text {
-    font-weight: 600;
-    color: #1f2937;
-    font-size: 16px;
-  }
-
-  .dark .swipe-preview-text {
-    color: #f9fafb;
-  }
-
-  .swipe-resistance-indicator {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
-    border-radius: 2px;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    z-index: 2;
-  }
-
-  .dark .swipe-resistance-indicator {
-    background: linear-gradient(to bottom, #60a5fa, #a78bfa);
-  }
-
-  .swipe-resistance-indicator.left {
-    right: 10px;
-  }
-
-  .swipe-resistance-indicator.right {
-    left: 10px;
-  }
-
-  .swipe-resistance-indicator.active {
-    opacity: 0.7;
-  }
-
-  .swipe-hint {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 12px;
-    z-index: 1000;
-    animation: swipe-hint-pulse 2s infinite;
-    pointer-events: none;
-  }
-
-  .dark .swipe-hint {
-    background: rgba(255, 255, 255, 0.9);
-    color: #1f2937;
-  }
-
-  @keyframes swipe-hint-pulse {
-    0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
-    50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
-  }
-
-  .page-indicator {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
-    padding: 8px 16px;
-    border-radius: 20px;
-    z-index: 1000;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  }
-
-  .dark .page-indicator {
-    background: rgba(31, 41, 55, 0.9);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  }
-
-  .page-indicator-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #d1d5db;
-    transition: all 0.3s ease;
-  }
-
-  .dark .page-indicator-dot {
-    background: #6b7280;
-  }
-
-  .page-indicator-dot.active {
-    background: #3b82f6;
-    transform: scale(1.2);
-  }
-
-  .dark .page-indicator-dot.active {
-    background: #60a5fa;
-  }
-
-  .swipe-navigation-arrows {
-    position: fixed;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 1000;
-    pointer-events: none;
-  }
-
-  .swipe-arrow {
-    position: absolute;
-    background: rgba(59, 130, 246, 0.9);
-    color: white;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    pointer-events: auto;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-  }
-
-  .dark .swipe-arrow {
-    background: rgba(96, 165, 250, 0.9);
-    box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
-  }
-
-  .swipe-arrow:hover {
-    background: rgba(59, 130, 246, 1);
-    transform: scale(1.1);
-  }
-
-  .dark .swipe-arrow:hover {
-    background: rgba(96, 165, 250, 1);
-  }
-
-  .swipe-arrow.left {
-    left: 10px;
-  }
-
-  .swipe-arrow.right {
-    right: 10px;
-  }
-
-  @media (max-width: 640px) {
-    .pwa-install-button {
-      bottom: 80px;
-      right: 15px;
-      padding: 12px 16px;
-      font-size: 13px;
-    }
-
-    .pwa-toast {
-      right: 15px;
-      left: 15px;
-      max-width: none;
-    }
-
-    .page-indicator {
-      bottom: 60px;
-    }
-
-    .swipe-hint {
-      bottom: 120px;
-    }
-  }
-
-  /* Animations additionnelles pour la sidebar */
-  .sidebar-item-enter {
-    animation: slideInFade 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-  }
-
-  @keyframes slideInFade {
-    from {
-      opacity: 0;
-      transform: translateX(-30px) scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0) scale(1);
-    }
-  }
-
-  .sidebar-logo-pulse {
-    animation: logoPulse 3s ease-in-out infinite;
-  }
-
-  @keyframes logoPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-  }
-
-  /* ANIMATION 3D LOGO - ROTATION ÉLÉGANTE */
-  .sidebar-logo-3d {
-    perspective: 1000px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .sidebar-logo-3d img {
-    transform-style: preserve-3d;
-    animation: rotate3DElegant 8s linear infinite;
-    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
-    transition: animation-play-state 0.3s ease;
-    border-radius: 15px;
-  }
-
-  .sidebar-logo-3d:hover img {
-    animation-play-state: paused;
-  }
-
-  .enhanced-sidebar.collapsed .sidebar-logo-3d img {
-    animation-duration: 6s;
-  }
-
-  .dark .sidebar-logo-3d img {
-    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
-  }
-
-  @keyframes rotate3DElegant {
-    0% { transform: rotateY(0deg) rotateX(0deg); }
-    25% { transform: rotateY(90deg) rotateX(5deg); }
-    50% { transform: rotateY(180deg) rotateX(0deg); }
-    75% { transform: rotateY(270deg) rotateX(-5deg); }
-    100% { transform: rotateY(360deg) rotateX(0deg); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .sidebar-logo-3d img {
-      animation: none;
-      transform: none;
-      filter: drop-shadow(0 5px 15px rgba(0,0,0,0.2));
-    }
-  }
-
-  @media (max-width: 1024px) {
-    .sidebar-logo-3d {
-      perspective: 800px;
-    }
-    
-    .sidebar-logo-3d img {
-      animation-duration: 10s;
-    }
-  }
-    
-  .mobile-header-logo-3d {
-   perspective: 600px;
-   display: flex;
-   align-items: center;
-   justify-content: center;
-  }
-
-  .mobile-header-logo-3d img {
-   transform-style: preserve-3d;
-   animation: rotate3DMobile 6s linear infinite;
-   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
-   transition: animation-play-state 0.3s ease;
-   border-radius: 8px;
-  }
-
-  .mobile-header-logo-3d:hover img,
-  .mobile-header-logo-3d:active img {
-   animation-play-state: paused;
-  }
-
-  .dark .mobile-header-logo-3d img {
-   filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
-  }
-
-  @keyframes rotate3DMobile {
-   0% { 
-     transform: rotateY(0deg) rotateX(0deg);
-   }
-   25% { 
-     transform: rotateY(90deg) rotateX(3deg);
-   }
-   50% { 
-     transform: rotateY(180deg) rotateX(0deg);
-   }
-   75% { 
-     transform: rotateY(270deg) rotateX(-3deg);
-   }
-   100% { 
-     transform: rotateY(360deg) rotateX(0deg);
-   }
-  }
-
-  @media (max-width: 640px) {
-   .mobile-header-logo-3d img {
-     animation-duration: 8s;
-   }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-   .mobile-header-logo-3d img {
-     animation: none;
-     transform: none;
-     filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
-   }
-  }
-
-  .mobile-menu-container .menu-header .mobile-header-logo-3d img {
-   animation-duration: 4s;
-   filter: drop-shadow(0 6px 15px rgba(0,0,0,0.3));
-  }
-
-  .dark .mobile-menu-container .menu-header .mobile-header-logo-3d img {
-   filter: drop-shadow(0 6px 15px rgba(0,0,0,0.5));
-  }
-`;
-
-// Composant Toast PWA
-function PWAToast({ toast, onClose }) {
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    if (toast) {
-      setShow(true);
-      const timer = setTimeout(() => {
-        setShow(false);
-        setTimeout(onClose, 400);
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast, onClose]);
-
-  if (!toast) return null;
-
-  return (
-    <div className={`pwa-toast ${toast.type} ${show ? 'show' : ''}`}>
-      <div className="pwa-toast-header">
-        <div className={`pwa-toast-icon ${toast.type}`}>
-          {toast.type === 'success' ? <FaCheck /> : <FaTimesIcon />}
-        </div>
-        <div className="pwa-toast-title">{toast.title}</div>
-      </div>
-      <div className="pwa-toast-message">{toast.message}</div>
-    </div>
-  );
-}
-
-// Hook PWA
+// ===== HOOK PWA =====
 function usePWA() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
@@ -1299,6 +356,7 @@ function usePWA() {
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
+    // Vérifier si l'app est déjà installée
     if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
       setIsInstalled(true);
       return;
@@ -1363,8 +421,38 @@ function usePWA() {
   };
 }
 
-// Composant pour l'aperçu de la page suivante/précédente
-function SwipePreview({ direction, swipeOffset, currentPageIndex }) {
+// ===== COMPOSANT TOAST PWA =====
+function PWAToast({ toast, onClose }) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (toast) {
+      setShow(true);
+      const timer = setTimeout(() => {
+        setShow(false);
+        setTimeout(onClose, 400);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast, onClose]);
+
+  if (!toast) return null;
+
+  return (
+    <div className={`pwa-toast ${toast.type} ${show ? 'show' : ''}`}>
+      <div className="pwa-toast-header">
+        <div className={`pwa-toast-icon ${toast.type}`}>
+          {toast.type === 'success' ? <FaCheck /> : <FaTimesIcon />}
+        </div>
+        <div className="pwa-toast-title">{toast.title}</div>
+      </div>
+      <div className="pwa-toast-message">{toast.message}</div>
+    </div>
+  );
+}
+
+// ===== COMPOSANTS DE NAVIGATION SWIPE =====
+function SwipePreview({ direction, swipeOffset, currentPageIndex, SWIPE_PAGES }) {
   if (!direction || Math.abs(swipeOffset) < 50) return null;
 
   const nextPageIndex = direction === 'right'
@@ -1391,7 +479,6 @@ function SwipePreview({ direction, swipeOffset, currentPageIndex }) {
   );
 }
 
-// Composant indicateur de résistance
 function SwipeResistanceIndicator({ swipeOffset, direction }) {
   if (!direction || Math.abs(swipeOffset) < 100) return null;
 
@@ -1406,8 +493,7 @@ function SwipeResistanceIndicator({ swipeOffset, direction }) {
   );
 }
 
-// Composant indicateur de pages
-function PageIndicator({ currentIndex, totalPages, isMobile }) {
+function PageIndicator({ currentIndex, totalPages, isMobile, SWIPE_PAGES }) {
   if (!isMobile) return null;
 
   return (
@@ -1422,7 +508,6 @@ function PageIndicator({ currentIndex, totalPages, isMobile }) {
   );
 }
 
-// Composant flèches de navigation
 function SwipeNavigationArrows({ onNavigate, isMobile }) {
   if (!isMobile) return null;
 
@@ -1446,7 +531,6 @@ function SwipeNavigationArrows({ onNavigate, isMobile }) {
   );
 }
 
-// Composant hint de swipe
 function SwipeHint({ show }) {
   if (!show) return null;
 
@@ -1457,6 +541,7 @@ function SwipeHint({ show }) {
   );
 }
 
+// ===== PAGE DE CONNEXION =====
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1478,7 +563,6 @@ function LoginPage() {
       if (error) {
         setError(error.message);
       } else {
-        console.log("Connexion réussie:", data.user);
         navigate("/");
       }
     } catch (err) {
@@ -1504,7 +588,9 @@ function LoginPage() {
           <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
             CLUB BODY FORCE
           </h1>
-          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Connexion</h2>
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+            Connexion
+          </h2>
         </div>
 
         {error && (
@@ -1563,24 +649,47 @@ function LoginPage() {
   );
 }
 
-// ===== SIDEBAR DESKTOP AMÉLIORÉE =====
+// ===== SIDEBAR DESKTOP =====
 function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeIcon, getDarkModeLabel }) {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
 
-  // ✅ MENU CONDITIONNEL SELON LE RÔLE
+  // Menu conditionnel selon le rôle
   const menu = [
-    { name: "Accueil", path: "/", icon: <FaHome className="text-red-500 dark:text-red-400" /> },
-    // Afficher différents menus selon le rôle
+    { 
+      name: "Accueil", 
+      path: "/", 
+      icon: <FaHome className="text-red-500 dark:text-red-400" /> 
+    },
     ...(isAdmin ? [
-      { name: "Membres", path: "/members", icon: <FaUserFriends className="text-green-500 dark:text-green-400" /> },
-      { name: "Planning", path: "/planning", icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" /> },
-      { name: "Paiements", path: "/payments", icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" /> },
-      { name: "Statistiques", path: "/statistics", icon: <FaChartBar className="text-blue-500 dark:text-blue-400" /> },
+      { 
+        name: "Membres", 
+        path: "/members", 
+        icon: <FaUserFriends className="text-green-500 dark:text-green-400" /> 
+      },
+      { 
+        name: "Planning", 
+        path: "/planning", 
+        icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" /> 
+      },
+      { 
+        name: "Paiements", 
+        path: "/payments", 
+        icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" /> 
+      },
+      { 
+        name: "Statistiques", 
+        path: "/statistics", 
+        icon: <FaChartBar className="text-blue-500 dark:text-blue-400" /> 
+      },
     ] : [
-      { name: "Mon Profil", path: "/profile", icon: <FaUser className="text-blue-500 dark:text-blue-400" /> },
+      { 
+        name: "Mon Profil", 
+        path: "/profile", 
+        icon: <FaUser className="text-blue-500 dark:text-blue-400" /> 
+      },
     ])
   ];
 
@@ -1624,7 +733,9 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
         <div className="flex flex-col min-w-0">
           <span className="font-medium truncate">{user?.email}</span>
           {isAdmin && (
-            <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">Admin</span>
+            <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">
+              Admin
+            </span>
           )}
         </div>
       </div>
@@ -1634,11 +745,12 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
       {/* Menu principal */}
       <ul className="w-full space-y-2 px-4 flex-1">
         {menu.map((item, index) => (
-          <li key={item.path} className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? 'active' : ''}`} style={{ animationDelay: `${index * 0.1}s` }}>
-            <Link
-              to={item.path}
-              className="menu-link"
-            >
+          <li 
+            key={item.path} 
+            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? 'active' : ''}`} 
+            style={{ animationDelay: `${index * 0.1}s` }}
+          >
+            <Link to={item.path} className="menu-link">
               <div className="menu-link-icon">
                 {item.icon}
               </div>
@@ -1652,21 +764,19 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
           </li>
         ))}
 
-        {/* Menu admin */}
+        {/* Menu admin utilisateurs */}
         {isAdmin && (
-          <li className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? 'active' : ''}`} style={{ animationDelay: `${menu.length * 0.1}s` }}>
-            <Link
-              to="/admin/users"
-              className="menu-link"
-            >
+          <li 
+            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? 'active' : ''}`} 
+            style={{ animationDelay: `${menu.length * 0.1}s` }}
+          >
+            <Link to="/admin/users" className="menu-link">
               <div className="menu-link-icon">
                 <FaUserCircle className="text-purple-500 dark:text-purple-400" />
               </div>
               <span className="menu-link-text">Utilisateurs</span>
               {isCollapsed && (
-                <div className="menu-tooltip">
-                  Utilisateurs
-                </div>
+                <div className="menu-tooltip">Utilisateurs</div>
               )}
             </Link>
           </li>
@@ -1686,7 +796,9 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
             <div className="menu-link-icon text-gray-600 dark:text-gray-400">
               {getDarkModeIcon()}
             </div>
-            <span className="menu-link-text">{isCollapsed ? '' : getDarkModeLabel()}</span>
+            <span className="menu-link-text">
+              {isCollapsed ? '' : getDarkModeLabel()}
+            </span>
             {isCollapsed && (
               <div className="menu-tooltip">
                 {getDarkModeLabel()}
@@ -1705,9 +817,7 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
             </div>
             <span className="menu-link-text">Déconnexion</span>
             {isCollapsed && (
-              <div className="menu-tooltip">
-                Déconnexion
-              </div>
+              <div className="menu-tooltip">Déconnexion</div>
             )}
           </button>
         </div>
@@ -1716,9 +826,9 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
   );
 }
 
-// Composant pour le menu mobile animé
+// ===== MENU MOBILE ANIMÉ =====
 function AnimatedMobileMenu({
-   isOpen,
+  isOpen,
   onClose,
   user,
   isAdmin,
@@ -1733,15 +843,22 @@ function AnimatedMobileMenu({
   const [shouldRender, setShouldRender] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
 
+  // ✅ Constantes pour les animations
+  const ANIMATION_DELAY = 200;
+  const CLOSING_DELAY = 400;
+
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
       setIsClosing(false);
       setIsOpening(true);
+      
       const openTimer = setTimeout(() => {
         setIsOpening(false);
       }, 10);
-      const animateTimer = setTimeout(() => setAnimate(true), 200);
+      
+      const animateTimer = setTimeout(() => setAnimate(true), ANIMATION_DELAY);
+      
       return () => {
         clearTimeout(openTimer);
         clearTimeout(animateTimer);
@@ -1749,19 +866,22 @@ function AnimatedMobileMenu({
     } else if (shouldRender) {
       setIsClosing(true);
       setAnimate(false);
+      
       const timer = setTimeout(() => {
         setShouldRender(false);
         setIsClosing(false);
         setIsOpening(false);
-      }, 400);
+      }, CLOSING_DELAY);
+      
       return () => clearTimeout(timer);
     }
   }, [isOpen, shouldRender]);
 
+  // ✅ Handlers optimisés
   const handleItemClick = () => {
     setAnimate(false);
     setIsClosing(true);
-    setTimeout(onClose, 200);
+    setTimeout(onClose, ANIMATION_DELAY);
   };
 
   const handleLogout = () => {
@@ -1772,23 +892,19 @@ function AnimatedMobileMenu({
       if (typeof onLogout === "function") {
         onLogout();
       }
-    }, 200);
+    }, ANIMATION_DELAY);
   };
 
   const handleOverlayClick = () => {
     setAnimate(false);
     setIsClosing(true);
-    setTimeout(onClose, 200);
+    setTimeout(onClose, ANIMATION_DELAY);
   };
 
   const handleCloseClick = () => {
     setAnimate(false);
     setIsClosing(true);
-    setTimeout(onClose, 200);
-  };
-
-  const handleDarkModeToggle = () => {
-    toggleDarkMode();
+    setTimeout(onClose, ANIMATION_DELAY);
   };
 
   if (!shouldRender) return null;
@@ -1801,13 +917,10 @@ function AnimatedMobileMenu({
       />
 
       <div
-        className={`mobile-menu-container ${!isOpening && isOpen && !isClosing ? "open" : ""
-          } ${isClosing ? "closing" : ""}`}
+        className={`mobile-menu-container ${!isOpening && isOpen && !isClosing ? "open" : ""} ${isClosing ? "closing" : ""}`}
       >
-        <div
-          className={`menu-header ${animate ? "animate" : ""
-            } p-6 border-b border-white/20`}
-        >
+        {/* Header */}
+        <div className={`menu-header ${animate ? "animate" : ""} p-6 border-b border-white/20`}>
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
               <div className="mobile-header-logo-3d">
@@ -1824,18 +937,16 @@ function AnimatedMobileMenu({
             </div>
             <button
               onClick={handleCloseClick}
-              className={`close-button ${animate ? "animate" : ""
-                } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
+              className={`close-button ${animate ? "animate" : ""} text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
+              aria-label="Fermer le menu"
             >
               <FaTimes className="text-xl" />
             </button>
           </div>
         </div>
 
-        <div
-          className={`user-profile ${animate ? "animate" : ""
-            } p-6 border-b border-white/20`}
-        >
+        {/* User Profile */}
+        <div className={`user-profile ${animate ? "animate" : ""} p-6 border-b border-white/20`}>
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
             <FaUserCircle className="text-2xl text-white" />
             <div className="flex flex-col">
@@ -1851,79 +962,83 @@ function AnimatedMobileMenu({
           </div>
         </div>
 
+        {/* Navigation */}
         <div className="p-6 space-y-3">
           <Link
             to="/"
             onClick={handleItemClick}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/" ? "bg-white/20" : ""
-              }`}
+            className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/" ? "bg-white/20" : ""}`}
           >
             <FaHome className="text-xl text-red-300" />
             <span className="font-medium">Accueil</span>
           </Link>
 
-          <Link
-            to="/members"
-            onClick={handleItemClick}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/members" ? "bg-white/20" : ""
-              }`}
-          >
-            <FaUserFriends className="text-xl text-green-300" />
-            <span className="font-medium">Membres</span>
-          </Link>
-
-          <Link
-            to="/planning"
-            onClick={handleItemClick}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/planning" ? "bg-white/20" : ""
-              }`}
-          >
-            <FaCalendarAlt className="text-xl text-yellow-300" />
-            <span className="font-medium">Planning</span>
-          </Link>
-
-          <Link
-            to="/payments"
-            onClick={handleItemClick}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/payments" ? "bg-white/20" : ""
-              }`}
-          >
-            <FaCreditCard className="text-xl text-purple-300" />
-            <span className="font-medium">Paiements</span>
-          </Link>
-
-          <Link
-            to="/statistics"
-            onClick={handleItemClick}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/statistics" ? "bg-white/20" : ""
-              }`}
-          >
-            <FaChartBar className="text-xl text-blue-300" />
-            <span className="font-medium">Statistiques</span>
-          </Link>
-
+          {/* Liens conditionnels pour admin */}
           {isAdmin && (
+            <>
+              <Link
+                to="/members"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/members" ? "bg-white/20" : ""}`}
+              >
+                <FaUserFriends className="text-xl text-green-300" />
+                <span className="font-medium">Membres</span>
+              </Link>
+
+              <Link
+                to="/planning"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/planning" ? "bg-white/20" : ""}`}
+              >
+                <FaCalendarAlt className="text-xl text-yellow-300" />
+                <span className="font-medium">Planning</span>
+              </Link>
+
+              <Link
+                to="/payments"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/payments" ? "bg-white/20" : ""}`}
+              >
+                <FaCreditCard className="text-xl text-purple-300" />
+                <span className="font-medium">Paiements</span>
+              </Link>
+
+              <Link
+                to="/statistics"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/statistics" ? "bg-white/20" : ""}`}
+              >
+                <FaChartBar className="text-xl text-blue-300" />
+                <span className="font-medium">Statistiques</span>
+              </Link>
+
+              <Link
+                to="/admin/users"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/admin/users" ? "bg-white/20" : ""}`}
+              >
+                <FaUserCircle className="text-xl text-purple-300" />
+                <span className="font-medium">Utilisateurs</span>
+              </Link>
+            </>
+          )}
+
+          {/* Profil pour utilisateurs non-admin */}
+          {!isAdmin && (
             <Link
-              to="/admin/users"
+              to="/profile"
               onClick={handleItemClick}
-              className={`menu-item ${animate ? "animate" : ""
-                } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/admin/users" ? "bg-white/20" : ""
-                }`}
+              className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/profile" ? "bg-white/20" : ""}`}
             >
-              <FaUserCircle className="text-xl text-purple-300" />
-              <span className="font-medium">Utilisateurs</span>
+              <FaUser className="text-xl text-blue-300" />
+              <span className="font-medium">Mon Profil</span>
             </Link>
           )}
 
+          {/* Actions */}
           <button
-            onClick={handleDarkModeToggle}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
+            onClick={toggleDarkMode}
+            className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
           >
             <div className="text-xl text-gray-300">
               {getDarkModeIcon()}
@@ -1933,8 +1048,7 @@ function AnimatedMobileMenu({
 
           <button
             onClick={handleLogout}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
+            className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
           >
             <FaSignOutAlt className="text-xl" />
             <span className="font-medium">Déconnexion</span>
@@ -1945,26 +1059,24 @@ function AnimatedMobileMenu({
   );
 }
 
-// ============== COMPOSANT PRINCIPAL CORRIGÉ ==============
+// ===== COMPOSANT PRINCIPAL ROUTES =====
 function AppRoutes() {
-  const { user, role, setUser } = useAuth(); // ✅ Maintenant setUser est disponible
-  const isAdmin = role === 'admin'; // ✅ Utiliser le rôle du contexte
+  const { user, role, setUser } = useAuth();
+  const isAdmin = role === 'admin';
 
+  // ✅ États locaux
   const [editingMember, setEditingMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
+  
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Hook PWA
+  // ✅ Hooks personnalisés
   const { isInstallable, isInstalled, installApp, toast, closeToast } = usePWA();
-
-  // Hook Dark Mode
-  const { darkMode, actualDarkMode, toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
-
-  // Hook Swipe Navigation avec animation
+  const { toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
   const {
     onTouchStart,
     onTouchMove,
@@ -1976,16 +1088,17 @@ function AppRoutes() {
     totalPages,
     swipeOffset,
     isSwipping,
-    swipeDirection
-  } = useSwipeNavigation();
+    swipeDirection,
+    SWIPE_PAGES
+  } = useSwipeNavigation(isAdmin);
 
-  // Détecter mobile et afficher hint au premier chargement
+  // ✅ Détection mobile et hint de swipe
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
 
-      // Montrer le hint seulement sur mobile et au premier chargement
+      // Afficher le hint seulement une fois
       if (mobile && !localStorage.getItem('swipe_hint_shown')) {
         setShowSwipeHint(true);
         setTimeout(() => {
@@ -2000,24 +1113,39 @@ function AppRoutes() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Désactiver le swipe quand le menu mobile est ouvert
+  // ✅ Désactiver le swipe selon l'état de l'UI
   useEffect(() => {
     setIsSwipeEnabled(!mobileMenuOpen && !showForm);
   }, [mobileMenuOpen, showForm, setIsSwipeEnabled]);
 
+  // ✅ Handler de déconnexion
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      setUser(null); // ✅ Maintenant ça fonctionne
+      setUser(null);
       navigate("/login");
     } catch (error) {
       console.error("Erreur déconnexion:", error);
     }
   };
 
-  return user ? (
+  // ✅ Handler pour l'édition des membres
+  const handleEditMember = (member) => {
+    setEditingMember(member);
+    setShowForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setEditingMember(null);
+  };
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return (
     <div className="flex flex-col lg:flex-row h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200 overflow-hidden">
-      <style>{mobileMenuStyles}</style>
       {/* Header mobile */}
       <div className="lg:hidden p-4 bg-white dark:bg-gray-800 shadow-md flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
@@ -2031,36 +1159,42 @@ function AppRoutes() {
               }}
             />
           </div>
-          <h1 className="text-lg font-bold text-red-600 dark:text-red-400">BODY FORCE</h1>
+          <h1 className="text-lg font-bold text-red-600 dark:text-red-400">
+            BODY FORCE
+          </h1>
         </div>
+        
         <div className="flex items-center gap-2">
           <button
             onClick={toggleDarkMode}
             className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
             title={getDarkModeLabel()}
+            aria-label={getDarkModeLabel()}
           >
             {getDarkModeIcon()}
           </button>
+          
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            aria-label="Ouvrir le menu"
           >
             <FaBars />
           </button>
         </div>
       </div>
 
-      {/* Sidebar desktop améliorée */}
+      {/* Sidebar desktop */}
       <EnhancedSidebar
         user={user}
-        isAdmin={isAdmin} // ✅ Utilise le rôle du contexte
+        isAdmin={isAdmin}
         onLogout={handleLogout}
         toggleDarkMode={toggleDarkMode}
         getDarkModeIcon={getDarkModeIcon}
         getDarkModeLabel={getDarkModeLabel}
       />
 
-      {/* Menu mobile animé */}
+      {/* Menu mobile */}
       <AnimatedMobileMenu
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
@@ -2073,12 +1207,13 @@ function AppRoutes() {
         getDarkModeLabel={getDarkModeLabel}
       />
 
-      {/* Bouton d'installation PWA */}
+      {/* Bouton installation PWA */}
       {isInstallable && !isInstalled && (
         <button
           onClick={installApp}
           className="pwa-install-button"
           title="Installer Body Force"
+          aria-label="Installer l'application"
         >
           <FaDownload />
           <span className="hidden sm:inline">Installer l'app</span>
@@ -2088,30 +1223,29 @@ function AppRoutes() {
       {/* Toast PWA */}
       <PWAToast toast={toast} onClose={closeToast} />
 
-      {/* Indicateur de pages (mobile uniquement) */}
+      {/* Indicateurs de navigation mobile */}
       <PageIndicator
         currentIndex={getCurrentPageIndex()}
         totalPages={totalPages}
         isMobile={isMobile}
+        SWIPE_PAGES={SWIPE_PAGES}
       />
 
-      {/* Flèches de navigation swipe (mobile uniquement) */}
       <SwipeNavigationArrows
         onNavigate={navigateToPage}
         isMobile={isMobile}
       />
 
-      {/* Hint de swipe */}
       <SwipeHint show={showSwipeHint} />
 
-      {/* Main content avec support du swipe et animation */}
+      {/* Contenu principal */}
       <main
         className={`flex-1 p-4 overflow-y-auto ${isMobile ? 'swipe-container' : ''}`}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
       >
-        {/* Contenu principal avec transformation */}
+        {/* Contenu avec transformation swipe */}
         <div
           className={`swipe-content ${isSwipping ? 'swiping' : ''}`}
           style={{
@@ -2120,72 +1254,67 @@ function AppRoutes() {
               : 'translateX(0)',
           }}
         >
+          {/* Routes conditionnelles selon le rôle */}
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route
-              path="/members"
-              element={
-                <MembersPage
-                  onEdit={(member) => {
-                    setEditingMember(member);
-                    setShowForm(true);
-                  }}
+            
+            {/* Routes réservées aux admins */}
+            {isAdmin && (
+              <>
+                <Route 
+                  path="/members" 
+                  element={<MembersPage onEdit={handleEditMember} />} 
                 />
-              }
-            />
-            <Route path="/planning" element={<PlanningPage />} />
-            <Route path="/payments" element={<PaymentsPage />} />
-            <Route path="/statistics" element={<StatisticsPage />} />
-            <Route
-              path="/admin/users"
-              element={isAdmin ? <UserManagementPage /> : <Navigate to="/" />}
-            />
-            <Route path="/profile" element={<ProfilePage user={user} />} />
+                <Route path="/planning" element={<PlanningPage />} />
+                <Route path="/payments" element={<PaymentsPage />} />
+                <Route path="/statistics" element={<StatisticsPage />} />
+                <Route path="/admin/users" element={<UserManagementPage />} />
+              </>
+            )}
+            
+            {/* Route profil accessible à tous */}
+            <Route path="/profile" element={<UserProfilePage />} />
+            
+            {/* Redirection par défaut */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>
 
-        {/* Aperçu de la page suivante/précédente */}
+        {/* Éléments d'interface swipe (mobile) */}
         {isMobile && (
-          <SwipePreview
-            direction={swipeDirection}
-            swipeOffset={swipeOffset}
-            currentPageIndex={getCurrentPageIndex()}
-          />
+          <>
+            <SwipePreview
+              direction={swipeDirection}
+              swipeOffset={swipeOffset}
+              currentPageIndex={getCurrentPageIndex()}
+              SWIPE_PAGES={SWIPE_PAGES}
+            />
+
+            <SwipeResistanceIndicator
+              swipeOffset={swipeOffset}
+              direction={swipeDirection}
+            />
+          </>
         )}
 
-        {/* Indicateur de résistance */}
-        {isMobile && (
-          <SwipeResistanceIndicator
-            swipeOffset={swipeOffset}
-            direction={swipeDirection}
-          />
-        )}
-
+        {/* Formulaire d'édition des membres */}
         {showForm && (
           <MemberForm
             member={editingMember}
-            onSave={() => {
-              setShowForm(false);
-              setEditingMember(null);
-            }}
-            onCancel={() => {
-              setShowForm(false);
-              setEditingMember(null);
-            }}
+            onSave={handleCloseForm}
+            onCancel={handleCloseForm}
           />
         )}
       </main>
     </div>
-  ) : (
-    <Navigate to="/login" />
   );
 }
 
-// ============== COMPOSANT PRINCIPAL APP ==============
+// ===== COMPOSANT PRINCIPAL APP =====
 function App() {
-  const { user, loading } = useAuth(); // ✅ Utilise seulement le contexte
+  const { user, loading } = useAuth();
 
+  // ✅ Écran de chargement
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -2200,10 +1329,23 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
+        <Route 
+          path="/login" 
+          element={user ? <Navigate to="/" /> : <LoginPage />} 
+        />
         <Route path="/*" element={<AppRoutes />} />
       </Routes>
-      <ToastContainer position="top-right" autoClose={3000} />
+      <ToastContainer 
+        position="top-right" 
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </Router>
   );
 }
