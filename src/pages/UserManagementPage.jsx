@@ -68,8 +68,8 @@ function UserManagementPage() {
     try {
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id, nom, prenom, user_id')
-        .order('nom', { ascending: true });
+        .select('id, name, firstName, user_id')
+        .order('name', { ascending: true });
 
       if (membersError) throw membersError;
 
@@ -323,7 +323,7 @@ function UserManagementPage() {
                           {linkedMember ? (
                             <div className="flex items-center gap-2">
                               <span className="text-green-600 dark:text-green-400">
-                                {linkedMember.prenom} {linkedMember.nom}
+                                {linkedMember.firstName} {linkedMember.name}
                               </span>
                               <button
                                 onClick={() => unlinkUserFromMember(linkedMember.id)}
@@ -347,7 +347,7 @@ function UserManagementPage() {
                               <option value="">Sélectionner un membre</option>
                               {getUnlinkedMembers().map(member => (
                                 <option key={member.id} value={member.id}>
-                                  {member.prenom} {member.nom}
+                                  {member.firstName} {member.name}
                                 </option>
                               ))}
                             </select>
