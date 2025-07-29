@@ -1,0 +1,548 @@
+/* UserManagementPage.module.css */
+
+/* ===== CONTENEURS PRINCIPAUX ===== */
+.container {
+  padding: 1rem;
+  max-width: 112rem; /* 7xl */
+  margin: 0 auto;
+}
+
+.card {
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.dark .card {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+/* ===== HEADER ===== */
+.header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dark .header {
+  border-bottom-color: #374151;
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.headerIcon {
+  font-size: 1.5rem;
+  color: #2563eb;
+}
+
+.dark .headerIcon {
+  color: #60a5fa;
+}
+
+.headerTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.dark .headerTitle {
+  color: white;
+}
+
+.refreshButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.refreshButton:hover {
+  background: #1d4ed8;
+}
+
+.refreshButton:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.refreshIcon {
+  transition: transform 0.5s;
+}
+
+.refreshIcon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== CONTENU ===== */
+.content {
+  padding: 1.5rem;
+}
+
+.loadingContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 0;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  border-radius: 50%;
+  height: 2rem;
+  width: 2rem;
+  border: 2px solid transparent;
+  border-bottom-color: #2563eb;
+}
+
+.loadingText {
+  margin-left: 0.75rem;
+  color: #6b7280;
+}
+
+.dark .loadingText {
+  color: #9ca3af;
+}
+
+/* ===== MESSAGES D'ERREUR ===== */
+.errorContainer {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.dark .errorContainer {
+  background: rgba(153, 27, 27, 0.2);
+  border-color: rgba(185, 28, 28, 1);
+}
+
+.errorHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.errorIcon {
+  color: #dc2626;
+}
+
+.dark .errorIcon {
+  color: #f87171;
+}
+
+.errorTitle {
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.dark .errorTitle {
+  color: #fca5a5;
+}
+
+.errorMessage {
+  color: #b91c1c;
+}
+
+.dark .errorMessage {
+  color: #f87171;
+}
+
+.accessDeniedContainer {
+  padding: 2rem;
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.accessDeniedCard {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+}
+
+.dark .accessDeniedCard {
+  background: rgba(153, 27, 27, 0.2);
+  border-color: rgba(185, 28, 28, 1);
+}
+
+.accessDeniedHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.accessDeniedIcon {
+  color: #dc2626;
+  font-size: 1.5rem;
+}
+
+.dark .accessDeniedIcon {
+  color: #f87171;
+}
+
+.accessDeniedTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.dark .accessDeniedTitle {
+  color: #fca5a5;
+}
+
+.accessDeniedText {
+  color: #b91c1c;
+  margin-bottom: 1rem;
+}
+
+.dark .accessDeniedText {
+  color: #f87171;
+}
+
+.roleDisplay {
+  font-size: 0.875rem;
+  color: #dc2626;
+}
+
+.dark .roleDisplay {
+  color: #fca5a5;
+}
+
+.roleDisplayCode {
+  font-family: 'Courier New', monospace;
+  background: #fee2e2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.dark .roleDisplayCode {
+  background: #991b1b;
+}
+
+/* ===== TABLEAU ===== */
+.tableContainer {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tableHeader {
+  background: #f9fafb;
+}
+
+.dark .tableHeader {
+  background: #374151;
+}
+
+.tableHeaderCell {
+  text-align: left;
+  padding: 1rem;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dark .tableHeaderCell {
+  color: #d1d5db;
+  border-bottom-color: #4b5563;
+}
+
+.tableRow {
+  transition: background-color 0.15s;
+}
+
+.tableRow:hover {
+  background: #eff6ff;
+}
+
+.dark .tableRow:hover {
+  background: #374151;
+}
+
+.tableRowEven {
+  background: white;
+}
+
+.dark .tableRowEven {
+  background: #1f2937;
+}
+
+.tableRowOdd {
+  background: #f9fafb;
+}
+
+.dark .tableRowOdd {
+  background: #111827;
+}
+
+.tableCell {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dark .tableCell {
+  border-bottom-color: #4b5563;
+}
+
+/* ===== UTILISATEUR ===== */
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.userIcon {
+  color: #9ca3af;
+}
+
+.dark .userIcon {
+  color: #6b7280;
+}
+
+.userEmail {
+  font-weight: 500;
+  color: #111827;
+}
+
+.dark .userEmail {
+  color: white;
+}
+
+.userBadge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.userBadgeYou {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.dark .userBadgeYou {
+  background: #1e3a8a;
+  color: #93c5fd;
+}
+
+.userBadgeDisabled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.dark .userBadgeDisabled {
+  background: #991b1b;
+  color: #fca5a5;
+}
+
+/* ===== SÉLECTEUR DE RÔLE ===== */
+.roleSelect {
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  background: white;
+  color: #111827;
+  transition: all 0.2s;
+}
+
+.roleSelect:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.roleSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dark .roleSelect {
+  border-color: #4b5563;
+  background: #374151;
+  color: white;
+}
+
+/* ===== LIAISON MEMBRE ===== */
+.linkedMember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.linkedMemberName {
+  color: #059669;
+}
+
+.dark .linkedMemberName {
+  color: #34d399;
+}
+
+.unlinkButton {
+  color: #ef4444;
+  padding: 0.25rem;
+  transition: color 0.2s;
+}
+
+.unlinkButton:hover {
+  color: #b91c1c;
+}
+
+.memberSelect {
+  font-size: 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: white;
+  color: #111827;
+}
+
+.memberSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dark .memberSelect {
+  border-color: #4b5563;
+  background: #374151;
+  color: white;
+}
+
+/* ===== STATUT ===== */
+.statusConfirmed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #059669;
+}
+
+.dark .statusConfirmed {
+  color: #34d399;
+}
+
+.statusPending {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #d97706;
+}
+
+.dark .statusPending {
+  color: #fbbf24;
+}
+
+.statusIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ===== ACTIONS ===== */
+.deleteButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  color: #dc2626;
+  background: transparent;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.deleteButton:hover {
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.dark .deleteButton:hover {
+  background: rgba(153, 27, 27, 0.2);
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deleteButtonIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ===== ÉTAT VIDE ===== */
+.emptyState {
+  text-align: center;
+  padding: 3rem 0;
+  color: #6b7280;
+}
+
+.dark .emptyState {
+  color: #9ca3af;
+}
+
+.emptyStateIcon {
+  margin: 0 auto 1rem;
+  font-size: 4rem;
+  opacity: 0.5;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .container {
+    padding: 0.5rem;
+  }
+
+  .header {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .headerContent {
+    justify-content: center;
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  .tableHeaderCell,
+  .tableCell {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .userInfo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .refreshButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
