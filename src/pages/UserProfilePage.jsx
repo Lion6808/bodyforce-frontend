@@ -6,10 +6,22 @@ import {
   FaUser,
   FaEnvelope,
   FaPhone,
+  FaMobile,
   FaCalendarAlt,
   FaCreditCard,
   FaExclamationTriangle,
+  FaIdCard,
+  FaMapMarkerAlt,
+  FaUserFriends,
+  FaVenusMars,
+  FaBirthdayCake,
+  FaNotesMedical,
+  FaClipboardList,
+  FaEdit,
+  FaEye,
+  FaUserShield,
 } from "react-icons/fa";
+import styles from "./UserProfilePage.module.css";
 
 function UserProfilePage() {
   const { user, role } = useAuth();
@@ -27,7 +39,7 @@ function UserProfilePage() {
     try {
       setLoading(true);
       
-      // Récupérer les données du membre lié à cet utilisateur
+      // Récupérer les données complètes du membre lié à cet utilisateur
       const { data: memberData, error: memberError } = await supabase
         .from('members')
         .select('*')
@@ -48,29 +60,75 @@ function UserProfilePage() {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Non renseigné';
+    return new Date(dateString).toLocaleDateString('fr-FR');
+  };
+
+  const getSubscriptionStatus = () => {
+    if (!memberData?.endDate) return { text: 'Non défini', status: 'unknown' };
+    
+    const endDate = new Date(memberData.endDate);
+    const now = new Date();
+    const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+    
+    if (daysLeft < 0) {
+      return { text: 'Expiré', status: 'expired' };
+    } else if (daysLeft <= 30) {
+      return { text: `Expire dans ${daysLeft} jour(s)`, status: 'warning' };
+    } else {
+      return { text: 'Actif', status: 'active' };
+    }
+  };
+
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return null;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-3">Chargement de votre profil...</span>
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner}></div>
+        <span className={styles.loadingText}>Chargement de votre profil...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.errorCard}>
+          <div className={styles.errorHeader}>
+            <FaExclamationTriangle className={styles.errorIcon} />
+            <h2 className={styles.errorTitle}>Erreur</h2>
+          </div>
+          <p className={styles.errorMessage}>{error}</p>
+        </div>
       </div>
     );
   }
 
   if (!memberData) {
     return (
-      <div className="p-8 max-w-2xl mx-auto">
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <FaExclamationTriangle className="text-yellow-600 dark:text-yellow-400 text-2xl" />
-            <h2 className="text-xl font-bold text-yellow-800 dark:text-yellow-300">
-              Profil non configuré
-            </h2>
+      <div className={styles.container}>
+        <div className={styles.warningCard}>
+          <div className={styles.warningHeader}>
+            <FaExclamationTriangle className={styles.warningIcon} />
+            <h2 className={styles.warningTitle}>Profil non configuré</h2>
           </div>
-          <p className="text-yellow-700 dark:text-yellow-400 mb-4">
+          <p className={styles.warningMessage}>
             Votre compte utilisateur n'est pas encore lié à un profil de membre.
           </p>
-          <p className="text-sm text-yellow-600 dark:text-yellow-500">
+          <p className={styles.warningSubMessage}>
             Contactez un administrateur pour associer votre compte à votre profil de membre.
           </p>
         </div>
@@ -78,158 +136,256 @@ function UserProfilePage() {
     );
   }
 
+  const subscriptionStatus = getSubscriptionStatus();
+  const age = calculateAge(memberData.birthDate);
+
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-        {/* En-tête */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-t-xl">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-              <FaUser className="text-2xl text-white" />
+    <div className={styles.container}>
+      <div className={styles.profileCard}>
+        {/* En-tête avec photo et infos principales */}
+        <div className={styles.header}>
+          <div className={styles.headerContent}>
+            <div className={styles.avatar}>
+              <FaUser className={styles.avatarIcon} />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-                {memberData.prenom} {memberData.nom}
+            <div className={styles.headerInfo}>
+              <h1 className={styles.memberName}>
+                {memberData.firstName} {memberData.name}
               </h1>
-              <p className="text-gray-600 dark:text-gray-300">
-                Membre depuis {new Date(memberData.created_at).getFullYear()}
-              </p>
+              <div className={styles.memberMeta}>
+                <span className={styles.metaItem}>
+                  <FaCalendarAlt className={styles.metaIcon} />
+                  Membre depuis {formatDate(memberData.startDate)}
+                </span>
+                {role && (
+                  <span className={`${styles.roleBadge} ${styles[`role${role.charAt(0).toUpperCase() + role.slice(1)}`]}`}>
+                    <FaUserShield className={styles.roleIcon} />
+                    {role === 'admin' ? 'Administrateur' : 'Utilisateur'}
+                  </span>
+                )}
+              </div>
             </div>
+          </div>
+          
+          {/* Statut d'abonnement */}
+          <div className={`${styles.subscriptionStatus} ${styles[subscriptionStatus.status]}`}>
+            <div className={styles.statusIndicator}></div>
+            <span className={styles.statusText}>{subscriptionStatus.text}</span>
           </div>
         </div>
 
-        {/* Contenu du profil */}
-        <div className="p-6">
-          <div className="grid md:grid-cols-2 gap-6">
+        {/* Contenu principal */}
+        <div className={styles.content}>
+          <div className={styles.grid}>
             {/* Informations personnelles */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>
+                <FaUser className={styles.sectionIcon} />
                 Informations personnelles
               </h2>
               
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <FaEnvelope className="text-blue-600 dark:text-blue-400" />
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{memberData.email}</p>
+              <div className={styles.infoGrid}>
+                <div className={styles.infoItem}>
+                  <FaEnvelope className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Email</span>
+                    <span className={styles.infoValue}>{memberData.email || 'Non renseigné'}</span>
+                  </div>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <FaPhone className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Téléphone</span>
+                    <span className={styles.infoValue}>{memberData.phone || 'Non renseigné'}</span>
+                  </div>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <FaMobile className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Mobile</span>
+                    <span className={styles.infoValue}>{memberData.mobile || 'Non renseigné'}</span>
+                  </div>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <FaBirthdayCake className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Date de naissance</span>
+                    <span className={styles.infoValue}>
+                      {memberData.birthDate ? (
+                        <>
+                          {formatDate(memberData.birthDate)}
+                          {age && <span className={styles.ageInfo}> ({age} ans)</span>}
+                        </>
+                      ) : 'Non renseigné'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <FaVenusMars className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Genre</span>
+                    <span className={styles.infoValue}>
+                      {memberData.gender === 'M' ? 'Masculin' : 
+                       memberData.gender === 'F' ? 'Féminin' : 'Non renseigné'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <FaMapMarkerAlt className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Adresse</span>
+                    <span className={styles.infoValue}>
+                      {memberData.address || 'Non renseigné'}
+                    </span>
+                  </div>
                 </div>
               </div>
-
-              {memberData.telephone && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <FaPhone className="text-green-600 dark:text-green-400" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Téléphone</p>
-                    <p className="font-medium text-gray-900 dark:text-white">{memberData.telephone}</p>
-                  </div>
-                </div>
-              )}
-
-              {memberData.date_naissance && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <FaCalendarAlt className="text-purple-600 dark:text-purple-400" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Date de naissance</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {new Date(memberData.date_naissance).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {memberData.adresse && (
-                <div className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <FaUser className="text-gray-600 dark:text-gray-400 mt-1" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Adresse</p>
-                    <p className="font-medium text-gray-900 dark:text-white whitespace-pre-line">
-                      {memberData.adresse}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Informations d'adhésion */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                Informations d'adhésion
+            {/* Informations d'abonnement */}
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>
+                <FaCreditCard className={styles.sectionIcon} />
+                Abonnement
               </h2>
+              
+              <div className={styles.infoGrid}>
+                <div className={styles.infoItem}>
+                  <FaCalendarAlt className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Date de début</span>
+                    <span className={styles.infoValue}>{formatDate(memberData.startDate)}</span>
+                  </div>
+                </div>
 
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <FaCalendarAlt className="text-blue-600 dark:text-blue-400" />
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Date d'inscription</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {new Date(memberData.date_inscription).toLocaleDateString('fr-FR')}
-                  </p>
+                <div className={styles.infoItem}>
+                  <FaCalendarAlt className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Date de fin</span>
+                    <span className={styles.infoValue}>{formatDate(memberData.endDate)}</span>
+                  </div>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <FaCreditCard className={styles.infoIcon} />
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Type d'abonnement</span>
+                    <span className={styles.infoValue}>{memberData.subscriptionType || 'Non défini'}</span>
+                  </div>
+                </div>
+
+                <div className={styles.infoItem}>
+                  <div className={`${styles.statusIndicator} ${memberData.isActive ? styles.active : styles.inactive}`}></div>
+                  <div className={styles.infoContent}>
+                    <span className={styles.infoLabel}>Statut du membre</span>
+                    <span className={`${styles.infoValue} ${memberData.isActive ? styles.activeText : styles.inactiveText}`}>
+                      {memberData.isActive ? 'Actif' : 'Inactif'}
+                    </span>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {memberData.fin_abonnement && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <FaCalendarAlt className="text-orange-600 dark:text-orange-400" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Fin d'abonnement</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {new Date(memberData.fin_abonnement).toLocaleDateString('fr-FR')}
-                    </p>
-                    <p className={`text-sm ${
-                      new Date(memberData.fin_abonnement) > new Date() 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {new Date(memberData.fin_abonnement) > new Date() ? 'Actif' : 'Expiré'}
-                    </p>
+            {/* Informations de contact d'urgence */}
+            {(memberData.emergencyContact || memberData.emergencyPhone) && (
+              <div className={styles.section}>
+                <h2 className={styles.sectionTitle}>
+                  <FaUserFriends className={styles.sectionIcon} />
+                  Contact d'urgence
+                </h2>
+                
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoItem}>
+                    <FaUser className={styles.infoIcon} />
+                    <div className={styles.infoContent}>
+                      <span className={styles.infoLabel}>Nom du contact</span>
+                      <span className={styles.infoValue}>{memberData.emergencyContact || 'Non renseigné'}</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.infoItem}>
+                    <FaPhone className={styles.infoIcon} />
+                    <div className={styles.infoContent}>
+                      <span className={styles.infoLabel}>Téléphone d'urgence</span>
+                      <span className={styles.infoValue}>{memberData.emergencyPhone || 'Non renseigné'}</span>
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {memberData.type_abonnement && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <FaCreditCard className="text-green-600 dark:text-green-400" />
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Type d'abonnement</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {memberData.type_abonnement}
-                    </p>
-                  </div>
+            {/* Informations médicales */}
+            {(memberData.medicalInfo || memberData.allergies || memberData.medications) && (
+              <div className={styles.section}>
+                <h2 className={styles.sectionTitle}>
+                  <FaNotesMedical className={styles.sectionIcon} />
+                  Informations médicales
+                </h2>
+                
+                <div className={styles.medicalInfo}>
+                  {memberData.medicalInfo && (
+                    <div className={styles.medicalItem}>
+                      <h4 className={styles.medicalSubtitle}>Informations médicales</h4>
+                      <p className={styles.medicalText}>{memberData.medicalInfo}</p>
+                    </div>
+                  )}
+                  
+                  {memberData.allergies && (
+                    <div className={styles.medicalItem}>
+                      <h4 className={styles.medicalSubtitle}>Allergies</h4>
+                      <p className={styles.medicalText}>{memberData.allergies}</p>
+                    </div>
+                  )}
+                  
+                  {memberData.medications && (
+                    <div className={styles.medicalItem}>
+                      <h4 className={styles.medicalSubtitle}>Médicaments</h4>
+                      <p className={styles.medicalText}>{memberData.medications}</p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            )}
+          </div>
 
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div className={`w-3 h-3 rounded-full ${
-                  memberData.actif ? 'bg-green-500' : 'bg-red-500'
-                }`}></div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Statut</p>
-                  <p className={`font-medium ${
-                    memberData.actif 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {memberData.actif ? 'Membre actif' : 'Membre inactif'}
-                  </p>
-                </div>
+          {/* Notes */}
+          {memberData.notes && (
+            <div className={styles.notesSection}>
+              <h3 className={styles.notesTitle}>
+                <FaClipboardList className={styles.sectionIcon} />
+                Notes
+              </h3>
+              <p className={styles.notesText}>{memberData.notes}</p>
+            </div>
+          )}
+
+          {/* Informations administratives */}
+          <div className={styles.adminInfo}>
+            <h3 className={styles.adminTitle}>Informations administratives</h3>
+            <div className={styles.adminGrid}>
+              <div className={styles.adminItem}>
+                <span className={styles.adminLabel}>ID Membre:</span>
+                <span className={styles.adminValue}>{memberData.id}</span>
+              </div>
+              <div className={styles.adminItem}>
+                <span className={styles.adminLabel}>Créé le:</span>
+                <span className={styles.adminValue}>{formatDate(memberData.created_at)}</span>
+              </div>
+              <div className={styles.adminItem}>
+                <span className={styles.adminLabel}>Modifié le:</span>
+                <span className={styles.adminValue}>{formatDate(memberData.updated_at)}</span>
               </div>
             </div>
           </div>
 
-          {/* Notes personnelles */}
-          {memberData.notes && (
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">
-                Notes
-              </h3>
-              <p className="text-blue-700 dark:text-blue-400 whitespace-pre-line">
-                {memberData.notes}
-              </p>
-            </div>
-          )}
-
           {/* Message d'information */}
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+          <div className={styles.infoMessage}>
+            <p className={styles.infoMessageText}>
               <strong>💡 Information :</strong> Pour modifier vos informations personnelles, 
               contactez la réception ou un administrateur du club.
             </p>
