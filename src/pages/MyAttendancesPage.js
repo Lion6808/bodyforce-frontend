@@ -13,7 +13,10 @@ import {
   FaSearch,
   FaDownload,
   FaChartLine,
-  FaRefresh,
+  FaSyncAlt,
+  FaUser,
+  FaCalendarAlt,
+  FaHistory,
 } from "react-icons/fa";
 import styles from "./MyAttendancesPage.module.css";
 
@@ -31,6 +34,12 @@ const formatDate = (date, format) => {
     "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
     "EEE dd": { weekday: "short", day: "2-digit" },
     "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
+    "full": { 
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }
   };
 
   if (format === "yyyy-MM-dd") {
@@ -60,6 +69,17 @@ const addMonths = (date, months) => {
   return newDate;
 };
 
+const addDays = (date, days) => {
+  const newDate = new Date(date);
+  newDate.setDate(newDate.getDate() + days);
+  return newDate;
+};
+
+const isWeekend = (date) => {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+};
+
 function MyAttendancesPage() {
   const { user, role } = useAuth();
   const [presences, setPresences] = useState([]);
@@ -72,9 +92,11 @@ function MyAttendancesPage() {
   const [filters, setFilters] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
-    dateRange: 'month' // 'week', 'month', '3months', 'year'
+    dateRange: 'month' // 'week', 'month', '3months', 'year', 'custom'
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -86,10 +108,11 @@ function MyAttendancesPage() {
     if (memberData) {
       loadPresences();
     }
-  }, [memberData, filters]);
+  }, [memberData, filters, customStartDate, customEndDate]);
 
   const fetchMemberData = async () => {
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('members')
         .select('*')
@@ -97,15 +120,62 @@ function MyAttendancesPage() {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      setMemberData(data);
+      
+      if (data) {
+        setMemberData(data);
+        console.log("✅ Données membre chargées:", data);
+      } else {
+        console.log("⚠️ Aucun membre trouvé pour cet utilisateur");
+      }
     } catch (err) {
       console.error('Erreur récupération membre:', err);
       setError('Impossible de récupérer votre profil de membre');
     }
   };
 
+  const getDateRange = () => {
+    const now = new Date();
+    let startDate, endDate;
+    
+    switch (filters.dateRange) {
+      case 'week':
+        endDate = endOfDay(now);
+        startDate = startOfDay(addDays(now, -7));
+        break;
+      case 'month':
+        startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
+        endDate = endOfDay(new Date(filters.year, filters.month, 0));
+        break;
+      case '3months':
+        endDate = endOfDay(new Date(filters.year, filters.month, 0));
+        startDate = startOfDay(addMonths(endDate, -3));
+        break;
+      case 'year':
+        startDate = startOfDay(new Date(filters.year, 0, 1));
+        endDate = endOfDay(new Date(filters.year, 11, 31));
+        break;
+      case 'custom':
+        if (customStartDate && customEndDate) {
+          startDate = startOfDay(new Date(customStartDate));
+          endDate = endOfDay(new Date(customEndDate));
+        } else {
+          startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
+          endDate = endOfDay(new Date(filters.year, filters.month, 0));
+        }
+        break;
+      default:
+        startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
+        endDate = endOfDay(new Date(filters.year, filters.month, 0));
+    }
+
+    return { startDate, endDate };
+  };
+
   const loadPresences = async (showRetryIndicator = false) => {
-    if (!memberData?.badgeId) return;
+    if (!memberData?.badgeId) {
+      console.log("⚠️ Pas de badgeId disponible");
+      return;
+    }
 
     try {
       if (showRetryIndicator) {
@@ -114,31 +184,7 @@ function MyAttendancesPage() {
       setLoading(true);
       setError("");
 
-      // Calculer la plage de dates selon les filtres
-      let startDate, endDate;
-      const now = new Date();
-      
-      switch (filters.dateRange) {
-        case 'week':
-          startDate = startOfDay(new Date(now.setDate(now.getDate() - 7)));
-          endDate = endOfDay(new Date());
-          break;
-        case 'month':
-          startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
-          endDate = endOfDay(new Date(filters.year, filters.month, 0));
-          break;
-        case '3months':
-          endDate = endOfDay(new Date(filters.year, filters.month, 0));
-          startDate = startOfDay(addMonths(endDate, -2));
-          break;
-        case 'year':
-          startDate = startOfDay(new Date(filters.year, 0, 1));
-          endDate = endOfDay(new Date(filters.year, 11, 31));
-          break;
-        default:
-          startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
-          endDate = endOfDay(new Date(filters.year, filters.month, 0));
-      }
+      const { startDate, endDate } = getDateRange();
 
       console.log("🔄 Chargement des présences pour:", memberData.badgeId, {
         début: startDate.toLocaleDateString(),
@@ -184,6 +230,8 @@ function MyAttendancesPage() {
         parsedDate: parseTimestamp(p.timestamp),
         date: formatDate(parseTimestamp(p.timestamp), "yyyy-MM-dd"),
         time: formatDate(parseTimestamp(p.timestamp), "HH:mm"),
+        fullDate: formatDate(parseTimestamp(p.timestamp), "full"),
+        dayOfWeek: formatDate(parseTimestamp(p.timestamp), "EEE dd/MM"),
       }));
 
       setPresences(transformedPresences);
@@ -211,7 +259,8 @@ function MyAttendancesPage() {
     return (
       presence.badgeId?.toLowerCase().includes(searchLower) ||
       formatDate(presence.parsedDate, "dd/MM/yyyy").includes(searchLower) ||
-      presence.time.includes(searchLower)
+      presence.time.includes(searchLower) ||
+      presence.fullDate.toLowerCase().includes(searchLower)
     );
   });
 
@@ -232,7 +281,8 @@ function MyAttendancesPage() {
         date,
         presences: groupedByDate[date].sort((a, b) => 
           new Date(b.timestamp) - new Date(a.timestamp)
-        )
+        ),
+        isWeekend: isWeekend(new Date(date))
       }));
   };
 
@@ -245,10 +295,22 @@ function MyAttendancesPage() {
     // Calculer la moyenne de présences par jour
     const avgPerDay = uniqueDays > 0 ? (total / uniqueDays).toFixed(1) : 0;
     
+    // Trouver les heures les plus fréquentes
+    const hourCounts = {};
+    filteredPresences.forEach(p => {
+      const hour = p.parsedDate.getHours();
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    });
+    
+    const mostFrequentHour = Object.keys(hourCounts).reduce((a, b) => 
+      hourCounts[a] > hourCounts[b] ? a : b, 0
+    );
+    
     return {
       total,
       uniqueDays,
       avgPerDay,
+      mostFrequentHour: hourCounts[mostFrequentHour] ? `${mostFrequentHour}h` : '-',
       firstPresence: filteredPresences.length > 0 ? 
         Math.min(...filteredPresences.map(p => new Date(p.timestamp))) : null,
       lastPresence: filteredPresences.length > 0 ? 
@@ -256,33 +318,49 @@ function MyAttendancesPage() {
     };
   };
 
-  const exportToPDF = () => {
-    // Créer un contenu basique pour l'export
+  const exportToText = () => {
     const presencesByDate = getPresencesByDate();
     const stats = getAttendanceStats();
+    const { startDate, endDate } = getDateRange();
     
-    let content = `Rapport de présences - ${memberData.firstName} ${memberData.name}\n`;
+    let content = `=== RAPPORT DE PRÉSENCES ===\n\n`;
+    content += `Membre: ${memberData.firstName} ${memberData.name}\n`;
     content += `Badge: ${memberData.badgeId}\n`;
-    content += `Période: ${formatDate(new Date(filters.year, filters.month - 1, 1), "dd/MM/yyyy")} - ${formatDate(new Date(filters.year, filters.month, 0), "dd/MM/yyyy")}\n\n`;
-    content += `Statistiques:\n`;
-    content += `- Total présences: ${stats.total}\n`;
-    content += `- Jours présents: ${stats.uniqueDays}\n`;
-    content += `- Moyenne par jour: ${stats.avgPerDay}\n\n`;
+    content += `Période: ${formatDate(startDate, "dd/MM/yyyy")} - ${formatDate(endDate, "dd/MM/yyyy")}\n`;
+    content += `Généré le: ${formatDate(new Date(), "dd/MM/yyyy")} à ${formatDate(new Date(), "HH:mm")}\n\n`;
     
-    content += `Détail par jour:\n`;
-    presencesByDate.forEach(({ date, presences }) => {
-      content += `\n${formatDate(new Date(date), "EEE dd/MM/yyyy")} (${presences.length} présence(s)):\n`;
-      presences.forEach(p => {
-        content += `  - ${p.time}\n`;
+    content += `=== STATISTIQUES ===\n`;
+    content += `Total présences: ${stats.total}\n`;
+    content += `Jours présents: ${stats.uniqueDays}\n`;
+    content += `Moyenne par jour: ${stats.avgPerDay}\n`;
+    content += `Heure la plus fréquente: ${stats.mostFrequentHour}\n`;
+    
+    if (stats.firstPresence) {
+      content += `Première présence: ${formatDate(new Date(stats.firstPresence), "dd/MM/yyyy")} à ${formatDate(new Date(stats.firstPresence), "HH:mm")}\n`;
+    }
+    if (stats.lastPresence) {
+      content += `Dernière présence: ${formatDate(new Date(stats.lastPresence), "dd/MM/yyyy")} à ${formatDate(new Date(stats.lastPresence), "HH:mm")}\n`;
+    }
+    
+    content += `\n=== DÉTAIL PAR JOUR ===\n`;
+    presencesByDate.forEach(({ date, presences, isWeekend }) => {
+      const dayLabel = isWeekend ? " (Week-end)" : "";
+      content += `\n${formatDate(new Date(date), "full")}${dayLabel} - ${presences.length} présence(s):\n`;
+      presences.forEach((p, index) => {
+        content += `  ${index + 1}. ${p.time}\n`;
       });
     });
 
+    if (filteredPresences.length === 0) {
+      content += `\nAucune présence trouvée pour cette période.\n`;
+    }
+
     // Créer et télécharger le fichier
-    const blob = new Blob([content], { type: 'text/plain' });
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `presences_${memberData.badgeId}_${filters.month}-${filters.year}.txt`;
+    a.download = `presences_${memberData.badgeId}_${formatDate(new Date(), "yyyy-MM-dd")}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -303,12 +381,12 @@ function MyAttendancesPage() {
         >
           {isRetrying ? (
             <>
-              <FaRefresh className={`${styles.retryIcon} ${styles.spinning}`} />
+              <FaSyncAlt className={`${styles.retryIcon} ${styles.spinning}`} />
               Reconnexion...
             </>
           ) : (
             <>
-              <FaRefresh className={styles.retryIcon} />
+              <FaSyncAlt className={styles.retryIcon} />
               Réessayer
             </>
           )}
@@ -360,6 +438,7 @@ function MyAttendancesPage() {
 
   const stats = getAttendanceStats();
   const presencesByDate = getPresencesByDate();
+  const { startDate, endDate } = getDateRange();
 
   return (
     <div className={styles.container}>
@@ -372,28 +451,54 @@ function MyAttendancesPage() {
               Mes Présences
             </h1>
             <p className={styles.memberName}>
+              <FaUser className={styles.memberIcon} />
               {memberData.firstName} {memberData.name} - Badge: {memberData.badgeId}
+            </p>
+            <p className={styles.periodInfo}>
+              <FaCalendarAlt className={styles.periodIcon} />
+              Période: {formatDate(startDate, "dd/MM/yyyy")} - {formatDate(endDate, "dd/MM/yyyy")}
             </p>
           </div>
 
           <div className={styles.statsGrid}>
             <div className={styles.statCard}>
-              <div className={styles.statNumber}>{stats.total}</div>
-              <div className={styles.statLabel}>Total présences</div>
-            </div>
-            <div className={`${styles.statCard} ${styles.present}`}>
-              <div className={styles.statNumber}>{stats.uniqueDays}</div>
-              <div className={styles.statLabel}>Jours présents</div>
-            </div>
-            <div className={`${styles.statCard} ${styles.average}`}>
-              <div className={styles.statNumber}>{stats.avgPerDay}</div>
-              <div className={styles.statLabel}>Moy. par jour</div>
-            </div>
-            <div className={`${styles.statCard} ${styles.info}`}>
-              <div className={styles.statNumber}>
-                {stats.lastPresence ? formatDate(new Date(stats.lastPresence), "dd/MM") : '-'}
+              <div className={styles.statIcon}>
+                <FaHistory />
               </div>
-              <div className={styles.statLabel}>Dernière</div>
+              <div className={styles.statContent}>
+                <div className={styles.statNumber}>{stats.total}</div>
+                <div className={styles.statLabel}>Total présences</div>
+              </div>
+            </div>
+            
+            <div className={`${styles.statCard} ${styles.present}`}>
+              <div className={styles.statIcon}>
+                <FaCalendarCheck />
+              </div>
+              <div className={styles.statContent}>
+                <div className={styles.statNumber}>{stats.uniqueDays}</div>
+                <div className={styles.statLabel}>Jours présents</div>
+              </div>
+            </div>
+            
+            <div className={`${styles.statCard} ${styles.average}`}>
+              <div className={styles.statIcon}>
+                <FaChartLine />
+              </div>
+              <div className={styles.statContent}>
+                <div className={styles.statNumber}>{stats.avgPerDay}</div>
+                <div className={styles.statLabel}>Moy. par jour</div>
+              </div>
+            </div>
+            
+            <div className={`${styles.statCard} ${styles.info}`}>
+              <div className={styles.statIcon}>
+                <FaClock />
+              </div>
+              <div className={styles.statContent}>
+                <div className={styles.statNumber}>{stats.mostFrequentHour}</div>
+                <div className={styles.statLabel}>Heure fréquente</div>
+              </div>
             </div>
           </div>
         </div>
@@ -409,7 +514,7 @@ function MyAttendancesPage() {
             </label>
             <input
               type="text"
-              placeholder="Date, heure..."
+              placeholder="Date, heure, jour..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className={styles.searchInput}
@@ -430,57 +535,86 @@ function MyAttendancesPage() {
               <option value="month">Ce mois</option>
               <option value="3months">3 derniers mois</option>
               <option value="year">Cette année</option>
+              <option value="custom">Période personnalisée</option>
             </select>
           </div>
 
-          <div className={styles.filterGroup}>
-            <label className={styles.filterLabel}>Mois</label>
-            <select
-              value={filters.month}
-              onChange={(e) => setFilters({...filters, month: parseInt(e.target.value)})}
-              className={styles.filterSelect}
-              disabled={filters.dateRange !== 'month'}
+          {filters.dateRange === 'custom' && (
+            <>
+              <div className={styles.filterGroup}>
+                <label className={styles.filterLabel}>Du</label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className={styles.dateInput}
+                />
+              </div>
+              <div className={styles.filterGroup}>
+                <label className={styles.filterLabel}>Au</label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className={styles.dateInput}
+                />
+              </div>
+            </>
+          )}
+
+          {filters.dateRange === 'month' && (
+            <>
+              <div className={styles.filterGroup}>
+                <label className={styles.filterLabel}>Mois</label>
+                <select
+                  value={filters.month}
+                  onChange={(e) => setFilters({...filters, month: parseInt(e.target.value)})}
+                  className={styles.filterSelect}
+                >
+                  {Array.from({length: 12}, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {new Date(2024, i).toLocaleDateString('fr-FR', { month: 'long' })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className={styles.filterGroup}>
+                <label className={styles.filterLabel}>Année</label>
+                <select
+                  value={filters.year}
+                  onChange={(e) => setFilters({...filters, year: parseInt(e.target.value)})}
+                  className={styles.filterSelect}
+                >
+                  {Array.from({length: 5}, (_, i) => {
+                    const year = new Date().getFullYear() - 2 + i;
+                    return <option key={year} value={year}>{year}</option>;
+                  })}
+                </select>
+              </div>
+            </>
+          )}
+
+          <div className={styles.actionButtons}>
+            <button
+              onClick={exportToText}
+              className={styles.exportButton}
+              title="Exporter en fichier texte"
+              disabled={filteredPresences.length === 0}
             >
-              {Array.from({length: 12}, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {new Date(2024, i).toLocaleDateString('fr-FR', { month: 'long' })}
-                </option>
-              ))}
-            </select>
-          </div>
+              <FaDownload className={styles.exportIcon} />
+              Export
+            </button>
 
-          <div className={styles.filterGroup}>
-            <label className={styles.filterLabel}>Année</label>
-            <select
-              value={filters.year}
-              onChange={(e) => setFilters({...filters, year: parseInt(e.target.value)})}
-              className={styles.filterSelect}
+            <button
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className={styles.refreshButton}
+              title="Actualiser"
             >
-              {Array.from({length: 5}, (_, i) => {
-                const year = new Date().getFullYear() - 2 + i;
-                return <option key={year} value={year}>{year}</option>;
-              })}
-            </select>
+              <FaSyncAlt className={`${styles.refreshIcon} ${isRetrying ? styles.spinning : ''}`} />
+              Actualiser
+            </button>
           </div>
-
-          <button
-            onClick={exportToPDF}
-            className={styles.exportButton}
-            title="Exporter en fichier texte"
-          >
-            <FaDownload className={styles.exportIcon} />
-            Export
-          </button>
-
-          <button
-            onClick={handleRetry}
-            disabled={isRetrying}
-            className={styles.refreshButton}
-            title="Actualiser"
-          >
-            <FaRefresh className={`${styles.refreshIcon} ${isRetrying ? styles.spinning : ''}`} />
-            Actualiser
-          </button>
         </div>
       </div>
 
@@ -490,22 +624,51 @@ function MyAttendancesPage() {
           <div className={styles.emptyState}>
             <FaCalendarCheck className={styles.emptyIcon} />
             <h3>Aucune présence trouvée</h3>
-            <p>Aucune présence ne correspond à vos critères de recherche.</p>
-            <button
-              onClick={handleRetry}
-              className={styles.retryButton}
-            >
-              <FaRefresh className={styles.retryIcon} />
-              Recharger les données
-            </button>
+            <p>
+              {presences.length === 0 
+                ? "Aucune présence enregistrée pour cette période."
+                : "Aucune présence ne correspond à vos critères de recherche."
+              }
+            </p>
+            <div className={styles.emptyActions}>
+              <button
+                onClick={handleRetry}
+                className={styles.retryButton}
+              >
+                <FaSyncAlt className={styles.retryIcon} />
+                Recharger les données
+              </button>
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className={styles.clearSearchButton}
+                >
+                  Effacer la recherche
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className={styles.attendancesByDate}>
-            {presencesByDate.map(({ date, presences }) => (
-              <div key={date} className={styles.dateGroup}>
+            <div className={styles.resultsHeader}>
+              <h3 className={styles.resultsTitle}>
+                {filteredPresences.length} présence{filteredPresences.length > 1 ? 's' : ''} trouvée{filteredPresences.length > 1 ? 's' : ''}
+                {searchTerm && ` pour "${searchTerm}"`}
+              </h3>
+              {presences.length !== filteredPresences.length && (
+                <p className={styles.filteredInfo}>
+                  ({presences.length - filteredPresences.length} présence{presences.length - filteredPresences.length > 1 ? 's' : ''} masquée{presences.length - filteredPresences.length > 1 ? 's' : ''} par les filtres)
+                </p>
+              )}
+            </div>
+
+            {presencesByDate.map(({ date, presences, isWeekend }) => (
+              <div key={date} className={`${styles.dateGroup} ${isWeekend ? styles.weekendGroup : ''}`}>
                 <div className={styles.dateHeader}>
                   <h3 className={styles.dateTitle}>
-                    {formatDate(new Date(date), "EEE dd/MM/yyyy")}
+                    <FaCalendarAlt className={styles.dateIcon} />
+                    {formatDate(new Date(date), "full")}
+                    {isWeekend && <span className={styles.weekendBadge}>Week-end</span>}
                   </h3>
                   <span className={styles.dateCount}>
                     {presences.length} présence{presences.length > 1 ? 's' : ''}
@@ -514,18 +677,33 @@ function MyAttendancesPage() {
                 
                 <div className={styles.presencesGrid}>
                   {presences.map((presence, index) => (
-                    <div key={`${presence.badgeId}-${presence.timestamp}-${index}`} className={styles.presenceCard}>
-                      <div className={styles.presenceTime}>
-                        <FaClock className={styles.timeIcon} />
-                        <span className={styles.timeText}>{presence.time}</span>
+                    <div 
+                      key={`${presence.badgeId}-${presence.timestamp}-${index}`} 
+                      className={styles.presenceCard}
+                    >
+                      <div className={styles.presenceHeader}>
+                        <div className={styles.presenceTime}>
+                          <FaClock className={styles.timeIcon} />
+                          <span className={styles.timeText}>{presence.time}</span>
+                        </div>
+                        <div className={styles.presenceNumber}>
+                          #{index + 1}
+                        </div>
                       </div>
+                      
                       <div className={styles.presenceDetails}>
-                        <span className={styles.badgeInfo}>
-                          Badge: {presence.badgeId}
-                        </span>
-                        <span className={styles.timestampInfo}>
-                          {formatDate(presence.parsedDate, "dd/MM/yyyy")}
-                        </span>
+                        <div className={styles.presenceInfo}>
+                          <span className={styles.badgeInfo}>
+                            <FaUserCheck className={styles.badgeIcon} />
+                            Badge: {presence.badgeId}
+                          </span>
+                        </div>
+                        
+                        <div className={styles.timestampInfo}>
+                          <small className={styles.fullTimestamp}>
+                            {formatDate(presence.parsedDate, "dd/MM/yyyy")} à {presence.time}
+                          </small>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -535,6 +713,23 @@ function MyAttendancesPage() {
           </div>
         )}
       </div>
+
+      {/* Footer avec informations supplémentaires */}
+      {filteredPresences.length > 0 && (
+        <div className={styles.footer}>
+          <div className={styles.footerStats}>
+            <div className={styles.footerStat}>
+              <strong>Première présence:</strong> {stats.firstPresence ? formatDate(new Date(stats.firstPresence), "dd/MM/yyyy") : '-'}
+            </div>
+            <div className={styles.footerStat}>
+              <strong>Dernière présence:</strong> {stats.lastPresence ? formatDate(new Date(stats.lastPresence), "dd/MM/yyyy") : '-'}
+            </div>
+            <div className={styles.footerStat}>
+              <strong>Période analysée:</strong> {formatDate(startDate, "dd/MM")} - {formatDate(endDate, "dd/MM/yyyy")}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
