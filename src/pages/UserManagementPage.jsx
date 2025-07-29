@@ -39,10 +39,10 @@ function UserManagementPage() {
   const fetchUsers = async () => {
     setRefreshing(true);
     setError(null);
-    
+
     try {
       console.log("🔍 Récupération des utilisateurs...");
-      
+
       const { data: usersData, error: usersError } = await supabase
         .rpc('get_users_with_roles');
 
@@ -53,7 +53,7 @@ function UserManagementPage() {
 
       console.log("✅ Utilisateurs récupérés:", usersData);
       setUsers(usersData || []);
-      
+
     } catch (err) {
       console.error("❌ Erreur récupération utilisateurs:", err);
       setError(`Impossible de récupérer les utilisateurs: ${err.message}`);
@@ -68,7 +68,7 @@ function UserManagementPage() {
     try {
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id, name, firstName, user_id')
+        .select('id,name,firstName,user_id,email,phone,mobile,subscriptionType,startDate,endDate')
         .order('name', { ascending: true });
 
       if (membersError) throw membersError;
@@ -94,9 +94,9 @@ function UserManagementPage() {
 
       console.log("✅ Rôle mis à jour avec succès");
       toast.success(`Rôle mis à jour vers: ${newRole}`);
-      
+
       await fetchUsers();
-      
+
     } catch (err) {
       console.error("❌ Erreur mise à jour rôle:", err);
       toast.error(`Échec de la mise à jour: ${err.message}`);
@@ -153,7 +153,7 @@ function UserManagementPage() {
     }
 
     const confirmMessage = `Êtes-vous sûr de vouloir désactiver l'utilisateur "${userEmail}" ?\n\nL'utilisateur ne pourra plus se connecter.`;
-    
+
     if (!window.confirm(confirmMessage)) {
       return;
     }
@@ -169,12 +169,12 @@ function UserManagementPage() {
       if (data?.success) {
         console.log("✅ Utilisateur désactivé avec succès");
         toast.success(`Utilisateur "${userEmail}" désactivé avec succès`);
-        
+
         await fetchUsers();
       } else {
         throw new Error(data?.error || "Erreur inconnue lors de la désactivation");
       }
-      
+
     } catch (err) {
       console.error("❌ Erreur désactivation:", err);
       toast.error(`Échec de la désactivation: ${err.message}`);
@@ -225,7 +225,7 @@ function UserManagementPage() {
                 Gestion des utilisateurs
               </h2>
             </div>
-            
+
             <button
               onClick={() => {
                 fetchUsers();
@@ -281,8 +281,8 @@ function UserManagementPage() {
                   {users.map((u, index) => {
                     const linkedMember = getLinkedMember(u.user_id || u.id);
                     return (
-                      <tr 
-                        key={u.user_id || u.id} 
+                      <tr
+                        key={u.user_id || u.id}
                         className={`
                           ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}
                           hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors duration-150
@@ -306,7 +306,7 @@ function UserManagementPage() {
                             )}
                           </div>
                         </td>
-                        
+
                         <td className="p-4 border-b border-gray-200 dark:border-gray-600">
                           <select
                             value={u.user_role || u.role || 'user'}
@@ -353,7 +353,7 @@ function UserManagementPage() {
                             </select>
                           )}
                         </td>
-                        
+
                         <td className="p-4 border-b border-gray-200 dark:border-gray-600">
                           {u.confirmed_at ? (
                             <span className="flex items-center gap-2 text-green-600 dark:text-green-400">
@@ -367,7 +367,7 @@ function UserManagementPage() {
                             </span>
                           )}
                         </td>
-                        
+
                         <td className="p-4 border-b border-gray-200 dark:border-gray-600">
                           <button
                             onClick={() => deleteUser(u.user_id || u.id, u.user_email || u.email)}
@@ -384,7 +384,7 @@ function UserManagementPage() {
                   })}
                 </tbody>
               </table>
-              
+
               {users.length === 0 && (
                 <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   <FaUserShield className="mx-auto text-4xl mb-4 opacity-50" />
