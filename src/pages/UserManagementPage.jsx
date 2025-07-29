@@ -88,31 +88,31 @@ function UserManagementPage() {
     }
   };
 
-  const updateRole = async (userId, newRole) => {
-    console.log("🚀 FONCTION updateRole VERSION RPC CHARGÉE !");
-    try {
-      console.log(`🔄 Mise à jour du rôle pour ${userId}: ${newRole}`);
+const updateRole = async (userId, newRole) => {
+  console.log("🚀 FONCTION updateRole VERSION RPC CHARGÉE !");
+  try {
+    console.log(`🔄 Mise à jour du rôle pour ${userId}: ${newRole}`);
 
-      const { error } = await supabase
-        .from("user_roles")
-        .upsert(
-          { user_id: userId, role: newRole },
-          { onConflict: 'user_id' }
-        );
+    // ✅ CORRECTION : Utiliser la fonction RPC au lieu de l'upsert direct
+    const { data, error } = await supabase
+      .rpc('update_user_role', {
+        target_user_id: userId,
+        new_role: newRole
+      });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      console.log("✅ Rôle mis à jour avec succès");
-      toast.success(`Rôle mis à jour vers: ${newRole}`);
+    console.log("✅ Rôle mis à jour avec succès");
+    toast.success(`Rôle mis à jour vers: ${newRole}`);
 
-      // ✅ Recharger les données via RPC
-      await fetchUsers();
+    // ✅ Recharger les données via RPC
+    await fetchUsers();
 
-    } catch (err) {
-      console.error("❌ Erreur mise à jour rôle:", err);
-      toast.error(`Échec de la mise à jour: ${err.message}`);
-    }
-  };
+  } catch (err) {
+    console.error("❌ Erreur mise à jour rôle:", err);
+    toast.error(`Échec de la mise à jour: ${err.message}`);
+  }
+};
 
   const toggleUserStatus = async (userId, currentStatus) => {
     try {
