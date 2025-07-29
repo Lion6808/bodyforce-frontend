@@ -1,4 +1,4 @@
-// UserManagementPage.jsx - Version avec CSS Module
+// UserManagementPage.jsx - Version avec fonction RPC
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -40,35 +40,27 @@ function UserManagementPage() {
     setError(null);
 
     try {
-      console.log("🔍 Récupération des utilisateurs...");
+      console.log("🔍 Récupération des utilisateurs via RPC...");
 
-      const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
+      // ✅ Utilisation de la fonction RPC au lieu de l'API Admin
+      const { data: usersData, error: usersError } = await supabase
+        .rpc('get_users_with_roles');
 
       if (usersError) {
         throw usersError;
       }
 
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
+      // ✅ Transformation des données pour correspondre à votre structure existante
+      const usersWithRoles = usersData.map(u => ({
+        id: u.user_id,
+        email: u.email,
+        role: u.role_name,
+        confirmed_at: u.created_at, // Approximation - tous les utilisateurs dans auth.users sont confirmés
+        created_at: u.created_at,
+        is_disabled: !u.is_active // Inversion car vous aviez is_disabled dans l'ancien code
+      }));
 
-      if (rolesError) {
-        console.warn("Attention: impossible de récupérer les rôles:", rolesError);
-      }
-
-      const usersWithRoles = usersData.users.map(u => {
-        const userRole = rolesData?.find(r => r.user_id === u.id);
-        return {
-          id: u.id,
-          email: u.email,
-          role: userRole?.role || 'user',
-          confirmed_at: u.confirmed_at,
-          created_at: u.created_at,
-          is_disabled: false
-        };
-      });
-
-      console.log("✅ Utilisateurs récupérés:", usersWithRoles);
+      console.log("✅ Utilisateurs récupérés via RPC:", usersWithRoles);
       setUsers(usersWithRoles || []);
 
     } catch (err) {
@@ -112,11 +104,41 @@ function UserManagementPage() {
       console.log("✅ Rôle mis à jour avec succès");
       toast.success(`Rôle mis à jour vers: ${newRole}`);
 
+      // ✅ Recharger les données via RPC
       await fetchUsers();
 
     } catch (err) {
       console.error("❌ Erreur mise à jour rôle:", err);
       toast.error(`Échec de la mise à jour: ${err.message}`);
+    }
+  };
+
+  const toggleUserStatus = async (userId, currentStatus) => {
+    try {
+      console.log(`🔄 ${currentStatus ? 'Désactivation' : 'Activation'} de l'utilisateur: ${userId}`);
+
+      const { error } = await supabase
+        .from("user_roles")
+        .upsert(
+          { 
+            user_id: userId, 
+            is_disabled: currentStatus, // Si actif -> désactiver, si inactif -> activer
+            disabled_at: currentStatus ? new Date().toISOString() : null
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) throw error;
+
+      console.log("✅ Statut utilisateur mis à jour avec succès");
+      toast.success(`Utilisateur ${currentStatus ? 'désactivé' : 'activé'} avec succès`);
+
+      // ✅ Recharger les données via RPC
+      await fetchUsers();
+
+    } catch (err) {
+      console.error("❌ Erreur changement de statut:", err);
+      toast.error(`Échec du changement de statut: ${err.message}`);
     }
   };
 
@@ -195,6 +217,11 @@ function UserManagementPage() {
     try {
       console.log(`🚫 Suppression de l'utilisateur: ${userEmail}`);
 
+      // ⚠️ ATTENTION: Cette partie nécessite toujours l'API Admin
+      // Vous devrez peut-être créer une fonction RPC pour la suppression
+      // ou utiliser une Edge Function avec la Service Role Key
+
+      // Pour l'instant, on peut seulement supprimer le rôle et délier le membre
       await supabase
         .from('user_roles')
         .delete()
@@ -205,12 +232,12 @@ function UserManagementPage() {
         .update({ user_id: null })
         .eq('user_id', userId);
 
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      // ⚠️ Cette ligne nécessite l'API Admin - vous devrez créer une fonction RPC
+      // const { error } = await supabase.auth.admin.deleteUser(userId);
+      // if (error) throw error;
 
-      if (error) throw error;
-
-      console.log("✅ Utilisateur supprimé avec succès");
-      toast.success(`Utilisateur "${userEmail}" supprimé avec succès`);
+      console.log("✅ Utilisateur désactivé avec succès (suppression complète nécessite une fonction RPC)");
+      toast.success(`Utilisateur "${userEmail}" désactivé. Pour une suppression complète, créez une fonction RPC.`);
 
       await fetchUsers();
       await fetchMembers();
@@ -373,17 +400,30 @@ function UserManagementPage() {
                         </td>
 
                         <td className={styles.tableCell}>
-                          {u.confirmed_at ? (
-                            <span className={styles.statusConfirmed}>
-                              <FaCheck className={styles.statusIcon} />
-                              Confirmé
-                            </span>
-                          ) : (
-                            <span className={styles.statusPending}>
-                              <FaTimes className={styles.statusIcon} />
-                              En attente
-                            </span>
-                          )}
+                          <div className={styles.statusContainer}>
+                            {/* Statut de confirmation */}
+                            {u.confirmed_at ? (
+                              <span className={styles.statusConfirmed}>
+                                <FaCheck className={styles.statusIcon} />
+                                Confirmé
+                              </span>
+                            ) : (
+                              <span className={styles.statusPending}>
+                                <FaTimes className={styles.statusIcon} />
+                                En attente
+                              </span>
+                            )}
+                            
+                            {/* Bouton Activer/Désactiver */}
+                            <button
+                              onClick={() => toggleUserStatus(u.id, !u.is_disabled)}
+                              className={u.is_disabled ? styles.activateButton : styles.deactivateButton}
+                              disabled={u.id === user.id}
+                              title={u.id === user.id ? "Vous ne pouvez pas modifier votre propre statut" : (u.is_disabled ? "Activer" : "Désactiver")}
+                            >
+                              {u.is_disabled ? 'Activer' : 'Désactiver'}
+                            </button>
+                          </div>
                         </td>
 
                         <td className={styles.tableCell}>

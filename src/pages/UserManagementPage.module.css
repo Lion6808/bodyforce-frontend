@@ -3,7 +3,8 @@
 /* ===== CONTENEURS PRINCIPAUX ===== */
 .container {
   padding: 1rem;
-  max-width: 112rem; /* 7xl */
+  max-width: 112rem;
+  /* 7xl */
   margin: 0 auto;
 }
 
@@ -88,8 +89,13 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===== CONTENU ===== */
@@ -544,5 +550,48 @@
   .refreshButton {
     width: 100%;
     justify-content: center;
+  }
+
+  .statusContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .activateButton {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .activateButton:hover:not(:disabled) {
+    background-color: #059669;
+  }
+
+  .deactivateButton {
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+
+  .deactivateButton:hover:not(:disabled) {
+    background-color: #dc2626;
+  }
+
+  .activateButton:disabled,
+  .deactivateButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
