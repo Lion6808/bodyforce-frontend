@@ -1,6 +1,6 @@
 // src/pages/MyAttendancesPage.jsx
 import React, { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient";
+import { createClient } from "@supabase/supabase-js";
 import { useAuth } from "../contexts/AuthContext";
 import {
   FaCalendarCheck,
@@ -13,21 +13,66 @@ import {
   FaSearch,
   FaDownload,
   FaChartLine,
+  FaRefresh,
 } from "react-icons/fa";
 import styles from "./MyAttendancesPage.module.css";
 
+// Client Supabase - utilise la même configuration que PlanningPage
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
+);
+
+// Utilitaires de date - copiés de PlanningPage
+const formatDate = (date, format) => {
+  const options = {
+    "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
+    "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
+    "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
+    "EEE dd": { weekday: "short", day: "2-digit" },
+    "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
+  };
+
+  if (format === "yyyy-MM-dd") {
+    return date.toISOString().split("T")[0];
+  }
+
+  return new Intl.DateTimeFormat("fr-FR", options[format] || {}).format(date);
+};
+
+const parseTimestamp = (timestamp) => new Date(timestamp);
+
+const startOfDay = (date) => {
+  const newDate = new Date(date);
+  newDate.setHours(0, 0, 0, 0);
+  return newDate;
+};
+
+const endOfDay = (date) => {
+  const newDate = new Date(date);
+  newDate.setHours(23, 59, 59, 999);
+  return newDate;
+};
+
+const addMonths = (date, months) => {
+  const newDate = new Date(date);
+  newDate.setMonth(newDate.getMonth() + months);
+  return newDate;
+};
+
 function MyAttendancesPage() {
   const { user, role } = useAuth();
-  const [attendances, setAttendances] = useState([]);
-  const [sessions, setSessions] = useState([]);
+  const [presences, setPresences] = useState([]);
   const [memberData, setMemberData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  
   const [filters, setFilters] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
-    status: 'all',
-    sessionType: 'all'
+    dateRange: 'month' // 'week', 'month', '3months', 'year'
   });
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -39,8 +84,7 @@ function MyAttendancesPage() {
 
   useEffect(() => {
     if (memberData) {
-      fetchAttendances();
-      fetchSessions();
+      loadPresences();
     }
   }, [memberData, filters]);
 
@@ -60,151 +104,237 @@ function MyAttendancesPage() {
     }
   };
 
-  const fetchAttendances = async () => {
-    if (!memberData) return;
+  const loadPresences = async (showRetryIndicator = false) => {
+    if (!memberData?.badgeId) return;
 
     try {
+      if (showRetryIndicator) {
+        setIsRetrying(true);
+      }
       setLoading(true);
+      setError("");
+
+      // Calculer la plage de dates selon les filtres
+      let startDate, endDate;
+      const now = new Date();
       
-      let query = supabase
-        .from('attendances')
-        .select(`
-          *,
-          session:sessions(
-            id,
-            name,
-            date,
-            startTime,
-            endTime,
-            location,
-            sessionType,
-            description
-          )
-        `)
-        .eq('member_id', memberData.id)
-        .order('date', { ascending: false });
-
-      // Appliquer les filtres
-      if (filters.status !== 'all') {
-        query = query.eq('status', filters.status);
+      switch (filters.dateRange) {
+        case 'week':
+          startDate = startOfDay(new Date(now.setDate(now.getDate() - 7)));
+          endDate = endOfDay(new Date());
+          break;
+        case 'month':
+          startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
+          endDate = endOfDay(new Date(filters.year, filters.month, 0));
+          break;
+        case '3months':
+          endDate = endOfDay(new Date(filters.year, filters.month, 0));
+          startDate = startOfDay(addMonths(endDate, -2));
+          break;
+        case 'year':
+          startDate = startOfDay(new Date(filters.year, 0, 1));
+          endDate = endOfDay(new Date(filters.year, 11, 31));
+          break;
+        default:
+          startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
+          endDate = endOfDay(new Date(filters.year, filters.month, 0));
       }
 
-      if (filters.month && filters.year) {
-        const startDate = new Date(filters.year, filters.month - 1, 1);
-        const endDate = new Date(filters.year, filters.month, 0);
-        query = query
-          .gte('date', startDate.toISOString().split('T')[0])
-          .lte('date', endDate.toISOString().split('T')[0]);
+      console.log("🔄 Chargement des présences pour:", memberData.badgeId, {
+        début: startDate.toLocaleDateString(),
+        fin: endDate.toLocaleDateString(),
+      });
+
+      // Chargement des présences FILTRÉ par badge et période - inspiré de PlanningPage
+      let allPresences = [];
+      let from = 0;
+      const pageSize = 1000;
+      let done = false;
+
+      while (!done) {
+        const { data, error } = await supabase
+          .from("presences")
+          .select("*")
+          .eq("badgeId", memberData.badgeId) // Filtrer par le badge du membre connecté
+          .gte("timestamp", startDate.toISOString())
+          .lte("timestamp", endDate.toISOString())
+          .order("timestamp", { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) {
+          console.error("❌ Erreur présences:", error);
+          throw new Error(`Erreur présences: ${error.message}`);
+        }
+
+        if (data && data.length > 0) {
+          allPresences = [...allPresences, ...data];
+          from += pageSize;
+        }
+
+        if (!data || data.length < pageSize) {
+          done = true;
+        }
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      console.log("✅ Présences chargées:", allPresences.length);
 
-      let filteredData = data || [];
+      // Transformation avec parsing des timestamps
+      const transformedPresences = allPresences.map((p) => ({
+        ...p,
+        parsedDate: parseTimestamp(p.timestamp),
+        date: formatDate(parseTimestamp(p.timestamp), "yyyy-MM-dd"),
+        time: formatDate(parseTimestamp(p.timestamp), "HH:mm"),
+      }));
 
-      // Filtrer par type de session
-      if (filters.sessionType !== 'all') {
-        filteredData = filteredData.filter(att => 
-          att.session?.sessionType === filters.sessionType
-        );
-      }
+      setPresences(transformedPresences);
+      setRetryCount(0);
 
-      // Filtrer par terme de recherche
-      if (searchTerm) {
-        filteredData = filteredData.filter(att =>
-          att.session?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          att.session?.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          att.notes?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-
-      setAttendances(filteredData);
-    } catch (err) {
-      console.error('Erreur récupération présences:', err);
-      setError('Impossible de récupérer vos présences');
+      console.log("✅ Chargement terminé avec succès");
+    } catch (error) {
+      console.error("💥 Erreur lors du chargement des données:", error);
+      setError(error.message || "Erreur de connexion à la base de données");
     } finally {
       setLoading(false);
+      setIsRetrying(false);
     }
   };
 
-  const fetchSessions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('sessions')
-        .select('sessionType')
-        .order('sessionType');
-
-      if (error) throw error;
-
-      // Extraire les types uniques
-      const uniqueTypes = [...new Set(data.map(s => s.sessionType).filter(Boolean))];
-      setSessions(uniqueTypes);
-    } catch (err) {
-      console.error('Erreur récupération sessions:', err);
-    }
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1);
+    loadPresences(true);
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'present':
-        return <FaUserCheck className={`${styles.statusIcon} ${styles.present}`} />;
-      case 'absent':
-        return <FaCalendarTimes className={`${styles.statusIcon} ${styles.absent}`} />;
-      case 'late':
-        return <FaClock className={`${styles.statusIcon} ${styles.late}`} />;
-      default:
-        return <FaCalendarCheck className={`${styles.statusIcon} ${styles.unknown}`} />;
-    }
-  };
+  // Filtrer les présences par terme de recherche
+  const filteredPresences = presences.filter(presence => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      presence.badgeId?.toLowerCase().includes(searchLower) ||
+      formatDate(presence.parsedDate, "dd/MM/yyyy").includes(searchLower) ||
+      presence.time.includes(searchLower)
+    );
+  });
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'present':
-        return 'Présent(e)';
-      case 'absent':
-        return 'Absent(e)';
-      case 'late':
-        return 'En retard';
-      default:
-        return status || 'Inconnu';
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+  const getPresencesByDate = () => {
+    const groupedByDate = {};
+    filteredPresences.forEach((presence) => {
+      const dateKey = presence.date;
+      if (!groupedByDate[dateKey]) {
+        groupedByDate[dateKey] = [];
+      }
+      groupedByDate[dateKey].push(presence);
     });
-  };
 
-  const formatTime = (timeString) => {
-    if (!timeString) return '';
-    return timeString.slice(0, 5); // Format HH:MM
+    // Trier les dates par ordre décroissant
+    return Object.keys(groupedByDate)
+      .sort((a, b) => new Date(b) - new Date(a))
+      .map(date => ({
+        date,
+        presences: groupedByDate[date].sort((a, b) => 
+          new Date(b.timestamp) - new Date(a.timestamp)
+        )
+      }));
   };
 
   const getAttendanceStats = () => {
-    const total = attendances.length;
-    const present = attendances.filter(a => a.status === 'present').length;
-    const absent = attendances.filter(a => a.status === 'absent').length;
-    const late = attendances.filter(a => a.status === 'late').length;
+    const total = filteredPresences.length;
+    
+    // Compter les jours uniques avec présence
+    const uniqueDays = new Set(filteredPresences.map(p => p.date)).size;
+    
+    // Calculer la moyenne de présences par jour
+    const avgPerDay = uniqueDays > 0 ? (total / uniqueDays).toFixed(1) : 0;
     
     return {
       total,
-      present,
-      absent,
-      late,
-      presentPercent: total > 0 ? Math.round((present / total) * 100) : 0,
-      absentPercent: total > 0 ? Math.round((absent / total) * 100) : 0,
-      latePercent: total > 0 ? Math.round((late / total) * 100) : 0
+      uniqueDays,
+      avgPerDay,
+      firstPresence: filteredPresences.length > 0 ? 
+        Math.min(...filteredPresences.map(p => new Date(p.timestamp))) : null,
+      lastPresence: filteredPresences.length > 0 ? 
+        Math.max(...filteredPresences.map(p => new Date(p.timestamp))) : null
     };
   };
 
   const exportToPDF = () => {
-    // Logique d'export PDF - à implémenter selon vos besoins
-    console.log('Export PDF des présences');
+    // Créer un contenu basique pour l'export
+    const presencesByDate = getPresencesByDate();
+    const stats = getAttendanceStats();
+    
+    let content = `Rapport de présences - ${memberData.firstName} ${memberData.name}\n`;
+    content += `Badge: ${memberData.badgeId}\n`;
+    content += `Période: ${formatDate(new Date(filters.year, filters.month - 1, 1), "dd/MM/yyyy")} - ${formatDate(new Date(filters.year, filters.month, 0), "dd/MM/yyyy")}\n\n`;
+    content += `Statistiques:\n`;
+    content += `- Total présences: ${stats.total}\n`;
+    content += `- Jours présents: ${stats.uniqueDays}\n`;
+    content += `- Moyenne par jour: ${stats.avgPerDay}\n\n`;
+    
+    content += `Détail par jour:\n`;
+    presencesByDate.forEach(({ date, presences }) => {
+      content += `\n${formatDate(new Date(date), "EEE dd/MM/yyyy")} (${presences.length} présence(s)):\n`;
+      presences.forEach(p => {
+        content += `  - ${p.time}\n`;
+      });
+    });
+
+    // Créer et télécharger le fichier
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `presences_${memberData.badgeId}_${filters.month}-${filters.year}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
+
+  // Écrans de chargement et d'erreur - inspirés de PlanningPage
+  const renderConnectionError = () => (
+    <div className={styles.container}>
+      <div className={styles.errorCard}>
+        <FaExclamationTriangle className={styles.errorIcon} />
+        <h2 className={styles.errorTitle}>Problème de connexion</h2>
+        <p className={styles.errorMessage}>{error}</p>
+        <button
+          onClick={handleRetry}
+          disabled={isRetrying}
+          className={styles.retryButton}
+        >
+          {isRetrying ? (
+            <>
+              <FaRefresh className={`${styles.retryIcon} ${styles.spinning}`} />
+              Reconnexion...
+            </>
+          ) : (
+            <>
+              <FaRefresh className={styles.retryIcon} />
+              Réessayer
+            </>
+          )}
+        </button>
+        {retryCount > 0 && (
+          <p className={styles.retryCount}>
+            Tentative {retryCount + 1}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderLoading = () => (
+    <div className={styles.container}>
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner}></div>
+        <h2 className={styles.loadingTitle}>
+          {isRetrying ? "Reconnexion en cours..." : "Chargement de vos présences..."}
+        </h2>
+        <p className={styles.loadingSubtitle}>
+          Badge: {memberData?.badgeId || 'Chargement...'}
+        </p>
+      </div>
+    </div>
+  );
 
   if (!memberData) {
     return (
@@ -225,7 +355,11 @@ function MyAttendancesPage() {
     );
   }
 
+  if (loading) return renderLoading();
+  if (error && !isRetrying) return renderConnectionError();
+
   const stats = getAttendanceStats();
+  const presencesByDate = getPresencesByDate();
 
   return (
     <div className={styles.container}>
@@ -238,32 +372,28 @@ function MyAttendancesPage() {
               Mes Présences
             </h1>
             <p className={styles.memberName}>
-              {memberData.firstName} {memberData.name}
+              {memberData.firstName} {memberData.name} - Badge: {memberData.badgeId}
             </p>
           </div>
 
           <div className={styles.statsGrid}>
             <div className={styles.statCard}>
               <div className={styles.statNumber}>{stats.total}</div>
-              <div className={styles.statLabel}>Total</div>
+              <div className={styles.statLabel}>Total présences</div>
             </div>
             <div className={`${styles.statCard} ${styles.present}`}>
-              <div className={styles.statNumber}>
-                {stats.present} ({stats.presentPercent}%)
-              </div>
-              <div className={styles.statLabel}>Présent(e)</div>
+              <div className={styles.statNumber}>{stats.uniqueDays}</div>
+              <div className={styles.statLabel}>Jours présents</div>
             </div>
-            <div className={`${styles.statCard} ${styles.absent}`}>
-              <div className={styles.statNumber}>
-                {stats.absent} ({stats.absentPercent}%)
-              </div>
-              <div className={styles.statLabel}>Absent(e)</div>
+            <div className={`${styles.statCard} ${styles.average}`}>
+              <div className={styles.statNumber}>{stats.avgPerDay}</div>
+              <div className={styles.statLabel}>Moy. par jour</div>
             </div>
-            <div className={`${styles.statCard} ${styles.late}`}>
+            <div className={`${styles.statCard} ${styles.info}`}>
               <div className={styles.statNumber}>
-                {stats.late} ({stats.latePercent}%)
+                {stats.lastPresence ? formatDate(new Date(stats.lastPresence), "dd/MM") : '-'}
               </div>
-              <div className={styles.statLabel}>En retard</div>
+              <div className={styles.statLabel}>Dernière</div>
             </div>
           </div>
         </div>
@@ -279,7 +409,7 @@ function MyAttendancesPage() {
             </label>
             <input
               type="text"
-              placeholder="Nom de session, description..."
+              placeholder="Date, heure..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className={styles.searchInput}
@@ -289,12 +419,27 @@ function MyAttendancesPage() {
           <div className={styles.filterGroup}>
             <label className={styles.filterLabel}>
               <FaFilter className={styles.filterIcon} />
-              Mois
+              Période
             </label>
+            <select
+              value={filters.dateRange}
+              onChange={(e) => setFilters({...filters, dateRange: e.target.value})}
+              className={styles.filterSelect}
+            >
+              <option value="week">7 derniers jours</option>
+              <option value="month">Ce mois</option>
+              <option value="3months">3 derniers mois</option>
+              <option value="year">Cette année</option>
+            </select>
+          </div>
+
+          <div className={styles.filterGroup}>
+            <label className={styles.filterLabel}>Mois</label>
             <select
               value={filters.month}
               onChange={(e) => setFilters({...filters, month: parseInt(e.target.value)})}
               className={styles.filterSelect}
+              disabled={filters.dateRange !== 'month'}
             >
               {Array.from({length: 12}, (_, i) => (
                 <option key={i + 1} value={i + 1}>
@@ -318,114 +463,72 @@ function MyAttendancesPage() {
             </select>
           </div>
 
-          <div className={styles.filterGroup}>
-            <label className={styles.filterLabel}>Statut</label>
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
-              className={styles.filterSelect}
-            >
-              <option value="all">Tous</option>
-              <option value="present">Présent(e)</option>
-              <option value="absent">Absent(e)</option>
-              <option value="late">En retard</option>
-            </select>
-          </div>
-
-          <div className={styles.filterGroup}>
-            <label className={styles.filterLabel}>Type</label>
-            <select
-              value={filters.sessionType}
-              onChange={(e) => setFilters({...filters, sessionType: e.target.value})}
-              className={styles.filterSelect}
-            >
-              <option value="all">Tous types</option>
-              {sessions.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
           <button
             onClick={exportToPDF}
             className={styles.exportButton}
-            title="Exporter en PDF"
+            title="Exporter en fichier texte"
           >
             <FaDownload className={styles.exportIcon} />
-            Export PDF
+            Export
+          </button>
+
+          <button
+            onClick={handleRetry}
+            disabled={isRetrying}
+            className={styles.refreshButton}
+            title="Actualiser"
+          >
+            <FaRefresh className={`${styles.refreshIcon} ${isRetrying ? styles.spinning : ''}`} />
+            Actualiser
           </button>
         </div>
       </div>
 
       {/* Liste des présences */}
       <div className={styles.attendancesList}>
-        {loading ? (
-          <div className={styles.loadingContainer}>
-            <div className={styles.spinner}></div>
-            <span>Chargement de vos présences...</span>
-          </div>
-        ) : error ? (
-          <div className={styles.errorMessage}>{error}</div>
-        ) : attendances.length === 0 ? (
+        {filteredPresences.length === 0 ? (
           <div className={styles.emptyState}>
             <FaCalendarCheck className={styles.emptyIcon} />
             <h3>Aucune présence trouvée</h3>
             <p>Aucune présence ne correspond à vos critères de recherche.</p>
+            <button
+              onClick={handleRetry}
+              className={styles.retryButton}
+            >
+              <FaRefresh className={styles.retryIcon} />
+              Recharger les données
+            </button>
           </div>
         ) : (
-          <div className={styles.attendanceGrid}>
-            {attendances.map((attendance) => (
-              <div key={attendance.id} className={styles.attendanceCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.sessionInfo}>
-                    <h3 className={styles.sessionName}>
-                      {attendance.session?.name || 'Session inconnue'}
-                    </h3>
-                    <p className={styles.sessionDate}>
-                      {formatDate(attendance.date)}
-                    </p>
-                  </div>
-                  <div className={styles.statusBadge}>
-                    {getStatusIcon(attendance.status)}
-                    <span className={styles.statusText}>
-                      {getStatusText(attendance.status)}
-                    </span>
-                  </div>
+          <div className={styles.attendancesByDate}>
+            {presencesByDate.map(({ date, presences }) => (
+              <div key={date} className={styles.dateGroup}>
+                <div className={styles.dateHeader}>
+                  <h3 className={styles.dateTitle}>
+                    {formatDate(new Date(date), "EEE dd/MM/yyyy")}
+                  </h3>
+                  <span className={styles.dateCount}>
+                    {presences.length} présence{presences.length > 1 ? 's' : ''}
+                  </span>
                 </div>
-
-                <div className={styles.cardContent}>
-                  {attendance.session && (
-                    <div className={styles.sessionDetails}>
-                      <div className={styles.detailItem}>
-                        <FaClock className={styles.detailIcon} />
-                        <span>
-                          {formatTime(attendance.session.startTime)} - {formatTime(attendance.session.endTime)}
+                
+                <div className={styles.presencesGrid}>
+                  {presences.map((presence, index) => (
+                    <div key={`${presence.badgeId}-${presence.timestamp}-${index}`} className={styles.presenceCard}>
+                      <div className={styles.presenceTime}>
+                        <FaClock className={styles.timeIcon} />
+                        <span className={styles.timeText}>{presence.time}</span>
+                      </div>
+                      <div className={styles.presenceDetails}>
+                        <span className={styles.badgeInfo}>
+                          Badge: {presence.badgeId}
+                        </span>
+                        <span className={styles.timestampInfo}>
+                          {formatDate(presence.parsedDate, "dd/MM/yyyy")}
                         </span>
                       </div>
-                      
-                      {attendance.session.location && (
-                        <div className={styles.detailItem}>
-                          <FaMapMarkerAlt className={styles.detailIcon} />
-                          <span>{attendance.session.location}</span>
-                        </div>
-                      )}
-
-                      {attendance.session.sessionType && (
-                        <div className={styles.detailItem}>
-                          <span className={styles.sessionTypeBadge}>
-                            {attendance.session.sessionType}
-                          </span>
-                        </div>
-                      )}
                     </div>
-                  )}
-
-                  {attendance.notes && (
-                    <div className={styles.notesSection}>
-                      <h4 className={styles.notesTitle}>Notes :</h4>
-                      <p className={styles.notesText}>{attendance.notes}</p>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
             ))}
