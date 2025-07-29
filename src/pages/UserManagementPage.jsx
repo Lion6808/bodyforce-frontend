@@ -89,6 +89,7 @@ function UserManagementPage() {
   };
 
   const updateRole = async (userId, newRole) => {
+    console.log("🚀 FONCTION updateRole VERSION RPC CHARGÉE !");
     try {
       console.log(`🔄 Mise à jour du rôle pour ${userId}: ${newRole}`);
 
