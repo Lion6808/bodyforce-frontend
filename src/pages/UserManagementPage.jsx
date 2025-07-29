@@ -1,4 +1,4 @@
-// UserManagementPage.jsx - Avec liaison aux membres
+// UserManagementPage.jsx - Version simplifiée sans RPC
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -43,16 +43,37 @@ function UserManagementPage() {
     try {
       console.log("🔍 Récupération des utilisateurs...");
 
-      const { data: usersData, error: usersError } = await supabase
-        .rpc('get_users_with_roles');
+      // Récupérer les utilisateurs depuis auth.users (requête directe)
+      const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
 
       if (usersError) {
-        console.error("Erreur RPC:", usersError);
         throw usersError;
       }
 
-      console.log("✅ Utilisateurs récupérés:", usersData);
-      setUsers(usersData || []);
+      // Récupérer les rôles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) {
+        console.warn("Attention: impossible de récupérer les rôles:", rolesError);
+      }
+
+      // Combiner les données
+      const usersWithRoles = usersData.users.map(u => {
+        const userRole = rolesData?.find(r => r.user_id === u.id);
+        return {
+          id: u.id,
+          email: u.email,
+          role: userRole?.role || 'user',
+          confirmed_at: u.confirmed_at,
+          created_at: u.created_at,
+          is_disabled: false // Supabase ne retourne pas cette info facilement
+        };
+      });
+
+      console.log("✅ Utilisateurs récupérés:", usersWithRoles);
+      setUsers(usersWithRoles || []);
 
     } catch (err) {
       console.error("❌ Erreur récupération utilisateurs:", err);
@@ -105,79 +126,110 @@ function UserManagementPage() {
 
   const linkUserToMember = async (userId, memberId) => {
     try {
-      const { data, error } = await supabase
-        .rpc('link_user_to_member', {
-          target_user_id: userId,
-          target_member_id: memberId
-        });
+      // Vérifier que le membre n'est pas déjà lié
+      const { data: existingMember } = await supabase
+        .from('members')
+        .select('user_id, firstName, name')
+        .eq('id', memberId)
+        .single();
+
+      if (existingMember?.user_id) {
+        toast.error('Ce membre est déjà lié à un utilisateur');
+        return;
+      }
+
+      // Délier l'utilisateur de tout autre membre
+      await supabase
+        .from('members')
+        .update({ user_id: null })
+        .eq('user_id', userId);
+
+      // Lier l'utilisateur au nouveau membre
+      const { error } = await supabase
+        .from('members')
+        .update({ user_id: userId })
+        .eq('id', memberId);
 
       if (error) throw error;
 
-      if (data?.success) {
-        toast.success(`Utilisateur lié au membre ${data.member_name}`);
-        await fetchUsers();
-        await fetchMembers();
-      } else {
-        throw new Error(data?.error || 'Erreur inconnue');
-      }
+      toast.success(`Utilisateur lié au membre ${existingMember.firstName} ${existingMember.name}`);
+      await fetchUsers();
+      await fetchMembers();
+
     } catch (err) {
+      console.error("❌ Erreur liaison:", err);
       toast.error(`Erreur liaison: ${err.message}`);
     }
   };
 
   const unlinkUserFromMember = async (memberId) => {
     try {
-      const { data, error } = await supabase
-        .rpc('unlink_user_from_member', {
-          target_member_id: memberId
-        });
+      // Récupérer le nom du membre
+      const { data: memberData } = await supabase
+        .from('members')
+        .select('firstName, name')
+        .eq('id', memberId)
+        .single();
+
+      // Délier l'utilisateur
+      const { error } = await supabase
+        .from('members')
+        .update({ user_id: null })
+        .eq('id', memberId);
 
       if (error) throw error;
 
-      if (data?.success) {
-        toast.success(`Utilisateur délié du membre ${data.member_name}`);
-        await fetchUsers();
-        await fetchMembers();
-      } else {
-        throw new Error(data?.error || 'Erreur inconnue');
-      }
+      toast.success(`Utilisateur délié du membre ${memberData?.firstName} ${memberData?.name}`);
+      await fetchUsers();
+      await fetchMembers();
+
     } catch (err) {
+      console.error("❌ Erreur délaison:", err);
       toast.error(`Erreur délaison: ${err.message}`);
     }
   };
 
   const deleteUser = async (userId, userEmail) => {
     if (userId === user.id) {
-      toast.warning("Vous ne pouvez pas désactiver votre propre compte.");
+      toast.warning("Vous ne pouvez pas supprimer votre propre compte.");
       return;
     }
 
-    const confirmMessage = `Êtes-vous sûr de vouloir désactiver l'utilisateur "${userEmail}" ?\n\nL'utilisateur ne pourra plus se connecter.`;
+    const confirmMessage = `Êtes-vous sûr de vouloir supprimer l'utilisateur "${userEmail}" ?\n\nCette action est irréversible.`;
 
     if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
-      console.log(`🚫 Désactivation de l'utilisateur: ${userEmail}`);
+      console.log(`🚫 Suppression de l'utilisateur: ${userEmail}`);
 
-      const { data, error } = await supabase
-        .rpc('disable_user_admin', { target_user_id: userId });
+      // Supprimer d'abord le rôle
+      await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      // Délier des membres
+      await supabase
+        .from('members')
+        .update({ user_id: null })
+        .eq('user_id', userId);
+
+      // Supprimer l'utilisateur (nécessite les droits admin)
+      const { error } = await supabase.auth.admin.deleteUser(userId);
 
       if (error) throw error;
 
-      if (data?.success) {
-        console.log("✅ Utilisateur désactivé avec succès");
-        toast.success(`Utilisateur "${userEmail}" désactivé avec succès`);
+      console.log("✅ Utilisateur supprimé avec succès");
+      toast.success(`Utilisateur "${userEmail}" supprimé avec succès`);
 
-        await fetchUsers();
-      } else {
-        throw new Error(data?.error || "Erreur inconnue lors de la désactivation");
-      }
+      await fetchUsers();
+      await fetchMembers();
 
     } catch (err) {
-      console.error("❌ Erreur désactivation:", err);
-      toast.error(`Échec de la désactivation: ${err.message}`);
+      console.error("❌ Erreur suppression:", err);
+      toast.error(`Échec de la suppression: ${err.message}`);
     }
   };
 
@@ -279,10 +331,10 @@ function UserManagementPage() {
                 </thead>
                 <tbody>
                   {users.map((u, index) => {
-                    const linkedMember = getLinkedMember(u.user_id || u.id);
+                    const linkedMember = getLinkedMember(u.id);
                     return (
                       <tr
-                        key={u.user_id || u.id}
+                        key={u.id}
                         className={`
                           ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}
                           hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors duration-150
@@ -292,16 +344,11 @@ function UserManagementPage() {
                           <div className="flex items-center gap-2">
                             <FaUserCircle className="text-gray-400 dark:text-gray-500" />
                             <span className="font-medium text-gray-900 dark:text-white">
-                              {u.user_email || u.email}
+                              {u.email}
                             </span>
-                            {(u.user_id || u.id) === user.id && (
+                            {u.id === user.id && (
                               <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
                                 Vous
-                              </span>
-                            )}
-                            {u.is_disabled && (
-                              <span className="text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 px-2 py-1 rounded">
-                                Désactivé
                               </span>
                             )}
                           </div>
@@ -309,10 +356,10 @@ function UserManagementPage() {
 
                         <td className="p-4 border-b border-gray-200 dark:border-gray-600">
                           <select
-                            value={u.user_role || u.role || 'user'}
-                            onChange={(e) => updateRole(u.user_id || u.id, e.target.value)}
+                            value={u.role || 'user'}
+                            onChange={(e) => updateRole(u.id, e.target.value)}
                             className="border border-gray-300 dark:border-gray-600 rounded px-3 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            disabled={(u.user_id || u.id) === user.id || u.is_disabled}
+                            disabled={u.id === user.id}
                           >
                             <option value="user">Utilisateur</option>
                             <option value="admin">Administrateur</option>
@@ -337,12 +384,11 @@ function UserManagementPage() {
                             <select
                               onChange={(e) => {
                                 if (e.target.value) {
-                                  linkUserToMember(u.user_id || u.id, parseInt(e.target.value));
+                                  linkUserToMember(u.id, parseInt(e.target.value));
                                   e.target.value = '';
                                 }
                               }}
                               className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              disabled={u.is_disabled}
                             >
                               <option value="">Sélectionner un membre</option>
                               {getUnlinkedMembers().map(member => (
@@ -370,13 +416,13 @@ function UserManagementPage() {
 
                         <td className="p-4 border-b border-gray-200 dark:border-gray-600">
                           <button
-                            onClick={() => deleteUser(u.user_id || u.id, u.user_email || u.email)}
-                            disabled={(u.user_id || u.id) === user.id}
+                            onClick={() => deleteUser(u.id, u.email)}
+                            disabled={u.id === user.id}
                             className="flex items-center gap-2 px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={(u.user_id || u.id) === user.id ? "Vous ne pouvez pas supprimer votre propre compte" : "Désactiver cet utilisateur"}
+                            title={u.id === user.id ? "Vous ne pouvez pas supprimer votre propre compte" : "Supprimer cet utilisateur"}
                           >
                             <FaTrash className="w-4 h-4" />
-                            {u.is_disabled ? 'Réactiver' : 'Désactiver'}
+                            Supprimer
                           </button>
                         </td>
                       </tr>
