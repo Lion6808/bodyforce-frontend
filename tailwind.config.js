@@ -7,6 +7,10 @@ module.exports = {
       animation: {
         'fade-in': 'fade-in 0.8s ease-out forwards',
       },
+      gridTemplateColumns: {
+        // Ajoute la classe 'grid-cols-14'
+        '14': 'repeat(14, minmax(0, 1fr))',
+      }
       keyframes: {
         'fade-in': {
           '0%': { opacity: '0', transform: 'translateY(4px)' },
