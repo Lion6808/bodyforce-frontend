@@ -143,6 +143,7 @@ function PaymentsPage() {
       photo: member.photo,
       dateOfBirth: member.dateOfBirth,
       address: member.address,
+      subscriptionType: member.subscriptionType || member.membershipType || "Mensuel", // ✅ Corrigé ici
       membershipType: member.membershipType,
       startDate: member.startDate,
       endDate: member.endDate,
