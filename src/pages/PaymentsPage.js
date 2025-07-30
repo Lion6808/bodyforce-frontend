@@ -155,7 +155,7 @@ function PaymentsPage() {
       // ❌ Exclure les champs calculés comme overallStatus, payments, totalDue, etc.
     };
 
-    console.log("🔧 Données membre filtrées pour l'édition:", memberOnlyData);
+    //console.log("🔧 Données membre filtrées pour l'édition:", memberOnlyData);
 
     setSelectedMember(memberOnlyData);
     setShowForm(true);
