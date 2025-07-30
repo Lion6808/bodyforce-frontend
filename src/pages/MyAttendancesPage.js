@@ -98,18 +98,17 @@ function MyAttendancesPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   
-  // États pour l'interface
+  // États pour l'interface - UNIFIÉ
   const [viewMode, setViewMode] = useState('calendar');
-  const [timelinePeriod, setTimelinePeriod] = useState('7days'); // '7days', '14days', '30days'
-  const [timelineStartDate, setTimelineStartDate] = useState(new Date());
   const [filters, setFilters] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
-    dateRange: 'month'
+    dateRange: 'month' // 'week', 'month', '3months', 'year', 'custom', '7days', '14days', '30days'
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [timelineStartDate, setTimelineStartDate] = useState(new Date());
 
   // Chargement initial
   useEffect(() => {
@@ -122,7 +121,7 @@ function MyAttendancesPage() {
     if (memberData) {
       loadPresences();
     }
-  }, [memberData, filters, customStartDate, customEndDate]);
+  }, [memberData, filters, customStartDate, customEndDate, timelineStartDate]);
 
   // Récupération des données membre
   const fetchMemberData = async () => {
@@ -148,7 +147,7 @@ function MyAttendancesPage() {
     }
   };
 
-  // Calcul de la plage de dates
+  // Calcul de la plage de dates UNIFIÉ pour toutes les vues
   const getDateRange = () => {
     const now = new Date();
     let startDate, endDate;
@@ -178,6 +177,19 @@ function MyAttendancesPage() {
           startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
           endDate = endOfDay(new Date(filters.year, filters.month, 0));
         }
+        break;
+      // Nouvelles périodes pour Timeline
+      case '7days':
+        endDate = endOfDay(timelineStartDate);
+        startDate = startOfDay(addDays(timelineStartDate, -6));
+        break;
+      case '14days':
+        endDate = endOfDay(timelineStartDate);
+        startDate = startOfDay(addDays(timelineStartDate, -13));
+        break;
+      case '30days':
+        endDate = endOfDay(timelineStartDate);
+        startDate = startOfDay(addDays(timelineStartDate, -29));
         break;
       default:
         startDate = startOfDay(new Date(filters.year, filters.month - 1, 1));
@@ -404,10 +416,10 @@ function MyAttendancesPage() {
     return { hourData, maxValue, days };
   }, [filteredPresences]);
 
-  // Données pour la timeline
+  // Données pour la timeline UNIFIÉ avec le système de filtres
   const timelineData = useMemo(() => {
     const getDaysCount = () => {
-      switch (timelinePeriod) {
+      switch (filters.dateRange) {
         case '7days': return 7;
         case '14days': return 14;
         case '30days': return 30;
@@ -415,6 +427,26 @@ function MyAttendancesPage() {
       }
     };
 
+    // Si on n'est pas en mode timeline, utiliser les 7 derniers jours par défaut
+    if (!['7days', '14days', '30days'].includes(filters.dateRange)) {
+      const periodDays = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateKey = formatDate(date, "yyyy-MM-dd");
+        const dayPresences = filteredPresences.filter(p => p.date === dateKey);
+        
+        periodDays.push({
+          date,
+          dateKey,
+          presences: dayPresences,
+          count: dayPresences.length
+        });
+      }
+      return periodDays;
+    }
+
+    // Pour les modes timeline, utiliser la période sélectionnée
     const daysCount = getDaysCount();
     const periodDays = [];
     
@@ -432,9 +464,20 @@ function MyAttendancesPage() {
       });
     }
     return periodDays;
-  }, [filteredPresences, timelinePeriod, timelineStartDate]);
+  }, [filteredPresences, filters.dateRange, timelineStartDate]);
 
-  // Groupement des présences par date pour la vue liste
+  // Fonction pour changer de vue avec synchronisation des filtres
+  const handleViewModeChange = (newViewMode) => {
+    setViewMode(newViewMode);
+    
+    // Auto-ajuster les filtres selon la vue
+    if (newViewMode === 'timeline' && !['7days', '14days', '30days'].includes(filters.dateRange)) {
+      setFilters({...filters, dateRange: '7days'});
+      setTimelineStartDate(new Date());
+    } else if (newViewMode === 'calendar' && ['7days', '14days', '30days'].includes(filters.dateRange)) {
+      setFilters({...filters, dateRange: 'month'});
+    }
+  };
   const getPresencesByDate = () => {
     const groupedByDate = {};
     filteredPresences.forEach((presence) => {
@@ -666,10 +709,10 @@ function MyAttendancesPage() {
     </div>
   );
 
-  // Composant Timeline avec navigation
+  // Composant Timeline avec navigation UNIFIÉ
   const TimelineView = () => {
     const navigateTimeline = (direction) => {
-      const daysToMove = timelinePeriod === '7days' ? 7 : timelinePeriod === '14days' ? 14 : 30;
+      const daysToMove = filters.dateRange === '7days' ? 7 : filters.dateRange === '14days' ? 14 : 30;
       const newDate = new Date(timelineStartDate);
       newDate.setDate(newDate.getDate() + (direction === 'next' ? daysToMove : -daysToMove));
       setTimelineStartDate(newDate);
@@ -683,17 +726,21 @@ function MyAttendancesPage() {
     const getPeriodLabel = () => {
       const endDate = new Date(timelineStartDate);
       const startDate = new Date(timelineStartDate);
-      const daysCount = timelinePeriod === '7days' ? 7 : timelinePeriod === '14days' ? 14 : 30;
+      const daysCount = filters.dateRange === '7days' ? 7 : filters.dateRange === '14days' ? 14 : 30;
       startDate.setDate(startDate.getDate() - (daysCount - 1));
       
       return `${formatDate(startDate, "dd/MM")} - ${formatDate(endDate, "dd/MM/yyyy")}`;
+    };
+
+    const getCurrentPeriod = () => {
+      return filters.dateRange === '7days' ? '7' : filters.dateRange === '14days' ? '14' : '30';
     };
 
     return (
       <div className={styles.timelineContainer}>
         <div className={styles.timelineHeader}>
           <h3 className={styles.timelineTitle}>
-            Activité des {timelinePeriod === '7days' ? '7' : timelinePeriod === '14days' ? '14' : '30'} derniers jours
+            Activité des {getCurrentPeriod()} derniers jours
           </h3>
           
           <div className={styles.timelineNavigation}>
@@ -728,10 +775,10 @@ function MyAttendancesPage() {
               <button
                 key={period.id}
                 onClick={() => {
-                  setTimelinePeriod(period.id);
+                  setFilters({...filters, dateRange: period.id});
                   setTimelineStartDate(new Date()); // Reset to today
                 }}
-                className={`${styles.periodButton} ${timelinePeriod === period.id ? styles.activePeriod : ''}`}
+                className={`${styles.periodButton} ${filters.dateRange === period.id ? styles.activePeriod : ''}`}
               >
                 {period.label}
               </button>
@@ -915,6 +962,11 @@ function MyAttendancesPage() {
             <p className={styles.periodInfo}>
               <FaCalendarAlt className={styles.periodIcon} />
               Période: {formatDate(startDate, "dd/MM/yyyy")} - {formatDate(endDate, "dd/MM/yyyy")}
+              {['7days', '14days', '30days'].includes(filters.dateRange) && (
+                <span className={styles.timelineBadge}>
+                  Timeline {filters.dateRange === '7days' ? '7' : filters.dateRange === '14days' ? '14' : '30'}j
+                </span>
+              )}
             </p>
           </div>
 
@@ -974,7 +1026,7 @@ function MyAttendancesPage() {
             ].map(view => (
               <button
                 key={view.id}
-                onClick={() => setViewMode(view.id)}
+                onClick={() => handleViewModeChange(view.id)}
                 className={`${styles.viewButton} ${viewMode === view.id ? styles.active : ''}`}
               >
                 <view.icon className={styles.viewIcon} />
@@ -1005,7 +1057,15 @@ function MyAttendancesPage() {
               </label>
               <select
                 value={filters.dateRange}
-                onChange={(e) => setFilters({...filters, dateRange: e.target.value})}
+                onChange={(e) => {
+                  const newRange = e.target.value;
+                  setFilters({...filters, dateRange: newRange});
+                  
+                  // Reset timeline date when changing to timeline periods
+                  if (['7days', '14days', '30days'].includes(newRange)) {
+                    setTimelineStartDate(new Date());
+                  }
+                }}
                 className={styles.filterSelect}
               >
                 <option value="week">7 derniers jours</option>
@@ -1013,6 +1073,13 @@ function MyAttendancesPage() {
                 <option value="3months">3 derniers mois</option>
                 <option value="year">Cette année</option>
                 <option value="custom">Période personnalisée</option>
+                {viewMode === 'timeline' && (
+                  <>
+                    <option value="7days">Timeline 7 jours</option>
+                    <option value="14days">Timeline 14 jours</option>
+                    <option value="30days">Timeline 30 jours</option>
+                  </>
+                )}
               </select>
             </div>
 
