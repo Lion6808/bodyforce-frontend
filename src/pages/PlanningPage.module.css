@@ -1,0 +1,469 @@
+/* PlanningPage.module.css */
+
+/* Disposition générale de la page */
+.pageContainer {
+  @apply min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4;
+}
+
+.maxWidthWrapper {
+  @apply max-w-full mx-auto;
+}
+
+/* Section de l'en-tête */
+.headerCard {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700;
+}
+.headerContent {
+  @apply flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4;
+}
+.headerTitleGroup {
+  @apply flex items-center gap-4;
+}
+.headerIconContainer {
+  @apply p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl;
+}
+.headerIcon {
+  @apply w-8 h-8 text-white;
+}
+.headerTitle {
+  @apply text-3xl font-bold text-gray-900 dark:text-gray-100;
+}
+.headerSubtitle {
+  @apply text-gray-600 dark:text-gray-400 mt-1;
+}
+
+/* Boutons de vue et de filtre */
+.viewFilterControls {
+  @apply flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto;
+}
+.viewButton {
+  @apply p-2 rounded-md transition-all;
+}
+.viewButtonIcon {
+  @apply w-5 h-5;
+}
+.viewButtonActive {
+  @apply bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400;
+}
+.viewButtonInactive {
+  @apply text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200;
+}
+.filterButton {
+    @apply p-3 rounded-lg transition-all;
+}
+.filterButtonActive {
+    @apply bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400;
+}
+.filterButtonInactive {
+    @apply bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600;
+}
+
+/* Navigation de période */
+.periodNav {
+    @apply flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg;
+}
+.navButton {
+    @apply p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0;
+}
+.navButtonIcon {
+    @apply w-6 h-6 text-gray-600 dark:text-gray-400;
+}
+.periodControls {
+    @apply flex flex-col sm:flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0;
+}
+.dateInputGroup {
+    @apply flex items-center gap-2;
+}
+.dateLabel {
+    @apply text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap;
+}
+.dateInput {
+    @apply border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+}
+.periodSelect {
+    @apply border-2 border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium text-sm;
+}
+.periodDisplay {
+    @apply text-center min-w-0;
+}
+.periodDateRange {
+    @apply text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate;
+}
+.periodDaysCount {
+    @apply text-xs sm:text-sm text-gray-600 dark:text-gray-400;
+}
+
+/* Préréglages rapides */
+.presetsContainer {
+    @apply mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700;
+}
+.presetsContent {
+    @apply flex flex-wrap gap-2;
+}
+.presetsLabel {
+    @apply text-sm font-medium text-blue-800 dark:text-blue-300 mr-2;
+}
+.presetButton {
+    @apply px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600;
+}
+
+/* Section des filtres */
+.filtersContainer {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700;
+}
+.filtersGrid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4;
+}
+.filterInputLabel {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2;
+}
+.filterInput {
+    @apply w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400;
+}
+.checkboxContainer {
+    @apply flex items-end;
+}
+.checkboxLabel {
+    @apply flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors;
+}
+.checkboxInput {
+    @apply w-5 h-5 text-blue-600 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500;
+}
+.checkboxText {
+    @apply text-gray-700 dark:text-gray-300;
+}
+.refreshButtonContainer {
+    @apply flex items-end;
+}
+.refreshButton {
+    @apply w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2;
+}
+.refreshButtonIcon {
+    @apply w-4 h-4;
+}
+.refreshButtonIconSpin {
+    @apply animate-spin;
+}
+
+/* État vide */
+.emptyStateContainer {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center border border-gray-200 dark:border-gray-700;
+}
+.emptyStateIconContainer {
+  @apply w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6;
+}
+.emptyStateIcon {
+  @apply w-12 h-12 text-gray-400 dark:text-gray-500;
+}
+.emptyStateTitle {
+  @apply text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2;
+}
+.emptyStateText {
+  @apply text-gray-500 dark:text-gray-400 mb-6;
+}
+.emptyStateButton {
+  @apply px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto;
+}
+
+/* États de chargement et d'erreur */
+.statusPageContainer {
+  @apply min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4;
+}
+.statusCard {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200 dark:border-gray-700;
+}
+.errorIcon {
+  @apply w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-6;
+}
+.statusCardTitle {
+  @apply text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4;
+}
+.statusCardText {
+  @apply text-gray-600 dark:text-gray-400 mb-8 leading-relaxed;
+}
+.statusButton {
+  @apply w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg;
+}
+.statusButtonIcon {
+  @apply w-5 h-5;
+}
+.statusButtonIconSpin {
+  @apply animate-spin;
+}
+.retryCountText {
+  @apply text-sm text-gray-500 dark:text-gray-400 mt-4;
+}
+
+.loadingContainer {
+  @apply min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center;
+}
+.loadingContent {
+  @apply text-center;
+}
+.loadingSpinnerContainer {
+  @apply w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6;
+}
+.loadingSpinner {
+  @apply w-8 h-8 animate-spin text-white;
+}
+.loadingTitle {
+  @apply text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2;
+}
+.loadingSubtitle {
+  @apply text-gray-600 dark:text-gray-400;
+}
+
+/* Vue Liste */
+.listViewContainer {
+  @apply space-y-3;
+}
+.memberCardList {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow;
+}
+.memberHeaderList {
+  @apply flex items-center gap-2 mb-3;
+}
+.memberAvatar {
+  @apply w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600;
+}
+.memberInitials {
+  @apply w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm;
+}
+.memberInfoList {
+  @apply flex-1 min-w-0;
+}
+.memberNameList {
+  @apply font-semibold text-gray-900 dark:text-gray-100 text-base truncate;
+}
+.memberMetaList {
+  @apply flex items-center gap-3 mt-0.5;
+}
+.memberBadgeId {
+  @apply text-xs text-gray-500 dark:text-gray-400;
+}
+.memberPresenceCount {
+  @apply bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+.daysGridList {
+  @apply grid grid-cols-7 sm:grid-cols-14 gap-1;
+}
+.dayCellList {
+  @apply relative group;
+}
+.dayCellContent {
+  @apply p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer;
+}
+.dayCellPresent {
+  @apply bg-green-500 text-white shadow-sm;
+}
+.dayCellWeekend {
+  @apply bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400;
+}
+.dayCellNormal {
+  @apply bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400;
+}
+.dayCellDate {
+  @apply font-medium text-xs;
+}
+.dayCellPresenceCount {
+  @apply text-[10px] font-bold mt-0.5;
+}
+.tooltip {
+  @apply absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10;
+}
+.tooltipContent {
+  @apply bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700;
+}
+.tooltipHeader {
+  @apply font-semibold mb-1;
+}
+.tooltipBody {
+  @apply space-y-0.5;
+}
+.tooltipTime {
+  @apply text-[11px];
+}
+.tooltipMore {
+  @apply text-[11px] opacity-75;
+}
+
+/* Vue Compacte */
+.compactViewContainer {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700;
+}
+.compactViewScroll {
+  @apply overflow-x-auto;
+}
+.compactViewGrid {
+  @apply min-w-full;
+}
+.compactViewGridInner {
+  @apply grid bg-gray-50 dark:bg-gray-700;
+}
+.compactHeaderCell {
+  @apply sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 p-4 border-b border-r border-gray-200 dark:border-gray-600 font-bold text-center text-white;
+}
+.compactHeaderIcon {
+  @apply w-5 h-5 mx-auto mb-1;
+}
+.compactDayHeader {
+  @apply p-3 text-center font-medium border-b border-r border-gray-200 dark:border-gray-600;
+}
+.compactDayHeaderWeekend {
+  @apply bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400;
+}
+.compactDayHeaderNormal {
+  @apply bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300;
+}
+.compactDayDate {
+  @apply text-sm;
+}
+.compactDayMonth {
+  @apply text-xs opacity-75;
+}
+.compactMemberCell {
+  @apply sticky left-0 z-10 p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3;
+}
+.compactMemberCellEven {
+  @apply bg-white dark:bg-gray-800;
+}
+.compactMemberCellOdd {
+  @apply bg-gray-50 dark:bg-gray-700;
+}
+.compactMemberAvatar {
+  @apply w-10 h-10 object-cover rounded-full border border-gray-300 dark:border-gray-600;
+}
+.compactMemberInitials {
+  @apply w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold;
+}
+.compactMemberInfo {
+  @apply min-w-0 flex-1;
+}
+.compactMemberName {
+  @apply text-sm font-semibold truncate text-gray-900 dark:text-gray-100;
+}
+.compactMemberFirstName {
+  @apply text-xs text-gray-500 dark:text-gray-400 truncate;
+}
+.compactDataCell {
+  @apply p-2 border-b border-r border-gray-200 dark:border-gray-600 min-h-[80px] transition-colors hover:bg-opacity-80;
+}
+.compactDataCellPresent {
+  @apply bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20;
+}
+.compactDataCellWeekend {
+  @apply bg-blue-50 dark:bg-blue-900/10;
+}
+.compactDataCellEven {
+  @apply bg-white dark:bg-gray-800;
+}
+.compactDataCellOdd {
+  @apply bg-gray-50 dark:bg-gray-700;
+}
+.presenceTimesContainer {
+  @apply space-y-1;
+}
+.presenceTimeChip {
+  @apply bg-green-600 dark:bg-green-700 text-white px-2 py-1 rounded-md text-xs font-medium text-center shadow-sm;
+}
+.presenceMoreChip {
+  @apply text-green-700 dark:text-green-400 text-xs text-center font-medium;
+}
+
+/* Vue Grille */
+.gridViewContainer {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700;
+}
+.gridViewScroll {
+  @apply overflow-auto max-h-[75vh];
+}
+.gridViewGrid {
+  @apply min-w-max;
+}
+.gridViewGridInner {
+  @apply grid;
+}
+.gridHeaderCell {
+  @apply sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-white;
+}
+.gridHeaderContent {
+  @apply text-center;
+}
+.gridHeaderIcon {
+  @apply w-6 h-6 mx-auto mb-1;
+}
+.gridHeaderText {
+  @apply text-sm;
+}
+.gridTimeHeader {
+  @apply text-[9px] border-b border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center h-16 font-medium;
+}
+.gridTimeHeaderWeekend {
+  @apply bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400;
+}
+.gridTimeHeaderNormal {
+  @apply bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300;
+}
+.gridTimeHeaderDate {
+  @apply font-bold whitespace-nowrap mb-1;
+}
+.gridTimeHeaderHour {
+  @apply font-semibold;
+}
+.gridMemberCell {
+  @apply sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3;
+}
+.gridMemberCellEven {
+  @apply bg-white dark:bg-gray-800;
+}
+.gridMemberCellOdd {
+  @apply bg-gray-50 dark:bg-gray-700;
+}
+.gridMemberAvatar {
+  @apply w-12 h-12 object-cover rounded-full border border-gray-300 dark:border-gray-600;
+}
+.gridMemberInitials {
+  @apply w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold;
+}
+.gridMemberInfo {
+  @apply flex flex-col min-w-0 flex-1;
+}
+.gridMemberName {
+  @apply font-semibold text-sm truncate text-gray-900 dark:text-gray-100;
+}
+.gridMemberPresenceCount {
+  @apply text-xs text-gray-500 dark:text-gray-400;
+}
+.gridDataCell {
+  @apply h-16 border-b border-r border-gray-200 dark:border-gray-600 relative group transition-all duration-200;
+}
+.gridDataCellPresent {
+  @apply bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm;
+}
+.gridDataCellWeekend {
+  @apply bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20;
+}
+.gridDataCellEven {
+  @apply bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700;
+}
+.gridDataCellOdd {
+  @apply bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600;
+}
+.presenceIndicatorContainer {
+  @apply absolute top-0 left-0 w-full h-full flex items-center justify-center;
+}
+.presenceIndicator {
+  @apply w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center;
+}
+.presenceIndicatorCheck {
+  @apply text-white font-bold text-lg;
+}
+.gridTooltip {
+  @apply absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap border border-gray-700;
+}
+.gridTooltipHeader {
+  @apply font-semibold;
+}
+.gridTooltipBody {
+  @apply opacity-90;
+}

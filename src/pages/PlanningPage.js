@@ -21,6 +21,7 @@ import {
   startOfYear,
   endOfYear,
 } from "date-fns";
+import styles from "./PlanningPage.module.css";
 
 // Client Supabase direct
 const supabase = createClient(
@@ -29,7 +30,7 @@ const supabase = createClient(
 );
 
 // Utilitaires de date corrigés
-const formatDate = (date, format) => {
+const formatDate = (date, formatStr) => {
   const options = {
     "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
     "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
@@ -38,11 +39,11 @@ const formatDate = (date, format) => {
     "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
   };
 
-  if (format === "yyyy-MM-dd") {
+  if (formatStr === "yyyy-MM-dd") {
     return date.toISOString().split("T")[0];
   }
 
-  return new Intl.DateTimeFormat("fr-FR", options[format] || {}).format(date);
+  return new Intl.DateTimeFormat("fr-FR", options[formatStr] || {}).format(date);
 };
 
 const parseTimestamp = (timestamp) => new Date(timestamp);
@@ -117,10 +118,7 @@ function PlanningPage() {
   const [isRetrying, setIsRetrying] = useState(false);
 
   const [period, setPeriod] = useState("week");
-  // Période par défaut plus courte pour éviter la lenteur
-  const [startDate, setStartDate] = useState(
-    startOfDay(subWeeks(new Date(), 1))
-  );
+  const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
 
   const [filterBadge, setFilterBadge] = useState("");
@@ -130,7 +128,6 @@ function PlanningPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // REQUÊTES DIRECTES SUPABASE
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) {
@@ -139,32 +136,20 @@ function PlanningPage() {
       setLoading(true);
       setError("");
 
-      console.log("🔄 Chargement des données...", {
-        début: startDate.toLocaleDateString(),
-        fin: endDate.toLocaleDateString(),
-      });
-
-      // Chargement des membres
       const { data: membersData, error: membersError } = await supabase
         .from("members")
         .select("*");
 
-      if (membersError) {
-        console.error("❌ Erreur membres:", membersError);
-        throw new Error(`Erreur membres: ${membersError.message}`);
-      }
-
+      if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
       setMembers(Array.isArray(membersData) ? membersData : []);
-      console.log("✅ Membres chargés:", membersData?.length || 0);
 
-      // Chargement des présences FILTRÉ par période
       let allPresences = [];
       let from = 0;
       const pageSize = 1000;
       let done = false;
 
       while (!done) {
-        const { data, error } = await supabase
+        const { data, error: presencesError } = await supabase
           .from("presences")
           .select("*")
           .gte("timestamp", startDate.toISOString())
@@ -172,24 +157,16 @@ function PlanningPage() {
           .order("timestamp", { ascending: false })
           .range(from, from + pageSize - 1);
 
-        if (error) {
-          console.error("❌ Erreur présences:", error);
-          throw new Error(`Erreur présences: ${error.message}`);
-        }
-
+        if (presencesError) throw new Error(`Erreur présences: ${presencesError.message}`);
+        
         if (data && data.length > 0) {
           allPresences = [...allPresences, ...data];
           from += pageSize;
-        }
-
-        if (!data || data.length < pageSize) {
+        } else {
           done = true;
         }
       }
 
-      console.log("✅ Présences chargées:", allPresences.length);
-
-      // Transformation avec parsing des timestamps
       const transformedPresences = allPresences.map((p) => ({
         badgeId: p.badgeId,
         timestamp: p.timestamp,
@@ -198,18 +175,15 @@ function PlanningPage() {
 
       setPresences(transformedPresences);
       setRetryCount(0);
-
-      console.log("✅ Chargement terminé avec succès");
-    } catch (error) {
-      console.error("💥 Erreur lors du chargement des données:", error);
-      setError(error.message || "Erreur de connexion à la base de données");
+    } catch (err) {
+      console.error("💥 Erreur lors du chargement des données:", err);
+      setError(err.message || "Erreur de connexion à la base de données");
     } finally {
       setLoading(false);
       setIsRetrying(false);
     }
   };
 
-  // Recharger quand la période change
   useEffect(() => {
     loadData();
   }, [startDate, endDate]);
@@ -220,9 +194,7 @@ function PlanningPage() {
   };
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
@@ -241,71 +213,51 @@ function PlanningPage() {
   const navigatePeriod = (direction) => {
     const amount = direction === "prev" ? -1 : 1;
     let newStart;
-
-    if (period === "week") {
-      newStart = addWeeks(startDate, amount);
-    } else if (period === "month") {
-      newStart = addMonths(startDate, amount);
-    } else {
-      newStart = addYears(startDate, amount);
-    }
-
+    if (period === "week") newStart = addWeeks(startDate, amount);
+    else if (period === "month") newStart = addMonths(startDate, amount);
+    else newStart = addYears(startDate, amount);
     updateDateRange(period, newStart);
   };
 
-  const toLocalDate = (timestamp) => {
-    return parseTimestamp(timestamp);
-  };
+  const toLocalDate = (timestamp) => parseTimestamp(timestamp);
 
-  // Écrans de chargement et d'erreur avec mode sombre
   const renderConnectionError = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200 dark:border-gray-700">
-        <AlertCircle className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-6" />
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-          Problème de connexion
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">{error}</p>
-        <button
-          onClick={handleRetry}
-          disabled={isRetrying}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                   disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 
-                   rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
-        >
+    <div className={styles.statusPageContainer}>
+      <div className={styles.statusCard}>
+        <AlertCircle className={styles.errorIcon} />
+        <h2 className={styles.statusCardTitle}>Problème de connexion</h2>
+        <p className={styles.statusCardText}>{error}</p>
+        <button onClick={handleRetry} disabled={isRetrying} className={styles.statusButton}>
           {isRetrying ? (
             <>
-              <RefreshCw className="w-5 h-5 animate-spin" />
+              <RefreshCw className={`${styles.statusButtonIcon} ${styles.statusButtonIconSpin}`} />
               Reconnexion...
             </>
           ) : (
             <>
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className={styles.statusButtonIcon} />
               Réessayer
             </>
           )}
         </button>
         {retryCount > 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-            Tentative {retryCount + 1}
-          </p>
+          <p className={styles.retryCountText}>Tentative {retryCount + 1}</p>
         )}
       </div>
     </div>
   );
 
   const renderLoading = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-          <RefreshCw className="w-8 h-8 animate-spin text-white" />
+    <div className={styles.loadingContainer}>
+      <div className={styles.loadingContent}>
+        <div className={styles.loadingSpinnerContainer}>
+          <RefreshCw className={styles.loadingSpinner} />
         </div>
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+        <h2 className={styles.loadingTitle}>
           {isRetrying ? "Reconnexion en cours..." : "Chargement du planning..."}
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Période: {startDate.toLocaleDateString()} -{" "}
-          {endDate.toLocaleDateString()}
+        <p className={styles.loadingSubtitle}>
+          Période: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
         </p>
       </div>
     </div>
@@ -314,11 +266,9 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Les présences sont déjà filtrées par la requête, pas besoin de re-filtrer
-  const filteredPresences = presences.filter((p) => {
-    const presenceDate = toLocalDate(p.timestamp);
-    return isWithinInterval(presenceDate, { start: startDate, end: endDate });
-  });
+  const filteredPresences = presences.filter((p) =>
+    isWithinInterval(toLocalDate(p.timestamp), { start: startDate, end: endDate })
+  );
 
   const groupedByMember = {};
   filteredPresences.forEach((p) => {
@@ -331,113 +281,79 @@ function PlanningPage() {
   const fullHours = Array.from({ length: 24 }, (_, i) => i);
   const hours = showNightHours ? fullHours : fullHours.slice(6);
 
-  const getMemberInfo = (badgeId) =>
-    members.find((m) => m.badgeId === badgeId) || {};
+  const getMemberInfo = (badgeId) => members.find((m) => m.badgeId === badgeId) || {};
 
   const visibleMembers = Object.keys(groupedByMember)
     .map((badgeId) => getMemberInfo(badgeId))
     .filter(
       (m) =>
-        (!filterName ||
-          `${m.name} ${m.firstName}`
-            .toLowerCase()
-            .includes(filterName.toLowerCase())) &&
+        (!filterName || `${m.name} ${m.firstName}`.toLowerCase().includes(filterName.toLowerCase())) &&
         (!filterBadge || m.badgeId?.includes(filterBadge))
     );
 
-  // Vue liste pour mobile - Version compacte avec mode sombre
   const ListView = () => (
-    <div className="space-y-3">
+    <div className={styles.listViewContainer}>
       {visibleMembers.map((member) => {
         const memberPresences = groupedByMember[member.badgeId] || [];
         const dailyPresences = {};
-
         memberPresences.forEach((timestamp) => {
           const dayKey = toDateString(timestamp);
           if (!dailyPresences[dayKey]) dailyPresences[dayKey] = [];
           dailyPresences[dayKey].push(timestamp);
         });
-
         const totalPresencesInPeriod = memberPresences.length;
 
         return (
-          <div
-            key={member.badgeId}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-2 mb-3">
+          <div key={member.badgeId} className={styles.memberCardList}>
+            <div className={styles.memberHeaderList}>
               {member.photo ? (
-                <img
-                  src={member.photo}
-                  alt="avatar"
-                  className="w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600"
-                />
+                <img src={member.photo} alt="avatar" className={styles.memberAvatar} />
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                <div className={styles.memberInitials}>
                   {member.firstName?.[0]}
                   {member.name?.[0]}
                 </div>
               )}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base truncate">
-                  {member.name} {member.firstName}
-                </h3>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Badge: {member.badgeId}
-                  </span>
-                  <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium">
-                    {totalPresencesInPeriod} présence(s)
-                  </span>
+              <div className={styles.memberInfoList}>
+                <h3 className={styles.memberNameList}>{member.name} {member.firstName}</h3>
+                <div className={styles.memberMetaList}>
+                  <span className={styles.memberBadgeId}>Badge: {member.badgeId}</span>
+                  <span className={styles.memberPresenceCount}>{totalPresencesInPeriod} présence(s)</span>
                 </div>
               </div>
             </div>
 
-            {/* Grille compacte des jours */}
-            <div className="grid grid-cols-7 sm:grid-cols-14 gap-1">
+            <div className={styles.daysGridList}>
               {allDays.map((day) => {
                 const dayKey = toDateString(day);
                 const dayPresences = dailyPresences[dayKey] || [];
                 const hasPresences = dayPresences.length > 0;
 
                 return (
-                  <div key={dayKey} className={`relative group`}>
+                  <div key={dayKey} className={styles.dayCellList}>
                     <div
-                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${
+                      className={`${styles.dayCellContent} ${
                         hasPresences
-                          ? "bg-green-500 text-white shadow-sm"
+                          ? styles.dayCellPresent
                           : isWeekend(day)
-                          ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                          ? styles.dayCellWeekend
+                          : styles.dayCellNormal
                       }`}
                     >
-                      <div className="font-medium text-xs">
-                        {formatDate(day, "EEE dd").split(" ")[1]}
-                      </div>
-                      {hasPresences && (
-                        <div className="text-[10px] font-bold mt-0.5">
-                          {dayPresences.length}
-                        </div>
-                      )}
+                      <div className={styles.dayCellDate}>{formatDate(day, "EEE dd").split(" ")[1]}</div>
+                      {hasPresences && <div className={styles.dayCellPresenceCount}>{dayPresences.length}</div>}
                     </div>
 
-                    {/* Tooltip avec détails au hover */}
                     {hasPresences && (
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                        <div className="bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700">
-                          <div className="font-semibold mb-1">
-                            {formatDate(day, "EEE dd/MM")}
-                          </div>
-                          <div className="space-y-0.5">
+                      <div className={styles.tooltip}>
+                        <div className={styles.tooltipContent}>
+                          <div className={styles.tooltipHeader}>{formatDate(day, "EEE dd/MM")}</div>
+                          <div className={styles.tooltipBody}>
                             {dayPresences.slice(0, 3).map((p, idx) => (
-                              <div key={idx} className="text-[11px]">
-                                {formatDate(p, "HH:mm")}
-                              </div>
+                              <div key={idx} className={styles.tooltipTime}>{formatDate(p, "HH:mm")}</div>
                             ))}
                             {dayPresences.length > 3 && (
-                              <div className="text-[11px] opacity-75">
-                                +{dayPresences.length - 3} autres
-                              </div>
+                              <div className={styles.tooltipMore}>+{dayPresences.length - 3} autres</div>
                             )}
                           </div>
                         </div>
@@ -453,102 +369,72 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue compacte pour tablettes avec mode sombre
   const CompactView = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-      <div className="overflow-x-auto">
-        <div className="min-w-full">
-          <div
-            className="grid bg-gray-50 dark:bg-gray-700"
-            style={{
-              gridTemplateColumns: `180px repeat(${allDays.length}, minmax(100px, 1fr))`,
-            }}
-          >
-            {/* En-tête */}
-            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 p-4 border-b border-r border-gray-200 dark:border-gray-600 font-bold text-center text-white">
-              <Users className="w-5 h-5 mx-auto mb-1" />
+    <div className={styles.compactViewContainer}>
+      <div className={styles.compactViewScroll}>
+        <div className={styles.compactViewGrid}>
+          <div className={styles.compactViewGridInner} style={{ gridTemplateColumns: `180px repeat(${allDays.length}, minmax(100px, 1fr))` }}>
+            <div className={styles.compactHeaderCell}>
+              <Users className={styles.compactHeaderIcon} />
               Membres
             </div>
             {allDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`p-3 text-center font-medium border-b border-r border-gray-200 dark:border-gray-600 ${
-                  isWeekend(day)
-                    ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
-                    : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
+                className={`${styles.compactDayHeader} ${
+                  isWeekend(day) ? styles.compactDayHeaderWeekend : styles.compactDayHeaderNormal
                 }`}
               >
-                <div className="text-sm">{formatDate(day, "EEE dd")}</div>
-                <div className="text-xs opacity-75">
-                  {formatDate(day, "dd/MM").split("/")[1]}
-                </div>
+                <div className={styles.compactDayDate}>{formatDate(day, "EEE dd")}</div>
+                <div className={styles.compactDayMonth}>{formatDate(day, "dd/MM").split("/")[1]}</div>
               </div>
             ))}
-
-            {/* Lignes des membres */}
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
+                  className={`${styles.compactMemberCell} ${
+                    idx % 2 === 0 ? styles.compactMemberCellEven : styles.compactMemberCellOdd
                   }`}
                 >
                   {member.photo ? (
-                    <img
-                      src={member.photo}
-                      alt="avatar"
-                      className="w-10 h-10 object-cover rounded-full border border-gray-300 dark:border-gray-600"
-                    />
+                    <img src={member.photo} alt="avatar" className={styles.compactMemberAvatar} />
                   ) : (
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    <div className={styles.compactMemberInitials}>
                       {member.firstName?.[0]}
                       {member.name?.[0]}
                     </div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
-                      {member.name}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {member.firstName}
-                    </div>
+                  <div className={styles.compactMemberInfo}>
+                    <div className={styles.compactMemberName}>{member.name}</div>
+                    <div className={styles.compactMemberFirstName}>{member.firstName}</div>
                   </div>
                 </div>
                 {allDays.map((day) => {
                   const times = groupedByMember[member.badgeId] || [];
-                  const dayPresences = times.filter((t) => {
-                    const tDateStr = toDateString(t);
-                    const dayDateStr = toDateString(day);
-                    return tDateStr === dayDateStr;
-                  });
+                  const dayPresences = times.filter((t) => toDateString(t) === toDateString(day));
 
                   return (
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
-                      className={`p-2 border-b border-r border-gray-200 dark:border-gray-600 min-h-[80px] transition-colors hover:bg-opacity-80 ${
+                      className={`${styles.compactDataCell} ${
                         dayPresences.length > 0
-                          ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20"
+                          ? styles.compactDataCellPresent
                           : isWeekend(day)
-                          ? "bg-blue-50 dark:bg-blue-900/10"
+                          ? styles.compactDataCellWeekend
                           : idx % 2 === 0
-                          ? "bg-white dark:bg-gray-800"
-                          : "bg-gray-50 dark:bg-gray-700"
+                          ? styles.compactDataCellEven
+                          : styles.compactDataCellOdd
                       }`}
                     >
                       {dayPresences.length > 0 && (
-                        <div className="space-y-1">
+                        <div className={styles.presenceTimesContainer}>
                           {dayPresences.slice(0, 3).map((time, tidx) => (
-                            <div
-                              key={tidx}
-                              className="bg-green-600 dark:bg-green-700 text-white px-2 py-1 rounded-md text-xs font-medium text-center shadow-sm"
-                            >
+                            <div key={tidx} className={styles.presenceTimeChip}>
                               {formatDate(time, "HH:mm")}
                             </div>
                           ))}
                           {dayPresences.length > 3 && (
-                            <div className="text-green-700 dark:text-green-400 text-xs text-center font-medium">
-                              +{dayPresences.length - 3}
-                            </div>
+                            <div className={styles.presenceMoreChip}>+{dayPresences.length - 3}</div>
                           )}
                         </div>
                       )}
@@ -563,70 +449,48 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue grille complète pour desktop avec mode sombre
   const GridView = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-      <div className="overflow-auto max-h-[75vh]">
-        <div className="min-w-max">
-          <div
-            className="grid"
-            style={{
-              gridTemplateColumns: `220px repeat(${
-                allDays.length * hours.length
-              }, 45px)`,
-            }}
-          >
-            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-white">
-              <div className="text-center">
-                <Users className="w-6 h-6 mx-auto mb-1" />
-                <div className="text-sm">Membres</div>
+    <div className={styles.gridViewContainer}>
+      <div className={styles.gridViewScroll}>
+        <div className={styles.gridViewGrid}>
+          <div className={styles.gridViewGridInner} style={{ gridTemplateColumns: `220px repeat(${allDays.length * hours.length}, 45px)` }}>
+            <div className={styles.gridHeaderCell}>
+              <div className={styles.gridHeaderContent}>
+                <Users className={styles.gridHeaderIcon} />
+                <div className={styles.gridHeaderText}>Membres</div>
               </div>
             </div>
             {allDays.map((day, dIdx) =>
               hours.map((h, hIdx) => (
                 <div
                   key={`header-${dIdx}-${h}`}
-                  className={`text-[9px] border-b border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center h-16 font-medium ${
-                    isWeekend(day)
-                      ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
-                      : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
+                  className={`${styles.gridTimeHeader} ${
+                    isWeekend(day) ? styles.gridTimeHeaderWeekend : styles.gridTimeHeaderNormal
                   }`}
                 >
-                  {hIdx === 0 && (
-                    <div className="font-bold whitespace-nowrap mb-1">
-                      {formatDate(day, "EEE dd/MM")}
-                    </div>
-                  )}
-                  <div className="font-semibold">{`${h
-                    .toString()
-                    .padStart(2, "0")}h`}</div>
+                  {hIdx === 0 && <div className={styles.gridTimeHeaderDate}>{formatDate(day, "EEE dd/MM")}</div>}
+                  <div className={styles.gridTimeHeaderHour}>{`${h.toString().padStart(2, "0")}h`}</div>
                 </div>
               ))
             )}
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
+                  className={`${styles.gridMemberCell} ${
+                    idx % 2 === 0 ? styles.gridMemberCellEven : styles.gridMemberCellOdd
                   }`}
                 >
                   {member.photo ? (
-                    <img
-                      src={member.photo}
-                      alt="avatar"
-                      className="w-12 h-12 object-cover rounded-full border border-gray-300 dark:border-gray-600"
-                    />
+                    <img src={member.photo} alt="avatar" className={styles.gridMemberAvatar} />
                   ) : (
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                    <div className={styles.gridMemberInitials}>
                       {member.firstName?.[0]}
                       {member.name?.[0]}
                     </div>
                   )}
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">
-                      {member.name} {member.firstName}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className={styles.gridMemberInfo}>
+                    <span className={styles.gridMemberName}>{member.name} {member.firstName}</span>
+                    <span className={styles.gridMemberPresenceCount}>
                       {groupedByMember[member.badgeId]?.length || 0} présence(s)
                     </span>
                   </div>
@@ -634,41 +498,32 @@ function PlanningPage() {
                 {allDays.map((day) =>
                   hours.map((h) => {
                     const times = groupedByMember[member.badgeId] || [];
-                    const present = times.some((t) => {
-                      const tDateStr = toDateString(t);
-                      const dayDateStr = toDateString(day);
-                      return tDateStr === dayDateStr && t.getHours() === h;
-                    });
-
+                    const present = times.some(
+                      (t) => toDateString(t) === toDateString(day) && t.getHours() === h
+                    );
                     return (
                       <div
                         key={`${member.badgeId}-${day.toISOString()}-${h}`}
-                        className={`h-16 border-b border-r border-gray-200 dark:border-gray-600 relative group transition-all duration-200 ${
+                        className={`${styles.gridDataCell} ${
                           present
-                            ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
+                            ? styles.gridDataCellPresent
                             : isWeekend(day)
-                            ? "bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                            ? styles.gridDataCellWeekend
                             : idx % 2 === 0
-                            ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
-                            : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
+                            ? styles.gridDataCellEven
+                            : styles.gridDataCellOdd
                         }`}
                       >
                         {present && (
                           <>
-                            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                              <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">
-                                  ✓
-                                </span>
+                            <div className={styles.presenceIndicatorContainer}>
+                              <div className={styles.presenceIndicator}>
+                                <span className={styles.presenceIndicatorCheck}>✓</span>
                               </div>
                             </div>
-                            <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap border border-gray-700">
-                              <div className="font-semibold">
-                                {formatDate(day, "EEE dd/MM")} à {h}h
-                              </div>
-                              <div className="opacity-90">
-                                {member.name} {member.firstName}
-                              </div>
+                            <div className={styles.gridTooltip}>
+                              <div className={styles.gridTooltipHeader}>{formatDate(day, "EEE dd/MM")} à {h}h</div>
+                              <div className={styles.gridTooltipBody}>{member.name} {member.firstName}</div>
                             </div>
                           </>
                         )}
@@ -685,110 +540,56 @@ function PlanningPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4">
-      <div className="max-w-full mx-auto">
-        {/* En-tête */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
-                <Calendar className="w-8 h-8 text-white" />
+    <div className={styles.pageContainer}>
+      <div className={styles.maxWidthWrapper}>
+        <div className={styles.headerCard}>
+          <div className={styles.headerContent}>
+            <div className={styles.headerTitleGroup}>
+              <div className={styles.headerIconContainer}>
+                <Calendar className={styles.headerIcon} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Planning des présences
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  Visualisez les présences des membres
-                </p>
+                <h1 className={styles.headerTitle}>Planning des présences</h1>
+                <p className={styles.headerSubtitle}>Visualisez les présences des membres</p>
               </div>
             </div>
-
-            {/* Boutons de vue + filtre */}
-            <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 rounded-md transition-all ${
-                  viewMode === "list"
-                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
-                title="Vue liste"
-              >
-                <List className="w-5 h-5" />
+            <div className={styles.viewFilterControls}>
+              <button onClick={() => setViewMode("list")} className={`${styles.viewButton} ${viewMode === "list" ? styles.viewButtonActive : styles.viewButtonInactive}`} title="Vue liste">
+                <List className={styles.viewButtonIcon} />
               </button>
-              <button
-                onClick={() => setViewMode("compact")}
-                className={`p-2 rounded-md transition-all ${
-                  viewMode === "compact"
-                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
-                title="Vue compacte"
-              >
-                <Users className="w-5 h-5" />
+              <button onClick={() => setViewMode("compact")} className={`${styles.viewButton} ${viewMode === "compact" ? styles.viewButtonActive : styles.viewButtonInactive}`} title="Vue compacte">
+                <Users className={styles.viewButtonIcon} />
               </button>
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-md transition-all ${
-                  viewMode === "grid"
-                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
-                title="Vue grille"
-              >
-                <Grid className="w-5 h-5" />
+              <button onClick={() => setViewMode("grid")} className={`${styles.viewButton} ${viewMode === "grid" ? styles.viewButtonActive : styles.viewButtonInactive}`} title="Vue grille">
+                <Grid className={styles.viewButtonIcon} />
               </button>
-
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`p-3 rounded-lg transition-all ${
-                  showFilters
-                    ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
-                title="Afficher les filtres"
-              >
-                <Filter className="w-5 h-5" />
+              <button onClick={() => setShowFilters(!showFilters)} className={`${styles.filterButton} ${showFilters ? styles.filterButtonActive : styles.filterButtonInactive}`} title="Afficher les filtres">
+                <Filter className={styles.viewButtonIcon} />
               </button>
             </div>
           </div>
-
-          {/* Navigation période */}
-          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <button
-              onClick={() => navigatePeriod("prev")}
-              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
-            >
-              <ChevronLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+          <div className={styles.periodNav}>
+            <button onClick={() => navigatePeriod("prev")} className={styles.navButton}>
+              <ChevronLeft className={styles.navButtonIcon} />
             </button>
-
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
-              {/* Sélecteur de date de début */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                  Début:
-                </label>
+            <div className={styles.periodControls}>
+              <div className={styles.dateInputGroup}>
+                <label className={styles.dateLabel}>Début:</label>
                 <input
                   type="date"
                   value={formatDate(startDate, "yyyy-MM-dd")}
                   onChange={(e) => {
                     const newStartDate = new Date(e.target.value);
                     setStartDate(startOfDay(newStartDate));
-                    if (period === "week") {
-                      setEndDate(endOfDay(addWeeks(newStartDate, 1)));
-                    } else if (period === "month") {
-                      setEndDate(endOfDay(addMonths(newStartDate, 1)));
-                    } else {
-                      setEndDate(endOfDay(addYears(newStartDate, 1)));
-                    }
+                    if (period === "week") setEndDate(endOfDay(addWeeks(newStartDate, 1)));
+                    else if (period === "month") setEndDate(endOfDay(addMonths(newStartDate, 1)));
+                    else setEndDate(endOfDay(addYears(newStartDate, 1)));
                   }}
-                  className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  className={styles.dateInput}
                 />
               </div>
-
               <select
-                className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium text-sm"
+                className={styles.periodSelect}
                 value={period}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -800,157 +601,50 @@ function PlanningPage() {
                 <option value="month">Mois</option>
                 <option value="year">Année</option>
               </select>
-
-              <div className="text-center min-w-0">
-                <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
-                  {formatDate(startDate, "dd/MM/yyyy")} -{" "}
-                  {formatDate(endDate, "dd/MM/yyyy")}
+              <div className={styles.periodDisplay}>
+                <div className={styles.periodDateRange}>
+                  {formatDate(startDate, "dd/MM/yyyy")} - {formatDate(endDate, "dd/MM/yyyy")}
                 </div>
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  {allDays.length} jours
-                </div>
+                <div className={styles.periodDaysCount}>{allDays.length} jours</div>
               </div>
             </div>
-
-            <button
-              onClick={() => navigatePeriod("next")}
-              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
-            >
-              <ChevronRight className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            <button onClick={() => navigatePeriod("next")} className={styles.navButton}>
+              <ChevronRight className={styles.navButtonIcon} />
             </button>
           </div>
-
-          {/* Presets rapides pour navigation facile */}
-          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-300 mr-2">
-                Raccourcis :
-              </span>
-
-              <button
-                onClick={() => {
-                  const today = new Date();
-                  setStartDate(startOfDay(today));
-                  setEndDate(endOfDay(today));
-                }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
-              >
-                Aujourd'hui
-              </button>
-
-              <button
-                onClick={() => {
-                  const today = new Date();
-                  setStartDate(
-                    startOfDay(new Date(today.setDate(today.getDate() - 6)))
-                  );
-                  setEndDate(endOfDay(new Date()));
-                }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
-              >
-                7 derniers jours
-              </button>
-
-              <button
-                onClick={() => {
-                  const today = new Date();
-                  setStartDate(
-                    startOfDay(new Date(today.setDate(today.getDate() - 29)))
-                  );
-                  setEndDate(endOfDay(new Date()));
-                }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
-              >
-                30 derniers jours
-              </button>
-
-              <button
-                onClick={() => {
-                  setStartDate(
-                    startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 }))
-                  );
-                  setEndDate(
-                    endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))
-                  );
-                }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
-              >
-                Cette Semaine
-              </button>
-
-              <button
-                onClick={() => {
-                  setStartDate(startOfDay(startOfMonth(new Date())));
-                  setEndDate(endOfDay(endOfMonth(new Date())));
-                }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
-              >
-                Ce Mois
-              </button>
-
-              <button
-                onClick={() => {
-                  setStartDate(startOfDay(startOfYear(new Date())));
-                  setEndDate(endOfDay(endOfYear(new Date())));
-                }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
-              >
-                Cette Année
-              </button>
+          <div className={styles.presetsContainer}>
+            <div className={styles.presetsContent}>
+              <span className={styles.presetsLabel}>Raccourcis :</span>
+              <button onClick={() => { const today = new Date(); setStartDate(startOfDay(today)); setEndDate(endOfDay(today)); }} className={styles.presetButton}>Aujourd'hui</button>
+              <button onClick={() => { const today = new Date(); setStartDate(startOfDay(new Date(today.setDate(today.getDate() - 6)))); setEndDate(endOfDay(new Date())); }} className={styles.presetButton}>7 derniers jours</button>
+              <button onClick={() => { const today = new Date(); setStartDate(startOfDay(new Date(today.setDate(today.getDate() - 29)))); setEndDate(endOfDay(new Date())); }} className={styles.presetButton}>30 derniers jours</button>
+              <button onClick={() => { setStartDate(startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 }))); setEndDate(endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))); }} className={styles.presetButton}>Cette Semaine</button>
+              <button onClick={() => { setStartDate(startOfDay(startOfMonth(new Date()))); setEndDate(endOfDay(endOfMonth(new Date()))); }} className={styles.presetButton}>Ce Mois</button>
+              <button onClick={() => { setStartDate(startOfDay(startOfYear(new Date()))); setEndDate(endOfDay(endOfYear(new Date()))); }} className={styles.presetButton}>Cette Année</button>
             </div>
           </div>
         </div>
 
-        {/* Filtres */}
         {showFilters && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={styles.filtersContainer}>
+            <div className={styles.filtersGrid}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Rechercher par nom
-                </label>
-                <input
-                  type="text"
-                  placeholder="Nom ou prénom..."
-                  value={filterName}
-                  onChange={(e) => setFilterName(e.target.value)}
-                  className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                />
+                <label className={styles.filterInputLabel}>Rechercher par nom</label>
+                <input type="text" placeholder="Nom ou prénom..." value={filterName} onChange={(e) => setFilterName(e.target.value)} className={styles.filterInput} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Filtrer par badge
-                </label>
-                <input
-                  type="text"
-                  placeholder="Numéro de badge..."
-                  value={filterBadge}
-                  onChange={(e) => setFilterBadge(e.target.value)}
-                  className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                />
+                <label className={styles.filterInputLabel}>Filtrer par badge</label>
+                <input type="text" placeholder="Numéro de badge..." value={filterBadge} onChange={(e) => setFilterBadge(e.target.value)} className={styles.filterInput} />
               </div>
-              <div className="flex items-end">
-                <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={showNightHours}
-                    onChange={() => setShowNightHours(!showNightHours)}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">Afficher 00h - 06h</span>
+              <div className={styles.checkboxContainer}>
+                <label className={styles.checkboxLabel}>
+                  <input type="checkbox" checked={showNightHours} onChange={() => setShowNightHours(!showNightHours)} className={styles.checkboxInput} />
+                  <span className={styles.checkboxText}>Afficher 00h - 06h</span>
                 </label>
               </div>
-              <div className="flex items-end">
-                <button
-                  onClick={handleRetry}
-                  disabled={isRetrying}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                           disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all 
-                           duration-200 flex items-center justify-center gap-2"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${isRetrying ? "animate-spin" : ""}`}
-                  />
+              <div className={styles.refreshButtonContainer}>
+                <button onClick={handleRetry} disabled={isRetrying} className={styles.refreshButton}>
+                  <RefreshCw className={`${styles.refreshButtonIcon} ${isRetrying ? styles.refreshButtonIconSpin : ""}`} />
                   Actualiser
                 </button>
               </div>
@@ -958,27 +652,18 @@ function PlanningPage() {
           </div>
         )}
 
-        {/* Contenu principal */}
         {visibleMembers.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center border border-gray-200 dark:border-gray-700">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Users className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+          <div className={styles.emptyStateContainer}>
+            <div className={styles.emptyStateIconContainer}>
+              <Users className={styles.emptyStateIcon} />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Aucune présence trouvée
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
-              Aucune présence n'a été enregistrée sur cette période ou avec ces
-              filtres.
-              <br />
+            <h3 className={styles.emptyStateTitle}>Aucune présence trouvée</h3>
+            <p className={styles.emptyStateText}>
+              Aucune présence n'a été enregistrée sur cette période ou avec ces filtres.<br />
               Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
             </p>
-            <button
-              onClick={handleRetry}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                       text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
-            >
-              <RefreshCw className="w-4 h-4" />
+            <button onClick={handleRetry} className={styles.emptyStateButton}>
+              <RefreshCw className={styles.refreshButtonIcon} />
               Recharger les données
             </button>
           </div>
