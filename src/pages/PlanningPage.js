@@ -747,6 +747,7 @@ function PlanningPage() {
                     ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                     : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                 }`}
+                title="Afficher les filtres"
               >
                 <Filter className="w-5 h-5" />
               </button>
