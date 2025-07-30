@@ -100,6 +100,8 @@ function MyAttendancesPage() {
   
   // États pour l'interface
   const [viewMode, setViewMode] = useState('calendar');
+  const [timelinePeriod, setTimelinePeriod] = useState('7days'); // '7days', '14days', '30days'
+  const [timelineStartDate, setTimelineStartDate] = useState(new Date());
   const [filters, setFilters] = useState({
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
@@ -404,22 +406,33 @@ function MyAttendancesPage() {
 
   // Données pour la timeline
   const timelineData = useMemo(() => {
-    const last7Days = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
+    const getDaysCount = () => {
+      switch (timelinePeriod) {
+        case '7days': return 7;
+        case '14days': return 14;
+        case '30days': return 30;
+        default: return 7;
+      }
+    };
+
+    const daysCount = getDaysCount();
+    const periodDays = [];
+    
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const date = new Date(timelineStartDate);
       date.setDate(date.getDate() - i);
       const dateKey = formatDate(date, "yyyy-MM-dd");
       const dayPresences = filteredPresences.filter(p => p.date === dateKey);
       
-      last7Days.push({
+      periodDays.push({
         date,
         dateKey,
         presences: dayPresences,
         count: dayPresences.length
       });
     }
-    return last7Days;
-  }, [filteredPresences]);
+    return periodDays;
+  }, [filteredPresences, timelinePeriod, timelineStartDate]);
 
   // Groupement des présences par date pour la vue liste
   const getPresencesByDate = () => {
@@ -653,40 +666,110 @@ function MyAttendancesPage() {
     </div>
   );
 
-  // Composant Timeline
-  const TimelineView = () => (
-    <div className={styles.timelineContainer}>
-      <h3 className={styles.timelineTitle}>Activité des 7 derniers jours</h3>
-      <div className={styles.timelineChart}>
-        {timelineData.map((day, index) => (
-          <div key={index} className={styles.timelineDay}>
-            <div className={styles.timelineDate}>
-              <div className={styles.dateLabel}>{formatDate(day.date, "EEE dd")}</div>
-              <div className={styles.countLabel}>{day.count}</div>
+  // Composant Timeline avec navigation
+  const TimelineView = () => {
+    const navigateTimeline = (direction) => {
+      const daysToMove = timelinePeriod === '7days' ? 7 : timelinePeriod === '14days' ? 14 : 30;
+      const newDate = new Date(timelineStartDate);
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? daysToMove : -daysToMove));
+      setTimelineStartDate(newDate);
+    };
+
+    const canNavigateNext = () => {
+      const today = new Date();
+      return timelineStartDate < today;
+    };
+
+    const getPeriodLabel = () => {
+      const endDate = new Date(timelineStartDate);
+      const startDate = new Date(timelineStartDate);
+      const daysCount = timelinePeriod === '7days' ? 7 : timelinePeriod === '14days' ? 14 : 30;
+      startDate.setDate(startDate.getDate() - (daysCount - 1));
+      
+      return `${formatDate(startDate, "dd/MM")} - ${formatDate(endDate, "dd/MM/yyyy")}`;
+    };
+
+    return (
+      <div className={styles.timelineContainer}>
+        <div className={styles.timelineHeader}>
+          <h3 className={styles.timelineTitle}>
+            Activité des {timelinePeriod === '7days' ? '7' : timelinePeriod === '14days' ? '14' : '30'} derniers jours
+          </h3>
+          
+          <div className={styles.timelineNavigation}>
+            <button
+              onClick={() => navigateTimeline('prev')}
+              className={styles.timelineNavButton}
+            >
+              ← Précédent
+            </button>
+            
+            <div className={styles.timelinePeriodInfo}>
+              {getPeriodLabel()}
             </div>
-            <div className={styles.timelineBarContainer}>
-              <div 
-                className={styles.timelineBar}
-                style={{
-                  height: `${Math.max((day.count / Math.max(...timelineData.map(d => d.count))) * 100, 5)}%`
+            
+            <button
+              onClick={() => navigateTimeline('next')}
+              disabled={!canNavigateNext()}
+              className={styles.timelineNavButton}
+            >
+              Suivant →
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.timelinePeriodControls}>
+          <div className={styles.periodButtons}>
+            {[
+              { id: '7days', label: '7 jours' },
+              { id: '14days', label: '14 jours' },
+              { id: '30days', label: '30 jours' }
+            ].map(period => (
+              <button
+                key={period.id}
+                onClick={() => {
+                  setTimelinePeriod(period.id);
+                  setTimelineStartDate(new Date()); // Reset to today
                 }}
+                className={`${styles.periodButton} ${timelinePeriod === period.id ? styles.activePeriod : ''}`}
               >
-                <div className={styles.barGradient}></div>
+                {period.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div className={styles.timelineChart}>
+          {timelineData.map((day, index) => (
+            <div key={index} className={styles.timelineDay}>
+              <div className={styles.timelineDate}>
+                <div className={styles.dateLabel}>{formatDate(day.date, "EEE dd")}</div>
+                <div className={styles.countLabel}>{day.count}</div>
+              </div>
+              <div className={styles.timelineBarContainer}>
+                <div 
+                  className={styles.timelineBar}
+                  style={{
+                    height: `${Math.max((day.count / Math.max(...timelineData.map(d => d.count))) * 100, 5)}%`
+                  }}
+                >
+                  <div className={styles.barGradient}></div>
+                </div>
+              </div>
+              <div className={styles.timelinePresences}>
+                {day.presences.slice(0, 3).map((presence, i) => (
+                  <div key={i} className={styles.timelinePresenceTime}>
+                    {presence.time}
+                  </div>
+                ))}
+                {day.count > 3 && <div className={styles.moreTimes}>+{day.count - 3}</div>}
               </div>
             </div>
-            <div className={styles.timelinePresences}>
-              {day.presences.slice(0, 3).map((presence, i) => (
-                <div key={i} className={styles.timelinePresenceTime}>
-                  {presence.time}
-                </div>
-              ))}
-              {day.count > 3 && <div className={styles.moreTimes}>+{day.count - 3}</div>}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Composant Vue Liste (votre logique originale)
   const ListView = () => {
