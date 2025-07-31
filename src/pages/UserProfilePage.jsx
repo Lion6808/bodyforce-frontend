@@ -65,15 +65,29 @@ function UserProfilePage() {
     return new Date(dateString).toLocaleDateString('fr-FR');
   };
 
-  const getSubscriptionStatus = () => {
-    if (!memberData?.endDate) return { text: 'Non défini', status: 'unknown' };
+  // Fonction pour déterminer le statut global du membre
+  const getMemberStatus = () => {
+    if (!memberData) return { text: 'Non défini', status: 'unknown' };
     
-    const endDate = new Date(memberData.endDate);
+    const endDate = memberData.endDate ? new Date(memberData.endDate) : null;
     const now = new Date();
+    const isActive = memberData.isActive;
+    
+    // Si le membre est marqué comme inactif, il est inactif
+    if (!isActive) {
+      return { text: 'Inactif', status: 'expired' };
+    }
+    
+    // Si pas de date de fin, on se base uniquement sur isActive
+    if (!endDate) {
+      return isActive ? { text: 'Actif', status: 'active' } : { text: 'Inactif', status: 'expired' };
+    }
+    
     const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
     
+    // Si l'abonnement est expiré ET le membre actif, c'est une incohérence
     if (daysLeft < 0) {
-      return { text: 'Expiré', status: 'expired' };
+      return { text: isActive ? 'Abonnement expiré' : 'Inactif', status: 'expired' };
     } else if (daysLeft <= 30) {
       return { text: `Expire dans ${daysLeft} jour(s)`, status: 'warning' };
     } else {
@@ -136,7 +150,7 @@ function UserProfilePage() {
     );
   }
 
-  const subscriptionStatus = getSubscriptionStatus();
+  const memberStatus = getMemberStatus();
   const age = calculateAge(memberData.birthDate);
 
   return (
@@ -167,10 +181,10 @@ function UserProfilePage() {
             </div>
           </div>
           
-          {/* Statut d'abonnement */}
-          <div className={`${styles.subscriptionStatus} ${styles[subscriptionStatus.status]}`}>
+          {/* Statut d'abonnement unifié */}
+          <div className={`${styles.subscriptionStatus} ${styles[memberStatus.status]}`}>
             <div className={styles.statusIndicator}></div>
-            <span className={styles.statusText}>{subscriptionStatus.text}</span>
+            <span className={styles.statusText}>{memberStatus.text}</span>
           </div>
         </div>
 
@@ -280,11 +294,11 @@ function UserProfilePage() {
                 </div>
 
                 <div className={styles.infoItem}>
-                  <div className={`${styles.statusIndicator} ${memberData.isActive ? styles.active : styles.inactive}`}></div>
+                  <div className={`${styles.statusIndicator} ${memberStatus.status === 'active' ? styles.active : styles.inactive}`}></div>
                   <div className={styles.infoContent}>
                     <span className={styles.infoLabel}>Statut du membre</span>
-                    <span className={`${styles.infoValue} ${memberData.isActive ? styles.activeText : styles.inactiveText}`}>
-                      {memberData.isActive ? 'Actif' : 'Inactif'}
+                    <span className={`${styles.infoValue} ${memberStatus.status === 'active' ? styles.activeText : styles.inactiveText}`}>
+                      {memberStatus.text}
                     </span>
                   </div>
                 </div>
