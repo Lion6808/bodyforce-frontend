@@ -13,6 +13,7 @@ import {
   FaHome,
   FaUser,
   FaUserFriends,
+  FaUserPlus,
   FaChartBar,
   FaCalendarAlt,
   FaBars,
@@ -46,6 +47,7 @@ import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
 import UserProfilePage from "./pages/UserProfilePage";
 import MyAttendancesPage from "./pages/MyAttendancesPage"; // ✅ Import de la nouvelle page
+import InvitationsPage from "./pages/InvitationsPage";
 
 // Import des styles et notifications
 import { ToastContainer } from "react-toastify";
@@ -55,56 +57,63 @@ import "./App.css";
 // Configuration des pages pour la navigation swipe - DYNAMIQUE selon le rôle
 const getSwipePages = (isAdmin) => {
   const basePage = [
-    { 
-      name: "Accueil", 
-      path: "/", 
-      icon: <FaHome className="text-red-500 dark:text-red-400" />, 
-      component: "HomePage" 
+    {
+      name: "Accueil",
+      path: "/",
+      icon: <FaHome className="text-red-500 dark:text-red-400" />,
+      component: "HomePage"
     }
   ];
 
   if (isAdmin) {
     return [
       ...basePage,
-      { 
-        name: "Membres", 
-        path: "/members", 
-        icon: <FaUserFriends className="text-green-500 dark:text-green-400" />, 
-        component: "MembersPage" 
+      {
+        name: "Membres",
+        path: "/members",
+        icon: <FaUserFriends className="text-green-500 dark:text-green-400" />,
+        component: "MembersPage"
       },
-      { 
-        name: "Planning", 
-        path: "/planning", 
-        icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />, 
-        component: "PlanningPage" 
+      {
+        name: "Invitations", // ✅ NOUVELLE PAGE
+        path: "/invitations",
+        icon: <FaUserPlus className="text-orange-500 dark:text-orange-400" />,
+        component: "InvitationsPage"
       },
-      { 
-        name: "Paiements", 
-        path: "/payments", 
-        icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />, 
-        component: "PaymentsPage" 
+      {
+        name: "Planning",
+        path: "/planning",
+        icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />,
+        component: "PlanningPage"
       },
-      { 
-        name: "Statistiques", 
-        path: "/statistics", 
-        icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />, 
-        component: "StatisticsPage" 
+      {
+        name: "Paiements",
+        path: "/payments",
+        icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />,
+        component: "PaymentsPage"
+      },
+      {
+        name: "Statistiques",
+        path: "/statistics",
+        icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
+        component: "StatisticsPage"
       },
     ];
   } else {
+    // Partie utilisateur reste identique
     return [
       ...basePage,
-      { 
-        name: "Mes Présences", // ✅ Nouvelle page pour les utilisateurs
-        path: "/my-attendances", 
-        icon: <FaClipboardList className="text-green-500 dark:text-green-400" />, 
-        component: "MyAttendancesPage" 
+      {
+        name: "Mes Présences",
+        path: "/my-attendances",
+        icon: <FaClipboardList className="text-green-500 dark:text-green-400" />,
+        component: "MyAttendancesPage"
       },
-      { 
-        name: "Mon Profil", 
-        path: "/profile", 
-        icon: <FaUser className="text-blue-500 dark:text-blue-400" />, 
-        component: "UserProfilePage" 
+      {
+        name: "Mon Profil",
+        path: "/profile",
+        icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
+        component: "UserProfilePage"
       }
     ];
   }
@@ -142,7 +151,7 @@ function useDarkMode() {
   // Fonction pour appliquer le thème au DOM
   const applyTheme = (isDark) => {
     const htmlElement = document.documentElement;
-    
+
     if (isDark) {
       htmlElement.classList.add('dark');
     } else {
@@ -298,7 +307,7 @@ function useSwipeNavigation(isAdmin) {
     const currentTouch = e.targetTouches[0].clientX;
     const distance = currentTouch - touchStart;
     const direction = distance > 0 ? 'right' : 'left';
-    
+
     setSwipeDirection(direction);
 
     // Appliquer une résistance progressive
@@ -336,7 +345,7 @@ function useSwipeNavigation(isAdmin) {
       setTimeout(() => {
         setIsSwipping(false);
         setSwipeDirection(null);
-      }, SWIPE_ANIMATION_DELAY); 
+      }, SWIPE_ANIMATION_DELAY);
     }
   };
 
@@ -666,42 +675,47 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
 
   // Menu conditionnel selon le rôle
   const menu = [
-    { 
-      name: "Accueil", 
-      path: "/", 
-      icon: <FaHome className="text-red-500 dark:text-red-400" /> 
+    {
+      name: "Accueil",
+      path: "/",
+      icon: <FaHome className="text-red-500 dark:text-red-400" />
     },
     ...(isAdmin ? [
-      { 
-        name: "Membres", 
-        path: "/members", 
-        icon: <FaUserFriends className="text-green-500 dark:text-green-400" /> 
+      {
+        name: "Membres",
+        path: "/members",
+        icon: <FaUserFriends className="text-green-500 dark:text-green-400" />
       },
-      { 
-        name: "Planning", 
-        path: "/planning", 
-        icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" /> 
+      {
+        name: "Invitations",
+        path: "/invitations",
+        icon: <FaUserPlus className="text-orange-500 dark:text-orange-400" />
       },
-      { 
-        name: "Paiements", 
-        path: "/payments", 
-        icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" /> 
+      {
+        name: "Planning",
+        path: "/planning",
+        icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
       },
-      { 
-        name: "Statistiques", 
-        path: "/statistics", 
-        icon: <FaChartBar className="text-blue-500 dark:text-blue-400" /> 
+      {
+        name: "Paiements",
+        path: "/payments",
+        icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />
+      },
+      {
+        name: "Statistiques",
+        path: "/statistics",
+        icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />
       },
     ] : [
-      { 
+      {
         name: "Mes Présences", // ✅ Nouveau menu pour les utilisateurs
-        path: "/my-attendances", 
-        icon: <FaClipboardList className="text-green-500 dark:text-green-400" /> 
+        path: "/my-attendances",
+        icon: <FaClipboardList className="text-green-500 dark:text-green-400" />
       },
-      { 
-        name: "Mon Profil", 
-        path: "/profile", 
-        icon: <FaUser className="text-blue-500 dark:text-blue-400" /> 
+      {
+        name: "Mon Profil",
+        path: "/profile",
+        icon: <FaUser className="text-blue-500 dark:text-blue-400" />
       },
     ])
   ];
@@ -758,9 +772,9 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
       {/* Menu principal */}
       <ul className="w-full space-y-2 px-4 flex-1">
         {menu.map((item, index) => (
-          <li 
-            key={item.path} 
-            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? 'active' : ''}`} 
+          <li
+            key={item.path}
+            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? 'active' : ''}`}
             style={{ animationDelay: `${index * 0.1}s` }}
           >
             <Link to={item.path} className="menu-link">
@@ -779,8 +793,8 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
 
         {/* Menu admin utilisateurs */}
         {isAdmin && (
-          <li 
-            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? 'active' : ''}`} 
+          <li
+            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? 'active' : ''}`}
             style={{ animationDelay: `${menu.length * 0.1}s` }}
           >
             <Link to="/admin/users" className="menu-link">
@@ -865,13 +879,13 @@ function AnimatedMobileMenu({
       setShouldRender(true);
       setIsClosing(false);
       setIsOpening(true);
-      
+
       const openTimer = setTimeout(() => {
         setIsOpening(false);
       }, 10);
-      
+
       const animateTimer = setTimeout(() => setAnimate(true), ANIMATION_DELAY);
-      
+
       return () => {
         clearTimeout(openTimer);
         clearTimeout(animateTimer);
@@ -879,13 +893,13 @@ function AnimatedMobileMenu({
     } else if (shouldRender) {
       setIsClosing(true);
       setAnimate(false);
-      
+
       const timer = setTimeout(() => {
         setShouldRender(false);
         setIsClosing(false);
         setIsOpening(false);
       }, CLOSING_DELAY);
-      
+
       return () => clearTimeout(timer);
     }
   }, [isOpen, shouldRender]);
@@ -999,6 +1013,15 @@ function AnimatedMobileMenu({
               </Link>
 
               <Link
+                to="/invitations"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/invitations" ? "bg-white/20" : ""}`}
+              >
+                <FaUserPlus className="text-xl text-orange-300" />
+                <span className="font-medium">Invitations</span>
+              </Link>
+
+              <Link
                 to="/planning"
                 onClick={handleItemClick}
                 className={`menu-item ${animate ? "animate" : ""} flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/planning" ? "bg-white/20" : ""}`}
@@ -1094,7 +1117,7 @@ function AppRoutes() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
-  
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -1187,7 +1210,7 @@ function AppRoutes() {
             BODY FORCE
           </h1>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={toggleDarkMode}
@@ -1197,7 +1220,7 @@ function AppRoutes() {
           >
             {getDarkModeIcon()}
           </button>
-          
+
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -1281,29 +1304,30 @@ function AppRoutes() {
           {/* Routes conditionnelles selon le rôle */}
           <Routes>
             <Route path="/" element={<HomePage />} />
-            
+
             {/* Routes réservées aux admins */}
             {isAdmin && (
               <>
-                <Route 
-                  path="/members" 
-                  element={<MembersPage onEdit={handleEditMember} />} 
+                <Route
+                  path="/members"
+                  element={<MembersPage onEdit={handleEditMember} />}
                 />
+                 <Route path="/planning" element={<PlanningPage />} />
                 <Route path="/planning" element={<PlanningPage />} />
                 <Route path="/payments" element={<PaymentsPage />} />
                 <Route path="/statistics" element={<StatisticsPage />} />
                 <Route path="/admin/users" element={<UserManagementPage />} />
               </>
             )}
-            
+
             {/* Routes pour les utilisateurs non-admin */}
             {!isAdmin && (
               <Route path="/my-attendances" element={<MyAttendancesPage />} />
             )}
-            
+
             {/* Route profil accessible à tous */}
             <Route path="/profile" element={<UserProfilePage />} />
-            
+
             {/* Redirection par défaut */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
@@ -1358,14 +1382,14 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route 
-          path="/login" 
-          element={user ? <Navigate to="/" /> : <LoginPage />} 
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/" /> : <LoginPage />}
         />
         <Route path="/*" element={<AppRoutes />} />
       </Routes>
-      <ToastContainer 
-        position="top-right" 
+      <ToastContainer
+        position="top-right"
         autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
