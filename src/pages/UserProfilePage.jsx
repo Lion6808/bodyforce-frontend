@@ -24,38 +24,53 @@ import {
 import styles from "./UserProfilePage.module.css";
 
 function UserProfilePage() {
-  const { user, role } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const [memberData, setMemberData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (user) {
-      fetchMemberData();
+    // Attendre que l'authentification soit terminée
+    if (authLoading) {
+      console.log('⏳ En attente de l\'authentification...');
+      return;
     }
-  }, [user]);
+
+    if (!user) {
+      console.log('❌ Pas d\'utilisateur connecté');
+      setLoading(false);
+      return;
+    }
+
+    console.log('🚀 Lancement fetchMemberData - User:', user.email);
+    fetchMemberData();
+  }, [user, authLoading]);
 
   const fetchMemberData = async () => {
     try {
       setLoading(true);
       setError(null);
       
+      console.log('🔄 Récupération profil pour user:', user?.id);
+      
       // Récupérer les données complètes du membre lié à cet utilisateur
       const { data: memberData, error: memberError } = await supabase
         .from('members')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle(); // ✅ Utilise maybeSingle() au lieu de single()
 
       if (memberError) {
-        if (memberError.code === 'PGRST116') {
-          // Pas de résultat trouvé
-          setMemberData(null);
-        } else {
-          throw memberError;
-        }
-      } else {
+        console.error('❌ Erreur récupération membre:', memberError);
+        throw memberError;
+      }
+
+      if (memberData) {
+        console.log('✅ Données membre trouvées:', memberData.firstName, memberData.name);
         setMemberData(memberData);
+      } else {
+        console.log('⚠️ Aucun profil membre trouvé pour cet utilisateur');
+        setMemberData(null);
       }
       
     } catch (err) {
@@ -126,11 +141,30 @@ function UserProfilePage() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className={styles.loadingContainer}>
         <div className={styles.spinner}></div>
-        <span className={styles.loadingText}>Chargement de votre profil...</span>
+        <span className={styles.loadingText}>
+          {authLoading ? 'Authentification...' : 'Chargement de votre profil...'}
+        </span>
+      </div>
+    );
+  }
+
+  // Pas d'utilisateur connecté
+  if (!user) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.warningCard}>
+          <div className={styles.warningHeader}>
+            <FaExclamationTriangle className={styles.warningIcon} />
+            <h2 className={styles.warningTitle}>Non connecté</h2>
+          </div>
+          <p className={styles.warningMessage}>
+            Vous devez être connecté pour accéder à votre profil.
+          </p>
+        </div>
       </div>
     );
   }
