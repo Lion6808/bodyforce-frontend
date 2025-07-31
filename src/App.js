@@ -1312,7 +1312,7 @@ function AppRoutes() {
                   path="/members"
                   element={<MembersPage onEdit={handleEditMember} />}
                 />
-                 <Route path="/planning" element={<PlanningPage />} />
+                <Route path="/invitations" element={<InvitationsPage  />} />
                 <Route path="/planning" element={<PlanningPage />} />
                 <Route path="/payments" element={<PaymentsPage />} />
                 <Route path="/statistics" element={<StatisticsPage />} />
