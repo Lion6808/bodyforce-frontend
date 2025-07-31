@@ -58,7 +58,7 @@ function UserProfilePage() {
         .from("members")
         .select("*")
         .eq("user_id", user.id)
-        .maybeSingle(); // ✅ Utilise maybeSingle() au lieu de single()
+        .maybeSingle();
 
       if (memberError) {
         console.error("❌ Erreur récupération membre:", memberError);
@@ -71,6 +71,11 @@ function UserProfilePage() {
           memberData.firstName,
           memberData.name
         );
+        console.log("🔍 Genre du membre:", {
+          raw: memberData.gender,
+          type: typeof memberData.gender,
+          length: memberData.gender?.length,
+        });
         setMemberData(memberData);
       } else {
         console.log("⚠️ Aucun profil membre trouvé pour cet utilisateur");
@@ -94,37 +99,54 @@ function UserProfilePage() {
     }
   };
 
-  // Fonction pour déterminer le statut global du membre
+  // ✅ CORRECTION - Fonction pour déterminer le statut basé UNIQUEMENT sur les dates
   const getMemberStatus = () => {
     if (!memberData) return { text: "Non défini", status: "unknown" };
 
+    // ✅ Se baser UNIQUEMENT sur les dates de début et fin
+    const startDate = memberData.startDate
+      ? new Date(memberData.startDate)
+      : null;
     const endDate = memberData.endDate ? new Date(memberData.endDate) : null;
     const now = new Date();
-    const isActive = memberData.isActive;
 
-    // Si le membre est marqué comme inactif, il est inactif
-    if (!isActive) {
-      return { text: "Inactif", status: "expired" };
+    // Si pas de date de début, statut inconnu
+    if (!startDate || isNaN(startDate.getTime())) {
+      return { text: "Dates non définies", status: "unknown" };
     }
 
-    // Si pas de date de fin, on se base uniquement sur isActive
+    // Si l'abonnement n'a pas encore commencé
+    if (startDate > now) {
+      const daysUntilStart = Math.ceil(
+        (startDate - now) / (1000 * 60 * 60 * 24)
+      );
+      return {
+        text: `Commence dans ${daysUntilStart} jour(s)`,
+        status: "warning",
+      };
+    }
+
+    // Si pas de date de fin, considéré comme actif (abonnement illimité)
     if (!endDate || isNaN(endDate.getTime())) {
-      return isActive
-        ? { text: "Actif", status: "active" }
-        : { text: "Inactif", status: "expired" };
+      return { text: "Actif (illimité)", status: "active" };
     }
 
     const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
 
-    // Si l'abonnement est expiré ET le membre actif, c'est une incohérence
+    // Si l'abonnement est expiré
     if (daysLeft < 0) {
+      const daysExpired = Math.abs(daysLeft);
       return {
-        text: isActive ? "Abonnement expiré" : "Inactif",
+        text: `Expiré depuis ${daysExpired} jour(s)`,
         status: "expired",
       };
-    } else if (daysLeft <= 30) {
+    }
+    // Si l'abonnement expire bientôt (dans les 30 jours)
+    else if (daysLeft <= 30) {
       return { text: `Expire dans ${daysLeft} jour(s)`, status: "warning" };
-    } else {
+    }
+    // Abonnement actif
+    else {
       return { text: "Actif", status: "active" };
     }
   };
@@ -150,6 +172,30 @@ function UserProfilePage() {
       console.warn("Erreur calcul âge:", error);
       return null;
     }
+  };
+
+  // ✅ CORRECTION - Fonction pour formater le genre
+  const formatGender = (gender) => {
+    if (!gender) return "Non renseigné";
+
+    const genderLower = gender.toString().toLowerCase().trim();
+
+    // Masculin
+    if (["m", "homme", "h", "masculin", "male", "man"].includes(genderLower)) {
+      return "Masculin";
+    }
+
+    // Féminin
+    if (
+      ["f", "femme", "féminin", "feminine", "female", "woman"].includes(
+        genderLower
+      )
+    ) {
+      return "Féminin";
+    }
+
+    // Si format non reconnu, afficher tel quel avec première lettre en majuscule
+    return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
   };
 
   const InfoTile = ({
@@ -404,16 +450,11 @@ function UserProfilePage() {
                 iconColor="text-pink-600 dark:text-pink-400"
                 bgColor="bg-pink-50 dark:bg-pink-900/20"
               />
+              {/* ✅ CORRECTION - Affichage du genre corrigé */}
               <InfoTile
                 icon={FaVenusMars}
                 label="Genre"
-                value={
-                  memberData.gender === "M"
-                    ? "Masculin"
-                    : memberData.gender === "F"
-                    ? "Féminin"
-                    : null
-                }
+                value={formatGender(memberData.gender)}
                 iconColor="text-indigo-600 dark:text-indigo-400"
                 bgColor="bg-indigo-50 dark:bg-indigo-900/20"
               />
