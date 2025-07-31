@@ -29,7 +29,7 @@ export const inviteMember = async (memberId, email = null) => {
     }
 
     // 4. Générer un token unique
-    const invitationToken = crypto.randomUUID();
+    const invitationToken = 'inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
     // 5. Mettre à jour le membre avec les données d'invitation
     const { data: updatedMember, error: updateError } = await supabase
