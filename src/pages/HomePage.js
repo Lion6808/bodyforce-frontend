@@ -235,15 +235,15 @@ function HomePage() {
 
   const paymentStats = getUserPaymentStats();
 
-  const cardStyle = "p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl dark:hover:shadow-2xl transition-all duration-500 flex items-center gap-4 border border-gray-100 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-600 hover:scale-105";
+  const cardStyle = "p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-lg hover:shadow-xl dark:hover:shadow-2xl transition-all duration-500 flex items-center gap-4 border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-600 hover:scale-105";
 
   // Loading state - tenir compte du loading auth aussi
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 dark:border-purple-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-300">
             {authLoading ? 'Authentification...' : 'Chargement des statistiques...'}
           </p>
         </div>
@@ -254,9 +254,9 @@ function HomePage() {
   // Pas d'utilisateur connecté
   if (!user) {
     return (
-      <div className="text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
-        <div className="text-yellow-600 dark:text-yellow-400 mb-4">⚠️ Non connecté</div>
-        <p className="text-gray-700 dark:text-gray-300">Vous devez être connecté pour accéder à cette page.</p>
+      <div className="text-center p-8 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+        <div className="text-amber-600 dark:text-amber-400 mb-4">⚠️ Non connecté</div>
+        <p className="text-slate-700 dark:text-slate-300">Vous devez être connecté pour accéder à cette page.</p>
       </div>
     );
   }
@@ -265,10 +265,10 @@ function HomePage() {
     return (
       <div className="text-center p-8 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
         <div className="text-red-600 dark:text-red-400 mb-4">⚠️ Erreur</div>
-        <p className="text-gray-700 dark:text-gray-300 mb-4">{error}</p>
+        <p className="text-slate-700 dark:text-slate-300 mb-4">{error}</p>
         <button
           onClick={fetchData}
-          className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2"
+          className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2"
         >
           <FaSync />
           Réessayer
@@ -278,20 +278,20 @@ function HomePage() {
   }
 
   return (
-    <div className="space-y-8 p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-purple-900 min-h-screen">
+    <div className="space-y-8 p-6 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 min-h-screen">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             {isAdmin ? 'Tableau de bord - Club BodyForce' : 'Mon espace membre'}
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
+          <p className="text-slate-600 dark:text-slate-300 mt-2">
             {isAdmin ? 'Vue d\'ensemble des statistiques du club' : `Bienvenue ${userMemberData?.firstName || 'Membre'}`}
           </p>
         </div>
         <button
           onClick={fetchData}
           disabled={loading}
-          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-xl transition-all duration-300 inline-flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl"
+          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-6 py-3 rounded-xl transition-all duration-300 inline-flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl"
         >
           <FaSync className={loading ? 'animate-spin' : ''} />
           Actualiser
@@ -306,7 +306,7 @@ function HomePage() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">Total membres</h2>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+            <p className="text-3xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
           </div>
         </div>
 
@@ -315,12 +315,12 @@ function HomePage() {
           <>
             {/* Inscriptions actives */}
             <div className={cardStyle}>
-              <div className="p-4 bg-gradient-to-br from-green-500 to-green-600 rounded-xl text-white">
+              <div className="p-4 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl text-white">
                 <FaUserCheck className="text-3xl" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-green-600 dark:text-green-400">Abonnements actifs</h2>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.actifs}</p>
+                <h2 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">Abonnements actifs</h2>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white">{stats.actifs}</p>
               </div>
             </div>
 
@@ -331,11 +331,11 @@ function HomePage() {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">Abonnements échus</h2>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.expirés}</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white">{stats.expirés}</p>
                 {stats.membresExpirés.length > 0 && (
                   <div className="mt-2 max-h-24 overflow-y-auto">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">Membres concernés :</p>
-                    <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium mb-1">Membres concernés :</p>
+                    <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1">
                       {stats.membresExpirés.slice(0, 3).map((m) => (
                         <li key={m.id} className="truncate">
                           {m.firstName} {m.name}
@@ -347,7 +347,7 @@ function HomePage() {
                         </li>
                       ))}
                       {stats.membresExpirés.length > 3 && (
-                        <li className="italic text-gray-500 dark:text-gray-400 text-xs">
+                        <li className="italic text-slate-500 dark:text-slate-400 text-xs">
                           et {stats.membresExpirés.length - 3} autre(s)...
                         </li>
                       )}
@@ -359,39 +359,39 @@ function HomePage() {
 
             {/* Paiements en attente - Admin seulement */}
             <div className={`${cardStyle} sm:col-span-2`}>
-              <div className="p-4 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl text-white">
+              <div className="p-4 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl text-white">
                 <FaMoneyCheckAlt className="text-3xl" />
               </div>
               <div className="w-full">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-yellow-600 dark:text-yellow-400">Paiements en attente</h2>
+                  <h2 className="text-lg font-semibold text-amber-600 dark:text-amber-400">Paiements en attente</h2>
                   <button
                     onClick={() => setShowPayments(!showPayments)}
-                    className="text-sm text-purple-500 dark:text-purple-400 underline hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
+                    className="text-sm text-blue-500 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                   >
                     {showPayments ? "Masquer" : "Voir détails"}
                   </button>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{pendingPayments.length}</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white">{pendingPayments.length}</p>
 
                 {showPayments && pendingPayments.length > 0 && (
                   <div className="mt-3">
-                    <div className="max-h-40 overflow-y-auto bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                    <div className="max-h-40 overflow-y-auto bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
                       <ul className="space-y-2 text-sm">
                         {pendingPayments.map((p) => {
                           const isOverdue = p.encaissement_prevu && 
                                            new Date(p.encaissement_prevu) <= new Date();
                           
                           return (
-                            <li key={p.id} className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-600 last:border-b-0">
+                            <li key={p.id} className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-600 last:border-b-0">
                               <div>
-                                <span className="font-medium text-gray-900 dark:text-white">
+                                <span className="font-medium text-slate-900 dark:text-white">
                                   {p.member?.firstName} {p.member?.name}
                                 </span>
-                                <span className="ml-2 text-yellow-700 dark:text-yellow-400 font-semibold">
+                                <span className="ml-2 text-amber-700 dark:text-amber-400 font-semibold">
                                   {(p.amount || 0).toFixed(2)} €
                                 </span>
-                                <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
+                                <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">
                                   ({p.method})
                                 </span>
                               </div>
@@ -418,10 +418,10 @@ function HomePage() {
                     </div>
                     
                     {/* Résumé des paiements */}
-                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                    <div className="mt-2 text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-600">
                       <div className="flex justify-between">
                         <span>Total à encaisser :</span>
-                        <span className="font-bold text-yellow-700 dark:text-yellow-400">
+                        <span className="font-bold text-amber-700 dark:text-amber-400">
                           {pendingPayments
                             .filter(p => !p.is_paid)
                             .reduce((sum, p) => sum + (p.amount || 0), 0)
@@ -441,7 +441,7 @@ function HomePage() {
                 )}
 
                 {showPayments && pendingPayments.length === 0 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 italic">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 italic">
                     Aucun paiement en attente
                   </p>
                 )}
@@ -453,17 +453,17 @@ function HomePage() {
         {/* Tuile Mes Paiements - visible uniquement pour les utilisateurs non-admin */}
         {!isAdmin && (
           <div className={`${cardStyle} sm:col-span-2 lg:col-span-3`}>
-            <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white">
+            <div className="p-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl text-white">
               <FaCreditCard className="text-3xl" />
             </div>
             <div className="w-full">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-purple-600 dark:text-purple-400">Mes Paiements</h2>
+                <h2 className="text-xl font-semibold text-blue-600 dark:text-blue-400">Mes Paiements</h2>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white">
                     {paymentStats.paid.toFixed(2)} € / {paymentStats.total.toFixed(2)} €
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
                     {userPayments.filter(p => p.is_paid).length} / {userPayments.length} paiements
                   </div>
                 </div>
@@ -472,20 +472,20 @@ function HomePage() {
               {/* Barre de progression */}
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     Progression Globale
                   </span>
-                  <span className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
                     {paymentStats.percentage.toFixed(1)}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-1000 ease-out"
+                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-1000 ease-out"
                     style={{ width: `${paymentStats.percentage}%` }}
                   ></div>
                 </div>
-                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
                   <span>{paymentStats.paid.toFixed(2)} € reçus</span>
                   <span>{paymentStats.pending.toFixed(2)} € attendus</span>
                 </div>
@@ -493,24 +493,24 @@ function HomePage() {
 
               {/* Détails des paiements récents */}
               {userPayments.length > 0 ? (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Derniers paiements</h4>
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
+                  <h4 className="font-medium text-slate-700 dark:text-slate-300 mb-3">Derniers paiements</h4>
                   <div className="space-y-2 max-h-32 overflow-y-auto">
                     {userPayments.slice(0, 4).map((payment) => (
-                      <div key={payment.id} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-600 last:border-b-0">
+                      <div key={payment.id} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-600 last:border-b-0">
                         <div className="flex items-center gap-3">
                           {payment.is_paid ? (
-                            <FaCheckCircle className="text-green-500 text-sm" />
+                            <FaCheckCircle className="text-emerald-500 text-sm" />
                           ) : payment.encaissement_prevu && new Date(payment.encaissement_prevu) <= new Date() ? (
                             <FaExclamationTriangle className="text-red-500 text-sm" />
                           ) : (
-                            <FaClock className="text-yellow-500 text-sm" />
+                            <FaClock className="text-amber-500 text-sm" />
                           )}
                           <div>
-                            <div className="font-medium text-sm text-gray-900 dark:text-white">
+                            <div className="font-medium text-sm text-slate-900 dark:text-white">
                               {(payment.amount || 0).toFixed(2)} € - {payment.method || 'Non défini'}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                               {payment.created_at && format(new Date(payment.created_at), 'dd/MM/yyyy')}
                             </div>
                           </div>
@@ -518,10 +518,10 @@ function HomePage() {
                         <div className="text-right">
                           <span className={`text-xs px-2 py-1 rounded-full ${
                             payment.is_paid 
-                              ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300"
                               : payment.encaissement_prevu && new Date(payment.encaissement_prevu) <= new Date()
                               ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
-                              : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                              : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
                           }`}>
                             {payment.is_paid ? 'Payé' : 'En attente'}
                           </span>
@@ -531,12 +531,12 @@ function HomePage() {
                   </div>
                 </div>
               ) : userMemberData ? (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                   <FaCreditCard className="text-4xl mx-auto mb-2 opacity-50" />
                   <p>Aucun paiement enregistré</p>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                   <FaExclamationTriangle className="text-4xl mx-auto mb-2 opacity-50" />
                   <p>Profil membre non trouvé</p>
                   <p className="text-xs mt-1">Contactez un administrateur</p>
@@ -548,13 +548,13 @@ function HomePage() {
 
         {/* Hommes */}
         <div className={cardStyle}>
-          <div className="p-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl text-white">
+          <div className="p-4 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl text-white">
             <FaMale className="text-3xl" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-blue-500 dark:text-blue-400">Hommes</h2>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.hommes}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <h2 className="text-lg font-semibold text-sky-600 dark:text-sky-400">Hommes</h2>
+            <p className="text-3xl font-bold text-slate-900 dark:text-white">{stats.hommes}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {stats.total > 0 ? Math.round((stats.hommes / stats.total) * 100) : 0}%
             </p>
           </div>
@@ -562,13 +562,13 @@ function HomePage() {
 
         {/* Femmes */}
         <div className={cardStyle}>
-          <div className="p-4 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl text-white">
+          <div className="p-4 bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl text-white">
             <FaFemale className="text-3xl" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-pink-500 dark:text-pink-400">Femmes</h2>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.femmes}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <h2 className="text-lg font-semibold text-rose-600 dark:text-rose-400">Femmes</h2>
+            <p className="text-3xl font-bold text-slate-900 dark:text-white">{stats.femmes}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {stats.total > 0 ? Math.round((stats.femmes / stats.total) * 100) : 0}%
             </p>
           </div>
@@ -576,13 +576,13 @@ function HomePage() {
 
         {/* Étudiants */}
         <div className={cardStyle}>
-          <div className="p-4 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl text-white">
+          <div className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-white">
             <FaGraduationCap className="text-3xl" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-purple-500 dark:text-purple-400">Étudiants</h2>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.etudiants}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <h2 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">Étudiants</h2>
+            <p className="text-3xl font-bold text-slate-900 dark:text-white">{stats.etudiants}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {stats.total > 0 ? Math.round((stats.etudiants / stats.total) * 100) : 0}%
             </p>
           </div>
@@ -590,30 +590,30 @@ function HomePage() {
       </div>
 
       {/* Section informations système */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-lg">
+        <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
           📊 Informations système
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-          <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-            <div className="text-3xl font-bold text-green-600 dark:text-green-400">✓</div>
-            <div className="text-gray-600 dark:text-gray-400 font-medium">Base Supabase</div>
+          <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+            <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">✓</div>
+            <div className="text-slate-600 dark:text-slate-400 font-medium">Base Supabase</div>
           </div>
           <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
             <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</div>
-            <div className="text-gray-600 dark:text-gray-400 font-medium">Membres total</div>
+            <div className="text-slate-600 dark:text-slate-400 font-medium">Membres total</div>
           </div>
-          <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+          <div className="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl">
+            <div className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">
               {Math.round((stats.actifs / Math.max(stats.total, 1)) * 100)}%
             </div>
-            <div className="text-gray-600 dark:text-gray-400 font-medium">Taux d'activité</div>
+            <div className="text-slate-600 dark:text-slate-400 font-medium">Taux d'activité</div>
           </div>
-          <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+          <div className="text-center p-4 bg-sky-50 dark:bg-sky-900/20 rounded-xl">
+            <div className="text-2xl font-bold text-sky-600 dark:text-sky-400">
               {new Date().toLocaleDateString('fr-FR')}
             </div>
-            <div className="text-gray-600 dark:text-gray-400 font-medium">Dernière MAJ</div>
+            <div className="text-slate-600 dark:text-slate-400 font-medium">Dernière MAJ</div>
           </div>
         </div>
       </div>
