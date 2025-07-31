@@ -171,7 +171,7 @@ function HomePage() {
             .from("members")
             .select("*")
             .eq("user_id", user.id)
-            .maybeSingle(); // ✅ Utilise maybeSingle() au lieu de single()
+            .maybeSingle();
 
           if (memberError) {
             console.error("❌ Erreur récupération membre:", memberError);
@@ -191,7 +191,7 @@ function HomePage() {
               .from("payments")
               .select("*")
               .eq("member_id", memberData.id)
-              .order("date_paiement", { ascending: false }); // ✅ Utilise date_paiement comme dans MemberForm
+              .order("date_paiement", { ascending: false });
 
             if (paymentsError) {
               console.error(
@@ -246,7 +246,7 @@ function HomePage() {
 
     console.log("🚀 Lancement fetchData - User:", user.email, "Role:", role);
     fetchData();
-  }, [user, role, authLoading]); // ✅ Ajout de authLoading
+  }, [user, role, authLoading]);
 
   // Calculer les statistiques de paiement pour l'utilisateur
   const getUserPaymentStats = () => {
@@ -265,8 +265,9 @@ function HomePage() {
 
   const paymentStats = getUserPaymentStats();
 
+  // Style de carte responsive corrigé
   const cardStyle =
-    "p-4 sm:p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-lg hover:shadow-xl dark:hover:shadow-2xl transition-all duration-500 flex items-center gap-3 sm:gap-4 border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-600 hover:scale-105";
+    "p-4 sm:p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-lg hover:shadow-xl dark:hover:shadow-2xl transition-all duration-500 flex items-start gap-3 sm:gap-4 border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-600 hover:scale-105";
 
   // Loading state - tenir compte du loading auth aussi
   if (authLoading || loading) {
@@ -316,12 +317,13 @@ function HomePage() {
 
   return (
     <div className="space-y-8 p-6 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 min-h-screen">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+      {/* Header avec bouton actualiser corrigé */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
             {isAdmin ? "Tableau de bord - Club BodyForce" : "Mon espace membre"}
           </h1>
-          <p className="text-slate-600 dark:text-slate-300 mt-2">
+          <p className="text-slate-600 dark:text-slate-300 mt-2 break-words">
             {isAdmin
               ? "Vue d'ensemble des statistiques du club"
               : `Bienvenue ${userMemberData?.firstName || "Membre"}`}
@@ -330,21 +332,21 @@ function HomePage() {
         <button
           onClick={fetchData}
           disabled={loading}
-          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-6 py-3 rounded-xl transition-all duration-300 inline-flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl"
+          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-6 py-3 rounded-xl transition-all duration-300 inline-flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl flex-shrink-0"
         >
           <FaSync className={loading ? "animate-spin" : ""} />
-          Actualiser
+          <span className="hidden sm:inline">Actualiser</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
         {/* Total des membres - visible par tous */}
         <div className={cardStyle}>
           <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl text-white flex-shrink-0">
             <FaUsers className="text-2xl sm:text-3xl" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm sm:text-lg font-semibold text-blue-600 dark:text-blue-400 truncate">
+            <h2 className="text-sm sm:text-lg font-semibold text-blue-600 dark:text-blue-400">
               Total membres
             </h2>
             <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
@@ -362,7 +364,7 @@ function HomePage() {
                 <FaUserCheck className="text-2xl sm:text-3xl" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm sm:text-lg font-semibold text-emerald-600 dark:text-emerald-400 truncate">
+                <h2 className="text-sm sm:text-lg font-semibold text-emerald-600 dark:text-emerald-400">
                   Abonnements actifs
                 </h2>
                 <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
@@ -371,13 +373,13 @@ function HomePage() {
               </div>
             </div>
 
-            {/* Abonnements expirés */}
+            {/* Abonnements expirés avec liste responsive */}
             <div className={cardStyle}>
               <div className="p-3 sm:p-4 bg-gradient-to-br from-red-500 to-red-600 rounded-xl text-white flex-shrink-0">
                 <FaUserTimes className="text-2xl sm:text-3xl" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm sm:text-lg font-semibold text-red-600 dark:text-red-400 truncate">
+                <h2 className="text-sm sm:text-lg font-semibold text-red-600 dark:text-red-400">
                   Abonnements échus
                 </h2>
                 <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
@@ -390,12 +392,12 @@ function HomePage() {
                     </p>
                     <ul className="list-disc list-inside text-xs sm:text-sm text-slate-700 dark:text-slate-300 space-y-1">
                       {stats.membresExpirés.slice(0, 3).map((m) => (
-                        <li key={m.id} className="truncate">
-                          <span className="truncate">
+                        <li key={m.id} className="break-words">
+                          <span className="break-words">
                             {m.firstName} {m.name}
                           </span>
                           {m.endDate && (
-                            <span className="text-xs text-red-500 dark:text-red-400 ml-1 whitespace-nowrap">
+                            <span className="text-xs text-red-500 dark:text-red-400 ml-1 block sm:inline">
                               (exp.{" "}
                               {typeof m.endDate === "string"
                                 ? m.endDate
@@ -416,29 +418,31 @@ function HomePage() {
               </div>
             </div>
 
-            {/* Paiements en attente - Admin seulement */}
-            <div className={`${cardStyle} sm:col-span-2`}>
-              <div className="p-4 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl text-white">
-                <FaMoneyCheckAlt className="text-3xl" />
+            {/* Paiements en attente - Admin seulement - responsive corrigé */}
+            <div
+              className={`${cardStyle} col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-2`}
+            >
+              <div className="p-3 sm:p-4 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl text-white flex-shrink-0">
+                <FaMoneyCheckAlt className="text-2xl sm:text-3xl" />
               </div>
-              <div className="w-full">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-amber-600 dark:text-amber-400">
+              <div className="w-full min-w-0">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                  <h2 className="text-sm sm:text-lg font-semibold text-amber-600 dark:text-amber-400">
                     Paiements en attente
                   </h2>
                   <button
                     onClick={() => setShowPayments(!showPayments)}
-                    className="text-sm text-blue-500 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                    className="text-xs sm:text-sm text-blue-500 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 transition-colors flex-shrink-0 self-start"
                   >
                     {showPayments ? "Masquer" : "Voir détails"}
                   </button>
                 </div>
-                <p className="text-3xl font-bold text-slate-900 dark:text-white">
+                <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-3">
                   {pendingPayments.length}
                 </p>
 
                 {showPayments && pendingPayments.length > 0 && (
-                  <div className="mt-3">
+                  <div className="space-y-3">
                     <div className="max-h-40 overflow-y-auto bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
                       <ul className="space-y-2 text-sm">
                         {pendingPayments.map((p) => {
@@ -449,28 +453,30 @@ function HomePage() {
                           return (
                             <li
                               key={p.id}
-                              className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
+                              className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 py-2 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
                             >
-                              <div>
-                                <span className="font-medium text-slate-900 dark:text-white">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-slate-900 dark:text-white break-words">
                                   {p.member?.firstName} {p.member?.name}
-                                </span>
-                                <span className="ml-2 text-amber-700 dark:text-amber-400 font-semibold">
-                                  {(p.amount || 0).toFixed(2)} €
-                                </span>
-                                <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">
-                                  ({p.method})
-                                </span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                                  <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                                    {(p.amount || 0).toFixed(2)} €
+                                  </span>
+                                  <span className="text-slate-500 dark:text-slate-400">
+                                    ({p.method})
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                                 {!p.is_paid && (
-                                  <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 text-xs px-2 py-1 rounded-full">
+                                  <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 text-xs px-2 py-1 rounded-full whitespace-nowrap">
                                     Non encaissé
                                   </span>
                                 )}
                                 {p.encaissement_prevu && (
                                   <span
-                                    className={`text-xs px-2 py-1 rounded-full ${
+                                    className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
                                       isOverdue
                                         ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
                                         : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
@@ -489,9 +495,9 @@ function HomePage() {
                       </ul>
                     </div>
 
-                    {/* Résumé des paiements */}
-                    <div className="mt-2 text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-600">
-                      <div className="flex justify-between">
+                    {/* Résumé des paiements responsive */}
+                    <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-600">
+                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                         <span>Total à encaisser :</span>
                         <span className="font-bold text-amber-700 dark:text-amber-400">
                           {pendingPayments
@@ -501,7 +507,7 @@ function HomePage() {
                           €
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                         <span>Paiements en retard :</span>
                         <span className="font-bold text-red-600 dark:text-red-400">
                           {
@@ -528,21 +534,21 @@ function HomePage() {
           </>
         )}
 
-        {/* Tuile Mes Paiements - visible uniquement pour les utilisateurs non-admin */}
+        {/* Tuile Mes Paiements - visible uniquement pour les utilisateurs non-admin - responsive corrigé */}
         {!isAdmin && (
           <div
             className={`${cardStyle} col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4`}
           >
-            <div className="p-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl text-white flex-shrink-0">
-              <FaCreditCard className="text-3xl" />
+            <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl text-white flex-shrink-0">
+              <FaCreditCard className="text-2xl sm:text-3xl" />
             </div>
             <div className="w-full min-w-0">
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 gap-2">
-                <h2 className="text-xl font-semibold text-blue-600 dark:text-blue-400">
+                <h2 className="text-lg sm:text-xl font-semibold text-blue-600 dark:text-blue-400">
                   Mes Paiements
                 </h2>
                 <div className="text-left sm:text-right">
-                  <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
+                  <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white break-words">
                     {paymentStats.paid.toFixed(2)} € /{" "}
                     {paymentStats.total.toFixed(2)} €
                   </div>
@@ -570,16 +576,16 @@ function HomePage() {
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  <span className="truncate">
+                  <span className="break-words">
                     {paymentStats.paid.toFixed(2)} € reçus
                   </span>
-                  <span className="truncate">
+                  <span className="break-words">
                     {paymentStats.pending.toFixed(2)} € attendus
                   </span>
                 </div>
               </div>
 
-              {/* Détails des paiements récents */}
+              {/* Détails des paiements récents responsive */}
               {userPayments.length > 0 ? (
                 <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
                   <h4 className="font-medium text-slate-700 dark:text-slate-300 mb-3">
@@ -589,7 +595,7 @@ function HomePage() {
                     {userPayments.slice(0, 4).map((payment) => (
                       <div
                         key={payment.id}
-                        className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className="flex-shrink-0">
@@ -604,7 +610,7 @@ function HomePage() {
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium text-sm text-slate-900 dark:text-white truncate">
+                            <div className="font-medium text-sm text-slate-900 dark:text-white break-words">
                               {(payment.amount || 0).toFixed(2)} € -{" "}
                               {payment.method || "Non défini"}
                             </div>
@@ -623,7 +629,7 @@ function HomePage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex-shrink-0 ml-2">
+                        <div className="flex-shrink-0 self-start sm:self-center">
                           <span
                             className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
                               payment.is_paid
@@ -642,9 +648,9 @@ function HomePage() {
                     ))}
                   </div>
 
-                  {/* Résumé total */}
+                  {/* Résumé total responsive */}
                   <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-600">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
                       <span className="font-medium text-slate-700 dark:text-slate-300">
                         Total des paiements :
                       </span>
@@ -652,7 +658,7 @@ function HomePage() {
                         {paymentStats.total.toFixed(2)} €
                       </span>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-sm">
                       <span className="text-slate-500 dark:text-slate-400">
                         Reste à payer :
                       </span>
@@ -684,7 +690,7 @@ function HomePage() {
             <FaMale className="text-2xl sm:text-3xl" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm sm:text-lg font-semibold text-sky-600 dark:text-sky-400 truncate">
+            <h2 className="text-sm sm:text-lg font-semibold text-sky-600 dark:text-sky-400">
               Hommes
             </h2>
             <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
@@ -705,7 +711,7 @@ function HomePage() {
             <FaFemale className="text-2xl sm:text-3xl" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm sm:text-lg font-semibold text-rose-600 dark:text-rose-400 truncate">
+            <h2 className="text-sm sm:text-lg font-semibold text-rose-600 dark:text-rose-400">
               Femmes
             </h2>
             <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
@@ -726,7 +732,7 @@ function HomePage() {
             <FaGraduationCap className="text-2xl sm:text-3xl" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm sm:text-lg font-semibold text-indigo-600 dark:text-indigo-400 truncate">
+            <h2 className="text-sm sm:text-lg font-semibold text-indigo-600 dark:text-indigo-400">
               Étudiants
             </h2>
             <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
@@ -742,41 +748,41 @@ function HomePage() {
         </div>
       </div>
 
-      {/* Section informations système */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-lg">
-        <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+      {/* Section informations système responsive corrigée */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 shadow-lg">
+        <h3 className="text-lg sm:text-xl font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
           📊 Informations système
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-          <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-            <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-sm">
+          <div className="text-center p-3 sm:p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+            <div className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
               ✓
             </div>
-            <div className="text-slate-600 dark:text-slate-400 font-medium">
+            <div className="text-slate-600 dark:text-slate-400 font-medium text-xs sm:text-sm mt-1">
               Base Supabase
             </div>
           </div>
-          <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+          <div className="text-center p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+            <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
               {stats.total}
             </div>
-            <div className="text-slate-600 dark:text-slate-400 font-medium">
+            <div className="text-slate-600 dark:text-slate-400 font-medium text-xs sm:text-sm mt-1">
               Membres total
             </div>
           </div>
-          <div className="text-center p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl">
-            <div className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">
+          <div className="text-center p-3 sm:p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl">
+            <div className="text-2xl sm:text-3xl font-bold text-cyan-600 dark:text-cyan-400">
               {Math.round((stats.actifs / Math.max(stats.total, 1)) * 100)}%
             </div>
-            <div className="text-slate-600 dark:text-slate-400 font-medium">
+            <div className="text-slate-600 dark:text-slate-400 font-medium text-xs sm:text-sm mt-1">
               Taux d'activité
             </div>
           </div>
-          <div className="text-center p-4 bg-sky-50 dark:bg-sky-900/20 rounded-xl">
-            <div className="text-2xl font-bold text-sky-600 dark:text-sky-400">
+          <div className="text-center p-3 sm:p-4 bg-sky-50 dark:bg-sky-900/20 rounded-xl">
+            <div className="text-base sm:text-2xl font-bold text-sky-600 dark:text-sky-400 break-words">
               {new Date().toLocaleDateString("fr-FR")}
             </div>
-            <div className="text-slate-600 dark:text-slate-400 font-medium">
+            <div className="text-slate-600 dark:text-slate-400 font-medium text-xs sm:text-sm mt-1">
               Dernière MAJ
             </div>
           </div>
