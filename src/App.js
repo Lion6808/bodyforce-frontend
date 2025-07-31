@@ -1312,7 +1312,7 @@ function AppRoutes() {
                   path="/members"
                   element={<MembersPage onEdit={handleEditMember} />}
                 />
-                <Route path="/invitations" element={<InvitationsPage  />} />
+                <Route path="/invitations" element={<InvitationsPage />} />
                 <Route path="/planning" element={<PlanningPage />} />
                 <Route path="/payments" element={<PaymentsPage />} />
                 <Route path="/statistics" element={<StatisticsPage />} />
@@ -1385,6 +1385,10 @@ function App() {
         <Route
           path="/login"
           element={user ? <Navigate to="/" /> : <LoginPage />}
+        />
+        <Route
+          path="/invitation"
+          element={<InvitationSignupPage />}
         />
         <Route path="/*" element={<AppRoutes />} />
       </Routes>
