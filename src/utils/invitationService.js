@@ -47,7 +47,7 @@ export const inviteMember = async (memberId, email = null) => {
     if (updateError) throw updateError;
 
     // 6. Envoyer l'invitation via votre Edge Function
-    const { data, error: emailError } = await supabase.functions.invoke('invitation-sender?action=send-invitation', {
+    const { data, error: emailError } = await supabase.functions.invoke('invitation-sender', {
       body: {
         email: memberEmail,
         memberName: `${member.firstName} ${member.name}`,
@@ -98,7 +98,7 @@ export const resendInvitation = async (memberId) => {
       throw new Error('Veuillez attendre 5 minutes avant de renvoyer une invitation');
     }
 
-    const { error: emailError } = await supabase.functions.invoke('invitation-sender?action=send-invitation', {
+    const { error: emailError } = await supabase.functions.invoke('invitation-sender', {
       body: {
         email: member.email,
         memberName: `${member.firstName} ${member.name}`,
