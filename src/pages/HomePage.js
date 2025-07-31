@@ -19,7 +19,7 @@ import { supabaseServices, supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 
 function HomePage() {
-  const { user, role } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({
     total: 0,
     actifs: 0,
@@ -44,11 +44,18 @@ function HomePage() {
       setLoading(true);
       setError(null);
 
-      // Récupérer les données depuis Supabase
-      const { stats: calculatedStats } = await supabaseServices.getStatistics();
-      
-      // Récupérer les membres pour calculs supplémentaires
-      const members = await supabaseServices.getMembers();
+      console.log('🔄 Début fetchData - User:', user?.email, 'Role:', role, 'IsAdmin:', isAdmin);
+
+      // Récupérer les statistiques générales pour tous
+      let members = [];
+      try {
+        const { stats: calculatedStats } = await supabaseServices.getStatistics();
+        members = await supabaseServices.getMembers();
+        console.log('✅ Membres récupérés:', members.length);
+      } catch (statsError) {
+        console.error('❌ Erreur récupération stats:', statsError);
+        // Continuer même si les stats échouent
+      }
       
       const today = new Date();
       let actifs = 0;
@@ -122,61 +129,104 @@ function HomePage() {
 
       // Récupérer les paiements en attente (admin seulement)
       if (isAdmin) {
-        const payments = await supabaseServices.getPayments();
-        const today_start = new Date();
-        today_start.setHours(0, 0, 0, 0);
-        
-        const filtered = payments.filter(p => {
-          // Paiements non encaissés OU avec encaissement futur
-          return !p.is_paid || (p.encaissement_prevu && new Date(p.encaissement_prevu) >= today_start);
-        });
+        console.log('👑 Admin - Récupération des paiements en attente...');
+        try {
+          const payments = await supabaseServices.getPayments();
+          const today_start = new Date();
+          today_start.setHours(0, 0, 0, 0);
+          
+          const filtered = payments.filter(p => {
+            // Paiements non encaissés OU avec encaissement futur
+            return !p.is_paid || (p.encaissement_prevu && new Date(p.encaissement_prevu) >= today_start);
+          });
 
-        setPendingPayments(filtered);
+          setPendingPayments(filtered);
+          console.log('✅ Paiements en attente récupérés:', filtered.length);
+        } catch (paymentsError) {
+          console.error('❌ Erreur récupération paiements admin:', paymentsError);
+        }
       }
 
       // Récupérer les données du membre connecté (utilisateur non-admin)
       if (!isAdmin && user) {
-        // Récupérer les données du membre lié à cet utilisateur
-        const { data: memberData, error: memberError } = await supabase
-          .from('members')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-
-        if (memberData) {
-          setUserMemberData(memberData);
-          
-          // Récupérer les paiements de ce membre
-          const { data: paymentsData, error: paymentsError } = await supabase
-            .from('payments')
+        console.log('👤 Utilisateur - Récupération des données membre...');
+        try {
+          // Récupérer les données du membre lié à cet utilisateur
+          const { data: memberData, error: memberError } = await supabase
+            .from('members')
             .select('*')
-            .eq('member_id', memberData.id)
-            .order('created_at', { ascending: false });
+            .eq('user_id', user.id)
+            .maybeSingle(); // ✅ Utilise maybeSingle() au lieu de single()
 
-          if (paymentsData) {
-            setUserPayments(paymentsData);
+          if (memberError) {
+            console.error('❌ Erreur récupération membre:', memberError);
+            throw memberError;
           }
+
+          if (memberData) {
+            console.log('✅ Données membre trouvées:', memberData.firstName, memberData.name);
+            setUserMemberData(memberData);
+            
+            // Récupérer les paiements de ce membre
+            const { data: paymentsData, error: paymentsError } = await supabase
+              .from('payments')
+              .select('*')
+              .eq('member_id', memberData.id)
+              .order('created_at', { ascending: false });
+
+            if (paymentsError) {
+              console.error('❌ Erreur récupération paiements utilisateur:', paymentsError);
+            } else {
+              console.log('✅ Paiements utilisateur récupérés:', paymentsData?.length || 0);
+              setUserPayments(paymentsData || []);
+            }
+          } else {
+            console.log('⚠️ Aucun profil membre trouvé pour cet utilisateur');
+            setUserMemberData(null);
+            setUserPayments([]);
+          }
+        } catch (userError) {
+          console.error('❌ Erreur récupération données utilisateur:', userError);
+          // Ne pas faire échouer toute la page pour cette erreur
+          setUserMemberData(null);
+          setUserPayments([]);
         }
       }
 
+      console.log('✅ fetchData terminé avec succès');
+
     } catch (err) {
-      console.error("Erreur chargement données:", err);
+      console.error("❌ Erreur générale chargement données:", err);
       setError(`Erreur lors du chargement: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
+  // Effect avec dépendances optimisées
   useEffect(() => {
+    // Attendre que l'authentification soit terminée
+    if (authLoading) {
+      console.log('⏳ En attente de l\'authentification...');
+      return;
+    }
+
+    if (!user) {
+      console.log('❌ Pas d\'utilisateur connecté');
+      setLoading(false);
+      return;
+    }
+
+    console.log('🚀 Lancement fetchData - User:', user.email, 'Role:', role);
     fetchData();
-  }, [user, role]);
+  }, [user, role, authLoading]); // ✅ Ajout de authLoading
 
   // Calculer les statistiques de paiement pour l'utilisateur
   const getUserPaymentStats = () => {
     if (!userPayments.length) return { total: 0, paid: 0, pending: 0, percentage: 0 };
 
-    const total = userPayments.reduce((sum, p) => sum + p.amount, 0);
-    const paid = userPayments.filter(p => p.is_paid).reduce((sum, p) => sum + p.amount, 0);
+    const total = userPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const paid = userPayments.filter(p => p.is_paid).reduce((sum, p) => sum + (p.amount || 0), 0);
     const pending = total - paid;
     const percentage = total > 0 ? (paid / total) * 100 : 0;
 
@@ -187,13 +237,26 @@ function HomePage() {
 
   const cardStyle = "p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl dark:hover:shadow-2xl transition-all duration-500 flex items-center gap-4 border border-gray-100 dark:border-gray-700 hover:border-purple-200 dark:hover:border-purple-600 hover:scale-105";
 
-  if (loading) {
+  // Loading state - tenir compte du loading auth aussi
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 dark:border-purple-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Chargement des statistiques...</p>
+          <p className="text-gray-600 dark:text-gray-300">
+            {authLoading ? 'Authentification...' : 'Chargement des statistiques...'}
+          </p>
         </div>
+      </div>
+    );
+  }
+
+  // Pas d'utilisateur connecté
+  if (!user) {
+    return (
+      <div className="text-center p-8 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
+        <div className="text-yellow-600 dark:text-yellow-400 mb-4">⚠️ Non connecté</div>
+        <p className="text-gray-700 dark:text-gray-300">Vous devez être connecté pour accéder à cette page.</p>
       </div>
     );
   }
@@ -326,7 +389,7 @@ function HomePage() {
                                   {p.member?.firstName} {p.member?.name}
                                 </span>
                                 <span className="ml-2 text-yellow-700 dark:text-yellow-400 font-semibold">
-                                  {p.amount.toFixed(2)} €
+                                  {(p.amount || 0).toFixed(2)} €
                                 </span>
                                 <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">
                                   ({p.method})
@@ -361,7 +424,7 @@ function HomePage() {
                         <span className="font-bold text-yellow-700 dark:text-yellow-400">
                           {pendingPayments
                             .filter(p => !p.is_paid)
-                            .reduce((sum, p) => sum + p.amount, 0)
+                            .reduce((sum, p) => sum + (p.amount || 0), 0)
                             .toFixed(2)} €
                         </span>
                       </div>
@@ -388,7 +451,7 @@ function HomePage() {
         )}
 
         {/* Tuile Mes Paiements - visible uniquement pour les utilisateurs non-admin */}
-        {!isAdmin && userMemberData && (
+        {!isAdmin && (
           <div className={`${cardStyle} sm:col-span-2 lg:col-span-3`}>
             <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white">
               <FaCreditCard className="text-3xl" />
@@ -429,7 +492,7 @@ function HomePage() {
               </div>
 
               {/* Détails des paiements récents */}
-              {userPayments.length > 0 && (
+              {userPayments.length > 0 ? (
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                   <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Derniers paiements</h4>
                   <div className="space-y-2 max-h-32 overflow-y-auto">
@@ -445,7 +508,7 @@ function HomePage() {
                           )}
                           <div>
                             <div className="font-medium text-sm text-gray-900 dark:text-white">
-                              {payment.amount.toFixed(2)} € - {payment.method}
+                              {(payment.amount || 0).toFixed(2)} € - {payment.method || 'Non défini'}
                             </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
                               {payment.created_at && format(new Date(payment.created_at), 'dd/MM/yyyy')}
@@ -467,12 +530,16 @@ function HomePage() {
                     ))}
                   </div>
                 </div>
-              )}
-
-              {userPayments.length === 0 && (
+              ) : userMemberData ? (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <FaCreditCard className="text-4xl mx-auto mb-2 opacity-50" />
                   <p>Aucun paiement enregistré</p>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <FaExclamationTriangle className="text-4xl mx-auto mb-2 opacity-50" />
+                  <p>Profil membre non trouvé</p>
+                  <p className="text-xs mt-1">Contactez un administrateur</p>
                 </div>
               )}
             </div>
