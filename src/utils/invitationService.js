@@ -47,7 +47,7 @@ export const inviteMember = async (memberId, email = null) => {
     if (updateError) throw updateError;
 
     // 6. Envoyer l'invitation via votre Edge Function
-    const { data, error: emailError } = await supabase.functions.invoke('index?action=send-invitation', {
+    const { data, error: emailError } = await supabase.functions.invoke('invitation-sender?action=send-invitation', {
       body: {
         email: memberEmail,
         memberName: `${member.firstName} ${member.name}`,
@@ -59,18 +59,18 @@ export const inviteMember = async (memberId, email = null) => {
     });
 
     if (emailError) throw emailError;
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       member: updatedMember,
-      message: `Invitation envoyée à ${memberEmail}` 
+      message: `Invitation envoyée à ${memberEmail}`
     };
 
   } catch (error) {
     console.error('Erreur invitation:', error);
-    return { 
-      success: false, 
-      error: error.message 
+    return {
+      success: false,
+      error: error.message
     };
   }
 };
@@ -98,8 +98,7 @@ export const resendInvitation = async (memberId) => {
       throw new Error('Veuillez attendre 5 minutes avant de renvoyer une invitation');
     }
 
-    // Renvoyer l'email avec le même token
-    const { error: emailError } = await supabase.functions.invoke('index?action=send-invitation', {
+    const { error: emailError } = await supabase.functions.invoke('invitation-sender?action=send-invitation', {
       body: {
         email: member.email,
         memberName: `${member.firstName} ${member.name}`,
@@ -119,15 +118,15 @@ export const resendInvitation = async (memberId) => {
       .update({ invited_at: new Date().toISOString() })
       .eq('id', memberId);
 
-    return { 
-      success: true, 
-      message: 'Invitation renvoyée avec succès' 
+    return {
+      success: true,
+      message: 'Invitation renvoyée avec succès'
     };
 
   } catch (error) {
-    return { 
-      success: false, 
-      error: error.message 
+    return {
+      success: false,
+      error: error.message
     };
   }
 };
@@ -145,15 +144,15 @@ export const cancelInvitation = async (memberId) => {
 
     if (error) throw error;
 
-    return { 
-      success: true, 
-      message: 'Invitation annulée' 
+    return {
+      success: true,
+      message: 'Invitation annulée'
     };
 
   } catch (error) {
-    return { 
-      success: false, 
-      error: error.message 
+    return {
+      success: false,
+      error: error.message
     };
   }
 };
