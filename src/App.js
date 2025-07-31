@@ -75,12 +75,12 @@ const getSwipePages = (isAdmin) => {
         icon: <FaUserFriends className="text-green-500 dark:text-green-400" />,
         component: "MembersPage"
       },
-      {
-        name: "Invitations", // ✅ NOUVELLE PAGE
-        path: "/invitations",
-        icon: <FaUserPlus className="text-orange-500 dark:text-orange-400" />,
-        component: "InvitationsPage"
-      },
+      //{
+      //  name: "Invitations", // ✅ NOUVELLE PAGE
+      //  path: "/invitations",
+      //  icon: <FaUserPlus className="text-orange-500 dark:text-orange-400" />,
+      //  component: "InvitationsPage"
+      //},
       {
         name: "Planning",
         path: "/planning",
@@ -688,11 +688,6 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
         icon: <FaUserFriends className="text-green-500 dark:text-green-400" />
       },
       {
-        name: "Invitations",
-        path: "/invitations",
-        icon: <FaUserPlus className="text-orange-500 dark:text-orange-400" />
-      },
-      {
         name: "Planning",
         path: "/planning",
         icon: <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
@@ -706,6 +701,11 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
         name: "Statistiques",
         path: "/statistics",
         icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />
+      },
+       {
+        name: "Invitations",
+        path: "/invitations",
+        icon: <FaUserPlus className="text-orange-500 dark:text-orange-400" />
       },
     ] : [
       {
