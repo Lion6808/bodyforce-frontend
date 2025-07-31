@@ -43,7 +43,7 @@ import PlanningPage from "./pages/PlanningPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import StatisticsPage from "./pages/StatisticsPage";
 import UserManagementPage from "./pages/UserManagementPage";
-import ProfilePage from "./pages/ProfilePage";
+//import ProfilePage from "./pages/ProfilePage";
 import MemberForm from "./components/MemberForm";
 import UserProfilePage from "./pages/UserProfilePage";
 import MyAttendancesPage from "./pages/MyAttendancesPage"; // ✅ Import de la nouvelle page
