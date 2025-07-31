@@ -38,7 +38,7 @@ function UserProfilePage() {
   const fetchMemberData = async () => {
     try {
       setLoading(true);
-      
+
       // Récupérer les données complètes du membre lié à cet utilisateur
       const { data: memberData, error: memberError } = await supabase
         .from('members')
@@ -51,7 +51,7 @@ function UserProfilePage() {
       }
 
       setMemberData(memberData);
-      
+
     } catch (err) {
       console.error("❌ Erreur récupération profil:", err);
       setError(`Impossible de récupérer votre profil: ${err.message}`);
@@ -66,34 +66,34 @@ function UserProfilePage() {
   };
 
   // Fonction pour déterminer le statut global du membre
+  // Nouvelle fonction getMemberStatus — basée uniquement sur les dates
   const getMemberStatus = () => {
     if (!memberData) return { text: 'Non défini', status: 'unknown' };
-    
-    const endDate = memberData.endDate ? new Date(memberData.endDate) : null;
+
     const now = new Date();
-    const isActive = memberData.isActive;
-    
-    // Si le membre est marqué comme inactif, il est inactif
-    if (!isActive) {
-      return { text: 'Inactif', status: 'expired' };
+    const startDate = memberData.startDate ? new Date(memberData.startDate) : null;
+    const endDate = memberData.endDate ? new Date(memberData.endDate) : null;
+
+    // Pas de date → non défini
+    if (!startDate || !endDate) {
+      return { text: 'Abonnement non défini', status: 'unknown' };
     }
-    
-    // Si pas de date de fin, on se base uniquement sur isActive
-    if (!endDate) {
-      return isActive ? { text: 'Actif', status: 'active' } : { text: 'Inactif', status: 'expired' };
+
+    // Abonnement expiré
+    if (endDate < now) {
+      return { text: 'Abonnement expiré', status: 'expired' };
     }
-    
+
+    // Abonnement proche de l’expiration (moins de 30 jours)
     const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-    
-    // Si l'abonnement est expiré ET le membre actif, c'est une incohérence
-    if (daysLeft < 0) {
-      return { text: isActive ? 'Abonnement expiré' : 'Inactif', status: 'expired' };
-    } else if (daysLeft <= 30) {
+    if (daysLeft <= 30) {
       return { text: `Expire dans ${daysLeft} jour(s)`, status: 'warning' };
-    } else {
-      return { text: 'Actif', status: 'active' };
     }
+
+    // Actif
+    return { text: 'Actif', status: 'active' };
   };
+
 
   const calculateAge = (birthDate) => {
     if (!birthDate) return null;
@@ -101,7 +101,7 @@ function UserProfilePage() {
     const birth = new Date(birthDate);
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
       age--;
     }
@@ -180,7 +180,7 @@ function UserProfilePage() {
               </div>
             </div>
           </div>
-          
+
           {/* Statut d'abonnement unifié */}
           <div className={`${styles.subscriptionStatus} ${styles[memberStatus.status]}`}>
             <div className={styles.statusIndicator}></div>
@@ -197,7 +197,7 @@ function UserProfilePage() {
                 <FaUser className={styles.sectionIcon} />
                 Informations personnelles
               </h2>
-              
+
               <div className={styles.infoGrid}>
                 <div className={styles.infoItem}>
                   <FaEnvelope className={styles.infoIcon} />
@@ -243,8 +243,8 @@ function UserProfilePage() {
                   <div className={styles.infoContent}>
                     <span className={styles.infoLabel}>Genre</span>
                     <span className={styles.infoValue}>
-                      {memberData.gender === 'M' ? 'Masculin' : 
-                       memberData.gender === 'F' ? 'Féminin' : 'Non renseigné'}
+                      {memberData.gender === 'M' ? 'Masculin' :
+                        memberData.gender === 'F' ? 'Féminin' : 'Non renseigné'}
                     </span>
                   </div>
                 </div>
@@ -267,7 +267,7 @@ function UserProfilePage() {
                 <FaCreditCard className={styles.sectionIcon} />
                 Abonnement
               </h2>
-              
+
               <div className={styles.infoGrid}>
                 <div className={styles.infoItem}>
                   <FaCalendarAlt className={styles.infoIcon} />
@@ -312,7 +312,7 @@ function UserProfilePage() {
                   <FaUserFriends className={styles.sectionIcon} />
                   Contact d'urgence
                 </h2>
-                
+
                 <div className={styles.infoGrid}>
                   <div className={styles.infoItem}>
                     <FaUser className={styles.infoIcon} />
@@ -340,7 +340,7 @@ function UserProfilePage() {
                   <FaNotesMedical className={styles.sectionIcon} />
                   Informations médicales
                 </h2>
-                
+
                 <div className={styles.medicalInfo}>
                   {memberData.medicalInfo && (
                     <div className={styles.medicalItem}>
@@ -348,14 +348,14 @@ function UserProfilePage() {
                       <p className={styles.medicalText}>{memberData.medicalInfo}</p>
                     </div>
                   )}
-                  
+
                   {memberData.allergies && (
                     <div className={styles.medicalItem}>
                       <h4 className={styles.medicalSubtitle}>Allergies</h4>
                       <p className={styles.medicalText}>{memberData.allergies}</p>
                     </div>
                   )}
-                  
+
                   {memberData.medications && (
                     <div className={styles.medicalItem}>
                       <h4 className={styles.medicalSubtitle}>Médicaments</h4>
@@ -400,7 +400,7 @@ function UserProfilePage() {
           {/* Message d'information */}
           <div className={styles.infoMessage}>
             <p className={styles.infoMessageText}>
-              <strong>💡 Information :</strong> Pour modifier vos informations personnelles, 
+              <strong>💡 Information :</strong> Pour modifier vos informations personnelles,
               contactez la réception ou un administrateur du club.
             </p>
           </div>
