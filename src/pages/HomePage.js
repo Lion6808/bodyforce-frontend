@@ -15,7 +15,7 @@ import {
   FaExclamationTriangle
 } from "react-icons/fa";
 
-import { supabaseServices } from "../supabaseClient";
+import { supabaseServices, supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 
 function HomePage() {
