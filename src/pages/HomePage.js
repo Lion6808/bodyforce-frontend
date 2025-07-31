@@ -202,27 +202,50 @@ function HomePage() {
               setUserPayments(paymentsData || []);
             }
 
-            // Récupérer les présences récentes du membre
+            // Récupérer les présences récentes du membre - CORRIGÉ
             try {
+              console.log(
+                "🔍 Recherche présences pour membre:",
+                memberData.id,
+                "Badge:",
+                memberData.badgeId
+              );
+
+              // ✅ CORRECTION : Utiliser badgeId comme dans PlanningPage
               const { data: presencesData, error: presencesError } =
                 await supabase
                   .from("presences")
                   .select("*")
-                  .eq("member_id", memberData.id)
-                  .order("date", { ascending: false })
-                  .limit(10);
+                  .eq("badgeId", memberData.badgeId) // ✅ Utiliser badgeId au lieu de member_id
+                  .order("timestamp", { ascending: false }) // ✅ Utiliser timestamp au lieu de date
+                  .limit(50); // ✅ Plus de données pour être sûr
 
               if (presencesError) {
                 console.error(
                   "❌ Erreur récupération présences:",
                   presencesError
                 );
+                setUserPresences([]);
               } else {
                 console.log(
-                  "✅ Présences récupérées:",
+                  "✅ Présences brutes récupérées:",
                   presencesData?.length || 0
                 );
-                setUserPresences(presencesData || []);
+
+                // ✅ CORRECTION : Transformer les données comme dans PlanningPage
+                const transformedPresences = (presencesData || []).map((p) => ({
+                  id: p.id,
+                  badgeId: p.badgeId,
+                  timestamp: p.timestamp,
+                  parsedDate: new Date(p.timestamp), // Parser la date
+                  date: new Date(p.timestamp).toISOString().split("T")[0], // Format YYYY-MM-DD
+                }));
+
+                console.log(
+                  "✅ Présences transformées:",
+                  transformedPresences.length
+                );
+                setUserPresences(transformedPresences);
               }
             } catch (presencesError) {
               console.error("❌ Erreur présences:", presencesError);
@@ -285,21 +308,46 @@ function HomePage() {
     return { total, paid, pending, percentage };
   };
 
-  // Calculer les statistiques de présence
+  // Calculer les statistiques de présence - CORRIGÉ
   const getUserPresenceStats = () => {
     if (!userPresences.length)
       return { thisMonth: 0, lastVisit: null, totalVisits: 0 };
 
+    console.log(
+      "🔍 Calcul stats présences:",
+      userPresences.length,
+      "présences trouvées"
+    );
+
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
+    // ✅ CORRECTION : Utiliser parsedDate au lieu de date
     const thisMonth = userPresences.filter((p) => {
-      const presenceDate = new Date(p.date);
-      return presenceDate >= thisMonthStart;
+      const presenceDate = p.parsedDate || new Date(p.timestamp);
+      const isThisMonth = presenceDate >= thisMonthStart && presenceDate <= now;
+      console.log(
+        "📅 Présence:",
+        presenceDate.toLocaleDateString(),
+        "Ce mois?",
+        isThisMonth
+      );
+      return isThisMonth;
     }).length;
 
-    const lastVisit = userPresences.length > 0 ? userPresences[0].date : null;
+    // ✅ Dernière visite = la plus récente (index 0 car trié par timestamp desc)
+    const lastVisit =
+      userPresences.length > 0
+        ? userPresences[0].parsedDate || new Date(userPresences[0].timestamp)
+        : null;
+
     const totalVisits = userPresences.length;
+
+    console.log("📊 Stats calculées:", {
+      thisMonth,
+      totalVisits,
+      lastVisit: lastVisit?.toLocaleDateString(),
+    });
 
     return { thisMonth, lastVisit, totalVisits };
   };
@@ -431,7 +479,7 @@ function HomePage() {
             <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 text-center">
               <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
                 {presenceStats.lastVisit
-                  ? format(new Date(presenceStats.lastVisit), "dd/MM/yyyy")
+                  ? format(presenceStats.lastVisit, "dd/MM/yyyy")
                   : "Aucune"}
               </div>
               <div className="text-sm text-purple-700 dark:text-purple-300">
@@ -452,12 +500,14 @@ function HomePage() {
                     className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
                   >
                     <span className="text-sm text-slate-900 dark:text-white">
-                      {format(new Date(presence.date), "dd/MM/yyyy")}
+                      {/* ✅ CORRECTION : Utiliser parsedDate ou timestamp */}
+                      {format(
+                        presence.parsedDate || new Date(presence.timestamp),
+                        "dd/MM/yyyy 'à' HH:mm"
+                      )}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {presence.duration
-                        ? `${presence.duration}min`
-                        : "Durée inconnue"}
+                      Badge: {presence.badgeId}
                     </span>
                   </div>
                 ))}
