@@ -48,6 +48,7 @@ import MemberForm from "./components/MemberForm";
 import UserProfilePage from "./pages/UserProfilePage";
 import MyAttendancesPage from "./pages/MyAttendancesPage"; // ✅ Import de la nouvelle page
 import InvitationsPage from "./pages/InvitationsPage";
+import InvitationSignupPage from "./pages/InvitationSignupPage";
 
 // Import des styles et notifications
 import { ToastContainer } from "react-toastify";
