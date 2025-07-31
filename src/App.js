@@ -702,7 +702,7 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
         path: "/statistics",
         icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />
       },
-       {
+      {
         name: "Invitations",
         path: "/invitations",
         icon: <FaUserPlus className="text-orange-500 dark:text-orange-400" />
@@ -1313,11 +1313,11 @@ function AppRoutes() {
                   path="/members"
                   element={<MembersPage onEdit={handleEditMember} />}
                 />
-                <Route path="/invitations" element={<InvitationsPage />} />
                 <Route path="/planning" element={<PlanningPage />} />
                 <Route path="/payments" element={<PaymentsPage />} />
                 <Route path="/statistics" element={<StatisticsPage />} />
                 <Route path="/admin/users" element={<UserManagementPage />} />
+                <Route path="/invitations" element={<InvitationsPage />} />
               </>
             )}
 
