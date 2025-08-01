@@ -33,6 +33,7 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_KEY
 );
 
+
 // Utilitaires de date
 const formatDate = (date, format) => {
   const options = {
