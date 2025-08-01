@@ -36,6 +36,17 @@ import {
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
 
+// 🔄 Ajout récupération photo de profil (si disponible)
+const fetchUserPhoto = async (userId) => {
+  const { data, error } = await supabase
+    .from("members")
+    .select("photo")
+    .eq("email", userId)
+    .single();
+
+  return error ? null : data?.photo || null;
+};
+
 // Import des pages
 import HomePage from "./pages/HomePage";
 import MembersPage from "./pages/MembersPage";
@@ -1127,8 +1138,20 @@ function AnimatedMobileMenu({
 
 // ===== COMPOSANT PRINCIPAL ROUTES =====
 function AppRoutes() {
-  const { user, role, setUser,userMemberData  } = useAuth();
+  const { user, role, setUser, userMemberData } = useAuth();
   const isAdmin = role === 'admin';
+
+  useEffect(() => {
+    const updateUserPhoto = async () => {
+      if (user && !user.photo) {
+        const photoUrl = await fetchUserPhoto(user.email);
+        if (photoUrl) {
+          setUser((prev) => ({ ...prev, photo: photoUrl }));
+        }
+      }
+    };
+    updateUserPhoto();
+  }, [user, setUser]);
 
   // ✅ États locaux
   const [editingMember, setEditingMember] = useState(null);
