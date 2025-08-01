@@ -441,7 +441,7 @@ function HomePage() {
           className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white px-6 py-3 rounded-xl transition-all duration-300 inline-flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl flex-shrink-0"
         >
           <FaSync className={loading ? "animate-spin" : ""} />
-          <span className="hidden sm:inline">Actualiser</span>
+          <span className="hidden xs:inline">Actualiser</span>
         </button>
       </div>
 
