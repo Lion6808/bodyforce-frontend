@@ -758,15 +758,6 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
       {/* Informations utilisateur */}
       <div className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
         <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
-        {userMemberData.photo ? (
-          <img
-            src={userMemberData.photo}
-            alt="Photo de profil"
-            className="w-14 h-14 sm:w-18 sm:h-18 rounded-full object-cover"
-          />
-        ) : (
-          <FaUser className="text-white text-2xl sm:text-3xl" />
-        )}
         <div className="flex flex-col min-w-0">
           <span className="font-medium truncate">{user?.email}</span>
           {isAdmin && (
