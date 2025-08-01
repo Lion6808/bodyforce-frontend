@@ -33,6 +33,7 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_KEY
 );
 
+
 // Utilitaires de date
 const formatDate = (date, format) => {
   const options = {
@@ -139,7 +140,7 @@ function MyAttendancesPage() {
         setMemberData(data);
         console.log("✅ Données membre chargées:", data);
       } else {
-        console.log("⚠️ Aucun membre trouvé pour cet utilisateur");
+        console.log(⚠️ Aucun membre trouvé pour cet utilisateur");
       }
     } catch (err) {
       console.error('Erreur récupération membre:', err);

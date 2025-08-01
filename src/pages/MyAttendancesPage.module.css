@@ -4505,3 +4505,69 @@
     background: #a8a8a8;
   }
 }
+
+/* ✅ Ajout BODYFORCE : Timeline scroll horizontal adaptatif */
+.timelineBarsContainer {
+  display: flex;
+  align-items: flex-end;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  min-height: 120px;
+  max-width: 100%;
+}
+
+.timelineDay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.timelineBar {
+  background-color: #38a169;
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  transition: height 0.3s ease;
+}
+
+/* ✅ Ajout BODYFORCE : Raccourcis de période */
+.quickPeriodButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.quickPeriodButtons button {
+  background-color: #edf2f7;
+  border: 1px solid #cbd5e0;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.quickPeriodButtons button:hover {
+  background-color: #e2e8f0;
+}
+
+/* ✅ Ajout BODYFORCE : Hover navigation timeline */
+.timelineNavButton:hover {
+  background-color: #4a5568;
+  transform: scale(1.05);
+}
+
+/* ✅ Ajout BODYFORCE : Responsive mobile */
+@media screen and (max-width: 640px) {
+  .timelineBarsContainer {
+    gap: 6px !important;
+  }
+
+  .timelineDay {
+    font-size: 0.75rem;
+  }
+
+  .quickPeriodButtons {
+    flex-direction: column;
+  }
+}
