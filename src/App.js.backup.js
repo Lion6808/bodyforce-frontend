@@ -387,15 +387,11 @@ function useSwipeNavigation(isAdmin) {
 }
 
 // ===== HOOK PWA =====
-// ===== REMPLACEZ VOTRE FONCTION usePWA() PAR CELLE-CI =====
-// (Supprimez les DEUX fonctions usePWA existantes et remplacez par cette version unique)
-
 function usePWA() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [toast, setToast] = useState(null);
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   useEffect(() => {
     // Vérifier si l'app est déjà installée
@@ -411,20 +407,12 @@ function usePWA() {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
-
-      // 🔥 NOUVEAU : Afficher une invitation après 30 secondes
-      setTimeout(() => {
-        if (!localStorage.getItem("install_prompt_dismissed")) {
-          setShowInstallPrompt(true);
-        }
-      }, 30000); // 30 secondes
     };
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
-      setShowInstallPrompt(false);
       showToast(
         "success",
         "Application installée !",
@@ -462,7 +450,7 @@ function usePWA() {
         );
       } else {
         showToast(
-          "info",
+          "error",
           "Installation annulée",
           "Vous pouvez toujours installer l'application plus tard."
         );
@@ -470,7 +458,6 @@ function usePWA() {
 
       setDeferredPrompt(null);
       setIsInstallable(false);
-      setShowInstallPrompt(false);
     } catch (error) {
       console.error("Erreur lors de l'installation PWA:", error);
       showToast(
@@ -479,15 +466,6 @@ function usePWA() {
         "Une erreur s'est produite lors de l'installation."
       );
     }
-  };
-
-  const dismissInstallPrompt = () => {
-    setShowInstallPrompt(false);
-    localStorage.setItem("install_prompt_dismissed", "true");
-    // Reproposer dans 7 jours
-    setTimeout(() => {
-      localStorage.removeItem("install_prompt_dismissed");
-    }, 7 * 24 * 60 * 60 * 1000);
   };
 
   const closeToast = () => {
@@ -500,80 +478,7 @@ function usePWA() {
     installApp,
     toast,
     closeToast,
-    showInstallPrompt,
-    dismissInstallPrompt,
   };
-}
-
-// ===== FONCTION App() CORRIGÉE =====
-// (Remplacez votre fonction App() par celle-ci)
-
-function App() {
-  const { user, loading } = useAuth();
-
-  // ✅ HOOK PWA AVEC TOUTES LES VARIABLES
-  const {
-    isInstallable,
-    isInstalled,
-    installApp,
-    toast,
-    closeToast,
-    showInstallPrompt,
-    dismissInstallPrompt,
-  } = usePWA();
-
-  // ✅ FONCTION POUR GÉRER L'INSTALLATION DEPUIS L'INVITATION
-  const handleInstallFromPrompt = () => {
-    installApp();
-    dismissInstallPrompt();
-  };
-
-  // ✅ Écran de chargement
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Router>
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/" /> : <LoginPage />}
-        />
-        <Route path="/invitation" element={<InvitationSignupPage />} />
-        <Route path="/*" element={<AppRoutes />} />
-      </Routes>
-
-      {/* 🔥 INVITATION PWA */}
-      <InstallPrompt
-        show={showInstallPrompt && isInstallable && !isInstalled}
-        onInstall={handleInstallFromPrompt}
-        onDismiss={dismissInstallPrompt}
-      />
-
-      {/* Toast PWA */}
-      <PWAToast toast={toast} onClose={closeToast} />
-
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
-    </Router>
-  );
 }
 
 // ===== COMPOSANT TOAST PWA =====
@@ -603,90 +508,6 @@ function PWAToast({ toast, onClose }) {
       </div>
       <div className="pwa-toast-message">{toast.message}</div>
     </div>
-  );
-}
-
-// ===== COMPOSANT INVITATION À INSTALLER =====
-function InstallPrompt({ show, onInstall, onDismiss }) {
-  const [animate, setAnimate] = useState(false);
-
-  useEffect(() => {
-    if (show) {
-      setTimeout(() => setAnimate(true), 100);
-    }
-  }, [show]);
-
-  if (!show) return null;
-
-  return (
-    <>
-      <div
-        className={`install-prompt-overlay ${animate ? "show" : ""}`}
-        onClick={onDismiss}
-      >
-        <div
-          className="install-prompt-card"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="install-prompt-header">
-            <img
-              src="/images/logo.png"
-              alt="Body Force"
-              className="install-prompt-logo"
-              onError={(e) => {
-                e.target.style.display = "none";
-              }}
-            />
-            <h3 className="install-prompt-title">Installer Body Force</h3>
-            <p className="install-prompt-subtitle">
-              Pour une expérience optimale
-            </p>
-          </div>
-
-          <div className="install-prompt-content">
-            <p className="install-prompt-text">
-              Ajoutez Body Force à votre écran d'accueil pour un accès rapide et
-              une meilleure expérience !
-            </p>
-
-            <div className="install-prompt-benefits">
-              <div className="install-benefit">
-                <span className="install-benefit-icon">⚡</span>
-                <span className="install-benefit-text">Accès instantané</span>
-              </div>
-              <div className="install-benefit">
-                <span className="install-benefit-icon">📱</span>
-                <span className="install-benefit-text">Mode hors ligne</span>
-              </div>
-              <div className="install-benefit">
-                <span className="install-benefit-icon">🔔</span>
-                <span className="install-benefit-text">Notifications</span>
-              </div>
-              <div className="install-benefit">
-                <span className="install-benefit-icon">🏃‍♂️</span>
-                <span className="install-benefit-text">Plus rapide</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="install-prompt-actions">
-            <button
-              onClick={onDismiss}
-              className="install-prompt-btn install-prompt-btn-secondary"
-            >
-              Plus tard
-            </button>
-            <button
-              onClick={onInstall}
-              className="install-prompt-btn install-prompt-btn-primary"
-            >
-              <span>📱</span>
-              Installer
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -1449,21 +1270,8 @@ function AppRoutes() {
   const location = useLocation();
 
   // ✅ Hooks personnalisés
-  const {
-    isInstallable,
-    isInstalled,
-    installApp,
-    toast,
-    closeToast,
-    showInstallPrompt,
-    dismissInstallPrompt,
-  } = usePWA();
-
-  const handleInstallFromPrompt = () => {
-    installApp();
-    dismissInstallPrompt();
-  };
-
+  const { isInstallable, isInstalled, installApp, toast, closeToast } =
+    usePWA();
   const { toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
   const {
     onTouchStart,
@@ -1730,11 +1538,6 @@ function App() {
         <Route path="/invitation" element={<InvitationSignupPage />} />
         <Route path="/*" element={<AppRoutes />} />
       </Routes>
-      <InstallPrompt
-        show={showInstallPrompt && isInstallable && !isInstalled}
-        onInstall={handleInstallFromPrompt}
-        onDismiss={dismissInstallPrompt}
-      />
       <ToastContainer
         position="top-right"
         autoClose={3000}
