@@ -140,7 +140,7 @@ function MyAttendancesPage() {
         setMemberData(data);
         console.log("✅ Données membre chargées:", data);
       } else {
-        console.log(⚠️ Aucun membre trouvé pour cet utilisateur");
+        console.log("⚠️ Aucun membre trouvé pour cet utilisateur");
       }
     } catch (err) {
       console.error('Erreur récupération membre:', err);
