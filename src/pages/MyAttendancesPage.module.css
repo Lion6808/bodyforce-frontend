@@ -4509,19 +4509,23 @@
 /* ✅ Ajout BODYFORCE : Timeline scroll horizontal adaptatif */
 .timelineBarsContainer {
   display: flex;
-  align-items: flex-end;
-  overflow-x: auto;
-  padding-bottom: 1rem;
-  min-height: 120px;
-  max-width: 100%;
+  flex-wrap: nowrap;
+  width: 100%;
+  gap: 4px;
+  overflow-x: hidden;
+  /* Pour éviter le débordement */
 }
 
+
 .timelineDay {
+  flex: 1;
+  min-width: 24px;
+  max-width: 36px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex-shrink: 0;
 }
+
 
 .timelineBar {
   background-color: #38a169;

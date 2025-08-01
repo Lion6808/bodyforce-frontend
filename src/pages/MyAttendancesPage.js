@@ -42,7 +42,7 @@ const formatDate = (date, format) => {
     "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
     "EEE dd": { weekday: "short", day: "2-digit" },
     "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
-    "full": { 
+    "full": {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -90,7 +90,7 @@ const isWeekend = (date) => {
 
 function MyAttendancesPage() {
   const { user, role } = useAuth();
-  
+
   // États principaux
   const [presences, setPresences] = useState([]);
   const [memberData, setMemberData] = useState(null);
@@ -98,7 +98,7 @@ function MyAttendancesPage() {
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
-  
+
   // États pour l'interface
   const [viewMode, setViewMode] = useState('calendar');
   const [filters, setFilters] = useState({
@@ -135,7 +135,7 @@ function MyAttendancesPage() {
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
-      
+
       if (data) {
         setMemberData(data);
         console.log("✅ Données membre chargées:", data);
@@ -152,7 +152,7 @@ function MyAttendancesPage() {
   const getDateRange = () => {
     const now = new Date();
     let startDate, endDate;
-    
+
     switch (filters.dateRange) {
       case 'week':
         endDate = endOfDay(now);
@@ -297,14 +297,14 @@ function MyAttendancesPage() {
     const total = filteredPresences.length;
     const uniqueDays = new Set(filteredPresences.map(p => p.date)).size;
     const avgPerDay = uniqueDays > 0 ? (total / uniqueDays).toFixed(1) : 0;
-    
+
     const hourCounts = {};
     filteredPresences.forEach(p => {
       const hour = p.hour;
       hourCounts[hour] = (hourCounts[hour] || 0) + 1;
     });
-    
-    const mostFrequentHour = Object.keys(hourCounts).reduce((a, b) => 
+
+    const mostFrequentHour = Object.keys(hourCounts).reduce((a, b) =>
       hourCounts[a] > hourCounts[b] ? a : b, 0
     );
 
@@ -317,7 +317,7 @@ function MyAttendancesPage() {
       const previous = new Date(sortedDates[i - 1]);
       const diffTime = Math.abs(current - previous);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 1) {
         currentStreak++;
       } else {
@@ -326,16 +326,16 @@ function MyAttendancesPage() {
       }
     }
     maxStreak = Math.max(maxStreak, currentStreak);
-    
+
     return {
       total,
       uniqueDays,
       avgPerDay,
       mostFrequentHour: hourCounts[mostFrequentHour] ? `${mostFrequentHour}h` : '-',
       maxStreak,
-      firstPresence: filteredPresences.length > 0 ? 
+      firstPresence: filteredPresences.length > 0 ?
         Math.min(...filteredPresences.map(p => new Date(p.timestamp))) : null,
-      lastPresence: filteredPresences.length > 0 ? 
+      lastPresence: filteredPresences.length > 0 ?
         Math.max(...filteredPresences.map(p => new Date(p.timestamp))) : null
     };
   }, [filteredPresences]);
@@ -359,7 +359,7 @@ function MyAttendancesPage() {
     for (let i = 0; i < 42; i++) {
       const currentDate = new Date(startCalendar);
       currentDate.setDate(startCalendar.getDate() + i);
-      
+
       const dateKey = formatDate(currentDate, "yyyy-MM-dd");
       const presences = presencesByDate[dateKey] || [];
       const isCurrentMonth = currentDate.getMonth() === filters.month - 1;
@@ -383,7 +383,7 @@ function MyAttendancesPage() {
   const heatmapData = useMemo(() => {
     const hourData = {};
     const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-    
+
     days.forEach((day, dayIndex) => {
       hourData[dayIndex] = {};
       for (let hour = 6; hour <= 22; hour++) {
@@ -421,7 +421,7 @@ function MyAttendancesPage() {
         date.setDate(date.getDate() - i);
         const dateKey = formatDate(date, "yyyy-MM-dd");
         const dayPresences = filteredPresences.filter(p => p.date === dateKey);
-        
+
         periodDays.push({
           date,
           dateKey,
@@ -434,13 +434,13 @@ function MyAttendancesPage() {
 
     const daysCount = getDaysCount();
     const periodDays = [];
-    
+
     for (let i = daysCount - 1; i >= 0; i--) {
       const date = new Date(timelineStartDate);
       date.setDate(date.getDate() - i);
       const dateKey = formatDate(date, "yyyy-MM-dd");
       const dayPresences = filteredPresences.filter(p => p.date === dateKey);
-      
+
       periodDays.push({
         date,
         dateKey,
@@ -453,12 +453,12 @@ function MyAttendancesPage() {
 
   const handleViewModeChange = (newViewMode) => {
     setViewMode(newViewMode);
-    
+
     if (newViewMode === 'timeline' && !['7days', '14days', '30days'].includes(filters.dateRange)) {
-      setFilters({...filters, dateRange: '7days'});
+      setFilters({ ...filters, dateRange: '7days' });
       setTimelineStartDate(new Date());
     } else if (newViewMode === 'calendar' && ['7days', '14days', '30days'].includes(filters.dateRange)) {
-      setFilters({...filters, dateRange: 'month'});
+      setFilters({ ...filters, dateRange: 'month' });
     }
   };
 
@@ -476,7 +476,7 @@ function MyAttendancesPage() {
       .sort((a, b) => new Date(b) - new Date(a))
       .map(date => ({
         date,
-        presences: groupedByDate[date].sort((a, b) => 
+        presences: groupedByDate[date].sort((a, b) =>
           new Date(b.timestamp) - new Date(a.timestamp)
         ),
         isWeekend: isWeekend(new Date(date))
@@ -486,27 +486,27 @@ function MyAttendancesPage() {
   const exportToText = () => {
     const presencesByDate = getPresencesByDate();
     const { startDate, endDate } = getDateRange();
-    
+
     let content = `=== RAPPORT DE PRÉSENCES ===\n\n`;
     content += `Membre: ${memberData.firstName} ${memberData.name}\n`;
     content += `Badge: ${memberData.badgeId}\n`;
     content += `Période: ${formatDate(startDate, "dd/MM/yyyy")} - ${formatDate(endDate, "dd/MM/yyyy")}\n`;
     content += `Généré le: ${formatDate(new Date(), "dd/MM/yyyy")} à ${formatDate(new Date(), "HH:mm")}\n\n`;
-    
+
     content += `=== STATISTIQUES ===\n`;
     content += `Total présences: ${stats.total}\n`;
     content += `Jours présents: ${stats.uniqueDays}\n`;
     content += `Moyenne par jour: ${stats.avgPerDay}\n`;
     content += `Heure la plus fréquente: ${stats.mostFrequentHour}\n`;
     content += `Streak maximum: ${stats.maxStreak} jours\n`;
-    
+
     if (stats.firstPresence) {
       content += `Première présence: ${formatDate(new Date(stats.firstPresence), "dd/MM/yyyy")} à ${formatDate(new Date(stats.firstPresence), "HH:mm")}\n`;
     }
     if (stats.lastPresence) {
       content += `Dernière présence: ${formatDate(new Date(stats.lastPresence), "dd/MM/yyyy")} à ${formatDate(new Date(stats.lastPresence), "HH:mm")}\n`;
     }
-    
+
     content += `\n=== DÉTAIL PAR JOUR ===\n`;
     presencesByDate.forEach(({ date, presences, isWeekend }) => {
       const dayLabel = isWeekend ? " (Week-end)" : "";
@@ -565,9 +565,9 @@ function MyAttendancesPage() {
   const getCurrentPeriodLabel = () => {
     const { startDate, endDate } = getDateRange();
     if (filters.dateRange === 'month') {
-      return new Date(filters.year, filters.month - 1).toLocaleDateString('fr-FR', { 
-        month: 'long', 
-        year: 'numeric' 
+      return new Date(filters.year, filters.month - 1).toLocaleDateString('fr-FR', {
+        month: 'long',
+        year: 'numeric'
       });
     }
     return `${formatDate(startDate, "dd/MM")} - ${formatDate(endDate, "dd/MM/yyyy")}`;
@@ -606,7 +606,7 @@ function MyAttendancesPage() {
         break;
     }
 
-    setFilters({...filters, dateRange: 'custom'});
+    setFilters({ ...filters, dateRange: 'custom' });
     setCustomStartDate(formatDate(startDate, "yyyy-MM-dd"));
     setCustomEndDate(formatDate(endDate, "yyyy-MM-dd"));
   };
@@ -663,8 +663,8 @@ function MyAttendancesPage() {
     <div className={styles.calendarContainer}>
       <div className={styles.calendarHeader}>
         <div className={styles.monthNavigation}>
-          <button 
-            onClick={() => setFilters({...filters, month: filters.month === 1 ? 12 : filters.month - 1, year: filters.month === 1 ? filters.year - 1 : filters.year})}
+          <button
+            onClick={() => setFilters({ ...filters, month: filters.month === 1 ? 12 : filters.month - 1, year: filters.month === 1 ? filters.year - 1 : filters.year })}
             className={styles.navButton}
           >
             ←
@@ -672,25 +672,25 @@ function MyAttendancesPage() {
           <h3 className={styles.monthTitle}>
             {new Date(filters.year, filters.month - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
           </h3>
-          <button 
-            onClick={() => setFilters({...filters, month: filters.month === 12 ? 1 : filters.month + 1, year: filters.month === 12 ? filters.year + 1 : filters.year})}
+          <button
+            onClick={() => setFilters({ ...filters, month: filters.month === 12 ? 1 : filters.month + 1, year: filters.month === 12 ? filters.year + 1 : filters.year })}
             className={styles.navButton}
           >
             →
           </button>
         </div>
       </div>
-      
+
       <div className={styles.calendarGrid}>
         <div className={styles.calendarDaysHeader}>
           {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(day => (
             <div key={day} className={styles.dayHeader}>{day}</div>
           ))}
         </div>
-        
+
         <div className={styles.calendarDays}>
           {calendarData.map((day, index) => (
-            <div 
+            <div
               key={index}
               className={`${styles.calendarDay} ${!day.isCurrentMonth ? styles.otherMonth : ''} ${day.isToday ? styles.today : ''} ${day.isWeekend ? styles.weekend : ''} ${day.count > 0 ? styles.hasPresence : ''}`}
             >
@@ -702,8 +702,8 @@ function MyAttendancesPage() {
                   </div>
                   <div className={styles.presenceDots}>
                     {day.presences.slice(0, 3).map((presence, i) => (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         className={styles.presenceDot}
                         title={`${presence.time}`}
                       />
@@ -731,23 +731,23 @@ function MyAttendancesPage() {
         </div>
         <div className={styles.heatmapContent}>
           <div className={styles.heatmapXAxis}>
-            {Array.from({length: 17}, (_, i) => i + 6).map(hour => (
+            {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => (
               <div key={hour} className={styles.hourLabel}>{hour}h</div>
             ))}
           </div>
           <div className={styles.heatmapCells}>
             {heatmapData.days.map((day, dayIndex) => (
               <div key={dayIndex} className={styles.heatmapRow}>
-                {Array.from({length: 17}, (_, i) => i + 6).map(hour => {
+                {Array.from({ length: 17 }, (_, i) => i + 6).map(hour => {
                   const value = heatmapData.hourData[dayIndex][hour];
                   const intensity = heatmapData.maxValue > 0 ? value / heatmapData.maxValue : 0;
                   return (
-                    <div 
+                    <div
                       key={hour}
                       className={styles.heatmapCell}
                       style={{
-                        backgroundColor: intensity > 0 
-                          ? `rgba(59, 130, 246, ${0.2 + intensity * 0.8})` 
+                        backgroundColor: intensity > 0
+                          ? `rgba(59, 130, 246, ${0.2 + intensity * 0.8})`
                           : '#f3f4f6',
                         color: intensity > 0.5 ? 'white' : '#374151'
                       }}
@@ -789,20 +789,11 @@ function MyAttendancesPage() {
       const startDate = new Date(timelineStartDate);
       const daysCount = filters.dateRange === '7days' ? 7 : filters.dateRange === '14days' ? 14 : 30;
       startDate.setDate(startDate.getDate() - (daysCount - 1));
-      
       return `${formatDate(startDate, "dd/MM")} - ${formatDate(endDate, "dd/MM/yyyy")}`;
     };
 
     const getCurrentPeriod = () => {
       return filters.dateRange === '7days' ? '7' : filters.dateRange === '14days' ? '14' : '30';
-    };
-
-    // ✅ Calcul adaptatif des dimensions
-    const getBarWidth = () => {
-      const daysCount = timelineData.length;
-      if (daysCount <= 7) return '70%';
-      if (daysCount <= 14) return '50%';
-      return '35%';
     };
 
     const getTimelineHeight = () => {
@@ -812,37 +803,19 @@ function MyAttendancesPage() {
       return '280px';
     };
 
-    const getGap = () => {
-      const daysCount = timelineData.length;
-      if (daysCount <= 7) return '1rem';
-      if (daysCount <= 14) return '0.75rem';
-      return '0.5rem';
-    };
-
     return (
       <div className={styles.timelineContainer}>
         <div className={styles.timelineHeader}>
           <h3 className={styles.timelineTitle}>
             Activité des {getCurrentPeriod()} derniers jours
           </h3>
-          
+
           <div className={styles.timelineNavigation}>
-            <button
-              onClick={() => navigateTimeline('prev')}
-              className={styles.timelineNavButton}
-            >
+            <button onClick={() => navigateTimeline('prev')} className={styles.timelineNavButton}>
               ← Précédent
             </button>
-            
-            <div className={styles.timelinePeriodInfo}>
-              {getPeriodLabel()}
-            </div>
-            
-            <button
-              onClick={() => navigateTimeline('next')}
-              disabled={!canNavigateNext()}
-              className={styles.timelineNavButton}
-            >
+            <div className={styles.timelinePeriodInfo}>{getPeriodLabel()}</div>
+            <button onClick={() => navigateTimeline('next')} disabled={!canNavigateNext()} className={styles.timelineNavButton}>
               Suivant →
             </button>
           </div>
@@ -858,7 +831,7 @@ function MyAttendancesPage() {
               <button
                 key={period.id}
                 onClick={() => {
-                  setFilters({...filters, dateRange: period.id});
+                  setFilters({ ...filters, dateRange: period.id });
                   setTimelineStartDate(new Date());
                 }}
                 className={`${styles.periodButton} ${filters.dateRange === period.id ? styles.activePeriod : ''}`}
@@ -868,43 +841,48 @@ function MyAttendancesPage() {
             ))}
           </div>
         </div>
-        
-        {/* ✅ Timeline avec dimensions adaptatives */}
-        <div 
+
+        {/* ✅ TIMELINE avec barres fluides */}
+        <div
           className={styles.timelineChart}
           style={{
             height: getTimelineHeight(),
-            gap: getGap(),
-            padding: timelineData.length > 14 ? '1.5rem 0.5rem 1rem' : '2rem 1.5rem 1.5rem'
+            display: 'flex',
+            width: '100%',
+            gap: '4px',
+            padding: '1rem 0',
+            overflowX: 'hidden'
           }}
-          data-days={timelineData.length}
         >
           {timelineData.map((day, index) => (
-            <div key={index} className={styles.timelineDay}>
+            <div
+              key={index}
+              className={styles.timelineDay}
+              style={{ flex: 1, minWidth: '22px', maxWidth: '38px' }}
+            >
               <div className={styles.timelineDate}>
                 <div className={`${styles.dateLabel} ${timelineData.length > 14 ? styles.compactLabel : ''}`}>
-                  {timelineData.length > 14 
+                  {timelineData.length > 14
                     ? formatDate(day.date, "dd/MM").split('/')[0]
-                    : formatDate(day.date, "EEE dd")
-                  }
+                    : formatDate(day.date, "EEE dd")}
                 </div>
                 <div className={`${styles.countLabel} ${timelineData.length > 14 ? styles.compactCount : ''}`}>
                   {day.count}
                 </div>
               </div>
-              
+
               <div className={styles.timelineBarContainer}>
-                <div 
+                <div
                   className={styles.timelineBar}
                   style={{
                     height: `${Math.max((day.count / Math.max(...timelineData.map(d => d.count))) * 100, 5)}%`,
-                    width: getBarWidth()
+                    width: '100%'
                   }}
                 >
                   <div className={styles.barGradient}></div>
                 </div>
               </div>
-              
+
               <div className={styles.timelinePresences}>
                 {timelineData.length <= 14 ? (
                   <>
@@ -931,6 +909,7 @@ function MyAttendancesPage() {
     );
   };
 
+
   // ✅ COMPOSANT LISTE
   const ListView = () => {
     const presencesByDate = getPresencesByDate();
@@ -942,7 +921,7 @@ function MyAttendancesPage() {
             <FaCalendarCheck className={styles.emptyIcon} />
             <h3>Aucune présence trouvée</h3>
             <p>
-              {presences.length === 0 
+              {presences.length === 0
                 ? "Aucune présence enregistrée pour cette période."
                 : "Aucune présence ne correspond à vos critères de recherche."
               }
@@ -991,11 +970,11 @@ function MyAttendancesPage() {
                     {presences.length} présence{presences.length > 1 ? 's' : ''}
                   </span>
                 </div>
-                
+
                 <div className={styles.presencesGrid}>
                   {presences.map((presence, index) => (
-                    <div 
-                      key={`${presence.badgeId}-${presence.timestamp}-${index}`} 
+                    <div
+                      key={`${presence.badgeId}-${presence.timestamp}-${index}`}
                       className={styles.presenceCard}
                     >
                       <div className={styles.presenceHeader}>
@@ -1007,7 +986,7 @@ function MyAttendancesPage() {
                           #{index + 1}
                         </div>
                       </div>
-                      
+
                       <div className={styles.presenceDetails}>
                         <div className={styles.presenceInfo}>
                           <span className={styles.badgeInfo}>
@@ -1015,7 +994,7 @@ function MyAttendancesPage() {
                             Badge: {presence.badgeId}
                           </span>
                         </div>
-                        
+
                         <div className={styles.timestampInfo}>
                           <small className={styles.fullTimestamp}>
                             {formatDate(presence.parsedDate, "dd/MM/yyyy")} à {presence.time}
@@ -1093,7 +1072,7 @@ function MyAttendancesPage() {
                 <div className={styles.statLabel}>Total présences</div>
               </div>
             </div>
-            
+
             <div className={`${styles.statCard} ${styles.daysStat}`}>
               <div className={styles.statIcon}>
                 <FaCalendarCheck />
@@ -1103,7 +1082,7 @@ function MyAttendancesPage() {
                 <div className={styles.statLabel}>Jours présents</div>
               </div>
             </div>
-            
+
             <div className={`${styles.statCard} ${styles.streakStat}`}>
               <div className={styles.statIcon}>
                 <FaFire />
@@ -1113,7 +1092,7 @@ function MyAttendancesPage() {
                 <div className={styles.statLabel}>Streak max</div>
               </div>
             </div>
-            
+
             <div className={`${styles.statCard} ${styles.timeStat}`}>
               <div className={styles.statIcon}>
                 <FaClock />
@@ -1173,13 +1152,13 @@ function MyAttendancesPage() {
                 value={filters.dateRange}
                 onChange={(e) => {
                   const newRange = e.target.value;
-                  setFilters({...filters, dateRange: newRange});
-                  
+                  setFilters({ ...filters, dateRange: newRange });
+
                   if (newRange !== 'custom') {
                     setCustomStartDate('');
                     setCustomEndDate('');
                   }
-                  
+
                   if (['7days', '14days', '30days'].includes(newRange)) {
                     setTimelineStartDate(new Date());
                   }
@@ -1192,7 +1171,7 @@ function MyAttendancesPage() {
                   <option value="3months">3 derniers mois</option>
                   <option value="year">Année actuelle</option>
                 </optgroup>
-                
+
                 {viewMode === 'timeline' && (
                   <optgroup label="Timeline">
                     <option value="7days">Timeline 7 jours</option>
@@ -1200,7 +1179,7 @@ function MyAttendancesPage() {
                     <option value="30days">Timeline 30 jours</option>
                   </optgroup>
                 )}
-                
+
                 <optgroup label="Personnalisé">
                   <option value="custom">Période personnalisée</option>
                 </optgroup>
@@ -1237,10 +1216,10 @@ function MyAttendancesPage() {
                   <label className={styles.filterLabel}>Mois</label>
                   <select
                     value={filters.month}
-                    onChange={(e) => setFilters({...filters, month: parseInt(e.target.value)})}
+                    onChange={(e) => setFilters({ ...filters, month: parseInt(e.target.value) })}
                     className={styles.filterSelect}
                   >
-                    {Array.from({length: 12}, (_, i) => (
+                    {Array.from({ length: 12 }, (_, i) => (
                       <option key={i + 1} value={i + 1}>
                         {new Date(2024, i).toLocaleDateString('fr-FR', { month: 'long' })}
                       </option>
@@ -1251,10 +1230,10 @@ function MyAttendancesPage() {
                   <label className={styles.filterLabel}>Année</label>
                   <select
                     value={filters.year}
-                    onChange={(e) => setFilters({...filters, year: parseInt(e.target.value)})}
+                    onChange={(e) => setFilters({ ...filters, year: parseInt(e.target.value) })}
                     className={styles.filterSelect}
                   >
-                    {Array.from({length: 5}, (_, i) => {
+                    {Array.from({ length: 5 }, (_, i) => {
                       const year = new Date().getFullYear() - 2 + i;
                       return <option key={year} value={year}>{year}</option>;
                     })}
@@ -1323,7 +1302,7 @@ function MyAttendancesPage() {
           {/* ✅ Raccourcis rapides */}
           <div className={styles.periodPresets}>
             <span className={styles.presetsLabel}>Raccourcis :</span>
-            
+
             <button onClick={() => setQuickPeriod('today')} className={styles.presetButton}>
               Aujourd'hui
             </button>
