@@ -407,7 +407,7 @@ function HomePage() {
           {/* Photo du membre pour utilisateurs non-admin */}
           { userMemberData && (
             <div className="flex-shrink-0">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
+              <div className="w-24 h-24 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
                 {userMemberData.photo ? (
                   <img
                     src={userMemberData.photo}
