@@ -772,7 +772,7 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
           <img
             src={user.photo}
             alt="Photo de profil"
-            className="w-8 h-8 rounded-full object-cover border-2 border-blue-500 dark:border-blue-400"
+            className="w-8 h-8 rounded-full object-cover border-2 border-green-500 dark:border-blue-400"
           />
         ) : (
           <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
