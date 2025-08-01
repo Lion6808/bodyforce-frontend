@@ -160,7 +160,7 @@ function HomePage() {
       }
 
       // Récupérer les données du membre connecté (utilisateur non-admin)
-      if ( user) {
+      if (user) {
         console.log("👤 Utilisateur - Récupération des données membre...");
         try {
           const { data: memberData, error: memberError } = await supabase
@@ -405,14 +405,14 @@ function HomePage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           {/* Photo du membre pour utilisateurs */}
-          { userMemberData && (
+          {userMemberData && (
             <div className="flex-shrink-0">
-              <div className="w-18 h-18 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center transition-shadow duration-300 hover:shadow-xl shadow-md">
                 {userMemberData.photo ? (
                   <img
                     src={userMemberData.photo}
                     alt="Photo de profil"
-                    className="w-16 h-16 sm:w-18 sm:h-18 rounded-full object-cover"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover"
                   />
                 ) : (
                   <FaUser className="text-white text-2xl sm:text-3xl" />
@@ -444,6 +444,7 @@ function HomePage() {
           <span className="hidden sm:inline">Actualiser</span>
         </button>
       </div>
+
 
       {/* Section présences utilisateur (non-admin seulement) */}
       {!isAdmin && userMemberData && (
@@ -584,7 +585,7 @@ function HomePage() {
                             <FaCheckCircle className="text-emerald-500 text-sm" />
                           ) : payment.encaissement_prevu &&
                             new Date(payment.encaissement_prevu) <=
-                              new Date() ? (
+                            new Date() ? (
                             <FaExclamationTriangle className="text-red-500 text-sm" />
                           ) : (
                             <FaClock className="text-amber-500 text-sm" />
@@ -598,24 +599,23 @@ function HomePage() {
                           <div className="text-xs text-slate-500 dark:text-slate-400">
                             {payment.created_at
                               ? format(
-                                  new Date(payment.created_at),
-                                  "dd/MM/yyyy"
-                                )
+                                new Date(payment.created_at),
+                                "dd/MM/yyyy"
+                              )
                               : payment.date_paiement
-                              ? format(
+                                ? format(
                                   new Date(payment.date_paiement),
                                   "dd/MM/yyyy"
                                 )
-                              : "Date inconnue"}
+                                : "Date inconnue"}
                           </div>
                         </div>
                       </div>
                       <span
-                        className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
-                          payment.is_paid
+                        className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${payment.is_paid
                             ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300"
                             : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
-                        }`}
+                          }`}
                       >
                         {payment.is_paid ? "Payé" : "En attente"}
                       </span>
@@ -799,11 +799,10 @@ function HomePage() {
                               )}
                               {p.encaissement_prevu && (
                                 <span
-                                  className={`text-xs px-2 py-1 rounded-full ${
-                                    isOverdue
+                                  className={`text-xs px-2 py-1 rounded-full ${isOverdue
                                       ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
                                       : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
-                                  }`}
+                                    }`}
                                 >
                                   {format(
                                     new Date(p.encaissement_prevu),
