@@ -1127,7 +1127,7 @@ function AnimatedMobileMenu({
 
 // ===== COMPOSANT PRINCIPAL ROUTES =====
 function AppRoutes() {
-  const { user, role, setUser } = useAuth();
+  const { user, role, setUser,userMemberData  } = useAuth();
   const isAdmin = role === 'admin';
 
   // ✅ États locaux

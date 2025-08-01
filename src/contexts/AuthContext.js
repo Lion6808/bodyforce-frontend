@@ -7,6 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userMemberData, setUserMemberData] = useState(null);
 
   useEffect(() => {
     const getSessionAndRole = async () => {
@@ -25,6 +26,23 @@ export const AuthProvider = ({ children }) => {
           console.error("Erreur récupération rôle:", error.message);
         }
         setRole(data?.role || null);
+
+        // ✅ Récupérer les données du membre lié à cet utilisateur
+        const { data: memberData, error: memberError } = await supabase
+          .from("members")
+          .select("*")
+          .eq("user_id", currentUser.id)
+          .single();
+
+        if (memberError) {
+          console.warn("⚠️ Erreur récupération données membre:", memberError.message);
+          setUserMemberData(null);
+        } else {
+          setUserMemberData(memberData);
+        }
+      } else {
+        setRole(null);
+        setUserMemberData(null);
       }
 
       setLoading(false);
@@ -43,17 +61,33 @@ export const AuthProvider = ({ children }) => {
           .eq("user_id", newUser.id)
           .single()
           .then(({ data }) => setRole(data?.role || null));
+
+        supabase
+          .from("members")
+          .select("*")
+          .eq("user_id", newUser.id)
+          .single()
+          .then(({ data, error }) => {
+            if (error) {
+              console.warn("⚠️ Erreur récupération données membre (reconnexion):", error.message);
+              setUserMemberData(null);
+            } else {
+              setUserMemberData(data);
+            }
+          });
       } else {
         setRole(null);
+        setUserMemberData(null);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // ✅ CORRECTION : Exposer setUser dans le contexte
   return (
-    <AuthContext.Provider value={{ user, setUser, role, loading }}>
+    <AuthContext.Provider
+      value={{ user, setUser, role, loading, userMemberData }}
+    >
       {children}
     </AuthContext.Provider>
   );
