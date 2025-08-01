@@ -757,7 +757,16 @@ function EnhancedSidebar({ user, isAdmin, onLogout, toggleDarkMode, getDarkModeI
 
       {/* Informations utilisateur */}
       <div className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}>
-        <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
+        {user?.photo ? (
+          <img
+            src={user.photo}
+            alt="Photo de profil"
+            className="w-8 h-8 rounded-full object-cover border-2 border-blue-500 dark:border-blue-400"
+          />
+        ) : (
+          <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
+        )}
+
         <div className="flex flex-col min-w-0">
           <span className="font-medium truncate">{user?.email}</span>
           {isAdmin && (
@@ -976,7 +985,16 @@ function AnimatedMobileMenu({
         {/* User Profile */}
         <div className={`user-profile ${animate ? "animate" : ""} p-6 border-b border-white/20`}>
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
-            <FaUserCircle className="text-2xl text-white" />
+            {user?.photo ? (
+              <img
+                src={user.photo}
+                alt="Profil"
+                className="w-10 h-10 rounded-full object-cover border-2 border-white"
+              />
+            ) : (
+              <FaUserCircle className="text-2xl text-white" />
+            )}
+
             <div className="flex flex-col">
               <span className="font-medium text-white text-sm">
                 {user?.email}
