@@ -49,14 +49,14 @@ function HomePage() {
       setLoading(true);
       setError(null);
 
-      console.log(
-        "🔄 Début fetchData - User:",
-        user?.email,
-        "Role:",
-        role,
-        "IsAdmin:",
-        isAdmin
-      );
+      //console.log(
+      //  "🔄 Début fetchData - User:",
+      //  user?.email,
+      //  "Role:",
+      //  role,
+      //  "IsAdmin:",
+      //  isAdmin
+      //);
 
       // Récupérer les statistiques générales pour tous
       let members = [];
@@ -64,7 +64,7 @@ function HomePage() {
         const { stats: calculatedStats } =
           await supabaseServices.getStatistics();
         members = await supabaseServices.getMembers();
-        console.log("✅ Membres récupérés:", members.length);
+        //console.log("✅ Membres récupérés:", members.length);
       } catch (statsError) {
         console.error("❌ Erreur récupération stats:", statsError);
       }
@@ -135,7 +135,7 @@ function HomePage() {
 
       // Récupérer les paiements en attente (admin seulement)
       if (isAdmin) {
-        console.log("👑 Admin - Récupération des paiements en attente...");
+        //console.log("👑 Admin - Récupération des paiements en attente...");
         try {
           const payments = await supabaseServices.getPayments();
           const today_start = new Date();
@@ -150,7 +150,7 @@ function HomePage() {
           });
 
           setPendingPayments(filtered);
-          console.log("✅ Paiements en attente récupérés:", filtered.length);
+          //console.log("✅ Paiements en attente récupérés:", filtered.length);
         } catch (paymentsError) {
           console.error(
             "❌ Erreur récupération paiements admin:",
@@ -161,7 +161,7 @@ function HomePage() {
 
       // Récupérer les données du membre connecté (utilisateur non-admin)
       if (user) {
-        console.log("👤 Utilisateur - Récupération des données membre...");
+        //console.log("👤 Utilisateur - Récupération des données membre...");
         try {
           const { data: memberData, error: memberError } = await supabase
             .from("members")
@@ -175,11 +175,11 @@ function HomePage() {
           }
 
           if (memberData) {
-            console.log(
-              "✅ Données membre trouvées:",
-              memberData.firstName,
-              memberData.name
-            );
+            //console.log(
+            //  "✅ Données membre trouvées:",
+            // memberData.firstName,
+            //  memberData.name
+            //);
             setUserMemberData(memberData);
 
             // Récupérer les paiements de ce membre
@@ -195,21 +195,21 @@ function HomePage() {
                 paymentsError
               );
             } else {
-              console.log(
-                "✅ Paiements utilisateur récupérés:",
-                paymentsData?.length || 0
-              );
+              //console.log(
+              //  "✅ Paiements utilisateur récupérés:",
+              //  paymentsData?.length || 0
+              //);
               setUserPayments(paymentsData || []);
             }
 
             // Récupérer les présences récentes du membre - CORRIGÉ
             try {
-              console.log(
-                "🔍 Recherche présences pour membre:",
-                memberData.id,
-                "Badge:",
-                memberData.badgeId
-              );
+              //console.log(
+              //  "🔍 Recherche présences pour membre:",
+              //  memberData.id,
+              //   "Badge:",
+              //  memberData.badgeId
+              //);
 
               // ✅ CORRECTION : Utiliser badgeId comme dans PlanningPage
               const { data: presencesData, error: presencesError } =
@@ -221,16 +221,16 @@ function HomePage() {
                   .limit(50); // ✅ Plus de données pour être sûr
 
               if (presencesError) {
-                console.error(
-                  "❌ Erreur récupération présences:",
-                  presencesError
-                );
+                //console.error(
+                //  "❌ Erreur récupération présences:",
+                //  presencesError
+                //);
                 setUserPresences([]);
               } else {
-                console.log(
-                  "✅ Présences brutes récupérées:",
-                  presencesData?.length || 0
-                );
+                //console.log(
+                //  "✅ Présences brutes récupérées:",
+                //  presencesData?.length || 0
+                //);
 
                 // ✅ CORRECTION : Transformer les données comme dans PlanningPage
                 const transformedPresences = (presencesData || []).map((p) => ({
@@ -241,10 +241,10 @@ function HomePage() {
                   date: new Date(p.timestamp).toISOString().split("T")[0], // Format YYYY-MM-DD
                 }));
 
-                console.log(
-                  "✅ Présences transformées:",
-                  transformedPresences.length
-                );
+                //console.log(
+                //  "✅ Présences transformées:",
+                //  transformedPresences.length
+                //);
                 setUserPresences(transformedPresences);
               }
             } catch (presencesError) {
@@ -268,7 +268,7 @@ function HomePage() {
         }
       }
 
-      console.log("✅ fetchData terminé avec succès");
+      //console.log("✅ fetchData terminé avec succès");
     } catch (err) {
       console.error("❌ Erreur générale chargement données:", err);
       setError(`Erreur lors du chargement: ${err.message}`);
@@ -279,17 +279,17 @@ function HomePage() {
 
   useEffect(() => {
     if (authLoading) {
-      console.log("⏳ En attente de l'authentification...");
+      //console.log("⏳ En attente de l'authentification...");
       return;
     }
 
     if (!user) {
-      console.log("❌ Pas d'utilisateur connecté");
+      //console.log("❌ Pas d'utilisateur connecté");
       setLoading(false);
       return;
     }
 
-    console.log("🚀 Lancement fetchData - User:", user.email, "Role:", role);
+    //console.log("🚀 Lancement fetchData - User:", user.email, "Role:", role);
     fetchData();
   }, [user, role, authLoading]);
 
@@ -313,11 +313,11 @@ function HomePage() {
     if (!userPresences.length)
       return { thisMonth: 0, lastVisit: null, totalVisits: 0 };
 
-    console.log(
-      "🔍 Calcul stats présences:",
-      userPresences.length,
-      "présences trouvées"
-    );
+    //console.log(
+    //  "🔍 Calcul stats présences:",
+    //  userPresences.length,
+    //  "présences trouvées"
+    //);
 
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -326,12 +326,12 @@ function HomePage() {
     const thisMonth = userPresences.filter((p) => {
       const presenceDate = p.parsedDate || new Date(p.timestamp);
       const isThisMonth = presenceDate >= thisMonthStart && presenceDate <= now;
-      console.log(
-        "📅 Présence:",
-        presenceDate.toLocaleDateString(),
-        "Ce mois?",
-        isThisMonth
-      );
+      //console.log(
+      //  "📅 Présence:",
+      //  presenceDate.toLocaleDateString(),
+      //  "Ce mois?",
+      //  isThisMonth
+      //);
       return isThisMonth;
     }).length;
 
@@ -343,11 +343,11 @@ function HomePage() {
 
     const totalVisits = userPresences.length;
 
-    console.log("📊 Stats calculées:", {
-      thisMonth,
-      totalVisits,
-      lastVisit: lastVisit?.toLocaleDateString(),
-    });
+    //console.log("📊 Stats calculées:", {
+    //  thisMonth,
+    //  totalVisits,
+    //  lastVisit: lastVisit?.toLocaleDateString(),
+    //});
 
     return { thisMonth, lastVisit, totalVisits };
   };
@@ -444,7 +444,6 @@ function HomePage() {
           <span>Actualiser</span>
         </button>
       </div>
-
 
       {/* Section présences utilisateur (non-admin seulement) */}
       {!isAdmin && userMemberData && (
@@ -585,7 +584,7 @@ function HomePage() {
                             <FaCheckCircle className="text-emerald-500 text-sm" />
                           ) : payment.encaissement_prevu &&
                             new Date(payment.encaissement_prevu) <=
-                            new Date() ? (
+                              new Date() ? (
                             <FaExclamationTriangle className="text-red-500 text-sm" />
                           ) : (
                             <FaClock className="text-amber-500 text-sm" />
@@ -599,23 +598,24 @@ function HomePage() {
                           <div className="text-xs text-slate-500 dark:text-slate-400">
                             {payment.created_at
                               ? format(
-                                new Date(payment.created_at),
-                                "dd/MM/yyyy"
-                              )
+                                  new Date(payment.created_at),
+                                  "dd/MM/yyyy"
+                                )
                               : payment.date_paiement
-                                ? format(
+                              ? format(
                                   new Date(payment.date_paiement),
                                   "dd/MM/yyyy"
                                 )
-                                : "Date inconnue"}
+                              : "Date inconnue"}
                           </div>
                         </div>
                       </div>
                       <span
-                        className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${payment.is_paid
+                        className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
+                          payment.is_paid
                             ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300"
                             : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
-                          }`}
+                        }`}
                       >
                         {payment.is_paid ? "Payé" : "En attente"}
                       </span>
@@ -799,10 +799,11 @@ function HomePage() {
                               )}
                               {p.encaissement_prevu && (
                                 <span
-                                  className={`text-xs px-2 py-1 rounded-full ${isOverdue
+                                  className={`text-xs px-2 py-1 rounded-full ${
+                                    isOverdue
                                       ? "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
                                       : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
-                                    }`}
+                                  }`}
                                 >
                                   {format(
                                     new Date(p.encaissement_prevu),
