@@ -407,15 +407,15 @@ function HomePage() {
           {/* Photo du membre pour utilisateurs */}
           {userMemberData && (
             <div className="flex-shrink-0">
-              <div className="w-20 h-20 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center transition-shadow duration-300 hover:shadow-xl shadow-md">
+              <div className="w-24 h-24 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center transition-shadow duration-300 hover:shadow-xl shadow-md">
                 {userMemberData.photo ? (
                   <img
                     src={userMemberData.photo}
                     alt="Photo de profil"
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover"
+                    className="w-20 h-20 sm:w-20 sm:h-20 rounded-full object-cover"
                   />
                 ) : (
-                  <FaUser className="text-white text-2xl sm:text-3xl" />
+                  <FaUser className="text-white text-3xl sm:text-4xl" />
                 )}
               </div>
             </div>
