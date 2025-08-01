@@ -405,7 +405,7 @@ function HomePage() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
         <div className="flex items-center gap-4 flex-1 min-w-0">
           {/* Photo du membre pour utilisateurs non-admin */}
-          {isAdmin && userMemberData && (
+          { userMemberData && (
             <div className="flex-shrink-0">
               <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
                 {userMemberData.photo ? (
