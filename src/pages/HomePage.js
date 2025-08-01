@@ -160,7 +160,7 @@ function HomePage() {
       }
 
       // Récupérer les données du membre connecté (utilisateur non-admin)
-      if (!isAdmin && user) {
+      if ( user) {
         console.log("👤 Utilisateur - Récupération des données membre...");
         try {
           const { data: memberData, error: memberError } = await supabase
