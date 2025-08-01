@@ -110,7 +110,33 @@ function MyAttendancesPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [timelineStartDate, setTimelineStartDate] = useState(new Date());
+  const handleQuickPeriod = (periodId) => {
+    switch (periodId) {
+      case 'today':
+        setFilters({ ...filters, dateRange: '1day' });
+        break;
+      case '7days':
+        setFilters({ ...filters, dateRange: '7days' });
+        break;
+      case '30days':
+        setFilters({ ...filters, dateRange: '30days' });
+        break;
+      case 'thisWeek':
+        // Logique à compléter
+        break;
+      case 'thisMonth':
+        // Logique à compléter
+        break;
+      case 'thisYear':
+        // Logique à compléter
+        break;
+      default:
+        break;
+    }
 
+    // Réinitialiser la timeline à aujourd'hui par exemple
+    setTimelineStartDate(new Date());
+  };
   // Chargement initial
   useEffect(() => {
     if (user) {
@@ -1300,33 +1326,25 @@ function MyAttendancesPage() {
           </div>
 
           {/* ✅ Raccourcis rapides */}
-          <div className={styles.periodPresets}>
-            <span className={styles.presetsLabel}>Raccourcis :</span>
-
-            <button onClick={() => setQuickPeriod('today')} className={styles.presetButton}>
-              Aujourd'hui
-            </button>
-
-            <button onClick={() => setQuickPeriod('7days')} className={styles.presetButton}>
-              7 derniers jours
-            </button>
-
-            <button onClick={() => setQuickPeriod('30days')} className={styles.presetButton}>
-              30 derniers jours
-            </button>
-
-            <button onClick={() => setQuickPeriod('thisWeek')} className={styles.presetButton}>
-              Cette Semaine
-            </button>
-
-            <button onClick={() => setQuickPeriod('thisMonth')} className={styles.presetButton}>
-              Ce Mois
-            </button>
-
-            <button onClick={() => setQuickPeriod('thisYear')} className={styles.presetButton}>
-              Cette Année
-            </button>
+          <div className={styles.quickPeriodButtons}>
+            {[
+              { id: 'today', label: "Aujourd'hui" },
+              { id: '7days', label: '7 derniers jours' },
+              { id: '30days', label: '30 derniers jours' },
+              { id: 'thisWeek', label: 'Cette Semaine' },
+              { id: 'thisMonth', label: 'Ce Mois' },
+              { id: 'thisYear', label: 'Cette Année' },
+            ].map((option) => (
+              <button
+                key={option.id}
+                onClick={() => handleQuickPeriod(option.id)}
+                className={styles.quickButton}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
+
         </div>
       </div>
 
