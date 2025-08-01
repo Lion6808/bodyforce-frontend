@@ -607,6 +607,9 @@ function PWAToast({ toast, onClose }) {
 }
 
 // ===== COMPOSANT INVITATION À INSTALLER =====
+// ===== COMPOSANT INVITATION DISCRÈTE =====
+// Remplacez votre composant InstallPrompt existant par celui-ci
+
 function InstallPrompt({ show, onInstall, onDismiss }) {
   const [animate, setAnimate] = useState(false);
 
@@ -620,73 +623,117 @@ function InstallPrompt({ show, onInstall, onDismiss }) {
 
   return (
     <>
+      {/* Version discrète - Notification en bas à droite */}
       <div
-        className={`install-prompt-overlay ${animate ? "show" : ""}`}
-        onClick={onDismiss}
+        className={`discrete-install-prompt ${animate ? "show" : ""}`}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="install-prompt-card"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="install-prompt-header">
-            <img
-              src="/images/logo.png"
-              alt="Body Force"
-              className="install-prompt-logo"
-              onError={(e) => {
-                e.target.style.display = "none";
-              }}
-            />
-            <h3 className="install-prompt-title">Installer Body Force</h3>
-            <p className="install-prompt-subtitle">
-              Pour une expérience optimale
-            </p>
-          </div>
-
-          <div className="install-prompt-content">
-            <p className="install-prompt-text">
-              Ajoutez Body Force à votre écran d'accueil pour un accès rapide et
-              une meilleure expérience !
-            </p>
-
-            <div className="install-prompt-benefits">
-              <div className="install-benefit">
-                <span className="install-benefit-icon">⚡</span>
-                <span className="install-benefit-text">Accès instantané</span>
-              </div>
-              <div className="install-benefit">
-                <span className="install-benefit-icon">📱</span>
-                <span className="install-benefit-text">Mode hors ligne</span>
-              </div>
-              <div className="install-benefit">
-                <span className="install-benefit-icon">🔔</span>
-                <span className="install-benefit-text">Notifications</span>
-              </div>
-              <div className="install-benefit">
-                <span className="install-benefit-icon">🏃‍♂️</span>
-                <span className="install-benefit-text">Plus rapide</span>
+        <div className="discrete-install-content">
+          {/* Icône et texte */}
+          <div className="discrete-install-info">
+            <div className="discrete-install-icon">📱</div>
+            <div className="discrete-install-text">
+              <div className="discrete-install-title">Installer BodyForce</div>
+              <div className="discrete-install-subtitle">
+                Accès rapide depuis votre écran d'accueil
               </div>
             </div>
           </div>
 
-          <div className="install-prompt-actions">
+          {/* Boutons d'action */}
+          <div className="discrete-install-actions">
             <button
               onClick={onDismiss}
-              className="install-prompt-btn install-prompt-btn-secondary"
+              className="discrete-btn discrete-btn-dismiss"
+              title="Plus tard"
             >
-              Plus tard
+              ✕
             </button>
             <button
               onClick={onInstall}
-              className="install-prompt-btn install-prompt-btn-primary"
+              className="discrete-btn discrete-btn-install"
             >
-              <span>📱</span>
               Installer
             </button>
           </div>
         </div>
+
+        {/* Barre de progression (optionnelle) */}
+        <div className="discrete-install-progress"></div>
       </div>
     </>
+  );
+}
+
+// ===== ALTERNATIVE : BANNER EN HAUT (ENCORE PLUS DISCRET) =====
+function InstallPromptBanner({ show, onInstall, onDismiss }) {
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    if (show) {
+      setTimeout(() => setAnimate(true), 100);
+    }
+  }, [show]);
+
+  if (!show) return null;
+
+  return (
+    <div className={`install-banner ${animate ? "show" : ""}`}>
+      <div className="install-banner-content">
+        <span className="install-banner-icon">📱</span>
+        <span className="install-banner-text">
+          <strong>BodyForce</strong> peut être installé sur votre appareil
+        </span>
+        <div className="install-banner-actions">
+          <button onClick={onInstall} className="install-banner-btn install">
+            Installer
+          </button>
+          <button onClick={onDismiss} className="install-banner-btn dismiss">
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== ALTERNATIVE : TOAST MODERNE =====
+function InstallPromptToast({ show, onInstall, onDismiss }) {
+  const [animate, setAnimate] = useState(false);
+
+  useEffect(() => {
+    if (show) {
+      setTimeout(() => setAnimate(true), 100);
+    }
+  }, [show]);
+
+  if (!show) return null;
+
+  return (
+    <div className={`install-toast ${animate ? "show" : ""}`}>
+      <div className="install-toast-icon">
+        <img
+          src="/images/logo.png"
+          alt="BodyForce"
+          className="install-toast-logo"
+          onError={(e) => (e.target.style.display = "none")}
+        />
+      </div>
+      <div className="install-toast-content">
+        <div className="install-toast-title">Installer BodyForce ?</div>
+        <div className="install-toast-message">
+          Accès rapide et notifications
+        </div>
+      </div>
+      <div className="install-toast-actions">
+        <button onClick={onInstall} className="install-toast-btn primary">
+          Oui
+        </button>
+        <button onClick={onDismiss} className="install-toast-btn secondary">
+          Non
+        </button>
+      </div>
+    </div>
   );
 }
 

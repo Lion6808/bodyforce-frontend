@@ -1026,241 +1026,332 @@
     animation: none;
   }
 }
-/* ===== STYLES PWA INVITATION ===== */
-.install-prompt-overlay {
+/* ===== INVITATION DISCRÈTE (NOTIFICATION COIN) ===== */
+.discrete-install-prompt {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  max-width: 380px;
+  z-index: 9999;
+  transform: translateY(100px) scale(0.8);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.discrete-install-prompt.show {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.discrete-install-content {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.discrete-install-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.discrete-install-icon {
+  font-size: 24px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: -webkit-linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.discrete-install-text {
+  flex: 1;
+}
+
+.discrete-install-title {
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 16px;
+  margin-bottom: 2px;
+}
+
+.discrete-install-subtitle {
+  font-size: 14px;
+  color: #718096;
+  line-height: 1.3;
+}
+
+.discrete-install-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.discrete-btn {
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.discrete-btn-dismiss {
+  background: #f7fafc;
+  color: #a0aec0;
+  padding: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.discrete-btn-dismiss:hover {
+  background: #edf2f7;
+  color: #718096;
+}
+
+.discrete-btn-install {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 20px;
+}
+
+.discrete-btn-install:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.discrete-install-progress {
+  height: 3px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: progressBar 30s linear;
+}
+
+@keyframes progressBar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ===== BANNER EN HAUT (TRÈS DISCRET) ===== */
+.install-banner {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  z-index: 9999;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+.install-banner.show {
+  transform: translateY(0);
+}
+
+.install-banner-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  padding: 20px;
+  padding: 12px 20px;
+  gap: 12px;
 }
 
-.install-prompt-overlay.show {
-  opacity: 1;
-  visibility: visible;
+.install-banner-icon {
+  font-size: 18px;
 }
 
-.install-prompt-card {
-  background: white;
-  border-radius: 20px;
-  max-width: 420px;
-  width: 100%;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-  transform: translateY(30px) scale(0.9);
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-  position: relative;
-}
-
-.install-prompt-overlay.show .install-prompt-card {
-  transform: translateY(0) scale(1);
-}
-
-.install-prompt-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 30px 24px 24px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.install-prompt-logo {
-  width: 60px;
-  height: 60px;
-  margin: 0 auto 16px;
-  border-radius: 16px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  position: relative;
-  z-index: 1;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.install-prompt-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 8px;
-  position: relative;
-  z-index: 1;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.install-prompt-subtitle {
-  font-size: 16px;
-  opacity: 0.9;
-  margin: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.install-prompt-content {
-  padding: 28px 24px 20px;
-}
-
-.install-prompt-text {
-  color: #4a5568;
-  font-size: 16px;
-  line-height: 1.6;
-  margin-bottom: 24px;
-  text-align: center;
-}
-
-.install-prompt-benefits {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 8px;
-}
-
-.install-benefit {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 16px 12px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.3s ease;
-}
-
-.install-benefit:hover {
-  background: #edf2f7;
-  transform: translateY(-2px);
-}
-
-.install-benefit-icon {
-  font-size: 28px;
-  margin-bottom: 8px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
-.install-benefit-text {
+.install-banner-text {
   font-size: 14px;
+}
+
+.install-banner-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.install-banner-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.install-banner-btn.install {
+  background: rgba(255, 255, 255, 0.9);
+  color: #667eea;
+  font-weight: 500;
+}
+
+.install-banner-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.install-banner-btn.install:hover {
+  background: white;
+}
+
+/* ===== TOAST MODERNE ===== */
+.install-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  max-width: 320px;
+  z-index: 9999;
+  transform: translateX(400px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.install-toast.show {
+  transform: translateX(0);
+}
+
+.install-toast-icon {
+  flex-shrink: 0;
+}
+
+.install-toast-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.install-toast-content {
+  flex: 1;
+}
+
+.install-toast-title {
   font-weight: 600;
   color: #2d3748;
+  font-size: 15px;
+  margin-bottom: 2px;
 }
 
-.install-prompt-actions {
+.install-toast-message {
+  font-size: 13px;
+  color: #718096;
+}
+
+.install-toast-actions {
   display: flex;
-  gap: 12px;
-  padding: 0 24px 28px;
+  gap: 6px;
 }
 
-.install-prompt-btn {
-  flex: 1;
-  padding: 16px 20px;
+.install-toast-btn {
   border: none;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 16px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
-.install-prompt-btn-secondary {
-  background: #edf2f7;
-  color: #4a5568;
-  border: 2px solid #e2e8f0;
-}
-
-.install-prompt-btn-secondary:hover {
-  background: #e2e8f0;
-  border-color: #cbd5e0;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-}
-
-.install-prompt-btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.install-toast-btn.primary {
+  background: #667eea;
   color: white;
-  border: 2px solid transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
 }
 
-.install-prompt-btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
+.install-toast-btn.primary:hover {
+  background: #5a6fd8;
 }
 
-/* Mode sombre */
-.dark .install-prompt-card {
-  background: #2d3748;
-  border: 1px solid #4a5568;
-}
-
-.dark .install-prompt-text {
+.install-toast-btn.secondary {
+  background: #f7fafc;
   color: #a0aec0;
 }
 
-.dark .install-benefit {
-  background: #4a5568;
-  border-color: #718096;
+.install-toast-btn.secondary:hover {
+  background: #edf2f7;
+  color: #718096;
 }
 
-.dark .install-benefit:hover {
-  background: #718096;
-}
-
-.dark .install-benefit-text {
-  color: #e2e8f0;
-}
-
-.dark .install-prompt-btn-secondary {
-  background: #4a5568;
-  color: #e2e8f0;
-  border-color: #718096;
-}
-
-.dark .install-prompt-btn-secondary:hover {
-  background: #718096;
-  border-color: #a0aec0;
-}
-
-/* Responsive */
+/* ===== RESPONSIVE ===== */
 @media (max-width: 480px) {
-  .install-prompt-card {
-    margin: 10px;
+  .discrete-install-prompt {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
   }
 
-  .install-prompt-header {
-    padding: 24px 20px 20px;
+  .install-toast {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
   }
 
-  .install-prompt-content {
-    padding: 20px;
-  }
-
-  .install-prompt-benefits {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .install-prompt-actions {
+  .install-banner-content {
     flex-direction: column;
-    padding: 0 20px 24px;
+    gap: 8px;
+    text-align: center;
   }
 
-  .install-prompt-btn {
-    padding: 14px 16px;
+  .install-banner-actions {
+    margin-left: 0;
   }
+}
+
+/* Mode sombre */
+.dark .discrete-install-prompt {
+  background: #2d3748;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.dark .discrete-install-title {
+  color: #e2e8f0;
+}
+
+.dark .discrete-install-subtitle {
+  color: #a0aec0;
+}
+
+.dark .discrete-btn-dismiss {
+  background: #4a5568;
+  color: #a0aec0;
+}
+
+.dark .discrete-btn-dismiss:hover {
+  background: #718096;
+}
+
+.dark .install-toast {
+  background: #2d3748;
+}
+
+.dark .install-toast-title {
+  color: #e2e8f0;
+}
+
+.dark .install-toast-message {
+  color: #a0aec0;
 }
