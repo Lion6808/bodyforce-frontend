@@ -1345,19 +1345,6 @@ function AnimatedMobileMenu({
               </Link>
 
               <Link
-                to="/invitations"
-                onClick={handleItemClick}
-                className={`menu-item ${
-                  animate ? "animate" : ""
-                } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-                  location.pathname === "/invitations" ? "bg-white/20" : ""
-                }`}
-              >
-                <FaUserPlus className="text-xl text-orange-300" />
-                <span className="font-medium">Invitations</span>
-              </Link>
-
-              <Link
                 to="/planning"
                 onClick={handleItemClick}
                 className={`menu-item ${
@@ -1394,6 +1381,19 @@ function AnimatedMobileMenu({
               >
                 <FaChartBar className="text-xl text-blue-300" />
                 <span className="font-medium">Statistiques</span>
+              </Link>
+
+              <Link
+                to="/invitations"
+                onClick={handleItemClick}
+                className={`menu-item ${
+                  animate ? "animate" : ""
+                } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
+                  location.pathname === "/invitations" ? "bg-white/20" : ""
+                }`}
+              >
+                <FaUserPlus className="text-xl text-orange-300" />
+                <span className="font-medium">Invitations</span>
               </Link>
 
               <Link
