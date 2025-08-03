@@ -423,13 +423,11 @@ function HomePage() {
 
           <div className="flex-1 min-w-0">
             <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              {isAdmin
-                ? "Tableau de bord - Club BodyForce"
-                : "Mon espace membre"}
+              {isAdmin ? "Club BodyForce" : "Mon espace membre"}
             </h1>
             <p className="text-slate-600 dark:text-slate-300 mt-2 break-words">
               {isAdmin
-                ? "Vue d'ensemble des statistiques du club"
+                ? `Bienvenue ${userMemberData?.firstName || "Membre"}`
                 : `Bienvenue ${userMemberData?.firstName || "Membre"}`}
             </p>
           </div>
