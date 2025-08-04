@@ -206,58 +206,62 @@ function MembersPage() {
   };
 
   // Component for avatar with fallback
-// REMPLACEZ votre MemberAvatar existant par ceci :
-const MemberAvatar = ({ member }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
+  // REMPLACEZ votre MemberAvatar existant par ceci :
+  const MemberAvatar = ({ member }) => {
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
 
-  // Si on sait que l'image a échoué ou qu'il n'y a pas de photo, afficher directement le fallback
-  const shouldShowFallback = !member.photo || imageFailed;
+    // Si on sait que l'image a échoué ou qu'il n'y a pas de photo, afficher directement le fallback
+    const shouldShowFallback = !member.photo || imageFailed;
 
-  if (shouldShowFallback) {
+    if (shouldShowFallback) {
+      return (
+        <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+          <FaUser
+            className={`text-xl ${
+              member.gender === "Femme"
+                ? "text-pink-500 dark:text-pink-400"
+                : "text-blue-500 dark:text-blue-400"
+            }`}
+          />
+        </div>
+      );
+    }
+
     return (
-      <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-        <FaUser
-          className={`text-xl ${
-            member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+      <div className="relative w-12 h-12 transform-gpu">
+        {/* Fallback qui reste visible jusqu'au chargement complet */}
+        <div
+          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
+            imageLoaded ? "opacity-0" : "opacity-100"
           }`}
+        >
+          <FaUser
+            className={`text-xl ${
+              member.gender === "Femme"
+                ? "text-pink-500 dark:text-pink-400"
+                : "text-blue-500 dark:text-blue-400"
+            }`}
+          />
+        </div>
+
+        {/* Image qui se superpose au fallback */}
+        <img
+          src={member.photo}
+          alt="avatar"
+          className={`absolute inset-0 w-12 h-12 object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
+            imageLoaded ? "opacity-100" : "opacity-0"
+          }`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            setImageFailed(true);
+            setImageErrors((prev) => new Set([...prev, member.id]));
+          }}
+          loading="lazy"
         />
       </div>
     );
-  }
-
-  return (
-    <div className="relative w-12 h-12 transform-gpu">
-      {/* Fallback qui reste visible jusqu'au chargement complet */}
-      <div 
-        className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
-          imageLoaded ? 'opacity-0' : 'opacity-100'
-        }`}
-      >
-        <FaUser
-          className={`text-xl ${
-            member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-          }`}
-        />
-      </div>
-      
-      {/* Image qui se superpose au fallback */}
-      <img
-        src={member.photo}
-        alt="avatar"
-        className={`absolute inset-0 w-12 h-12 object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
-          imageLoaded ? 'opacity-100' : 'opacity-0'
-        }`}
-        onLoad={() => setImageLoaded(true)}
-        onError={() => {
-          setImageFailed(true);
-          setImageErrors((prev) => new Set([...prev, member.id]));
-        }}
-        loading="lazy"
-      />
-    </div>
-  );
-};
+  };
 
   if (loading) {
     return (
@@ -289,10 +293,12 @@ const MemberAvatar = ({ member }) => {
   }
 
   return (
-     <div className="px-2 sm:px-4 members-container">
+    <div className="px-2 sm:px-4 members-container">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Liste des membres</h1>
+          <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
+            Liste des membres
+          </h1>
           <p className="text-gray-600 dark:text-gray-400">
             {members.length} membres dans la base Supabase
           </p>
@@ -420,7 +426,9 @@ const MemberAvatar = ({ member }) => {
               onChange={toggleSelectAll}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-600 dark:text-gray-400">Sélectionner tout</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Sélectionner tout
+            </span>
           </label>
         </div>
         <button
@@ -430,7 +438,9 @@ const MemberAvatar = ({ member }) => {
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Trier par nom
           </span>
-          <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
+          <span className="text-gray-500 dark:text-gray-400">
+            {sortAsc ? "▲" : "▼"}
+          </span>
         </button>
       </div>
 
@@ -459,20 +469,35 @@ const MemberAvatar = ({ member }) => {
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                     </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Photo</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
+                      Photo
+                    </th>
                     <th className="p-3 text-left">
                       <button
                         onClick={() => setSortAsc(!sortAsc)}
                         className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                       >
-                        Nom <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
+                        Nom{" "}
+                        <span className="text-gray-500 dark:text-gray-400">
+                          {sortAsc ? "▲" : "▼"}
+                        </span>
                       </button>
                     </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Infos</th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Abonnement</th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Badge</th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Status</th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Actions</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
+                      Infos
+                    </th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
+                      Abonnement
+                    </th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
+                      Badge
+                    </th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
+                      Status
+                    </th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
@@ -668,12 +693,15 @@ const MemberAvatar = ({ member }) => {
                   onChange={toggleSelectAll}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-600 dark:text-gray-400">Tout sélectionner</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Tout sélectionner
+                </span>
               </label>
-              <button
-                onClick={() => setSortAsc(!sortAsc)}
-              >
-                <span className="text-gray-700 dark:text-gray-300">Nom</span> <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
+              <button onClick={() => setSortAsc(!sortAsc)}>
+                <span className="text-gray-700 dark:text-gray-300">Nom</span>{" "}
+                <span className="text-gray-500 dark:text-gray-400">
+                  {sortAsc ? "▲" : "▼"}
+                </span>
               </button>
             </div>
 
@@ -936,14 +964,18 @@ function Widget({ title, value, onClick, active = false }) {
     >
       <div
         className={`text-sm ${
-          active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
+          active
+            ? "text-blue-700 dark:text-blue-300 font-medium"
+            : "text-gray-500 dark:text-gray-400"
         }`}
       >
         {title}
       </div>
       <div
         className={`text-xl font-bold ${
-          active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
+          active
+            ? "text-blue-800 dark:text-blue-200"
+            : "text-gray-800 dark:text-gray-200"
         }`}
       >
         {value}

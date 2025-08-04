@@ -387,15 +387,11 @@ function useSwipeNavigation(isAdmin) {
 }
 
 // ===== HOOK PWA =====
-// ===== REMPLACEZ VOTRE FONCTION usePWA() PAR CELLE-CI =====
-// (Supprimez les DEUX fonctions usePWA existantes et remplacez par cette version unique)
-
 function usePWA() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [toast, setToast] = useState(null);
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   useEffect(() => {
     // Vérifier si l'app est déjà installée
@@ -411,20 +407,12 @@ function usePWA() {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
-
-      // 🔥 NOUVEAU : Afficher une invitation après 30 secondes
-      setTimeout(() => {
-        if (!localStorage.getItem("install_prompt_dismissed")) {
-          setShowInstallPrompt(true);
-        }
-      }, 30000); // 30 secondes
     };
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
-      setShowInstallPrompt(false);
       showToast(
         "success",
         "Application installée !",
@@ -462,7 +450,7 @@ function usePWA() {
         );
       } else {
         showToast(
-          "info",
+          "error",
           "Installation annulée",
           "Vous pouvez toujours installer l'application plus tard."
         );
@@ -470,7 +458,6 @@ function usePWA() {
 
       setDeferredPrompt(null);
       setIsInstallable(false);
-      setShowInstallPrompt(false);
     } catch (error) {
       console.error("Erreur lors de l'installation PWA:", error);
       showToast(
@@ -479,15 +466,6 @@ function usePWA() {
         "Une erreur s'est produite lors de l'installation."
       );
     }
-  };
-
-  const dismissInstallPrompt = () => {
-    setShowInstallPrompt(false);
-    localStorage.setItem("install_prompt_dismissed", "true");
-    // Reproposer dans 7 jours
-    setTimeout(() => {
-      localStorage.removeItem("install_prompt_dismissed");
-    }, 7 * 24 * 60 * 60 * 1000);
   };
 
   const closeToast = () => {
@@ -500,80 +478,7 @@ function usePWA() {
     installApp,
     toast,
     closeToast,
-    showInstallPrompt,
-    dismissInstallPrompt,
   };
-}
-
-// ===== FONCTION App() CORRIGÉE =====
-// (Remplacez votre fonction App() par celle-ci)
-
-function App() {
-  const { user, loading } = useAuth();
-
-  // ✅ HOOK PWA AVEC TOUTES LES VARIABLES
-  const {
-    isInstallable,
-    isInstalled,
-    installApp,
-    toast,
-    closeToast,
-    showInstallPrompt,
-    dismissInstallPrompt,
-  } = usePWA();
-
-  // ✅ FONCTION POUR GÉRER L'INSTALLATION DEPUIS L'INVITATION
-  const handleInstallFromPrompt = () => {
-    installApp();
-    dismissInstallPrompt();
-  };
-
-  // ✅ Écran de chargement
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Router>
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/" /> : <LoginPage />}
-        />
-        <Route path="/invitation" element={<InvitationSignupPage />} />
-        <Route path="/*" element={<AppRoutes />} />
-      </Routes>
-
-      {/* 🔥 INVITATION PWA */}
-      <InstallPrompt
-        show={showInstallPrompt && isInstallable && !isInstalled}
-        onInstall={handleInstallFromPrompt}
-        onDismiss={dismissInstallPrompt}
-      />
-
-      {/* Toast PWA */}
-      <PWAToast toast={toast} onClose={closeToast} />
-
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
-    </Router>
-  );
 }
 
 // ===== COMPOSANT TOAST PWA =====
@@ -602,137 +507,6 @@ function PWAToast({ toast, onClose }) {
         <div className="pwa-toast-title">{toast.title}</div>
       </div>
       <div className="pwa-toast-message">{toast.message}</div>
-    </div>
-  );
-}
-
-// ===== COMPOSANT INVITATION À INSTALLER =====
-// ===== COMPOSANT INVITATION DISCRÈTE =====
-// Remplacez votre composant InstallPrompt existant par celui-ci
-
-function InstallPrompt({ show, onInstall, onDismiss }) {
-  const [animate, setAnimate] = useState(false);
-
-  useEffect(() => {
-    if (show) {
-      setTimeout(() => setAnimate(true), 100);
-    }
-  }, [show]);
-
-  if (!show) return null;
-
-  return (
-    <>
-      {/* Version discrète - Notification en bas à droite */}
-      <div
-        className={`discrete-install-prompt ${animate ? "show" : ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="discrete-install-content">
-          {/* Icône et texte */}
-          <div className="discrete-install-info">
-            <div className="discrete-install-icon">📱</div>
-            <div className="discrete-install-text">
-              <div className="discrete-install-title">Installer BodyForce</div>
-              <div className="discrete-install-subtitle">
-                Accès rapide depuis votre écran d'accueil
-              </div>
-            </div>
-          </div>
-
-          {/* Boutons d'action */}
-          <div className="discrete-install-actions">
-            <button
-              onClick={onDismiss}
-              className="discrete-btn discrete-btn-dismiss"
-              title="Plus tard"
-            >
-              ✕
-            </button>
-            <button
-              onClick={onInstall}
-              className="discrete-btn discrete-btn-install"
-            >
-              Installer
-            </button>
-          </div>
-        </div>
-
-        {/* Barre de progression (optionnelle) */}
-        <div className="discrete-install-progress"></div>
-      </div>
-    </>
-  );
-}
-
-// ===== ALTERNATIVE : BANNER EN HAUT (ENCORE PLUS DISCRET) =====
-function InstallPromptBanner({ show, onInstall, onDismiss }) {
-  const [animate, setAnimate] = useState(false);
-
-  useEffect(() => {
-    if (show) {
-      setTimeout(() => setAnimate(true), 100);
-    }
-  }, [show]);
-
-  if (!show) return null;
-
-  return (
-    <div className={`install-banner ${animate ? "show" : ""}`}>
-      <div className="install-banner-content">
-        <span className="install-banner-icon">📱</span>
-        <span className="install-banner-text">
-          <strong>BodyForce</strong> peut être installé sur votre appareil
-        </span>
-        <div className="install-banner-actions">
-          <button onClick={onInstall} className="install-banner-btn install">
-            Installer
-          </button>
-          <button onClick={onDismiss} className="install-banner-btn dismiss">
-            ✕
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ===== ALTERNATIVE : TOAST MODERNE =====
-function InstallPromptToast({ show, onInstall, onDismiss }) {
-  const [animate, setAnimate] = useState(false);
-
-  useEffect(() => {
-    if (show) {
-      setTimeout(() => setAnimate(true), 100);
-    }
-  }, [show]);
-
-  if (!show) return null;
-
-  return (
-    <div className={`install-toast ${animate ? "show" : ""}`}>
-      <div className="install-toast-icon">
-        <img
-          src="/images/logo.png"
-          alt="BodyForce"
-          className="install-toast-logo"
-          onError={(e) => (e.target.style.display = "none")}
-        />
-      </div>
-      <div className="install-toast-content">
-        <div className="install-toast-title">Installer BodyForce ?</div>
-        <div className="install-toast-message">
-          Accès rapide et notifications
-        </div>
-      </div>
-      <div className="install-toast-actions">
-        <button onClick={onInstall} className="install-toast-btn primary">
-          Oui
-        </button>
-        <button onClick={onDismiss} className="install-toast-btn secondary">
-          Non
-        </button>
-      </div>
     </div>
   );
 }
@@ -1345,6 +1119,19 @@ function AnimatedMobileMenu({
               </Link>
 
               <Link
+                to="/invitations"
+                onClick={handleItemClick}
+                className={`menu-item ${
+                  animate ? "animate" : ""
+                } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
+                  location.pathname === "/invitations" ? "bg-white/20" : ""
+                }`}
+              >
+                <FaUserPlus className="text-xl text-orange-300" />
+                <span className="font-medium">Invitations</span>
+              </Link>
+
+              <Link
                 to="/planning"
                 onClick={handleItemClick}
                 className={`menu-item ${
@@ -1381,19 +1168,6 @@ function AnimatedMobileMenu({
               >
                 <FaChartBar className="text-xl text-blue-300" />
                 <span className="font-medium">Statistiques</span>
-              </Link>
-
-              <Link
-                to="/invitations"
-                onClick={handleItemClick}
-                className={`menu-item ${
-                  animate ? "animate" : ""
-                } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${
-                  location.pathname === "/invitations" ? "bg-white/20" : ""
-                }`}
-              >
-                <FaUserPlus className="text-xl text-orange-300" />
-                <span className="font-medium">Invitations</span>
               </Link>
 
               <Link
@@ -1496,21 +1270,8 @@ function AppRoutes() {
   const location = useLocation();
 
   // ✅ Hooks personnalisés
-  const {
-    isInstallable,
-    isInstalled,
-    installApp,
-    toast,
-    closeToast,
-    showInstallPrompt,
-    dismissInstallPrompt,
-  } = usePWA();
-
-  const handleInstallFromPrompt = () => {
-    installApp();
-    dismissInstallPrompt();
-  };
-
+  const { isInstallable, isInstalled, installApp, toast, closeToast } =
+    usePWA();
   const { toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
   const {
     onTouchStart,
@@ -1748,6 +1509,47 @@ function AppRoutes() {
         )}
       </main>
     </div>
+  );
+}
+
+// ===== COMPOSANT PRINCIPAL APP =====
+function App() {
+  const { user, loading } = useAuth();
+
+  // ✅ Écran de chargement
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/" /> : <LoginPage />}
+        />
+        <Route path="/invitation" element={<InvitationSignupPage />} />
+        <Route path="/*" element={<AppRoutes />} />
+      </Routes>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+    </Router>
   );
 }
 
