@@ -879,7 +879,7 @@
 
 .sidebar-logo-3d img {
   transform-style: preserve-3d;
-  animation: rotate3DElegant 8s linear infinite;
+  animation: rotate3DElegant 7s linear infinite;
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
   transition: animation-play-state 0.3s ease;
   border-radius: 15px;
