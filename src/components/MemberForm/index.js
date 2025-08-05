@@ -13,11 +13,11 @@ import {
   IonLoading
 } from '@ionic/react';
 import { 
-  person, 
-  mail, 
-  card, 
-  document, 
-  wallet 
+  personOutline, 
+  mailOutline, 
+  cardOutline, 
+  documentOutline, 
+  walletOutline 
 } from 'ionicons/icons';
 
 // Import des composants
@@ -76,31 +76,31 @@ const MemberForm = ({ memberId, onSave, onCancel, mode = 'create' }) => {
   const tabs = [
     {
       key: 'identity',
-      icon: person,
+      icon: personOutline,
       label: 'Identité',
       component: IdentityTab
     },
     {
       key: 'contact',
-      icon: mail,
+      icon: mailOutline,
       label: 'Contact',
       component: ContactTab
     },
     {
       key: 'subscription',
-      icon: card,
+      icon: cardOutline,
       label: 'Adhésion',
       component: SubscriptionTab
     },
     {
       key: 'documents',
-      icon: document,
+      icon: documentOutline,
       label: 'Documents',
       component: DocumentsTab
     },
     {
       key: 'payments',
-      icon: wallet,
+      icon: walletOutline,
       label: 'Paiements',
       component: PaymentsTab
     }
