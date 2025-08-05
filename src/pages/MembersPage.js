@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabaseServices } from "../supabaseClient";
-import MemberForm from './components/MemberForm'
+import MemberForm from '../components/MemberForm'
 import { format, isBefore, parseISO } from "date-fns";
 import { FaEdit, FaTrash, FaPlus, FaSync, FaUser } from "react-icons/fa";
 
