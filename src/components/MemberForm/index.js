@@ -1,24 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  IonContent, 
-  IonHeader, 
-  IonPage, 
-  IonTabBar, 
-  IonTabButton, 
-  IonIcon, 
-  IonLabel,
-  IonTabs,
-  IonRouterOutlet,
-  IonAlert,
-  IonLoading
-} from '@ionic/react';
-import { 
-  personOutline, 
-  mailOutline, 
-  cardOutline, 
-  documentOutline, 
-  walletOutline 
-} from 'ionicons/icons';
+import './MemberForm.css'; // Vous devrez créer ce fichier CSS
 
 // Import des composants
 import MemberFormHeader from './MemberFormHeader';
@@ -35,6 +16,8 @@ import { useMemberForm } from './useMemberForm';
 const MemberForm = ({ memberId, onSave, onCancel, mode = 'create' }) => {
   // État local pour l'onglet actif
   const [activeTab, setActiveTab] = useState('identity');
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
   
   // Utilisation du hook personnalisé pour la logique métier
   const {
@@ -42,14 +25,11 @@ const MemberForm = ({ memberId, onSave, onCancel, mode = 'create' }) => {
     errors,
     isLoading,
     isSaving,
-    showAlert,
-    alertMessage,
     validationErrors,
     updateFormData,
     validateForm,
     saveForm,
     resetForm,
-    setShowAlert,
     handlePhotoCapture,
     deletePhoto
   } = useMemberForm(memberId, mode);
@@ -62,6 +42,9 @@ const MemberForm = ({ memberId, onSave, onCancel, mode = 'create' }) => {
       if (success && onSave) {
         onSave(formData);
       }
+    } else {
+      setAlertMessage('Veuillez corriger les erreurs avant de sauvegarder.');
+      setShowAlert(true);
     }
   };
 
@@ -76,31 +59,31 @@ const MemberForm = ({ memberId, onSave, onCancel, mode = 'create' }) => {
   const tabs = [
     {
       key: 'identity',
-      icon: personOutline,
+      icon: '👤',
       label: 'Identité',
       component: IdentityTab
     },
     {
       key: 'contact',
-      icon: mailOutline,
+      icon: '📧',
       label: 'Contact',
       component: ContactTab
     },
     {
       key: 'subscription',
-      icon: cardOutline,
+      icon: '🎫',
       label: 'Adhésion',
       component: SubscriptionTab
     },
     {
       key: 'documents',
-      icon: documentOutline,
+      icon: '📄',
       label: 'Documents',
       component: DocumentsTab
     },
     {
       key: 'payments',
-      icon: walletOutline,
+      icon: '💳',
       label: 'Paiements',
       component: PaymentsTab
     }
@@ -127,77 +110,79 @@ const MemberForm = ({ memberId, onSave, onCancel, mode = 'create' }) => {
   };
 
   return (
-    <IonPage>
-      <IonHeader>
-        <MemberFormHeader
-          mode={mode}
-          memberName={formData?.firstName && formData?.lastName 
-            ? `${formData.firstName} ${formData.lastName}` 
-            : 'Nouveau membre'
-          }
-          onSave={handleSave}
-          onCancel={handleCancel}
-          isSaving={isSaving}
-          hasErrors={Object.keys(validationErrors).length > 0}
-        />
-      </IonHeader>
+    <div className="member-form">
+      {/* Header */}
+      <MemberFormHeader
+        mode={mode}
+        memberName={formData?.firstName && formData?.lastName 
+          ? `${formData.firstName} ${formData.lastName}` 
+          : 'Nouveau membre'
+        }
+        onSave={handleSave}
+        onCancel={handleCancel}
+        isSaving={isSaving}
+        hasErrors={Object.keys(validationErrors).length > 0}
+      />
 
-      <IonContent>
-        <IonTabs>
-          <IonRouterOutlet>
-            <div className="tab-content">
-              {renderActiveTab()}
-            </div>
-          </IonRouterOutlet>
+      {/* Contenu principal */}
+      <div className="member-form-content">
+        {/* Onglets de navigation */}
+        <div className="tab-bar">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={`tab-button ${activeTab === tab.key ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              <span className="tab-icon">{tab.icon}</span>
+              <span className="tab-label">{tab.label}</span>
+              {/* Indicateur d'erreur */}
+              {validationErrors[tab.key] && (
+                <span className="tab-error-indicator" />
+              )}
+            </button>
+          ))}
+        </div>
 
-          <IonTabBar slot="bottom">
-            {tabs.map((tab) => (
-              <IonTabButton
-                key={tab.key}
-                tab={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={activeTab === tab.key ? 'tab-selected' : ''}
-              >
-                <IonIcon 
-                  icon={tab.icon} 
-                  color={activeTab === tab.key ? 'primary' : 'medium'} 
-                />
-                <IonLabel color={activeTab === tab.key ? 'primary' : 'medium'}>
-                  {tab.label}
-                </IonLabel>
-                {/* Indicateur d'erreur sur l'onglet */}
-                {validationErrors[tab.key] && (
-                  <div className="tab-error-indicator" />
-                )}
-              </IonTabButton>
-            ))}
-          </IonTabBar>
-        </IonTabs>
+        {/* Contenu de l'onglet actif */}
+        <div className="tab-content">
+          {renderActiveTab()}
+        </div>
+      </div>
 
-        {/* Modal pour la caméra */}
-        <CameraModal
-          isOpen={false} // Géré par les composants enfants
-          onCapture={handlePhotoCapture}
-          onClose={() => {}} // Géré par les composants enfants
-        />
+      {/* Modal pour la caméra */}
+      <CameraModal
+        isOpen={false} // Géré par les composants enfants
+        onCapture={handlePhotoCapture}
+        onClose={() => {}} // Géré par les composants enfants
+      />
 
-        {/* Loading global */}
-        <IonLoading
-          isOpen={isLoading}
-          message="Chargement en cours..."
-          duration={0}
-        />
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>Chargement en cours...</p>
+          </div>
+        </div>
+      )}
 
-        {/* Alert pour les messages */}
-        <IonAlert
-          isOpen={showAlert}
-          onDidDismiss={() => setShowAlert(false)}
-          header="Information"
-          message={alertMessage}
-          buttons={['OK']}
-        />
-      </IonContent>
-    </IonPage>
+      {/* Alert modal */}
+      {showAlert && (
+        <div className="alert-overlay" onClick={() => setShowAlert(false)}>
+          <div className="alert-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Information</h3>
+            <p>{alertMessage}</p>
+            <button 
+              className="alert-ok-button"
+              onClick={() => setShowAlert(false)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
