@@ -1760,25 +1760,28 @@ function MemberForm({ member, onSave, onCancel }) {
       {/* ✅ NOUVEAU MODAL CAMÉRA - Intégration complète avec corrections */}
       {showCamera && (
         <CameraModal
+          key={showCamera} // ✅ CORRECTION : Ajout d'une clé pour forcer la réinitialisation complète du composant
           isOpen={!!showCamera}
           onClose={() => {
             console.log("🚪 Fermeture du modal caméra");
             setShowCamera(null);
           }}
-          onCapture={(imageData) => {
+          onCapture={async (imageData) => { // ✅ CORRECTION : Gestion asynchrone de la capture
             console.log(
               "📸 Photo capturée depuis le modal:",
               imageData.slice(0, 50) + "..."
             );
 
+            // On ferme le modal immédiatement pour une meilleure expérience utilisateur
+            setShowCamera(null);
+
             if (showCamera === "document") {
-              // Mode document : traiter comme un document
-              captureDocument(imageData);
+              // On attend la fin du traitement du document (qui est asynchrone)
+              await captureDocument(imageData);
             } else {
-              // Mode photo : traiter comme une photo de profil
+              // Le traitement de la photo de profil est synchrone
               handleCameraCapture(imageData);
             }
-            setShowCamera(null);
           }}
           isDarkMode={isDarkMode}
         />
@@ -1811,6 +1814,11 @@ export default MemberForm;
 
 5. 📸 LOGIQUE DE REPRISE DE PHOTO FIABILISÉE
    - La fonction "Reprendre" une photo force maintenant correctement le redémarrage du flux vidéo.
+
+6. 🔑 RÉINITIALISATION FORCÉE DU MODAL (NOUVELLE CORRECTION)
+   - Ajout d'une prop `key` au composant `<CameraModal>`.
+   - Cela force React à créer une nouvelle instance du modal à chaque ouverture, que ce soit pour une photo de profil ou un document.
+   - Cela garantit qu'aucun état interne (comme une caméra mal libérée) ne soit conservé entre les utilisations.
 
 RÉSULTAT : Le composant caméra est maintenant beaucoup plus stable. L'erreur "La caméra est occupée"
 lors du basculement ne devrait plus se produire, et l'expérience utilisateur est plus fluide.
