@@ -950,7 +950,7 @@ function MembersPage() {
   );
 }
 
-// Composant Widget pour les statistiques
+// Composant Widget pour les statistiques...
 // REMPLACEZ votre Widget existant par ceci :
 function Widget({ title, value, onClick, active = false }) {
   return (
