@@ -706,7 +706,10 @@ function PlanningPage() {
           if (!match) continue;
 
           const [, dd, mm, yy, hh, min] = match;
-          const isoDate = `20${yy}-${mm}-${dd}T${hh}:${min}:00`;
+          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+          const utcDate = new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000);
+          const isoDate = utcDate.toISOString();
+
 
           const { error } = await supabase
             .from("presences")
