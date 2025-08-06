@@ -1,4 +1,9 @@
 import React, { useEffect, useState } from "react";
+
+import { useAuth } from "../contexts/AuthContext"; // si ce n'est pas déjà présent
+import * as XLSX from "xlsx";
+
+
 import {
   Calendar,
   Users,
@@ -115,6 +120,9 @@ function PlanningPage() {
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const { role } = useAuth(); // Récupère le rôle de l’utilisateur connecté
+
+
 
   const [period, setPeriod] = useState("week");
   // Période par défaut plus courte pour éviter la lenteur
@@ -403,13 +411,12 @@ function PlanningPage() {
                 return (
                   <div key={dayKey} className={`relative group`}>
                     <div
-                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${
-                        hasPresences
-                          ? "bg-green-500 text-white shadow-sm"
-                          : isWeekend(day)
+                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${hasPresences
+                        ? "bg-green-500 text-white shadow-sm"
+                        : isWeekend(day)
                           ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
                           : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                      }`}
+                        }`}
                     >
                       <div className="font-medium text-xs">
                         {formatDate(day, "EEE dd").split(" ")[1]}
@@ -472,11 +479,10 @@ function PlanningPage() {
             {allDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`p-3 text-center font-medium border-b border-r border-gray-200 dark:border-gray-600 ${
-                  isWeekend(day)
-                    ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
-                    : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
-                }`}
+                className={`p-3 text-center font-medium border-b border-r border-gray-200 dark:border-gray-600 ${isWeekend(day)
+                  ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
+                  : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
+                  }`}
               >
                 <div className="text-sm">{formatDate(day, "EEE dd")}</div>
                 <div className="text-xs opacity-75">
@@ -489,9 +495,8 @@ function PlanningPage() {
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
-                  }`}
+                  className={`sticky left-0 z-10 p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
+                    }`}
                 >
                   {member.photo ? (
                     <img
@@ -525,15 +530,14 @@ function PlanningPage() {
                   return (
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
-                      className={`p-2 border-b border-r border-gray-200 dark:border-gray-600 min-h-[80px] transition-colors hover:bg-opacity-80 ${
-                        dayPresences.length > 0
-                          ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20"
-                          : isWeekend(day)
+                      className={`p-2 border-b border-r border-gray-200 dark:border-gray-600 min-h-[80px] transition-colors hover:bg-opacity-80 ${dayPresences.length > 0
+                        ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20"
+                        : isWeekend(day)
                           ? "bg-blue-50 dark:bg-blue-900/10"
                           : idx % 2 === 0
-                          ? "bg-white dark:bg-gray-800"
-                          : "bg-gray-50 dark:bg-gray-700"
-                      }`}
+                            ? "bg-white dark:bg-gray-800"
+                            : "bg-gray-50 dark:bg-gray-700"
+                        }`}
                     >
                       {dayPresences.length > 0 && (
                         <div className="space-y-1">
@@ -571,9 +575,8 @@ function PlanningPage() {
           <div
             className="grid"
             style={{
-              gridTemplateColumns: `220px repeat(${
-                allDays.length * hours.length
-              }, 45px)`,
+              gridTemplateColumns: `220px repeat(${allDays.length * hours.length
+                }, 45px)`,
             }}
           >
             <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-white">
@@ -586,11 +589,10 @@ function PlanningPage() {
               hours.map((h, hIdx) => (
                 <div
                   key={`header-${dIdx}-${h}`}
-                  className={`text-[9px] border-b border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center h-16 font-medium ${
-                    isWeekend(day)
-                      ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
-                      : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
+                  className={`text-[9px] border-b border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center h-16 font-medium ${isWeekend(day)
+                    ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
+                    : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
+                    }`}
                 >
                   {hIdx === 0 && (
                     <div className="font-bold whitespace-nowrap mb-1">
@@ -606,9 +608,8 @@ function PlanningPage() {
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3 ${
-                    idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
-                  }`}
+                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
+                    }`}
                 >
                   {member.photo ? (
                     <img
@@ -643,15 +644,14 @@ function PlanningPage() {
                     return (
                       <div
                         key={`${member.badgeId}-${day.toISOString()}-${h}`}
-                        className={`h-16 border-b border-r border-gray-200 dark:border-gray-600 relative group transition-all duration-200 ${
-                          present
-                            ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
-                            : isWeekend(day)
+                        className={`h-16 border-b border-r border-gray-200 dark:border-gray-600 relative group transition-all duration-200 ${present
+                          ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
+                          : isWeekend(day)
                             ? "bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20"
                             : idx % 2 === 0
-                            ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
-                            : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
-                        }`}
+                              ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
+                          }`}
                       >
                         {present && (
                           <>
@@ -684,6 +684,54 @@ function PlanningPage() {
     </div>
   );
 
+  const handleImportExcel = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
+        let count = 0;
+        for (const row of rows) {
+          const badgeId = row["Qui"]?.toString();
+          const rawDate = row["Quand"];
+          if (!badgeId || !rawDate) continue;
+
+          const match = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
+          if (!match) continue;
+
+          const [, dd, mm, yy, hh, min] = match;
+          const isoDate = `20${yy}-${mm}-${dd}T${hh}:${min}:00`;
+
+          const { error } = await supabase
+            .from("presences")
+            .insert([{ badgeId, timestamp: isoDate }]);
+
+          if (!error) count++;
+        }
+
+        alert(`✅ Import terminé : ${count} présences insérées.`);
+        loadData(); // recharge les données
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      console.error("Erreur import Excel :", err);
+      alert("❌ Erreur lors de l'import.");
+    }
+  };
+
+
+
+
+
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4">
       <div className="max-w-full mx-auto">
@@ -708,33 +756,30 @@ function PlanningPage() {
             <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-2 rounded-md transition-all ${
-                  viewMode === "list"
-                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
+                className={`p-2 rounded-md transition-all ${viewMode === "list"
+                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
                 title="Vue liste"
               >
                 <List className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setViewMode("compact")}
-                className={`p-2 rounded-md transition-all ${
-                  viewMode === "compact"
-                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
+                className={`p-2 rounded-md transition-all ${viewMode === "compact"
+                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
                 title="Vue compacte"
               >
                 <Users className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-md transition-all ${
-                  viewMode === "grid"
-                    ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                }`}
+                className={`p-2 rounded-md transition-all ${viewMode === "grid"
+                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
                 title="Vue grille"
               >
                 <Grid className="w-5 h-5" />
@@ -742,16 +787,30 @@ function PlanningPage() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`p-3 rounded-lg transition-all ${
-                  showFilters
-                    ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
+                className={`p-3 rounded-lg transition-all ${showFilters
+                  ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
                 title="Afficher les filtres"
               >
                 <Filter className="w-5 h-5" />
               </button>
             </div>
+
+            {role === "admin" && (
+              <div className="mt-4">
+                <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition">
+                  <input
+                    type="file"
+                    accept=".xlsx"
+                    onChange={handleImportExcel}
+                    className="hidden"
+                  />
+                  📁 Importer fichier Excel (.xlsx)
+                </label>
+              </div>
+            )}
+
           </div>
 
           {/* Navigation période */}
