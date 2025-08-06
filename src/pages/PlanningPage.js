@@ -14,7 +14,7 @@ import {
   ChevronRight,
   RefreshCw,
   AlertCircle,
-} from "lucide-react";a
+} from "lucide-react"; a
 import { createClient } from "@supabase/supabase-js";
 import {
   format,
@@ -707,8 +707,7 @@ function PlanningPage() {
 
           const [, dd, mm, yy, hh, min] = match;
           const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
-          const utcDate = new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000);
-          const isoDate = utcDate.toISOString();
+          const isoDate = localDate.toISOString();
 
 
           const { error } = await supabase
