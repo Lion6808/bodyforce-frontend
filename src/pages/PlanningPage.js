@@ -1,6 +1,8 @@
 // 📄 PlanningPage.js — BODYFORCE
 // ✅ Ajout : bouton import Excel (.xlsx) réservé aux admins + barre de progression
 import React, { useEffect, useState } from "react";
+import ListView from "../components/PlanningViews/ListView";
+
 import {
   Calendar,
   Users,
