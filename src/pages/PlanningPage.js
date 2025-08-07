@@ -14,7 +14,7 @@ import {
   ChevronRight,
   RefreshCw,
   AlertCircle,
-} from "lucide-react"; a
+} from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import {
   format,
