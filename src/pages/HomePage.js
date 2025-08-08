@@ -40,6 +40,12 @@ function HomePage() {
     setExpandedPayments(!expandedPayments);
   };
 
+  // Helpers pour compatibilité colonnes
+  const getDueDate = (p) => p?.encaissement_prevu ?? null;
+  const getMemberId = (p) => p?.member_id ?? null;
+  const getMemberName = (p) =>
+    p?.memberName || p?.member_full_name || `Membre #${getMemberId(p) ?? "?"}`;
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -48,16 +54,19 @@ function HomePage() {
         if (data) {
           setStats(data);
         }
-        // Paiements à venir
-        const { data: paymentsData } = await supabase
+
+        // Paiements à venir (non encaissés)
+        const { data: paymentsData, error: paymentsErr } = await supabase
           .from("payments")
           .select("*")
-          .eq("status", "pending")
-          .order("dueDate", { ascending: true });
-        if (paymentsData) {
-          setPendingPayments(paymentsData);
+          .or("is_paid.is.false,is_paid.is.null")
+          .order("encaissement_prevu", { ascending: true });
+        if (paymentsErr) {
+          console.error("Erreur paiements pending:", paymentsErr);
         }
-        // Paiements de l'utilisateur connecté
+        setPendingPayments(paymentsData || []);
+
+        // Paiements utilisateur connecté
         if (user) {
           const { data: memberData } = await supabase
             .from("members")
@@ -66,13 +75,14 @@ function HomePage() {
             .single();
           if (memberData) {
             setUserMemberData(memberData);
-            const { data: userPay } = await supabase
+            const { data: userPay, error: userPayErr } = await supabase
               .from("payments")
               .select("*")
-              .eq("memberId", memberData.id);
-            if (userPay) {
-              setUserPayments(userPay);
+              .eq("member_id", memberData.id);
+            if (userPayErr) {
+              console.error("Erreur paiements utilisateur:", userPayErr);
             }
+            setUserPayments(userPay || []);
           }
         }
       } catch (err) {
@@ -89,7 +99,6 @@ function HomePage() {
     if (!dateStr) return false;
     const d = typeof dateStr === "string" ? parseISO(dateStr) : dateStr;
     const today = new Date();
-    // on compare à minuit local pour le badge rouge "aujourd'hui ou passé"
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     return target.getTime() <= todayMidnight.getTime();
@@ -105,7 +114,7 @@ function HomePage() {
     }
   };
 
-  // ===== Mini composant interne pour les widgets (inline pour respecter la charte) =====
+  // ===== Mini composant interne pour les widgets =====
   function StatCard({ icon: Icon, label, value, accent = "from-blue-500 to-cyan-500" }) {
     return (
       <div
@@ -165,7 +174,6 @@ function HomePage() {
     );
   }
 
-  // Calcul "et N autres" pour abonnements échus
   const expirés = stats?.membresExpirés ?? [];
   const top5Expirés = expirés.slice(0, 5);
   const resteExpirés = Math.max(0, expirés.length - top5Expirés.length);
@@ -178,7 +186,7 @@ function HomePage() {
         dark:bg-neutral-950 dark:text-gray-100
       "
     >
-      {/* ===== En-tête simple ===== */}
+      {/* ===== En-tête ===== */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Tableau de bord</h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -200,8 +208,7 @@ function HomePage() {
         <StatCard icon={FaFemale} label="Femmes" value={stats.femmes ?? 0} accent="from-fuchsia-500 to-pink-500" />
         <StatCard icon={FaGraduationCap} label="Étudiants" value={stats.etudiants ?? 0} accent="from-amber-500 to-yellow-500" />
       </div>
-
-      {/* ===== Deux colonnes : Abonnements échus / Paiements à venir ===== */}
+      {/* ===== Deux colonnes ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* --- Abonnements échus --- */}
         <section
@@ -210,12 +217,11 @@ function HomePage() {
             border-gray-200
             dark:bg-neutral-900 dark:border-neutral-800
           "
-          aria-labelledby="expired-title"
         >
           <header className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 dark:border-neutral-800">
             <div className="flex items-center gap-2">
-              <FaExclamationTriangle className="text-red-500" aria-hidden="true" />
-              <h2 id="expired-title" className="font-semibold">Abonnements échus</h2>
+              <FaExclamationTriangle className="text-red-500" />
+              <h2 className="font-semibold">Abonnements échus</h2>
             </div>
             <span className="text-sm text-gray-600 dark:text-gray-400">
               {stats.expirés ?? 0} au total
@@ -249,7 +255,7 @@ function HomePage() {
                       "
                       title={m.endDate ? `Fin: ${formatDateFR(m.endDate)}` : ""}
                     >
-                      <FaClock aria-hidden="true" />
+                      <FaClock />
                       {m.endDate ? formatDateFR(m.endDate) : "Date inconnue"}
                     </span>
                   </li>
@@ -264,7 +270,6 @@ function HomePage() {
             )}
           </div>
         </section>
-
         {/* --- Paiements à venir --- */}
         <section
           className="
@@ -272,104 +277,65 @@ function HomePage() {
             border-gray-200
             dark:bg-neutral-900 dark:border-neutral-800
           "
-          aria-labelledby="payments-title"
         >
           <header className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 dark:border-neutral-800">
             <div className="flex items-center gap-2">
-              <FaCreditCard className="text-blue-500" aria-hidden="true" />
-              <h2 id="payments-title" className="font-semibold">Paiements à venir / non encaissés</h2>
+              <FaCreditCard className="text-blue-500" />
+              <h2 className="font-semibold">Paiements à venir / non encaissés</h2>
             </div>
-
-            <button
-              type="button"
-              onClick={togglePayments}
-              className="
-                inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm
-                border-gray-300 text-gray-700 bg-white
-                hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                dark:bg-neutral-900 dark:text-gray-200 dark:border-neutral-700 dark:hover:bg-neutral-800
-              "
-              aria-expanded={expandedPayments}
-            >
-              <FaSync className={expandedPayments ? "rotate-180 transition" : "transition"} aria-hidden="true" />
-              {expandedPayments ? "Replier" : "Dérouler"}
-            </button>
           </header>
 
           <div className="px-4 py-4 sm:px-5">
             {pendingPayments?.length === 0 ? (
               <div className="text-sm text-gray-600 dark:text-gray-400">Aucun paiement en attente.</div>
             ) : (
-              <div
-                className={`
-                  overflow-hidden transition-[max-height,opacity]
-                  ${expandedPayments ? "max-h-[640px] opacity-100" : "max-h-20 opacity-100"}
-                `}
-              >
-                <ul className="space-y-2">
-                  {pendingPayments.slice(0, expandedPayments ? pendingPayments.length : 3).map((p, idx) => {
-                    const overdue = isOverdue(p.dueDate);
-                    return (
-                      <li
-                        key={p.id ?? idx}
-                        className="
-                          flex items-center justify-between gap-3 rounded-xl
-                          border border-gray-200 bg-gray-50 px-3 py-2
-                          dark:bg-neutral-800 dark:border-neutral-700
-                        "
-                      >
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {p.memberName || p.memberFullName || `Membre #${p.memberId ?? "?"}`}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            {p.method ? `Mode: ${p.method}` : "Mode: n/d"}
-                          </div>
+              <ul className="space-y-2">
+                {pendingPayments.map((p, idx) => {
+                  const overdue = isOverdue(getDueDate(p));
+                  return (
+                    <li
+                      key={p.id ?? idx}
+                      className="
+                        flex items-center justify-between gap-3 rounded-xl
+                        border border-gray-200 bg-gray-50 px-3 py-2
+                        dark:bg-neutral-800 dark:border-neutral-700
+                      "
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {getMemberName(p)}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">{p.amount ? `${p.amount} €` : "n/d"}</span>
-                          <span
-                            className={`
-                              inline-flex items-center gap-2 rounded-lg border px-2 py-1 text-xs
-                              ${overdue
-                                ? "border-red-200 text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
-                                : "border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800"}
-                            `}
-                            title={p.dueDate ? `Échéance: ${formatDateFR(p.dueDate)}` : ""}
-                          >
-                            <FaClock aria-hidden="true" />
-                            {p.dueDate ? formatDateFR(p.dueDate) : "Date n/d"}
-                          </span>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {p.method ? `Mode: ${p.method}` : "Mode: n/d"}
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-
-            {pendingPayments?.length > 3 && (
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={togglePayments}
-                  className="
-                    inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm
-                    border-gray-300 text-gray-700 bg-white
-                    hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-                    dark:bg-neutral-900 dark:text-gray-200 dark:border-neutral-700 dark:hover:bg-neutral-800
-                  "
-                  aria-expanded={expandedPayments}
-                >
-                  {expandedPayments ? "Afficher moins" : `Afficher plus (${pendingPayments.length - 3})`}
-                </button>
-              </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">
+                          {p.amount ? `${p.amount} €` : "n/d"}
+                        </span>
+                        <span
+                          className={`
+                            inline-flex items-center gap-2 rounded-lg border px-2 py-1 text-xs
+                            ${overdue
+                              ? "border-red-200 text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
+                              : "border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800"}
+                          `}
+                          title={getDueDate(p) ? `Échéance: ${formatDateFR(getDueDate(p))}` : ""}
+                        >
+                          <FaClock />
+                          {getDueDate(p) ? formatDateFR(getDueDate(p)) : "Date n/d"}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
         </section>
       </div>
 
-      {/* ===== Paiements de l'utilisateur connecté (facultatif) ===== */}
+      {/* --- Paiements utilisateur --- */}
       {user && userPayments?.length > 0 && (
         <section
           className="
@@ -377,18 +343,12 @@ function HomePage() {
             border-gray-200
             dark:bg-neutral-900 dark:border-neutral-800
           "
-          aria-labelledby="my-payments-title"
         >
           <header className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-200 dark:border-neutral-800">
             <div className="flex items-center gap-2">
-              <FaMoneyCheckAlt className="text-emerald-500" aria-hidden="true" />
-              <h2 id="my-payments-title" className="font-semibold">Mes paiements</h2>
+              <FaMoneyCheckAlt className="text-emerald-500" />
+              <h2 className="font-semibold">Mes paiements</h2>
             </div>
-            {userMemberData?.subscriptionType && (
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Abonnement: {userMemberData.subscriptionType}
-              </span>
-            )}
           </header>
 
           <div className="px-4 py-4 sm:px-5">
@@ -403,12 +363,12 @@ function HomePage() {
                   "
                 >
                   <div className="text-sm">
-                    {p.label || "Paiement"}
+                    {p.commentaire || "Paiement"}
                     <span className="mx-2 text-gray-500 dark:text-gray-400">•</span>
                     {p.amount ? `${p.amount} €` : "Montant n/d"}
                   </div>
                   <div className="text-xs text-gray-600 dark:text-gray-400">
-                    {p.dueDate ? `Échéance: ${formatDateFR(p.dueDate)}` : "Échéance n/d"}
+                    {getDueDate(p) ? `Échéance: ${formatDateFR(getDueDate(p))}` : "Échéance n/d"}
                   </div>
                 </li>
               ))}
@@ -421,3 +381,4 @@ function HomePage() {
 }
 
 export default HomePage;
+// ✅ FIN DU FICHIER
