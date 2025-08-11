@@ -110,7 +110,6 @@ const PlanningPage = () => {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startD, endD, period]);
 
   // Helpers de période
