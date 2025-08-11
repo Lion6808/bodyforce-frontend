@@ -495,7 +495,7 @@ function PlanningPage() {
                 const hasPresences = dayPresences.length > 0;
 
                 return (
-                  <div key={dayKey} className={styles.dayCellList}>
+                  <div key={dayKey} className={`${styles.dayCellList} group`}>
                     <div
                       className={`${styles.dayCellContent} ${
                         hasPresences
