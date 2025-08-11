@@ -248,7 +248,7 @@
   @apply grid grid-cols-7 sm:grid-cols-14 gap-1;
 }
 .dayCellList {
-  @apply relative group;
+  @apply relative;
 }
 .dayCellContent {
   @apply p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer;
