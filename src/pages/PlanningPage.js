@@ -1,3 +1,4 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext"; // si ce n'est pas déjà présent
 import { supabase } from "../supabaseClient"; // ✅ vrai client Supabase
 import * as XLSX from "xlsx";
