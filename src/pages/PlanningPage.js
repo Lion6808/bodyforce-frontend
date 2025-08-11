@@ -22,7 +22,7 @@ import { fr } from "date-fns/locale";
 // Essayer d'activer la virtualisation si react-window est installé
 let VirtualList = null;
 try {
-  // eslint-disable-next-line import/no-extraneous-dependencies
+  // eslint-disable-next-line
   // @ts-ignore
   VirtualList = require("react-window").FixedSizeList;
 } catch (_) {
@@ -104,7 +104,7 @@ function PlanningPage() {
   // Recharger quand filtres changent
   useEffect(() => {
     fetchPage({ reset: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [mode, anchorDate]);
 
   // Realtime: écouter INSERT
