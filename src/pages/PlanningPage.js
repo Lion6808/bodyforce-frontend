@@ -1,5 +1,5 @@
 // 📄 PlanningPage.js — Dossier : src/pages — Date : 2025-08-11
-// 🎯 Objectifs : UI + perf + realtime
+// 🎯 Objectifs : UI + perf + realtime (sans .module.css)
 // - Filtres: Jour/Semaine, date, recherche (nom/badge), bouton Aujourd’hui
 // - Pagination serveur (.range) + tri desc sur timestamp
 // - Dédoublonnage souple par badge (fenêtre 2 min)
@@ -8,8 +8,9 @@
 // - Dark mode + responsive
 //
 // 🧩 Dépendances : date-fns (déjà), react-window (optionnel)
-//    npm i react-window  # si vous souhaitez la virtualisation
+//    npm i react-window  # (facultatif) pour activer la virtualisation
 
+// 🔹 Partie 1 — Imports & setup
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import {
@@ -18,7 +19,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 
-// Essayez d'importer react-window si présent (sinon fallback)
+// Essayer d'activer la virtualisation si react-window est installé
 let VirtualList = null;
 try {
   // eslint-disable-next-line import/no-extraneous-dependencies
@@ -32,11 +33,14 @@ const PAGE_SIZE = 100;
 const DEDUPE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
 
 function PlanningPage() {
+  // 🔹 Partie 2 — State & helpers
+
   // Filtres
   const [mode, setMode] = useState("day"); // 'day' | 'week'
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [search, setSearch] = useState("");
   const searchRef = useRef(search);
+
   // Données + pagination
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(0);
@@ -55,11 +59,12 @@ function PlanningPage() {
     return { start: startOfDay(anchorDate), end: endOfDay(anchorDate) };
   }, [mode, anchorDate]);
 
-  // Helpers format
+  // Formats FR
   const fmtDate = (d) => format(d, "dd/MM/yyyy", { locale: fr });
   const fmtTime = (d) => format(d, "HH:mm", { locale: fr });
 
-  // Requête serveur paginée
+  // 🔹 Partie 3 — Chargement paginé & temps réel
+
   async function fetchPage({ reset = false } = {}) {
     try {
       if (reset) {
@@ -83,7 +88,6 @@ function PlanningPage() {
 
       if (err) throw err;
 
-      // concat ou reset
       setRows((prev) => (reset ? (data || []) : [...prev, ...(data || [])]));
       setTotal(count ?? null);
       if (reset) setPage(1);
@@ -97,13 +101,13 @@ function PlanningPage() {
     }
   }
 
-  // Reset données quand filtres changent
+  // Recharger quand filtres changent
   useEffect(() => {
     fetchPage({ reset: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, anchorDate]);
 
-  // Realtime: écouter INSERT sur presences
+  // Realtime: écouter INSERT
   useEffect(() => {
     const ch = supabase
       .channel("presences-realtime")
@@ -113,7 +117,6 @@ function PlanningPage() {
         (payload) => {
           const r = payload.new;
           const ts = new Date(r.timestamp);
-          // si dans l'intervalle courant, on l'ajoute en tête
           if (isWithinInterval(ts, { start: range.start, end: range.end })) {
             setRows((prev) => [r, ...prev]);
             setTotal((t) => (t == null ? null : t + 1));
@@ -127,11 +130,12 @@ function PlanningPage() {
     };
   }, [range.start, range.end]);
 
-  // Dédoublonnage souple (2 min par badge), + recherche locale
+  // 🔹 Partie 4 — Dédoublonnage & filtrage
+
   const filtered = useMemo(() => {
     if (!rows?.length) return [];
 
-    // filtre texte
+    // Filtre texte local
     const q = (search || "").trim().toLowerCase();
     const filterText = (r) => {
       if (!q) return true;
@@ -139,7 +143,7 @@ function PlanningPage() {
       return hay.includes(q);
     };
 
-    // pour dédup, on part du plus ancien vers le plus récent
+    // Dédup sur 2 min par badge — on trie ASC pour comparer, puis on ré-inverse
     const sortedAsc = [...rows].sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
@@ -156,12 +160,10 @@ function PlanningPage() {
         lastByBadge.set(badge, ts);
       }
     }
-
-    // ré-afficher du plus récent au plus ancien
     return acc.reverse();
   }, [rows, search]);
 
-  // Stats rapides (mémo)
+  // Stats rapides
   const quickStats = useMemo(() => {
     const uniqueBadges = new Set();
     for (const r of filtered) {
@@ -173,7 +175,7 @@ function PlanningPage() {
     };
   }, [filtered]);
 
-  // Export CSV de la vue courante
+  // Export CSV
   const exportCSV = () => {
     const header = ["Date", "Heure", "Nom", "BadgeId"];
     const lines = [header.join(";")];
@@ -190,7 +192,7 @@ function PlanningPage() {
     URL.revokeObjectURL(url);
   };
 
-  // UX: debounce simple pour la recherche
+  // Debounce simple recherche
   useEffect(() => {
     const id = setTimeout(() => {
       searchRef.current = search;
@@ -200,10 +202,8 @@ function PlanningPage() {
 
   // Navigation dates
   const gotoToday = () => setAnchorDate(new Date());
-  const prev = () =>
-    setAnchorDate((d) => addDays(d, mode === "week" ? -7 : -1));
-  const next = () =>
-    setAnchorDate((d) => addDays(d, mode === "week" ? +7 : +1));
+  const prev = () => setAnchorDate((d) => addDays(d, mode === "week" ? -7 : -1));
+  const next = () => setAnchorDate((d) => addDays(d, mode === "week" ? +7 : +1));
 
   // Rendu d'une ligne (pour virtualisation)
   const RowItem = ({ index, style }) => {
@@ -223,6 +223,7 @@ function PlanningPage() {
     );
   };
 
+  // 🔹 Partie 5 — UI
   return (
     <div className="p-4 sm:p-6 bg-gray-100 dark:bg-neutral-950 min-h-screen text-gray-900 dark:text-gray-100">
       {/* Barre d'outils sticky */}
@@ -322,7 +323,7 @@ function PlanningPage() {
           <div>Badge</div>
         </div>
 
-        {/* Virtualisation si dispo, sinon simple map */}
+        {/* Virtualisation si dispo, sinon liste simple */}
         {VirtualList ? (
           <VirtualList
             height={520}
@@ -330,7 +331,20 @@ function PlanningPage() {
             itemSize={56}
             width={"100%"}
           >
-            {RowItem}
+            {({ index, style }) => {
+              const r = filtered[index];
+              const d = new Date(r.timestamp);
+              return (
+                <div
+                  style={style}
+                  className="grid grid-cols-[1fr_120px_120px] md:grid-cols-[1fr_140px_160px] gap-3 px-3 py-0 items-center border-b border-gray-200 dark:border-neutral-800 text-sm"
+                >
+                  <div className="truncate">{r.memberName ?? "—"}</div>
+                  <div className="text-gray-600 dark:text-gray-400">{fmtTime(d)}</div>
+                  <div className="text-gray-500 dark:text-gray-400">{r.badgeId ?? "—"}</div>
+                </div>
+              );
+            }}
           </VirtualList>
         ) : (
           <div>
@@ -356,7 +370,7 @@ function PlanningPage() {
             Chargées : {rows.length} / {total ?? "?"}
           </div>
           <button
-            disabled={loadingMore || total != null && rows.length >= total}
+            disabled={loadingMore || (total != null && rows.length >= total)}
             onClick={() => fetchPage()}
             className="px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 disabled:opacity-50"
           >
@@ -381,3 +395,5 @@ function PlanningPage() {
 }
 
 export default PlanningPage;
+
+// ✅ FIN DU FICHIER
