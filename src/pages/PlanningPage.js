@@ -1,6 +1,3 @@
-# Save the latest canvas code to a downloadable file for the user.
-code = r'''import React, { useEffect, useState } from "react";
-
 import { useAuth } from "../contexts/AuthContext"; // si ce n'est pas déjà présent
 import { supabase } from "../supabaseClient"; // ✅ vrai client Supabase
 import * as XLSX from "xlsx";
