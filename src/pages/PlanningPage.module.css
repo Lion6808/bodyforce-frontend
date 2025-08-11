@@ -250,6 +250,9 @@
 .dayCellList {
   @apply relative;
 }
+.dayCellGroup {
+  @apply group;
+}
 .dayCellContent {
   @apply p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer;
 }
@@ -269,7 +272,7 @@
   @apply text-[10px] font-bold mt-0.5;
 }
 .tooltip {
-  @apply absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10;
+  @apply absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden z-10;
 }
 .tooltipContent {
   @apply bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700;
@@ -435,7 +438,7 @@
   @apply text-xs text-gray-500 dark:text-gray-400;
 }
 .gridDataCell {
-  @apply h-16 border-b border-r border-gray-200 dark:border-gray-600 relative group transition-all duration-200;
+  @apply h-16 border-b border-r border-gray-200 dark:border-gray-600 relative transition-all duration-200;
 }
 .gridDataCellPresent {
   @apply bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm;
@@ -459,7 +462,7 @@
   @apply text-white font-bold text-lg;
 }
 .gridTooltip {
-  @apply absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap border border-gray-700;
+  @apply absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap border border-gray-700;
 }
 .gridTooltipHeader {
   @apply font-semibold;
