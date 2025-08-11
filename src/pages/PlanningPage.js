@@ -584,8 +584,4 @@ const PlanningPage = () => {
   );
 };
 
-export default PlanningPage;'''
-with open('/mnt/data/PlanningPage.js', 'w', encoding='utf-8') as f:
-    f.write(code)
-
-print("/mnt/data/PlanningPage.js")
+export default PlanningPage;
