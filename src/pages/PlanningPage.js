@@ -1,888 +1,1058 @@
-// 📄 Fichier : PlanningPage.js
-// 🗂️ Dossier : src/pages
-// 📅 Date : 2025-08-11
-// 🎯 Objet : Planning — 100% Tailwind (sans .module.css) en conservant TOUTES les fonctionnalités d’origine
-// 🔧 Dépendances : date-fns, lucide-react, xlsx, supabaseClient
-// 🖤 Dark mode : classes `dark:`
-// 📱 Responsive : classes Tailwind (sm:, md:, lg:), auto vue mobile
-// ⚡ Perf : pagination serveur (.range), dédoublonnage client (2 min), temps réel INSERT, export CSV, import XLSX (admin)
-// ───────────────────────────────────────────────────────────────
-// 🔹 Partie 1 — Imports, helpers & constantes
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "../supabaseClient";
-import { useAuth } from "../contexts/AuthContext";
+import React, { useEffect, useState } from "react";
+
+import { useAuth } from "../contexts/AuthContext"; // si ce n'est pas déjà présent
 import * as XLSX from "xlsx";
+
+
 import {
   Calendar,
   Users,
   Filter,
-  Grid as GridIcon,
-  List as ListIcon,
+  Grid,
+  List,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
   AlertCircle,
-  Upload,
-  Download,
-  Clock,
-  Image as ImageIcon,
-  Search,
 } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
 import {
   format,
   parseISO,
-  addDays,
-  addWeeks,
-  addMonths,
-  addYears,
-  subWeeks,
-  startOfDay,
-  endOfDay,
   startOfWeek,
   endOfWeek,
   startOfMonth,
   endOfMonth,
   startOfYear,
   endOfYear,
-  isWithinInterval,
 } from "date-fns";
-import { fr } from "date-fns/locale";
 
-// Virtualisation optionnelle si 'react-window' est installé
-let VirtualList = null;
-try {
-  // eslint-disable-next-line
-  // @ts-ignore
-  VirtualList = require("react-window").FixedSizeList;
-} catch (_) {
-  VirtualList = null;
-}
+// Client Supabase direct
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
+);
 
-const PAGE_SIZE = 100;               // page côté serveur
-const DEDUPE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes pour dédoublage
-const MAX_BATCH_INSERT = 500;        // insert Supabase en lot pour import XLSX
+// Utilitaires de date corrigés
+const formatDate = (date, format) => {
+  const options = {
+    "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
+    "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
+    "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
+    "EEE dd": { weekday: "short", day: "2-digit" },
+    "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
+  };
 
-// Formatage FR
-const fmt = (d, pattern) => format(d, pattern, { locale: fr });
-
-// Convertisseur robuste de timestamp (gère variantes ISO +Z/+00)
-const parseTimestamp = (timestamp) => {
-  if (!timestamp) return new Date();
-  if (timestamp instanceof Date) return timestamp;
-
-  if (typeof timestamp === "string") {
-    try {
-      // normalise certains formats avec +00 / +00:00
-      if (timestamp.includes("T")) {
-        const d = new Date(timestamp);
-        if (!isNaN(d)) return d;
-      }
-      // fallback : parseISO
-      const d2 = parseISO(timestamp);
-      if (!isNaN(d2)) return d2;
-    } catch {}
+  if (format === "yyyy-MM-dd") {
+    return date.toISOString().split("T")[0];
   }
-  // dernier recours
-  const d3 = new Date(timestamp);
-  return isNaN(d3) ? new Date() : d3;
+
+  return new Intl.DateTimeFormat("fr-FR", options[format] || {}).format(date);
 };
 
-// Itération jours inclusifs
+const parseTimestamp = (timestamp) => new Date(timestamp);
+
+const toDateString = (date) => {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const isWeekend = (date) => {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+};
+
+const isWithinInterval = (date, interval) => {
+  return date >= interval.start && date <= interval.end;
+};
+
 const eachDayOfInterval = (interval) => {
   const days = [];
-  const cur = new Date(interval.start);
-  while (cur <= interval.end) {
-    days.push(new Date(cur));
-    cur.setDate(cur.getDate() + 1);
+  const current = new Date(interval.start);
+
+  while (current <= interval.end) {
+    days.push(new Date(current));
+    current.setDate(current.getDate() + 1);
   }
+
   return days;
 };
 
-// Clé affichage nom
-const fullName = (m) => {
-  if (!m) return "—";
-  const p1 = m.firstName?.trim() ?? "";
-  const p2 = m.name?.trim() ?? "";
-  return (p1 + " " + p2).trim() || m.username || "—";
+const startOfDay = (date) => {
+  const newDate = new Date(date);
+  newDate.setHours(0, 0, 0, 0);
+  return newDate;
 };
 
-// Image membre
-const MemberPhoto = ({ url, alt }) => {
-  if (!url) {
-    return (
-      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-neutral-800 flex items-center justify-center">
-        <ImageIcon className="w-5 h-5 text-gray-400" />
-      </div>
-    );
-  }
-  return (
-    <img
-      src={url}
-      alt={alt || "photo"}
-      className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-neutral-800"
-      loading="lazy"
-    />
-  );
+const endOfDay = (date) => {
+  const newDate = new Date(date);
+  newDate.setHours(23, 59, 59, 999);
+  return newDate;
 };
-// 🔹 Partie 2 — Composant principal : états & périodes
-export default function PlanningPage() {
-  const { role } = useAuth(); // 'admin' ou 'user'
-  const [isMobile, setIsMobile] = useState(false);
 
-  // Données
-  const [members, setMembers] = useState([]);   // {id, name, firstName, badgeId, photo}
-  const [rows, setRows] = useState([]);         // presences brutes chargées (paginées)
-  const [total, setTotal] = useState(null);
+const addWeeks = (date, weeks) => {
+  const newDate = new Date(date);
+  newDate.setDate(newDate.getDate() + weeks * 7);
+  return newDate;
+};
 
-  // UI/états
+const addMonths = (date, months) => {
+  const newDate = new Date(date);
+  newDate.setMonth(newDate.getMonth() + months);
+  return newDate;
+};
+
+const addYears = (date, years) => {
+  const newDate = new Date(date);
+  newDate.setFullYear(newDate.getFullYear() + years);
+  return newDate;
+};
+
+const subWeeks = (date, weeks) => addWeeks(date, -weeks);
+
+function PlanningPage() {
+  const [presences, setPresences] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [retrying, setRetrying] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const { role } = useAuth(); // Récupère le rôle de l’utilisateur connecté
 
-  // Périodes
-  const [period, setPeriod] = useState("week"); // 'day' | 'week' | 'month' | 'year'
-  const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
+
+
+  const [period, setPeriod] = useState("week");
+  // Période par défaut plus courte pour éviter la lenteur
+  const [startDate, setStartDate] = useState(
+    startOfDay(subWeeks(new Date(), 1))
+  );
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
 
-  // Pagination
-  const [page, setPage] = useState(0);
-
-  // Filtres
-  const [filterName, setFilterName] = useState("");
   const [filterBadge, setFilterBadge] = useState("");
+  const [filterName, setFilterName] = useState("");
   const [showNightHours, setShowNightHours] = useState(false);
+  const [viewMode, setViewMode] = useState("list");
+  const [showFilters, setShowFilters] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Vue
-  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
-
-  // Détection mobile
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  // Range util selon périodicité
-  const updateDateRange = useCallback((value, base = new Date()) => {
-    let s, e;
-    if (value === "day") {
-      s = startOfDay(base);
-      e = endOfDay(base);
-    } else if (value === "week") {
-      s = startOfWeek(base, { weekStartsOn: 1 });
-      e = endOfWeek(base, { weekStartsOn: 1 });
-    } else if (value === "month") {
-      s = startOfMonth(base);
-      e = endOfMonth(base);
-    } else {
-      s = startOfYear(base);
-      e = endOfYear(base);
-    }
-    setStartDate(s);
-    setEndDate(e);
-  }, []);
-
-  // Initialisation de la plage (garde week par défaut mais calcule le bon range)
-  useEffect(() => {
-    updateDateRange(period, new Date());
-    // eslint-disable-next-line
-  }, []);
-
-  const goPrev = () => {
-    const dir = -1;
-    let base = startDate;
-    if (period === "day") base = addDays(base, dir);
-    else if (period === "week") base = addWeeks(base, dir);
-    else if (period === "month") base = addMonths(base, dir);
-    else base = addYears(base, dir);
-    updateDateRange(period, base);
-  };
-
-  const goNext = () => {
-    const dir = +1;
-    let base = startDate;
-    if (period === "day") base = addDays(base, dir);
-    else if (period === "week") base = addWeeks(base, dir);
-    else if (period === "month") base = addMonths(base, dir);
-    else base = addYears(base, dir);
-    updateDateRange(period, base);
-  };
-
-  const goToday = () => updateDateRange(period, new Date());
-
-  // Libellé période
-  const periodLabel = useMemo(() => {
-    if (period === "day") return fmt(startDate, "dd/MM/yyyy");
-    if (period === "week")
-      return `${fmt(startDate, "dd/MM")} → ${fmt(endDate, "dd/MM")}`;
-    if (period === "month") return fmt(startDate, "LLLL yyyy");
-    return fmt(startDate, "yyyy");
-  }, [period, startDate, endDate]);
-// 🔹 Partie 3 — Chargement membres & présences (pagination serveur) + realtime
-  const resetAndFetch = useCallback(async () => {
+  // REQUÊTES DIRECTES SUPABASE
+  const loadData = async (showRetryIndicator = false) => {
     try {
+      if (showRetryIndicator) {
+        setIsRetrying(true);
+      }
       setLoading(true);
       setError("");
-      setRows([]);
-      setTotal(null);
-      setPage(0);
 
-      // 1) Membres (pour noms & photos)
-      const { data: membersData, error: mErr } = await supabase
+      console.log("🔄 Chargement des données...", {
+        début: startDate.toLocaleDateString(),
+        fin: endDate.toLocaleDateString(),
+      });
+
+      // Chargement des membres
+      const { data: membersData, error: membersError } = await supabase
         .from("members")
-        .select("id, name, firstName, badgeId, photo");
-      if (mErr) throw mErr;
-      setMembers(membersData || []);
+        .select("*");
 
-      // 2) Première page de présences (dans la plage)
-      const from = 0;
-      const to = PAGE_SIZE - 1;
-      const { data, error: pErr, count } = await supabase
-        .from("presences")
-        .select("*", { count: "exact" })
-        .gte("timestamp", startDate.toISOString())
-        .lt("timestamp", endDate.toISOString())
-        .order("timestamp", { ascending: false })
-        .range(from, to);
-      if (pErr) throw pErr;
+      if (membersError) {
+        console.error("❌ Erreur membres:", membersError);
+        throw new Error(`Erreur membres: ${membersError.message}`);
+      }
 
-      setRows(data || []);
-      setTotal(count ?? null);
-      setPage(1);
-    } catch (e) {
-      console.error(e);
-      setError(e.message || "Erreur de chargement");
+      setMembers(Array.isArray(membersData) ? membersData : []);
+      console.log("✅ Membres chargés:", membersData?.length || 0);
+
+      // Chargement des présences FILTRÉ par période
+      let allPresences = [];
+      let from = 0;
+      const pageSize = 1000;
+      let done = false;
+
+      while (!done) {
+        const { data, error } = await supabase
+          .from("presences")
+          .select("*")
+          .gte("timestamp", startDate.toISOString())
+          .lte("timestamp", endDate.toISOString())
+          .order("timestamp", { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) {
+          console.error("❌ Erreur présences:", error);
+          throw new Error(`Erreur présences: ${error.message}`);
+        }
+
+        if (data && data.length > 0) {
+          allPresences = [...allPresences, ...data];
+          from += pageSize;
+        }
+
+        if (!data || data.length < pageSize) {
+          done = true;
+        }
+      }
+
+      console.log("✅ Présences chargées:", allPresences.length);
+
+      // Transformation avec parsing des timestamps
+      const transformedPresences = allPresences.map((p) => ({
+        badgeId: p.badgeId,
+        timestamp: p.timestamp,
+        parsedDate: parseTimestamp(p.timestamp),
+      }));
+
+      setPresences(transformedPresences);
+      setRetryCount(0);
+
+      console.log("✅ Chargement terminé avec succès");
+    } catch (error) {
+      console.error("💥 Erreur lors du chargement des données:", error);
+      setError(error.message || "Erreur de connexion à la base de données");
     } finally {
       setLoading(false);
-    }
-  }, [startDate, endDate]);
-
-  // Recharger sur changement de plage/period
-  useEffect(() => {
-    resetAndFetch();
-  }, [resetAndFetch]);
-
-  // Charger plus
-  const fetchMore = async () => {
-    try {
-      setLoadingMore(true);
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      const { data, error: pErr } = await supabase
-        .from("presences")
-        .select("*")
-        .gte("timestamp", startDate.toISOString())
-        .lt("timestamp", endDate.toISOString())
-        .order("timestamp", { ascending: false })
-        .range(from, to);
-      if (pErr) throw pErr;
-      setRows((prev) => [...prev, ...(data || [])]);
-      setPage((p) => p + 1);
-    } catch (e) {
-      console.error(e);
-      setError(e.message || "Erreur lors du chargement supplémentaire");
-    } finally {
-      setLoadingMore(false);
+      setIsRetrying(false);
     }
   };
 
-  // Realtime INSERT
+  // Recharger quand la période change
   useEffect(() => {
-    const ch = supabase
-      .channel("presences-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "presences" },
-        (payload) => {
-          const r = payload.new;
-          const ts = parseTimestamp(r.timestamp);
-          if (isWithinInterval(ts, { start: startDate, end: endDate })) {
-            setRows((prev) => [r, ...prev]);
-            setTotal((t) => (t == null ? null : t + 1));
-          }
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    loadData();
   }, [startDate, endDate]);
-// 🔹 Partie 4 — Filtres, dédoublonnage & projections (grid/list)
-  const memberByBadge = useMemo(() => {
-    const map = new Map();
-    for (const m of members) {
-      const key = (m.badgeId || "").trim();
-      if (key) map.set(key, m);
-    }
-    return map;
-  }, [members]);
 
-  // Filtrage local + dédup 2 minutes par badge
-  const filtered = useMemo(() => {
-    if (!rows?.length) return [];
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1);
+    loadData(true);
+  };
 
-    // pré-tri ASC pour comparaison temporelle, puis retour DESC
-    const sortedAsc = [...rows].sort(
-      (a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp)
-    );
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
-    const nameQ = (filterName || "").trim().toLowerCase();
-    const badgeQ = (filterBadge || "").trim().toLowerCase();
+  const updateDateRange = (value, base = new Date()) => {
+    const start = startOfDay(base);
+    let end = endOfDay(base);
+    if (value === "week") end = endOfDay(addWeeks(start, 1));
+    if (value === "month") end = endOfDay(addMonths(start, 1));
+    if (value === "year") end = endOfDay(addYears(start, 1));
+    setStartDate(start);
+    setEndDate(end);
+  };
 
-    const lastByBadge = new Map();
-    const acc = [];
+  const navigatePeriod = (direction) => {
+    const amount = direction === "prev" ? -1 : 1;
+    let newStart;
 
-    for (const r of sortedAsc) {
-      const ts = parseTimestamp(r.timestamp).getTime();
-      const badge = (r.badgeId || "").trim();
-      const mem = memberByBadge.get(badge);
-      const displayName = fullName(mem).toLowerCase();
-
-      // Filtres
-      if (nameQ && !displayName.includes(nameQ)) continue;
-      if (badgeQ && !badge.toLowerCase().includes(badgeQ)) continue;
-
-      // Dédup 2 min / badge
-      const lastTs = lastByBadge.get(badge);
-      if (!lastTs || ts - lastTs > DEDUPE_WINDOW_MS) {
-        acc.push(r);
-        lastByBadge.set(badge, ts);
-      }
+    if (period === "week") {
+      newStart = addWeeks(startDate, amount);
+    } else if (period === "month") {
+      newStart = addMonths(startDate, amount);
+    } else {
+      newStart = addYears(startDate, amount);
     }
 
-    return acc.reverse(); // DESC pour affichage
-  }, [rows, memberByBadge, filterName, filterBadge]);
+    updateDateRange(period, newStart);
+  };
 
-  // Groupement par badge (pour Grid)
-  const groupedByMember = useMemo(() => {
-    const map = new Map();
-    for (const p of filtered) {
-      const b = (p.badgeId || "").trim() || "_";
-      const arr = map.get(b) || [];
-      arr.push(parseTimestamp(p.timestamp));
-      map.set(b, arr);
-    }
-    return map;
-  }, [filtered]);
+  const toLocalDate = (timestamp) => {
+    return parseTimestamp(timestamp);
+  };
 
-  // Liste des jours de la plage
-  const days = useMemo(
-    () => eachDayOfInterval({ start: startDate, end: endDate }),
-    [startDate, endDate]
+  // Écrans de chargement et d'erreur avec mode sombre
+  const renderConnectionError = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200 dark:border-gray-700">
+        <AlertCircle className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-6" />
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
+          Problème de connexion
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">{error}</p>
+        <button
+          onClick={handleRetry}
+          disabled={isRetrying}
+          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
+                   disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 
+                   rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
+        >
+          {isRetrying ? (
+            <>
+              <RefreshCw className="w-5 h-5 animate-spin" />
+              Reconnexion...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-5 h-5" />
+              Réessayer
+            </>
+          )}
+        </button>
+        {retryCount > 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+            Tentative {retryCount + 1}
+          </p>
+        )}
+      </div>
+    </div>
   );
 
-  // Heures pour ruler journalière / filtre nuit
-  const hours = useMemo(() => {
-    const base = Array.from({ length: 24 }, (_, i) => i);
-    return showNightHours ? base : base.slice(6); // 6h → 23h
-  }, [showNightHours]);
-// 🔹 Partie 5 — Import Excel (admin) & Export CSV
-  const fileInputRef = useRef(null);
+  const renderLoading = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <RefreshCw className="w-8 h-8 animate-spin text-white" />
+        </div>
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+          {isRetrying ? "Reconnexion en cours..." : "Chargement du planning..."}
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400">
+          Période: {startDate.toLocaleDateString()} -{" "}
+          {endDate.toLocaleDateString()}
+        </p>
+      </div>
+    </div>
+  );
 
-  const onClickImport = () => fileInputRef.current?.click();
+  if (loading) return renderLoading();
+  if (error && !isRetrying) return renderConnectionError();
 
-  const handleImportExcel = async (e) => {
-    const file = e.target.files?.[0];
+  // Les présences sont déjà filtrées par la requête, pas besoin de re-filtrer
+  const filteredPresences = presences.filter((p) => {
+    const presenceDate = toLocalDate(p.timestamp);
+    return isWithinInterval(presenceDate, { start: startDate, end: endDate });
+  });
+
+  const groupedByMember = {};
+  filteredPresences.forEach((p) => {
+    const key = p.badgeId;
+    if (!groupedByMember[key]) groupedByMember[key] = [];
+    groupedByMember[key].push(toLocalDate(p.timestamp));
+  });
+
+  const allDays = eachDayOfInterval({ start: startDate, end: endDate });
+  const fullHours = Array.from({ length: 24 }, (_, i) => i);
+  const hours = showNightHours ? fullHours : fullHours.slice(6);
+
+  const getMemberInfo = (badgeId) =>
+    members.find((m) => m.badgeId === badgeId) || {};
+
+  const visibleMembers = Object.keys(groupedByMember)
+    .map((badgeId) => getMemberInfo(badgeId))
+    .filter(
+      (m) =>
+        (!filterName ||
+          `${m.name} ${m.firstName}`
+            .toLowerCase()
+            .includes(filterName.toLowerCase())) &&
+        (!filterBadge || m.badgeId?.includes(filterBadge))
+    );
+
+  // Vue liste pour mobile - Version compacte avec mode sombre
+  const ListView = () => (
+    <div className="space-y-3">
+      {visibleMembers.map((member) => {
+        const memberPresences = groupedByMember[member.badgeId] || [];
+        const dailyPresences = {};
+
+        memberPresences.forEach((timestamp) => {
+          const dayKey = toDateString(timestamp);
+          if (!dailyPresences[dayKey]) dailyPresences[dayKey] = [];
+          dailyPresences[dayKey].push(timestamp);
+        });
+
+        const totalPresencesInPeriod = memberPresences.length;
+
+        return (
+          <div
+            key={member.badgeId}
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              {member.photo ? (
+                <img
+                  src={member.photo}
+                  alt="avatar"
+                  className="w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                  {member.firstName?.[0]}
+                  {member.name?.[0]}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base truncate">
+                  {member.name} {member.firstName}
+                </h3>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Badge: {member.badgeId}
+                  </span>
+                  <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium">
+                    {totalPresencesInPeriod} présence(s)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Grille compacte des jours */}
+            <div className="grid grid-cols-7 sm:grid-cols-14 gap-1">
+              {allDays.map((day) => {
+                const dayKey = toDateString(day);
+                const dayPresences = dailyPresences[dayKey] || [];
+                const hasPresences = dayPresences.length > 0;
+
+                return (
+                  <div key={dayKey} className={`relative group`}>
+                    <div
+                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${hasPresences
+                        ? "bg-green-500 text-white shadow-sm"
+                        : isWeekend(day)
+                          ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                        }`}
+                    >
+                      <div className="font-medium text-xs">
+                        {formatDate(day, "EEE dd").split(" ")[1]}
+                      </div>
+                      {hasPresences && (
+                        <div className="text-[10px] font-bold mt-0.5">
+                          {dayPresences.length}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tooltip avec détails au hover */}
+                    {hasPresences && (
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                        <div className="bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700">
+                          <div className="font-semibold mb-1">
+                            {formatDate(day, "EEE dd/MM")}
+                          </div>
+                          <div className="space-y-0.5">
+                            {dayPresences.slice(0, 3).map((p, idx) => (
+                              <div key={idx} className="text-[11px]">
+                                {formatDate(p, "HH:mm")}
+                              </div>
+                            ))}
+                            {dayPresences.length > 3 && (
+                              <div className="text-[11px] opacity-75">
+                                +{dayPresences.length - 3} autres
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // Vue compacte pour tablettes avec mode sombre
+  const CompactView = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+      <div className="overflow-x-auto">
+        <div className="min-w-full">
+          <div
+            className="grid bg-gray-50 dark:bg-gray-700"
+            style={{
+              gridTemplateColumns: `180px repeat(${allDays.length}, minmax(100px, 1fr))`,
+            }}
+          >
+            {/* En-tête */}
+            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 p-4 border-b border-r border-gray-200 dark:border-gray-600 font-bold text-center text-white">
+              <Users className="w-5 h-5 mx-auto mb-1" />
+              Membres
+            </div>
+            {allDays.map((day) => (
+              <div
+                key={day.toISOString()}
+                className={`p-3 text-center font-medium border-b border-r border-gray-200 dark:border-gray-600 ${isWeekend(day)
+                  ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
+                  : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
+                  }`}
+              >
+                <div className="text-sm">{formatDate(day, "EEE dd")}</div>
+                <div className="text-xs opacity-75">
+                  {formatDate(day, "dd/MM").split("/")[1]}
+                </div>
+              </div>
+            ))}
+
+            {/* Lignes des membres */}
+            {visibleMembers.map((member, idx) => (
+              <React.Fragment key={member.badgeId}>
+                <div
+                  className={`sticky left-0 z-10 p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
+                    }`}
+                >
+                  {member.photo ? (
+                    <img
+                      src={member.photo}
+                      alt="avatar"
+                      className="w-10 h-10 object-cover rounded-full border border-gray-300 dark:border-gray-600"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                      {member.firstName?.[0]}
+                      {member.name?.[0]}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
+                      {member.name}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {member.firstName}
+                    </div>
+                  </div>
+                </div>
+                {allDays.map((day) => {
+                  const times = groupedByMember[member.badgeId] || [];
+                  const dayPresences = times.filter((t) => {
+                    const tDateStr = toDateString(t);
+                    const dayDateStr = toDateString(day);
+                    return tDateStr === dayDateStr;
+                  });
+
+                  return (
+                    <div
+                      key={`${member.badgeId}-${day.toISOString()}`}
+                      className={`p-2 border-b border-r border-gray-200 dark:border-gray-600 min-h-[80px] transition-colors hover:bg-opacity-80 ${dayPresences.length > 0
+                        ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20"
+                        : isWeekend(day)
+                          ? "bg-blue-50 dark:bg-blue-900/10"
+                          : idx % 2 === 0
+                            ? "bg-white dark:bg-gray-800"
+                            : "bg-gray-50 dark:bg-gray-700"
+                        }`}
+                    >
+                      {dayPresences.length > 0 && (
+                        <div className="space-y-1">
+                          {dayPresences.slice(0, 3).map((time, tidx) => (
+                            <div
+                              key={tidx}
+                              className="bg-green-600 dark:bg-green-700 text-white px-2 py-1 rounded-md text-xs font-medium text-center shadow-sm"
+                            >
+                              {formatDate(time, "HH:mm")}
+                            </div>
+                          ))}
+                          {dayPresences.length > 3 && (
+                            <div className="text-green-700 dark:text-green-400 text-xs text-center font-medium">
+                              +{dayPresences.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Vue grille complète pour desktop avec mode sombre
+  const GridView = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+      <div className="overflow-auto max-h-[75vh]">
+        <div className="min-w-max">
+          <div
+            className="grid"
+            style={{
+              gridTemplateColumns: `220px repeat(${allDays.length * hours.length
+                }, 45px)`,
+            }}
+          >
+            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-white">
+              <div className="text-center">
+                <Users className="w-6 h-6 mx-auto mb-1" />
+                <div className="text-sm">Membres</div>
+              </div>
+            </div>
+            {allDays.map((day, dIdx) =>
+              hours.map((h, hIdx) => (
+                <div
+                  key={`header-${dIdx}-${h}`}
+                  className={`text-[9px] border-b border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center h-16 font-medium ${isWeekend(day)
+                    ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
+                    : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
+                    }`}
+                >
+                  {hIdx === 0 && (
+                    <div className="font-bold whitespace-nowrap mb-1">
+                      {formatDate(day, "EEE dd/MM")}
+                    </div>
+                  )}
+                  <div className="font-semibold">{`${h
+                    .toString()
+                    .padStart(2, "0")}h`}</div>
+                </div>
+              ))
+            )}
+            {visibleMembers.map((member, idx) => (
+              <React.Fragment key={member.badgeId}>
+                <div
+                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
+                    }`}
+                >
+                  {member.photo ? (
+                    <img
+                      src={member.photo}
+                      alt="avatar"
+                      className="w-12 h-12 object-cover rounded-full border border-gray-300 dark:border-gray-600"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                      {member.firstName?.[0]}
+                      {member.name?.[0]}
+                    </div>
+                  )}
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">
+                      {member.name} {member.firstName}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {groupedByMember[member.badgeId]?.length || 0} présence(s)
+                    </span>
+                  </div>
+                </div>
+                {allDays.map((day) =>
+                  hours.map((h) => {
+                    const times = groupedByMember[member.badgeId] || [];
+                    const present = times.some((t) => {
+                      const tDateStr = toDateString(t);
+                      const dayDateStr = toDateString(day);
+                      return tDateStr === dayDateStr && t.getHours() === h;
+                    });
+
+                    return (
+                      <div
+                        key={`${member.badgeId}-${day.toISOString()}-${h}`}
+                        className={`h-16 border-b border-r border-gray-200 dark:border-gray-600 relative group transition-all duration-200 ${present
+                          ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
+                          : isWeekend(day)
+                            ? "bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                            : idx % 2 === 0
+                              ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
+                          }`}
+                      >
+                        {present && (
+                          <>
+                            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                              <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg">
+                                  ✓
+                                </span>
+                              </div>
+                            </div>
+                            <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap border border-gray-700">
+                              <div className="font-semibold">
+                                {formatDate(day, "EEE dd/MM")} à {h}h
+                              </div>
+                              <div className="opacity-90">
+                                {member.name} {member.firstName}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const handleImportExcel = async (event) => {
+    const file = event.target.files[0];
     if (!file) return;
 
     try {
-      setRetrying(true);
-      setError("");
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
 
-      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rowsX = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        let count = 0;
+        for (const row of rows) {
+          const badgeId = row["Qui"]?.toString();
+          const rawDate = row["Quand"];
+          if (!badgeId || !rawDate) continue;
 
-      // Détection simple des colonnes (badgeId, timestamp/date+heure)
-      const header = (rowsX[0] || []).map((h) =>
-        String(h || "").trim().toLowerCase()
-      );
+          const match = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
+          if (!match) continue;
 
-      const idxBadge =
-        header.findIndex((h) => ["badgeid", "badge", "id", "badge_id"].includes(h)) !== -1
-          ? header.findIndex((h) => ["badgeid", "badge", "id", "badge_id"].includes(h))
-          : 0;
+          const [, dd, mm, yy, hh, min] = match;
+          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+          const isoDate = localDate.toISOString();
 
-      const idxTs = header.findIndex((h) =>
-        ["timestamp", "date", "datetime", "heure"].includes(h)
-      );
 
-      const body = rowsX.slice(1);
-      const toInsert = [];
+          const { error } = await supabase
+            .from("presences")
+            .insert([{ badgeId, timestamp: isoDate }]);
 
-      for (const r of body) {
-        const badge = String(r[idxBadge] || "").trim();
-        if (!badge) continue;
-
-        let ts;
-        if (idxTs >= 0) {
-          const raw = r[idxTs];
-          // Si date + heure existent en colonnes séparées, on peut les concaténer
-          if (header.includes("date") && header.includes("heure")) {
-            const iDate = header.indexOf("date");
-            const iHeure = header.indexOf("heure");
-            const dStr = r[iDate];
-            const hStr = r[iHeure] || "00:00";
-            ts = parseTimestamp(`${dStr}T${hStr}`);
-          } else {
-            ts = parseTimestamp(raw);
-          }
-        } else {
-          // Pas de colonne explicite : on tente la 2e colonne
-          ts = parseTimestamp(r[1]);
+          if (!error) count++;
         }
 
-        if (!isNaN(ts)) {
-          toInsert.push({
-            badgeId: badge,
-            timestamp: ts.toISOString(),
-          });
-        }
-      }
+        alert(`✅ Import terminé : ${count} présences insérées.`);
+        loadData(); // recharge les données
+      };
 
-      // Insert en batch
-      for (let i = 0; i < toInsert.length; i += MAX_BATCH_INSERT) {
-        const chunk = toInsert.slice(i, i + MAX_BATCH_INSERT);
-        const { error: iErr } = await supabase.from("presences").insert(chunk);
-        if (iErr) throw iErr;
-      }
-
-      // Reload
-      await resetAndFetch();
+      reader.readAsArrayBuffer(file);
     } catch (err) {
-      console.error(err);
-      setError(err.message || "Erreur lors de l'import");
-    } finally {
-      setRetrying(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      console.error("Erreur import Excel :", err);
+      alert("❌ Erreur lors de l'import.");
     }
   };
 
-  // Export CSV de la vue filtrée (après dédup)
-  const exportCSV = () => {
-    const header = ["Date", "Heure", "Nom", "BadgeId"];
-    const lines = [header.join(";")];
 
-    for (const r of filtered) {
-      const ts = parseTimestamp(r.timestamp);
-      const badge = (r.badgeId || "").trim();
-      const mem = memberByBadge.get(badge);
-      lines.push(
-        [fmt(ts, "dd/MM/yyyy"), fmt(ts, "HH:mm"), fullName(mem), badge].join(";")
-      );
-    }
 
-    const blob = new Blob([lines.join("\n")], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `presences_${period}_${fmt(startDate, "yyyyMMdd")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-// 🔹 Partie 6 — Rendus UI : états, toolbar, vues Grid & List
-  const renderLoading = () => (
-    <div className="min-h-[40vh] flex items-center justify-center">
-      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-        <RefreshCw className="w-5 h-5 animate-spin" />
-        <span>Chargement…</span>
-      </div>
-    </div>
-  );
 
-  const renderError = () => (
-    <div className="min-h-[40vh] flex items-center justify-center">
-      <div className="max-w-lg w-full bg-white dark:bg-neutral-900 border border-red-200 dark:border-red-800 rounded-xl p-4">
-        <div className="flex items-center gap-3">
-          <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-          <div className="font-semibold text-red-700 dark:text-red-300">
-            Problème de connexion
-          </div>
-        </div>
-        <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">{error}</div>
-        <button
-          onClick={resetAndFetch}
-          className="mt-4 px-4 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-800"
-        >
-          Réessayer
-        </button>
-      </div>
-    </div>
-  );
 
-  // Toolbar (période, date, navigation, filtres, actions)
-  const Toolbar = () => (
-    <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 bg-gray-100/80 dark:bg-neutral-950/80 backdrop-blur border-b border-gray-200 dark:border-neutral-800">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        {/* Choix période */}
-        <div className="inline-flex rounded-xl border border-gray-200 dark:border-neutral-800 overflow-hidden">
-          {["day", "week", "month", "year"].map((p) => (
-            <button
-              key={p}
-              onClick={() => {
-                setPeriod(p);
-                updateDateRange(p, startDate);
-              }}
-              className={`px-3 py-2 text-sm ${
-                period === p ? "bg-white dark:bg-neutral-900" : ""
-              }`}
-            >
-              {p === "day" ? "Jour" : p === "week" ? "Semaine" : p === "month" ? "Mois" : "Année"}
-            </button>
-          ))}
-        </div>
 
-        {/* Navigation temporelle */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goPrev}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-white/60 dark:hover:bg-neutral-900/60"
-            title="Précédent"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
 
-          <div className="px-3 py-2 rounded-lg bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 text-sm min-w-[180px] text-center">
-            <div className="font-semibold">{periodLabel}</div>
-          </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4">
+      <div className="max-w-full mx-auto">
+        {/* En-tête */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
+                <Calendar className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Planning des présences
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Visualisez les présences des membres
+                </p>
+              </div>
+            </div>
 
-          <button
-            onClick={goNext}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-white/60 dark:hover:bg-neutral-900/60"
-            title="Suivant"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={goToday}
-            className="px-3 py-2 rounded-lg border border-blue-300 text-blue-700 dark:text-blue-400 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          >
-            Aujourd’hui
-          </button>
-
-          <input
-            type="date"
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
-            value={fmt(startDate, "yyyy-MM-dd")}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return;
-              const d = parseISO(v);
-              if (!isNaN(d)) updateDateRange(period, d);
-            }}
-          />
-        </div>
-
-        {/* Espace */}
-        <div className="flex-1" />
-
-        {/* Filtres */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Search className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <input
-              type="search"
-              placeholder="Nom…"
-              className="w-40 px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
-              value={filterName}
-              onChange={(e) => setFilterName(e.target.value)}
-            />
-          </div>
-          <input
-            type="search"
-            placeholder="Badge…"
-            className="w-40 px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
-            value={filterBadge}
-            onChange={(e) => setFilterBadge(e.target.value)}
-          />
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800">
-            <input
-              type="checkbox"
-              checked={showNightHours}
-              onChange={(e) => setShowNightHours(e.target.checked)}
-            />
-            Heures nuit
-          </label>
-
-          {/* Vue */}
-          <div className="inline-flex rounded-xl border border-gray-200 dark:border-neutral-800 overflow-hidden">
-            <button
-              className={`px-3 py-2 text-sm ${
-                viewMode === "grid" ? "bg-white dark:bg-neutral-900" : ""
-              }`}
-              onClick={() => setViewMode("grid")}
-              title="Vue Grille"
-            >
-              <GridIcon className="w-4 h-4" />
-            </button>
-            <button
-              className={`px-3 py-2 text-sm ${
-                viewMode === "list" ? "bg-white dark:bg-neutral-900" : ""
-              }`}
-              onClick={() => setViewMode("list")}
-              title="Vue Liste"
-            >
-              <ListIcon className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Actions */}
-          <button
-            onClick={exportCSV}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-white/60 dark:hover:bg-neutral-900/60 flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export
-          </button>
-
-          {role === "admin" && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={handleImportExcel}
-              />
+            {/* Boutons de vue + filtre */}
+            <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
               <button
-                onClick={onClickImport}
-                disabled={retrying}
-                className="px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 hover:bg-white/60 dark:hover:bg-neutral-900/60 flex items-center gap-2 disabled:opacity-50"
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded-md transition-all ${viewMode === "list"
+                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                title="Vue liste"
               >
-                <Upload className="w-4 h-4" />
-                Import
+                <List className="w-5 h-5" />
               </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+              <button
+                onClick={() => setViewMode("compact")}
+                className={`p-2 rounded-md transition-all ${viewMode === "compact"
+                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                title="Vue compacte"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded-md transition-all ${viewMode === "grid"
+                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                title="Vue grille"
+              >
+                <Grid className="w-5 h-5" />
+              </button>
 
-  // VUE LISTE (virtualisée si possible)
-  const renderList = () => {
-    const items = filtered;
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`p-3 rounded-lg transition-all ${showFilters
+                  ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                title="Afficher les filtres"
+              >
+                <Filter className="w-5 h-5" />
+              </button>
+            </div>
 
-    const Row = ({ index, style }) => {
-      const r = items[index];
-      const ts = parseTimestamp(r.timestamp);
-      const badge = (r.badgeId || "").trim();
-      const mem = memberByBadge.get(badge);
-      return (
-        <div
-          style={style}
-          className="grid grid-cols-[auto,1fr,100px,110px] md:grid-cols-[auto,1fr,120px,160px] items-center gap-3 px-3 py-2 border-b border-gray-200 dark:border-neutral-800 text-sm"
-        >
-          <MemberPhoto url={mem?.photo} alt={fullName(mem)} />
-          <div className="truncate">
-            <div className="font-medium">{fullName(mem)}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              <Users className="inline w-3 h-3 mr-1" />
-              Badge: {badge || "—"}
+            {role === "admin" && (
+              <div className="mt-4">
+                <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition">
+                  <input
+                    type="file"
+                    accept=".xlsx"
+                    onChange={handleImportExcel}
+                    className="hidden"
+                  />
+                  📁 Importer fichier Excel (.xlsx)
+                </label>
+              </div>
+            )}
+
+          </div>
+
+          {/* Navigation période */}
+          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <button
+              onClick={() => navigatePeriod("prev")}
+              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
+            >
+              <ChevronLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            </button>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
+              {/* Sélecteur de date de début */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                  Début:
+                </label>
+                <input
+                  type="date"
+                  value={formatDate(startDate, "yyyy-MM-dd")}
+                  onChange={(e) => {
+                    const newStartDate = new Date(e.target.value);
+                    setStartDate(startOfDay(newStartDate));
+                    if (period === "week") {
+                      setEndDate(endOfDay(addWeeks(newStartDate, 1)));
+                    } else if (period === "month") {
+                      setEndDate(endOfDay(addMonths(newStartDate, 1)));
+                    } else {
+                      setEndDate(endOfDay(addYears(newStartDate, 1)));
+                    }
+                  }}
+                  className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+
+              <select
+                className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium text-sm"
+                value={period}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setPeriod(value);
+                  updateDateRange(value, startDate);
+                }}
+              >
+                <option value="week">Semaine</option>
+                <option value="month">Mois</option>
+                <option value="year">Année</option>
+              </select>
+
+              <div className="text-center min-w-0">
+                <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
+                  {formatDate(startDate, "dd/MM/yyyy")} -{" "}
+                  {formatDate(endDate, "dd/MM/yyyy")}
+                </div>
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  {allDays.length} jours
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigatePeriod("next")}
+              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
+            >
+              <ChevronRight className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+            </button>
+          </div>
+
+          {/* Presets rapides pour navigation facile */}
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+            <div className="flex flex-wrap gap-2">
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-300 mr-2">
+                Raccourcis :
+              </span>
+
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setStartDate(startOfDay(today));
+                  setEndDate(endOfDay(today));
+                }}
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+              >
+                Aujourd'hui
+              </button>
+
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setStartDate(
+                    startOfDay(new Date(today.setDate(today.getDate() - 6)))
+                  );
+                  setEndDate(endOfDay(new Date()));
+                }}
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+              >
+                7 derniers jours
+              </button>
+
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setStartDate(
+                    startOfDay(new Date(today.setDate(today.getDate() - 29)))
+                  );
+                  setEndDate(endOfDay(new Date()));
+                }}
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+              >
+                30 derniers jours
+              </button>
+
+              <button
+                onClick={() => {
+                  setStartDate(
+                    startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 }))
+                  );
+                  setEndDate(
+                    endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))
+                  );
+                }}
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+              >
+                Cette Semaine
+              </button>
+
+              <button
+                onClick={() => {
+                  setStartDate(startOfDay(startOfMonth(new Date())));
+                  setEndDate(endOfDay(endOfMonth(new Date())));
+                }}
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+              >
+                Ce Mois
+              </button>
+
+              <button
+                onClick={() => {
+                  setStartDate(startOfDay(startOfYear(new Date())));
+                  setEndDate(endOfDay(endOfYear(new Date())));
+                }}
+                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+              >
+                Cette Année
+              </button>
             </div>
           </div>
-          <div className="text-gray-600 dark:text-gray-400">
-            <Clock className="inline w-3 h-3 mr-1" />
-            {fmt(ts, "HH:mm")}
-          </div>
-          <div className="text-gray-500 dark:text-gray-400">
-            {fmt(ts, "dd/MM/yyyy")}
-          </div>
-        </div>
-      );
-    };
-
-    return (
-      <div className="rounded-xl border border-gray-200 dark:border-neutral-800 overflow-hidden">
-        <div className="hidden md:grid grid-cols-[auto,1fr,120px,160px] bg-gray-50 dark:bg-neutral-900 text-xs font-medium uppercase tracking-wide px-3 py-2 border-b border-gray-200 dark:border-neutral-800">
-          <div />
-          <div>Nom</div>
-          <div>Heure</div>
-          <div>Date</div>
         </div>
 
-        {VirtualList ? (
-          <VirtualList
-            height={520}
-            itemCount={items.length}
-            itemSize={56}
-            width={"100%"}
-            itemKey={(i) =>
-              items[i]?.id ?? `${items[i]?.badgeId ?? "x"}-${i}`
-            }
-          >
-            {Row}
-          </VirtualList>
-        ) : (
-          <div>
-            {items.map((_, i) => (
-              <Row key={i} index={i} style={{}} />
-            ))}
+        {/* Filtres */}
+        {showFilters && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Rechercher par nom
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nom ou prénom..."
+                  value={filterName}
+                  onChange={(e) => setFilterName(e.target.value)}
+                  className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Filtrer par badge
+                </label>
+                <input
+                  type="text"
+                  placeholder="Numéro de badge..."
+                  value={filterBadge}
+                  onChange={(e) => setFilterBadge(e.target.value)}
+                  className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                />
+              </div>
+              <div className="flex items-end">
+                <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={showNightHours}
+                    onChange={() => setShowNightHours(!showNightHours)}
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Afficher 00h - 06h</span>
+                </label>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
+                           disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all 
+                           duration-200 flex items-center justify-center gap-2"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${isRetrying ? "animate-spin" : ""}`}
+                  />
+                  Actualiser
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="flex items-center justify-between px-3 py-3 bg-gray-50 dark:bg-neutral-900">
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            Chargées : {rows.length} / {total ?? "?"}
-          </div>
-          <button
-            disabled={loadingMore || (total != null && rows.length >= total)}
-            onClick={fetchMore}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 disabled:opacity-50"
-          >
-            {loadingMore
-              ? "Chargement..."
-              : total != null && rows.length >= total
-              ? "Tout chargé"
-              : "Charger plus"}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // VUE GRILLE : tuiles par membre + pastilles par jour de la période
-  const renderGrid = () => {
-    // Construire un tableau des membres concernés (ayant au moins 1 présence filtrée)
-    const membersInView = [];
-    for (const [badge, dates] of groupedByMember.entries()) {
-      const mem = memberByBadge.get(badge);
-      membersInView.push({ badge, mem, dates });
-    }
-    // Tri par nom
-    membersInView.sort((a, b) =>
-      fullName(a.mem).localeCompare(fullName(b.mem), "fr")
-    );
-
-    return (
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {membersInView.map(({ badge, mem, dates }) => {
-          const dateSet = new Set(dates.map((d) => fmt(d, "yyyy-MM-dd")));
-          return (
-            <div
-              key={badge}
-              className="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <MemberPhoto url={mem?.photo} alt={fullName(mem)} />
-                <div className="truncate">
-                  <div className="font-semibold">{fullName(mem)}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Badge: {badge || "—"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Bandeau jours */}
-              <div className="overflow-x-auto">
-                <div className="min-w-[640px]">
-                  <div className="grid grid-cols-[repeat(7,1fr)] gap-2 text-xs mb-2">
-                    {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(
-                      (d) => (
-                        <div
-                          key={d}
-                          className="text-center text-gray-500 dark:text-gray-400"
-                        >
-                          {d}
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  {/* Rangées de semaines sur la période courante */}
-                  <div className="grid gap-2">
-                    {/* On découpe la liste 'days' en semaines de 7 jours */}
-                    {Array.from({ length: Math.ceil(days.length / 7) }).map(
-                      (_, wi) => {
-                        const slice = days.slice(wi * 7, wi * 7 + 7);
-                        return (
-                          <div
-                            key={wi}
-                            className="grid grid-cols-[repeat(7,1fr)] gap-2"
-                          >
-                            {slice.map((d, di) => {
-                              const key = fmt(d, "yyyy-MM-dd");
-                              const present = dateSet.has(key);
-                              return (
-                                <div
-                                  key={di}
-                                  className={`h-8 rounded-md flex items-center justify-center border text-xs ${
-                                    present
-                                      ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border-green-200 dark:border-green-800"
-                                      : "bg-gray-50 dark:bg-neutral-800 text-gray-400 border-gray-200 dark:border-neutral-800"
-                                  }`}
-                                  title={`${fmt(d, "EEE dd/MM")} — ${
-                                    present ? "Présent" : "—"
-                                  }`}
-                                >
-                                  {fmt(d, "dd")}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      }
-                    )}
-                  </div>
-                </div>
-              </div>
+        {/* Contenu principal */}
+        {visibleMembers.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center border border-gray-200 dark:border-gray-700">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users className="w-12 h-12 text-gray-400 dark:text-gray-500" />
             </div>
-          );
-        })}
-      </div>
-    );
-  };
-// 🔹 Partie 7 — Render principal
-  return (
-    <div className="p-4 sm:p-6 bg-gray-100 dark:bg-neutral-950 min-h-screen text-gray-900 dark:text-gray-100">
-      <Toolbar />
-
-      {/* Stats rapides */}
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400">Période</div>
-          <div className="text-sm font-semibold">
-            {fmt(startDate, "dd/MM/yyyy")} → {fmt(endDate, "dd/MM/yyyy")}
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Aucune présence trouvée
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
+              Aucune présence n'a été enregistrée sur cette période ou avec ces
+              filtres.
+              <br />
+              Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
+            </p>
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
+                       text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Recharger les données
+            </button>
           </div>
-        </div>
-        <div className="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            Lignes (après dédup)
-          </div>
-          <div className="text-sm font-semibold">{filtered.length}</div>
-        </div>
-        <div className="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            Badges uniques
-          </div>
-          <div className="text-sm font-semibold">{groupedByMember.size}</div>
-        </div>
-        <div className="rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3">
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            Total (serveur)
-          </div>
-          <div className="text-sm font-semibold">{total ?? "—"}</div>
-        </div>
-      </div>
-
-      {/* Corps */}
-      <div className="mt-4">
-        {error ? (
-          renderError()
-        ) : loading ? (
-          renderLoading()
-        ) : (isMobile ? "list" : viewMode) === "list" ? (
-          renderList()
         ) : (
-          renderGrid()
+          <>
+            {viewMode === "list" && <ListView />}
+            {viewMode === "compact" && <CompactView />}
+            {viewMode === "grid" && <GridView />}
+          </>
         )}
       </div>
     </div>
   );
 }
-// ✅ FIN DU FICHIER
+
+export default PlanningPage;
