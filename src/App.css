@@ -870,6 +870,7 @@
 }
 
 /* Animation 3D Logo - Rotation élégante */
+/* ===== LOGO 3D AVEC ÉPAISSEUR ===== */
 .sidebar-logo-3d {
   perspective: 1000px;
   display: flex;
@@ -877,84 +878,48 @@
   align-items: center;
 }
 
-.sidebar-logo-3d img {
+.logo-cube {
+  position: relative;
+  width: 96px;
+  height: 96px;
   transform-style: preserve-3d;
-  animation: rotate3DElegant 7s linear infinite;
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
-  transition: animation-play-state 0.3s ease;
-  border-radius: 15px;
+  animation: rotateCube3D 7s linear infinite;
 }
 
-.sidebar-logo-3d:hover img {
-  animation-play-state: paused;
-}
-
-.enhanced-sidebar.collapsed .sidebar-logo-3d img {
-  animation-duration: 6s;
-}
-
-.dark .sidebar-logo-3d img {
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
-}
-
-@keyframes rotate3DElegant {
-  0% {
-    transform: rotateY(0deg) rotateX(0deg);
-  }
-  25% {
-    transform: rotateY(90deg) rotateX(5deg);
-  }
-  50% {
-    transform: rotateY(180deg) rotateX(0deg);
-  }
-  75% {
-    transform: rotateY(270deg) rotateX(-5deg);
-  }
-  100% {
-    transform: rotateY(360deg) rotateX(0deg);
-  }
-}
-
-.mobile-header-logo-3d {
-  perspective: 600px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mobile-header-logo-3d img {
-  transform-style: preserve-3d;
-  animation: rotate3DMobile 6s linear infinite;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
-  transition: animation-play-state 0.3s ease;
+.logo-cube img {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  backface-visibility: hidden;
   border-radius: 8px;
+  transform: translateZ(8px);
 }
 
-.mobile-header-logo-3d:hover img,
-.mobile-header-logo-3d:active img {
-  animation-play-state: paused;
+.logo-cube::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 96px;
+  background: rgba(0, 0, 0, 0.3);
+  transform: rotateY(90deg) translateZ(8px) translateX(40px);
 }
 
-.dark .mobile-header-logo-3d img {
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+.logo-cube::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 96px;
+  background: rgba(0, 0, 0, 0.2);
+  transform: rotateY(-90deg) translateZ(88px) translateX(-40px);
 }
 
-@keyframes rotate3DMobile {
-  0% {
-    transform: rotateY(0deg) rotateX(0deg);
-  }
-  25% {
-    transform: rotateY(90deg) rotateX(3deg);
-  }
-  50% {
-    transform: rotateY(180deg) rotateX(0deg);
-  }
-  75% {
-    transform: rotateY(270deg) rotateX(-3deg);
-  }
-  100% {
-    transform: rotateY(360deg) rotateX(0deg);
-  }
+@keyframes rotateCube3D {
+  0% { transform: rotateY(0deg) rotateX(0deg); }
+  25% { transform: rotateY(90deg) rotateX(5deg); }
+  50% { transform: rotateY(180deg) rotateX(0deg); }
+  75% { transform: rotateY(270deg) rotateX(-5deg); }
+  100% { transform: rotateY(360deg) rotateX(0deg); }
 }
 
 .mobile-menu-container .menu-header .mobile-header-logo-3d img {
