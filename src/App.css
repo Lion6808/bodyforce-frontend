@@ -905,14 +905,24 @@
   transform: rotateY(90deg) translateZ(8px) translateX(40px);
 }
 
+/* ✅ Corrige la face droite (cohérente avec la gauche) */
 .logo-cube::after {
   content: "";
   position: absolute;
   width: 16px;
   height: 96px;
   background: rgba(0, 0, 0, 0.2);
-  transform: rotateY(-90deg) translateZ(88px) translateX(-40px);
+  transform: rotateY(-90deg) translateZ(8px) translateX(-40px);
 }
+
+/* ✅ Prefers-reduced-motion : cible aussi le cube */
+@media (prefers-reduced-motion: reduce) {
+  .logo-cube {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 
 @keyframes rotateCube3D {
   0% { transform: rotateY(0deg) rotateX(0deg); }
