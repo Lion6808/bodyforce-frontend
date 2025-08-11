@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-
-import { useAuth } from "../contexts/AuthContext"; // si ce n'est pas déjà présent
+import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
-
+import styles from "./PlanningPage.module.css";
 
 import {
   Calendar,
@@ -14,6 +13,9 @@ import {
   ChevronRight,
   RefreshCw,
   AlertCircle,
+  Clock,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -41,6 +43,8 @@ const formatDate = (date, format) => {
     "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
     "EEE dd": { weekday: "short", day: "2-digit" },
     "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
+    "MMMM yyyy": { month: "long", year: "numeric" },
+    "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" }
   };
 
   if (format === "yyyy-MM-dd") {
@@ -113,6 +117,11 @@ const addYears = (date, years) => {
 
 const subWeeks = (date, weeks) => addWeeks(date, -weeks);
 
+const isToday = (date) => {
+  const today = new Date();
+  return date.toDateString() === today.toDateString();
+};
+
 function PlanningPage() {
   const [presences, setPresences] = useState([]);
   const [members, setMembers] = useState([]);
@@ -120,12 +129,9 @@ function PlanningPage() {
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
-  const { role } = useAuth(); // Récupère le rôle de l’utilisateur connecté
-
-
+  const { role } = useAuth();
 
   const [period, setPeriod] = useState("week");
-  // Période par défaut plus courte pour éviter la lenteur
   const [startDate, setStartDate] = useState(
     startOfDay(subWeeks(new Date(), 1))
   );
@@ -137,6 +143,11 @@ function PlanningPage() {
   const [viewMode, setViewMode] = useState("list");
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // États pour la vue mensuelle
+  const [expandedDays, setExpandedDays] = useState(new Set());
+  const [hoveredMember, setHoveredMember] = useState(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // REQUÊTES DIRECTES SUPABASE
   const loadData = async (showRetryIndicator = false) => {
@@ -265,55 +276,92 @@ function PlanningPage() {
     return parseTimestamp(timestamp);
   };
 
-  // Écrans de chargement et d'erreur avec mode sombre
+  // Import Excel
+  const handleImportExcel = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
+        let count = 0;
+        for (const row of rows) {
+          const badgeId = row["Qui"]?.toString();
+          const rawDate = row["Quand"];
+          if (!badgeId || !rawDate) continue;
+
+          const match = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
+          if (!match) continue;
+
+          const [, dd, mm, yy, hh, min] = match;
+          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+          const isoDate = localDate.toISOString();
+
+          const { error } = await supabase
+            .from("presences")
+            .insert([{ badgeId, timestamp: isoDate }]);
+
+          if (!error) count++;
+        }
+
+        alert(`✅ Import terminé : ${count} présences insérées.`);
+        loadData();
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      console.error("Erreur import Excel :", err);
+      alert("❌ Erreur lors de l'import.");
+    }
+  };
+
+  // Écrans de chargement et d'erreur
   const renderConnectionError = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200 dark:border-gray-700">
-        <AlertCircle className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-6" />
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-          Problème de connexion
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">{error}</p>
+    <div className={styles.statusPageContainer}>
+      <div className={styles.statusCard}>
+        <AlertCircle className={styles.errorIcon} />
+        <h2 className={styles.statusCardTitle}>Problème de connexion</h2>
+        <p className={styles.statusCardText}>{error}</p>
         <button
           onClick={handleRetry}
           disabled={isRetrying}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                   disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 
-                   rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
+          className={styles.statusButton}
         >
           {isRetrying ? (
             <>
-              <RefreshCw className="w-5 h-5 animate-spin" />
+              <RefreshCw className={`${styles.statusButtonIcon} ${styles.statusButtonIconSpin}`} />
               Reconnexion...
             </>
           ) : (
             <>
-              <RefreshCw className="w-5 h-5" />
+              <RefreshCw className={styles.statusButtonIcon} />
               Réessayer
             </>
           )}
         </button>
         {retryCount > 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-            Tentative {retryCount + 1}
-          </p>
+          <p className={styles.retryCountText}>Tentative {retryCount + 1}</p>
         )}
       </div>
     </div>
   );
 
   const renderLoading = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-          <RefreshCw className="w-8 h-8 animate-spin text-white" />
+    <div className={styles.loadingContainer}>
+      <div className={styles.loadingContent}>
+        <div className={styles.loadingSpinnerContainer}>
+          <RefreshCw className={styles.loadingSpinner} />
         </div>
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+        <h2 className={styles.loadingTitle}>
           {isRetrying ? "Reconnexion en cours..." : "Chargement du planning..."}
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Période: {startDate.toLocaleDateString()} -{" "}
-          {endDate.toLocaleDateString()}
+        <p className={styles.loadingSubtitle}>
+          Période: {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
         </p>
       </div>
     </div>
@@ -322,7 +370,7 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Les présences sont déjà filtrées par la requête, pas besoin de re-filtrer
+  // Filtrage des données
   const filteredPresences = presences.filter((p) => {
     const presenceDate = toLocalDate(p.timestamp);
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
@@ -353,9 +401,51 @@ function PlanningPage() {
         (!filterBadge || m.badgeId?.includes(filterBadge))
     );
 
-  // Vue liste pour mobile - Version compacte avec mode sombre
+  // Calcul des statistiques pour le résumé
+  const calculateStats = () => {
+    const totalPresences = filteredPresences.length;
+    const uniqueMembers = new Set(filteredPresences.map(p => p.badgeId)).size;
+    const dailyAverages = {};
+    
+    // Calcul par jour
+    allDays.forEach(day => {
+      const dayKey = toDateString(day);
+      const dayPresences = filteredPresences.filter(p => 
+        toDateString(p.parsedDate) === dayKey
+      );
+      dailyAverages[dayKey] = {
+        presences: dayPresences.length,
+        members: new Set(dayPresences.map(p => p.badgeId)).size
+      };
+    });
+
+    const avgPresencesPerDay = Object.values(dailyAverages)
+      .reduce((sum, day) => sum + day.presences, 0) / allDays.length;
+    
+    const avgMembersPerDay = Object.values(dailyAverages)
+      .reduce((sum, day) => sum + day.members, 0) / allDays.length;
+
+    // Jour le plus chargé
+    const busiestDay = Object.entries(dailyAverages)
+      .reduce((max, [day, stats]) => 
+        stats.members > max.members ? { day, ...stats } : max, 
+        { day: '', members: 0, presences: 0 }
+      );
+
+    return {
+      totalPresences,
+      uniqueMembers,
+      avgPresencesPerDay: Math.round(avgPresencesPerDay * 10) / 10,
+      avgMembersPerDay: Math.round(avgMembersPerDay * 10) / 10,
+      busiestDay
+    };
+  };
+
+  const stats = calculateStats();
+
+  // Vue liste pour mobile (conservée)
   const ListView = () => (
-    <div className="space-y-3">
+    <div className={styles.listViewContainer}>
       {visibleMembers.map((member) => {
         const memberPresences = groupedByMember[member.badgeId] || [];
         const dailyPresences = {};
@@ -369,80 +459,76 @@ function PlanningPage() {
         const totalPresencesInPeriod = memberPresences.length;
 
         return (
-          <div
-            key={member.badgeId}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center gap-2 mb-3">
+          <div key={member.badgeId} className={styles.memberCardList}>
+            <div className={styles.memberHeaderList}>
               {member.photo ? (
                 <img
                   src={member.photo}
                   alt="avatar"
-                  className="w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600"
+                  className={styles.memberAvatar}
                 />
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+                <div className={styles.memberInitials}>
                   {member.firstName?.[0]}
                   {member.name?.[0]}
                 </div>
               )}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-base truncate">
+              <div className={styles.memberInfoList}>
+                <h3 className={styles.memberNameList}>
                   {member.name} {member.firstName}
                 </h3>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                <div className={styles.memberMetaList}>
+                  <span className={styles.memberBadgeId}>
                     Badge: {member.badgeId}
                   </span>
-                  <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium">
+                  <span className={styles.memberPresenceCount}>
                     {totalPresencesInPeriod} présence(s)
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Grille compacte des jours */}
-            <div className="grid grid-cols-7 sm:grid-cols-14 gap-1">
+            <div className={styles.daysGridList}>
               {allDays.map((day) => {
                 const dayKey = toDateString(day);
                 const dayPresences = dailyPresences[dayKey] || [];
                 const hasPresences = dayPresences.length > 0;
 
                 return (
-                  <div key={dayKey} className={`relative group`}>
+                  <div key={dayKey} className={styles.dayCellList}>
                     <div
-                      className={`p-1.5 rounded text-center text-xs transition-all hover:scale-105 cursor-pointer ${hasPresences
-                        ? "bg-green-500 text-white shadow-sm"
-                        : isWeekend(day)
-                          ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                        }`}
+                      className={`${styles.dayCellContent} ${
+                        hasPresences
+                          ? styles.dayCellPresent
+                          : isWeekend(day)
+                          ? styles.dayCellWeekend
+                          : styles.dayCellNormal
+                      }`}
                     >
-                      <div className="font-medium text-xs">
+                      <div className={styles.dayCellDate}>
                         {formatDate(day, "EEE dd").split(" ")[1]}
                       </div>
                       {hasPresences && (
-                        <div className="text-[10px] font-bold mt-0.5">
+                        <div className={styles.dayCellPresenceCount}>
                           {dayPresences.length}
                         </div>
                       )}
                     </div>
 
-                    {/* Tooltip avec détails au hover */}
                     {hasPresences && (
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                        <div className="bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700">
-                          <div className="font-semibold mb-1">
+                      <div className={styles.tooltip}>
+                        <div className={styles.tooltipContent}>
+                          <div className={styles.tooltipHeader}>
                             {formatDate(day, "EEE dd/MM")}
                           </div>
-                          <div className="space-y-0.5">
+                          <div className={styles.tooltipBody}>
                             {dayPresences.slice(0, 3).map((p, idx) => (
-                              <div key={idx} className="text-[11px]">
+                              <div key={idx} className={styles.tooltipTime}>
                                 {formatDate(p, "HH:mm")}
                               </div>
                             ))}
                             {dayPresences.length > 3 && (
-                              <div className="text-[11px] opacity-75">
+                              <div className={styles.tooltipMore}>
                                 +{dayPresences.length - 3} autres
                               </div>
                             )}
@@ -460,61 +546,61 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue compacte pour tablettes avec mode sombre
+  // Vue compacte (conservée)
   const CompactView = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-      <div className="overflow-x-auto">
-        <div className="min-w-full">
+    <div className={styles.compactViewContainer}>
+      <div className={styles.compactViewScroll}>
+        <div className={styles.compactViewGrid}>
           <div
-            className="grid bg-gray-50 dark:bg-gray-700"
+            className={styles.compactViewGridInner}
             style={{
               gridTemplateColumns: `180px repeat(${allDays.length}, minmax(100px, 1fr))`,
             }}
           >
-            {/* En-tête */}
-            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 p-4 border-b border-r border-gray-200 dark:border-gray-600 font-bold text-center text-white">
-              <Users className="w-5 h-5 mx-auto mb-1" />
+            <div className={styles.compactHeaderCell}>
+              <Users className={styles.compactHeaderIcon} />
               Membres
             </div>
             {allDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`p-3 text-center font-medium border-b border-r border-gray-200 dark:border-gray-600 ${isWeekend(day)
-                  ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
-                  : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
+                className={`${styles.compactDayHeader} ${
+                  isWeekend(day)
+                    ? styles.compactDayHeaderWeekend
+                    : styles.compactDayHeaderNormal
+                }`}
               >
-                <div className="text-sm">{formatDate(day, "EEE dd")}</div>
-                <div className="text-xs opacity-75">
+                <div className={styles.compactDayDate}>{formatDate(day, "EEE dd")}</div>
+                <div className={styles.compactDayMonth}>
                   {formatDate(day, "dd/MM").split("/")[1]}
                 </div>
               </div>
             ))}
 
-            {/* Lignes des membres */}
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`sticky left-0 z-10 p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
-                    }`}
+                  className={`${styles.compactMemberCell} ${
+                    idx % 2 === 0 ? styles.compactMemberCellEven : styles.compactMemberCellOdd
+                  }`}
                 >
                   {member.photo ? (
                     <img
                       src={member.photo}
                       alt="avatar"
-                      className="w-10 h-10 object-cover rounded-full border border-gray-300 dark:border-gray-600"
+                      className={styles.compactMemberAvatar}
                     />
                   ) : (
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                    <div className={styles.compactMemberInitials}>
                       {member.firstName?.[0]}
                       {member.name?.[0]}
                     </div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
+                  <div className={styles.compactMemberInfo}>
+                    <div className={styles.compactMemberName}>
                       {member.name}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    <div className={styles.compactMemberFirstName}>
                       {member.firstName}
                     </div>
                   </div>
@@ -530,27 +616,28 @@ function PlanningPage() {
                   return (
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
-                      className={`p-2 border-b border-r border-gray-200 dark:border-gray-600 min-h-[80px] transition-colors hover:bg-opacity-80 ${dayPresences.length > 0
-                        ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20"
-                        : isWeekend(day)
-                          ? "bg-blue-50 dark:bg-blue-900/10"
+                      className={`${styles.compactDataCell} ${
+                        dayPresences.length > 0
+                          ? styles.compactDataCellPresent
+                          : isWeekend(day)
+                          ? styles.compactDataCellWeekend
                           : idx % 2 === 0
-                            ? "bg-white dark:bg-gray-800"
-                            : "bg-gray-50 dark:bg-gray-700"
-                        }`}
+                          ? styles.compactDataCellEven
+                          : styles.compactDataCellOdd
+                      }`}
                     >
                       {dayPresences.length > 0 && (
-                        <div className="space-y-1">
+                        <div className={styles.presenceTimesContainer}>
                           {dayPresences.slice(0, 3).map((time, tidx) => (
                             <div
                               key={tidx}
-                              className="bg-green-600 dark:bg-green-700 text-white px-2 py-1 rounded-md text-xs font-medium text-center shadow-sm"
+                              className={styles.presenceTimeChip}
                             >
                               {formatDate(time, "HH:mm")}
                             </div>
                           ))}
                           {dayPresences.length > 3 && (
-                            <div className="text-green-700 dark:text-green-400 text-xs text-center font-medium">
+                            <div className={styles.presenceMoreChip}>
                               +{dayPresences.length - 3}
                             </div>
                           )}
@@ -567,238 +654,652 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue grille complète pour desktop avec mode sombre
-  const GridView = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-      <div className="overflow-auto max-h-[75vh]">
-        <div className="min-w-max">
-          <div
-            className="grid"
-            style={{
-              gridTemplateColumns: `220px repeat(${allDays.length * hours.length
-                }, 45px)`,
-            }}
-          >
-            <div className="sticky top-0 left-0 bg-gradient-to-r from-blue-600 to-purple-600 z-20 h-16 border-b border-r border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold text-white">
-              <div className="text-center">
-                <Users className="w-6 h-6 mx-auto mb-1" />
-                <div className="text-sm">Membres</div>
+  // NOUVELLE VUE MENSUELLE (remplace la vue grille)
+  const MonthlyView = () => {
+    // Génération du calendrier mensuel
+    const generateCalendarDays = () => {
+      const year = startDate.getFullYear();
+      const month = startDate.getMonth();
+      
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startCalendar = new Date(firstDay);
+      startCalendar.setDate(startCalendar.getDate() - firstDay.getDay() + 1); // Commencer le lundi
+      
+      const days = [];
+      const current = new Date(startCalendar);
+      
+      // Générer 6 semaines (42 jours) pour avoir un calendrier complet
+      for (let i = 0; i < 42; i++) {
+        days.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+      }
+      
+      return days;
+    };
+
+    const calendarDays = generateCalendarDays();
+
+    // Navigation mensuelle
+    const navigateMonth = (direction) => {
+      const newDate = new Date(startDate);
+      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      setStartDate(startOfDay(newDate));
+      setEndDate(endOfDay(new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0)));
+    };
+
+    // Grouper les présences par jour et par membre
+    const groupPresencesByDayAndMember = () => {
+      const grouped = {};
+      
+      filteredPresences.forEach(presence => {
+        const date = parseTimestamp(presence.timestamp);
+        const dateKey = toDateString(date);
+        
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = {};
+        }
+        
+        if (!grouped[dateKey][presence.badgeId]) {
+          grouped[dateKey][presence.badgeId] = [];
+        }
+        
+        grouped[dateKey][presence.badgeId].push({
+          ...presence,
+          parsedDate: date
+        });
+      });
+      
+      return grouped;
+    };
+
+    const presencesByDayAndMember = groupPresencesByDayAndMember();
+
+    // Gestion de l'expansion des jours
+    const toggleDayExpansion = (dayKey) => {
+      const newExpandedDays = new Set(expandedDays);
+      if (newExpandedDays.has(dayKey)) {
+        newExpandedDays.delete(dayKey);
+      } else {
+        newExpandedDays.add(dayKey);
+      }
+      setExpandedDays(newExpandedDays);
+    };
+
+    // Gestionnaire de survol
+    const handleMemberMouseEnter = (badgeId, dayKey, event) => {
+      const member = members.find(m => m.badgeId === badgeId);
+      const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
+      
+      setHoveredMember({
+        member,
+        presences: memberPresences,
+        dayKey
+      });
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    };
+
+    const handleMouseMove = (event) => {
+      if (hoveredMember) {
+        setMousePosition({ x: event.clientX, y: event.clientY });
+      }
+    };
+
+    const handleMouseLeave = () => {
+      setHoveredMember(null);
+    };
+
+    // Rendu d'un mini-avatar de membre avec compteur (optimisé pour 1 passage/jour)
+    const renderMemberAvatar = (badgeId, presenceCount, dayKey, index) => {
+      const member = members.find(m => m.badgeId === badgeId);
+      if (!member) return null;
+
+      const avatarSize = 'w-8 h-8';
+      const textSize = 'text-xs';
+      
+      return (
+        <div
+          key={badgeId}
+          className="relative group cursor-pointer"
+          onMouseEnter={(e) => handleMemberMouseEnter(badgeId, dayKey, e)}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          style={{ zIndex: index + 10 }}
+        >
+          {/* Avatar */}
+          {member.photo ? (
+            <img
+              src={member.photo}
+              alt="avatar"
+              className={`${avatarSize} object-cover rounded-full border-2 border-white dark:border-gray-800 
+                         shadow-sm hover:shadow-md transform hover:scale-110 transition-all duration-200`}
+            />
+          ) : (
+            <div className={`${avatarSize} bg-gradient-to-br from-blue-500 to-purple-600 rounded-full 
+                            flex items-center justify-center text-white font-bold ${textSize}
+                            border-2 border-white dark:border-gray-800 shadow-sm hover:shadow-md 
+                            transform hover:scale-110 transition-all duration-200`}>
+              {member.firstName?.[0]}{member.name?.[0]}
+            </div>
+          )}
+          
+          {/* Compteur UNIQUEMENT si passages multiples (cas exceptionnel) */}
+          {presenceCount > 1 && (
+            <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold 
+                           rounded-full min-w-[16px] h-4 flex items-center justify-center 
+                           border border-white dark:border-gray-800 shadow-sm animate-pulse">
+              {presenceCount > 99 ? '99+' : presenceCount}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // Tooltip optimisé pour 1 passage par jour
+    const renderTooltip = () => {
+      if (!hoveredMember) return null;
+
+      const { member, presences, dayKey } = hoveredMember;
+      const day = new Date(dayKey + 'T00:00:00');
+      const isMultiplePassages = presences.length > 1;
+      
+      return (
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{
+            left: mousePosition.x + 15,
+            top: mousePosition.y - 10,
+            transform: 'translateY(-50%)'
+          }}
+        >
+          <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700">
+            {/* En-tête avec photo et nom */}
+            <div className="flex items-center gap-3 mb-3">
+              {member?.photo ? (
+                <img
+                  src={member.photo}
+                  alt="avatar"
+                  className="w-12 h-12 object-cover rounded-full border-2 border-blue-400"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                  {member?.firstName?.[0]}{member?.name?.[0]}
+                </div>
+              )}
+              <div>
+                <h4 className="font-bold text-lg text-white">
+                  {member?.name} {member?.firstName}
+                </h4>
+                <p className="text-blue-300 text-sm">Badge: {member?.badgeId}</p>
               </div>
             </div>
-            {allDays.map((day, dIdx) =>
-              hours.map((h, hIdx) => (
-                <div
-                  key={`header-${dIdx}-${h}`}
-                  className={`text-[9px] border-b border-r border-gray-200 dark:border-gray-600 flex flex-col items-center justify-center h-16 font-medium ${isWeekend(day)
-                    ? "bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-800 dark:text-blue-400"
-                    : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 text-gray-700 dark:text-gray-300"
-                    }`}
-                >
-                  {hIdx === 0 && (
-                    <div className="font-bold whitespace-nowrap mb-1">
-                      {formatDate(day, "EEE dd/MM")}
-                    </div>
-                  )}
-                  <div className="font-semibold">{`${h
-                    .toString()
-                    .padStart(2, "0")}h`}</div>
+            
+            {/* Informations du jour */}
+            <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-400" />
+                <span className="text-sm">{formatDate(day, "EEEE dd MMMM")}</span>
+              </div>
+              
+              {/* Cas standard : 1 passage */}
+              {!isMultiplePassages ? (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-green-400" />
+                  <span className="text-sm">Passage à {formatDate(presences[0].parsedDate, "HH:mm")}</span>
                 </div>
-              ))
-            )}
-            {visibleMembers.map((member, idx) => (
-              <React.Fragment key={member.badgeId}>
-                <div
-                  className={`sticky left-0 z-10 px-3 py-2 border-r border-b border-gray-200 dark:border-gray-600 h-16 flex items-center gap-3 ${idx % 2 === 0 ? "bg-white dark:bg-gray-800" : "bg-gray-50 dark:bg-gray-700"
-                    }`}
-                >
-                  {member.photo ? (
-                    <img
-                      src={member.photo}
-                      alt="avatar"
-                      className="w-12 h-12 object-cover rounded-full border border-gray-300 dark:border-gray-600"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                      {member.firstName?.[0]}
-                      {member.name?.[0]}
-                    </div>
-                  )}
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-semibold text-sm truncate text-gray-900 dark:text-gray-100">
-                      {member.name} {member.firstName}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {groupedByMember[member.badgeId]?.length || 0} présence(s)
+              ) : (
+                /* Cas exceptionnel : passages multiples */
+                <>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-orange-400" />
+                    <span className="text-sm font-semibold text-orange-300">
+                      ⚠️ {presences.length} passages (inhabituel)
                     </span>
                   </div>
-                </div>
-                {allDays.map((day) =>
-                  hours.map((h) => {
-                    const times = groupedByMember[member.badgeId] || [];
-                    const present = times.some((t) => {
-                      const tDateStr = toDateString(t);
-                      const dayDateStr = toDateString(day);
-                      return tDateStr === dayDateStr && t.getHours() === h;
-                    });
+                  
+                  {/* Liste des heures pour les cas multiples */}
+                  <div className="mt-2">
+                    <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
+                    <div className="flex flex-wrap gap-1">
+                      {presences.slice(0, 6).map((presence, index) => (
+                        <div
+                          key={index}
+                          className="bg-orange-600 bg-opacity-30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500 border-opacity-30"
+                        >
+                          {formatDate(presence.parsedDate, "HH:mm")}
+                        </div>
+                      ))}
+                      {presences.length > 6 && (
+                        <div className="bg-gray-600 bg-opacity-30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500 border-opacity-30">
+                          +{presences.length - 6}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            {/* Badge de statut */}
+            <div className="flex justify-between items-center">
+              <span className="px-2 py-1 bg-green-500 bg-opacity-20 text-green-400 text-xs rounded-full border border-green-500 border-opacity-30">
+                Présent(e)
+              </span>
+              {isMultiplePassages && (
+                <span className="text-xs text-orange-400 font-medium">
+                  Vérifier badge
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
 
-                    return (
-                      <div
-                        key={`${member.badgeId}-${day.toISOString()}-${h}`}
-                        className={`h-16 border-b border-r border-gray-200 dark:border-gray-600 relative group transition-all duration-200 ${present
-                          ? "bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 cursor-pointer shadow-sm"
-                          : isWeekend(day)
-                            ? "bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20"
-                            : idx % 2 === 0
-                              ? "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
-                              : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
-                          }`}
-                      >
-                        {present && (
-                          <>
-                            <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
-                              <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">
-                                  ✓
-                                </span>
-                              </div>
-                            </div>
-                            <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap border border-gray-700">
-                              <div className="font-semibold">
-                                {formatDate(day, "EEE dd/MM")} à {h}h
-                              </div>
-                              <div className="opacity-90">
-                                {member.name} {member.firstName}
-                              </div>
-                            </div>
-                          </>
-                        )}
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {/* En-tête du calendrier */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => navigateMonth('prev')}
+              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6 text-white" />
+            </button>
+            
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white capitalize">
+                {formatDate(startDate, "MMMM yyyy")}
+              </h2>
+              <p className="text-blue-100 text-sm mt-1">
+                Planning des présences
+              </p>
+            </div>
+            
+            <button
+              onClick={() => navigateMonth('next')}
+              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+            >
+              <ChevronRight className="w-6 h-6 text-white" />
+            </button>
+          </div>
+        </div>
+
+        {/* Jours de la semaine */}
+        <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-700">
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, index) => (
+            <div
+              key={day}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0
+                         ${index >= 5 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendrier */}
+        <div className="grid grid-cols-7">
+          {calendarDays.map((day, dayIndex) => {
+            const dateKey = toDateString(day);
+            const dayMemberPresences = presencesByDayAndMember[dateKey] || {};
+            const memberIds = Object.keys(dayMemberPresences).filter(badgeId => {
+              const member = getMemberInfo(badgeId);
+              return (!filterName ||
+                `${member.name} ${member.firstName}`
+                  .toLowerCase()
+                  .includes(filterName.toLowerCase())) &&
+              (!filterBadge || member.badgeId?.includes(filterBadge));
+            });
+            const totalPresences = Object.values(dayMemberPresences).reduce((sum, presences) => sum + presences.length, 0);
+            const isCurrentMonth = day.getMonth() === startDate.getMonth();
+            const isWeekendDay = isWeekend(day);
+            const isTodayDay = isToday(day);
+            const isExpanded = expandedDays.has(dateKey);
+            
+            // Gestion intelligente de l'affichage selon le nombre de membres
+            let visibleMembers, hiddenMembersCount, showExpandButton;
+            
+            if (memberIds.length <= 9) {
+              // Cas normal : ≤9 membres, on affiche tout
+              visibleMembers = memberIds;
+              hiddenMembersCount = 0;
+              showExpandButton = false;
+            } else if (memberIds.length <= 20) {
+              // Cas moyen : 10-20 membres
+              if (isExpanded) {
+                visibleMembers = memberIds; // Tout afficher en mode étendu
+                hiddenMembersCount = 0;
+                showExpandButton = true;
+              } else {
+                visibleMembers = memberIds.slice(0, 6); // Afficher 6 + bouton d'expansion
+                hiddenMembersCount = memberIds.length - 6;
+                showExpandButton = true;
+              }
+            } else {
+              // Cas intense : >20 membres (comme vos 50)
+              if (isExpanded) {
+                visibleMembers = memberIds.slice(0, 30); // Max 30 même en étendu
+                hiddenMembersCount = Math.max(0, memberIds.length - 30);
+                showExpandButton = true;
+              } else {
+                visibleMembers = memberIds.slice(0, 6); // 6 + indicateur
+                hiddenMembersCount = memberIds.length - 6;
+                showExpandButton = true;
+              }
+            }
+            
+            return (
+              <div
+                key={dayIndex}
+                className={`${isExpanded ? 'min-h-[200px]' : 'min-h-[140px]'} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative
+                           ${!isCurrentMonth ? 'bg-gray-50 dark:bg-gray-700 opacity-50' : ''}
+                           ${isWeekendDay ? 'bg-blue-50 dark:bg-blue-900/10' : 'bg-white dark:bg-gray-800'}
+                           ${isTodayDay ? 'ring-2 ring-blue-500 ring-inset' : ''}
+                           ${isExpanded ? 'bg-blue-25 dark:bg-blue-900/5' : ''}
+                           hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+              >
+                {/* En-tête du jour */}
+                <div className="flex justify-between items-start mb-2">
+                  <span
+                    className={`text-sm font-semibold
+                               ${!isCurrentMonth ? 'text-gray-400 dark:text-gray-500' : 
+                                 isTodayDay ? 'text-blue-600 dark:text-blue-400' :
+                                 isWeekendDay ? 'text-blue-600 dark:text-blue-400' : 
+                                 'text-gray-900 dark:text-gray-100'}`}
+                  >
+                    {day.getDate()}
+                  </span>
+                  
+                  {/* Compteur total avec indicateur de densité */}
+                  {totalPresences > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span className={`text-xs px-2 py-1 rounded-full font-bold
+                                     ${memberIds.length > 30 ? 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400' :
+                                       memberIds.length > 15 ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' :
+                                       'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>
+                        {memberIds.length > 99 ? '99+' : memberIds.length}
+                      </span>
+                      {memberIds.length > 20 && (
+                        <span className="text-[10px] text-red-500 dark:text-red-400 font-bold">🔥</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Grille des avatars de membres - Adaptive selon le volume */}
+                {memberIds.length > 0 && (
+                  <div className="space-y-1">
+                    {isExpanded && memberIds.length > 20 ? (
+                      // Mode étendu pour gros volumes : grille dense 6 colonnes
+                      <div className="grid grid-cols-6 gap-0.5">
+                        {visibleMembers.map((badgeId, index) => (
+                          <div key={badgeId} className="flex justify-center">
+                            {renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index)}
+                          </div>
+                        ))}
                       </div>
-                    );
-                  })
+                    ) : (
+                      // Mode normal : grille 3x3 lisible
+                      <>
+                        {/* Première ligne - jusqu'à 3 membres */}
+                        <div className="flex justify-start gap-1 flex-wrap">
+                          {visibleMembers.slice(0, 3).map((badgeId, index) => 
+                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index)
+                          )}
+                        </div>
+                        
+                        {/* Deuxième ligne - 3 membres supplémentaires */}
+                        {visibleMembers.length > 3 && (
+                          <div className="flex justify-start gap-1 flex-wrap">
+                            {visibleMembers.slice(3, 6).map((badgeId, index) => 
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 3)
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Troisième ligne - 3 derniers membres */}
+                        {visibleMembers.length > 6 && (
+                          <div className="flex justify-start gap-1 flex-wrap">
+                            {visibleMembers.slice(6, 9).map((badgeId, index) => 
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 6)
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {/* Boutons d'action */}
+                    <div className="flex justify-center gap-1 mt-1">
+                      {/* Indicateur membres cachés */}
+                      {hiddenMembersCount > 0 && !showExpandButton && (
+                        <div className="w-8 h-8 bg-gray-400 dark:bg-gray-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800 shadow-sm">
+                          <span className="text-xs text-white font-bold">+{hiddenMembersCount}</span>
+                        </div>
+                      )}
+                      
+                      {/* Bouton d'expansion/collapse */}
+                      {showExpandButton && (
+                        <button
+                          onClick={() => toggleDayExpansion(dateKey)}
+                          className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all transform hover:scale-105
+                                     ${isExpanded 
+                                       ? 'bg-blue-500 text-white' 
+                                       : memberIds.length > 30 
+                                         ? 'bg-red-500 text-white animate-pulse' 
+                                         : 'bg-orange-500 text-white'}`}
+                          title={isExpanded ? 'Réduire' : `Voir les ${memberIds.length} membres`}
+                        >
+                          {isExpanded ? (
+                            <span>−</span>
+                          ) : (
+                            <span>+{hiddenMembersCount}</span>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
-              </React.Fragment>
-            ))}
+
+                {/* Indicateur aujourd'hui */}
+                {isTodayDay && (
+                  <div className="absolute top-1 right-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Légende */}
+        <div className="bg-gray-50 dark:bg-gray-700 p-4 border-t border-gray-200 dark:border-gray-600">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                AB
+              </div>
+              <span>Membre présent</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold relative">
+                AB
+                <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border border-white animate-pulse">
+                  3
+                </div>
+              </div>
+              <span>Passages multiples</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="px-2 py-1 bg-orange-500 text-white rounded-full text-[10px] font-bold">
+                +44
+              </button>
+              <span>Cliquer pour voir plus</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-1 rounded-full font-bold bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">
+                50 🔥
+              </span>
+              <span>Journée très chargée</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tooltip */}
+        {renderTooltip()}
+      </div>
+    );
+  };
+
+  // Composant de résumé des statistiques
+  const StatsResume = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg">
+          <BarChart3 className="w-5 h-5 text-white" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Résumé de la période
+        </h3>
+        <span className="text-sm text-gray-500 dark:text-gray-400">
+          {formatDate(startDate, "dd/MM/yyyy")} - {formatDate(endDate, "dd/MM/yyyy")}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            {stats.totalPresences}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Passages totaux
+          </div>
+        </div>
+
+        <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+            {stats.uniqueMembers}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Membres actifs
+          </div>
+        </div>
+
+        <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            {stats.avgMembersPerDay}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Moy. membres/jour
+          </div>
+        </div>
+
+        <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+          <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+            {stats.avgPresencesPerDay}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Moy. passages/jour
           </div>
         </div>
       </div>
+
+      {stats.busiestDay.members > 0 && (
+        <div className="mt-4 p-3 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-lg border border-red-200 dark:border-red-700">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-red-500" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Jour le plus chargé : 
+              <strong className="text-red-600 dark:text-red-400 ml-1">
+                {formatDate(new Date(stats.busiestDay.day), "dd/MM/yyyy")} 
+                ({stats.busiestDay.members} membres, {stats.busiestDay.presences} passages)
+              </strong>
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 
-  const handleImportExcel = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-
-        let count = 0;
-        for (const row of rows) {
-          const badgeId = row["Qui"]?.toString();
-          const rawDate = row["Quand"];
-          if (!badgeId || !rawDate) continue;
-
-          const match = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
-          if (!match) continue;
-
-          const [, dd, mm, yy, hh, min] = match;
-          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
-          const isoDate = localDate.toISOString();
-
-
-          const { error } = await supabase
-            .from("presences")
-            .insert([{ badgeId, timestamp: isoDate }]);
-
-          if (!error) count++;
-        }
-
-        alert(`✅ Import terminé : ${count} présences insérées.`);
-        loadData(); // recharge les données
-      };
-
-      reader.readAsArrayBuffer(file);
-    } catch (err) {
-      console.error("Erreur import Excel :", err);
-      alert("❌ Erreur lors de l'import.");
-    }
-  };
-
-
-
-
-
-
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4">
-      <div className="max-w-full mx-auto">
+    <div className={styles.pageContainer}>
+      <div className={styles.maxWidthWrapper}>
         {/* En-tête */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
-                <Calendar className="w-8 h-8 text-white" />
+        <div className={styles.headerCard}>
+          <div className={styles.headerContent}>
+            <div className={styles.headerTitleGroup}>
+              <div className={styles.headerIconContainer}>
+                <Calendar className={styles.headerIcon} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                <h1 className={styles.headerTitle}>
                   Planning des présences
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className={styles.headerSubtitle}>
                   Visualisez les présences des membres
                 </p>
               </div>
             </div>
 
             {/* Boutons de vue + filtre */}
-            <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
+            <div className={styles.viewFilterControls}>
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-2 rounded-md transition-all ${viewMode === "list"
-                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                  }`}
+                className={`${styles.viewButton} ${
+                  viewMode === "list"
+                    ? styles.viewButtonActive
+                    : styles.viewButtonInactive
+                }`}
                 title="Vue liste"
               >
-                <List className="w-5 h-5" />
+                <List className={styles.viewButtonIcon} />
               </button>
-              <button
-                onClick={() => setViewMode("compact")}
-                className={`p-2 rounded-md transition-all ${viewMode === "compact"
-                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              
+              {/* Vue compacte uniquement si pas mobile */}
+              {!isMobile && (
+                <button
+                  onClick={() => setViewMode("compact")}
+                  className={`${styles.viewButton} ${
+                    viewMode === "compact"
+                      ? styles.viewButtonActive
+                      : styles.viewButtonInactive
                   }`}
-                title="Vue compacte"
-              >
-                <Users className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-md transition-all ${viewMode === "grid"
-                  ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  title="Vue compacte"
+                >
+                  <Users className={styles.viewButtonIcon} />
+                </button>
+              )}
+
+              {/* Vue mensuelle (remplace grille) uniquement si pas mobile */}
+              {!isMobile && (
+                <button
+                  onClick={() => setViewMode("monthly")}
+                  className={`${styles.viewButton} ${
+                    viewMode === "monthly"
+                      ? styles.viewButtonActive
+                      : styles.viewButtonInactive
                   }`}
-                title="Vue grille"
-              >
-                <Grid className="w-5 h-5" />
-              </button>
+                  title="Vue mensuelle"
+                >
+                  <Grid className={styles.viewButtonIcon} />
+                </button>
+              )}
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`p-3 rounded-lg transition-all ${showFilters
-                  ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  }`}
+                className={`${styles.filterButton} ${
+                  showFilters
+                    ? styles.filterButtonActive
+                    : styles.filterButtonInactive
+                }`}
                 title="Afficher les filtres"
               >
                 <Filter className="w-5 h-5" />
               </button>
             </div>
 
+            {/* Import Excel pour admin */}
             {role === "admin" && (
               <div className="mt-4">
                 <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition">
@@ -812,22 +1313,21 @@ function PlanningPage() {
                 </label>
               </div>
             )}
-
           </div>
 
           {/* Navigation période */}
-          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <div className={styles.periodNav}>
             <button
               onClick={() => navigatePeriod("prev")}
-              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
+              className={styles.navButton}
             >
-              <ChevronLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+              <ChevronLeft className={styles.navButtonIcon} />
             </button>
 
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
+            <div className={styles.periodControls}>
               {/* Sélecteur de date de début */}
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              <div className={styles.dateInputGroup}>
+                <label className={styles.dateLabel}>
                   Début:
                 </label>
                 <input
@@ -844,12 +1344,12 @@ function PlanningPage() {
                       setEndDate(endOfDay(addYears(newStartDate, 1)));
                     }
                   }}
-                  className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  className={styles.dateInput}
                 />
               </div>
 
               <select
-                className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium text-sm"
+                className={styles.periodSelect}
                 value={period}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -862,12 +1362,12 @@ function PlanningPage() {
                 <option value="year">Année</option>
               </select>
 
-              <div className="text-center min-w-0">
-                <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
+              <div className={styles.periodDisplay}>
+                <div className={styles.periodDateRange}>
                   {formatDate(startDate, "dd/MM/yyyy")} -{" "}
                   {formatDate(endDate, "dd/MM/yyyy")}
                 </div>
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <div className={styles.periodDaysCount}>
                   {allDays.length} jours
                 </div>
               </div>
@@ -875,16 +1375,16 @@ function PlanningPage() {
 
             <button
               onClick={() => navigatePeriod("next")}
-              className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
+              className={styles.navButton}
             >
-              <ChevronRight className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+              <ChevronRight className={styles.navButtonIcon} />
             </button>
           </div>
 
           {/* Presets rapides pour navigation facile */}
-          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-300 mr-2">
+          <div className={styles.presetsContainer}>
+            <div className={styles.presetsContent}>
+              <span className={styles.presetsLabel}>
                 Raccourcis :
               </span>
 
@@ -894,7 +1394,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(today));
                   setEndDate(endOfDay(today));
                 }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+                className={styles.presetButton}
               >
                 Aujourd'hui
               </button>
@@ -907,7 +1407,7 @@ function PlanningPage() {
                   );
                   setEndDate(endOfDay(new Date()));
                 }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+                className={styles.presetButton}
               >
                 7 derniers jours
               </button>
@@ -920,7 +1420,7 @@ function PlanningPage() {
                   );
                   setEndDate(endOfDay(new Date()));
                 }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+                className={styles.presetButton}
               >
                 30 derniers jours
               </button>
@@ -934,7 +1434,7 @@ function PlanningPage() {
                     endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))
                   );
                 }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+                className={styles.presetButton}
               >
                 Cette Semaine
               </button>
@@ -944,7 +1444,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(startOfMonth(new Date())));
                   setEndDate(endOfDay(endOfMonth(new Date())));
                 }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+                className={styles.presetButton}
               >
                 Ce Mois
               </button>
@@ -954,7 +1454,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(startOfYear(new Date())));
                   setEndDate(endOfDay(endOfYear(new Date())));
                 }}
-                className="px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600"
+                className={styles.presetButton}
               >
                 Cette Année
               </button>
@@ -963,96 +1463,98 @@ function PlanningPage() {
         </div>
 
         {/* Filtres */}
-        {showFilters && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Rechercher par nom
-                </label>
-                <input
-                  type="text"
-                  placeholder="Nom ou prénom..."
-                  value={filterName}
-                  onChange={(e) => setFilterName(e.target.value)}
-                  className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Filtrer par badge
-                </label>
-                <input
-                  type="text"
-                  placeholder="Numéro de badge..."
-                  value={filterBadge}
-                  onChange={(e) => setFilterBadge(e.target.value)}
-                  className="w-full border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                />
-              </div>
-              <div className="flex items-end">
-                <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={showNightHours}
-                    onChange={() => setShowNightHours(!showNightHours)}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">Afficher 00h - 06h</span>
-                </label>
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={handleRetry}
-                  disabled={isRetrying}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                           disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all 
-                           duration-200 flex items-center justify-center gap-2"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${isRetrying ? "animate-spin" : ""}`}
-                  />
-                  Actualiser
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+       {showFilters && (
+         <div className={styles.filtersContainer}>
+           <div className={styles.filtersGrid}>
+             <div>
+               <label className={styles.filterInputLabel}>
+                 Rechercher par nom
+               </label>
+               <input
+                 type="text"
+                 placeholder="Nom ou prénom..."
+                 value={filterName}
+                 onChange={(e) => setFilterName(e.target.value)}
+                 className={styles.filterInput}
+               />
+             </div>
+             <div>
+               <label className={styles.filterInputLabel}>
+                 Filtrer par badge
+               </label>
+               <input
+                 type="text"
+                 placeholder="Numéro de badge..."
+                 value={filterBadge}
+                 onChange={(e) => setFilterBadge(e.target.value)}
+                 className={styles.filterInput}
+               />
+             </div>
+             <div className={styles.checkboxContainer}>
+               <label className={styles.checkboxLabel}>
+                 <input
+                   type="checkbox"
+                   checked={showNightHours}
+                   onChange={() => setShowNightHours(!showNightHours)}
+                   className={styles.checkboxInput}
+                 />
+                 <span className={styles.checkboxText}>Afficher 00h - 06h</span>
+               </label>
+             </div>
+             <div className={styles.refreshButtonContainer}>
+               <button
+                 onClick={handleRetry}
+                 disabled={isRetrying}
+                 className={styles.refreshButton}
+               >
+                 <RefreshCw
+                   className={`${styles.refreshButtonIcon} ${
+                     isRetrying ? styles.refreshButtonIconSpin : ""
+                   }`}
+                 />
+                 Actualiser
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
 
-        {/* Contenu principal */}
-        {visibleMembers.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center border border-gray-200 dark:border-gray-700">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Users className="w-12 h-12 text-gray-400 dark:text-gray-500" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Aucune présence trouvée
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
-              Aucune présence n'a été enregistrée sur cette période ou avec ces
-              filtres.
-              <br />
-              Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
-            </p>
-            <button
-              onClick={handleRetry}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                       text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Recharger les données
-            </button>
-          </div>
-        ) : (
-          <>
-            {viewMode === "list" && <ListView />}
-            {viewMode === "compact" && <CompactView />}
-            {viewMode === "grid" && <GridView />}
-          </>
-        )}
-      </div>
-    </div>
-  );
+       {/* Résumé des statistiques */}
+       <StatsResume />
+
+       {/* Contenu principal */}
+       {visibleMembers.length === 0 ? (
+         <div className={styles.emptyStateContainer}>
+           <div className={styles.emptyStateIconContainer}>
+             <Users className={styles.emptyStateIcon} />
+           </div>
+           <h3 className={styles.emptyStateTitle}>
+             Aucune présence trouvée
+           </h3>
+           <p className={styles.emptyStateText}>
+             Aucune présence n'a été enregistrée sur cette période ou avec ces
+             filtres.
+             <br />
+             Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
+           </p>
+           <button
+             onClick={handleRetry}
+             className={styles.emptyStateButton}
+           >
+             <RefreshCw className="w-4 h-4" />
+             Recharger les données
+           </button>
+         </div>
+       ) : (
+         <>
+           {viewMode === "list" && <ListView />}
+           {viewMode === "compact" && !isMobile && <CompactView />}
+           {viewMode === "monthly" && !isMobile && <MonthlyView />}
+         </>
+       )}
+     </div>
+   </div>
+ );
 }
 
 export default PlanningPage;
