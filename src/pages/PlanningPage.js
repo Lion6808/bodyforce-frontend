@@ -406,11 +406,11 @@ function PlanningPage() {
     const totalPresences = filteredPresences.length;
     const uniqueMembers = new Set(filteredPresences.map(p => p.badgeId)).size;
     const dailyAverages = {};
-    
+
     // Calcul par jour
     allDays.forEach(day => {
       const dayKey = toDateString(day);
-      const dayPresences = filteredPresences.filter(p => 
+      const dayPresences = filteredPresences.filter(p =>
         toDateString(p.parsedDate) === dayKey
       );
       dailyAverages[dayKey] = {
@@ -421,14 +421,14 @@ function PlanningPage() {
 
     const avgPresencesPerDay = Object.values(dailyAverages)
       .reduce((sum, day) => sum + day.presences, 0) / allDays.length;
-    
+
     const avgMembersPerDay = Object.values(dailyAverages)
       .reduce((sum, day) => sum + day.members, 0) / allDays.length;
 
     // Jour le plus chargé
     const busiestDay = Object.entries(dailyAverages)
-      .reduce((max, [day, stats]) => 
-        stats.members > max.members ? { day, ...stats } : max, 
+      .reduce((max, [day, stats]) =>
+        stats.members > max.members ? { day, ...stats } : max,
         { day: '', members: 0, presences: 0 }
       );
 
@@ -497,13 +497,12 @@ function PlanningPage() {
                 return (
                   <div key={dayKey} className={`${styles.dayCellList} group`}>
                     <div
-                      className={`${styles.dayCellContent} ${
-                        hasPresences
+                      className={`${styles.dayCellContent} ${hasPresences
                           ? styles.dayCellPresent
                           : isWeekend(day)
-                          ? styles.dayCellWeekend
-                          : styles.dayCellNormal
-                      }`}
+                            ? styles.dayCellWeekend
+                            : styles.dayCellNormal
+                        }`}
                     >
                       <div className={styles.dayCellDate}>
                         {formatDate(day, "EEE dd").split(" ")[1]}
@@ -516,7 +515,7 @@ function PlanningPage() {
                     </div>
 
                     {hasPresences && (
-                      <div className={styles.tooltip}>
+                      <div className={`${styles.tooltip} group-hover:block`}>
                         <div className={styles.tooltipContent}>
                           <div className={styles.tooltipHeader}>
                             {formatDate(day, "EEE dd/MM")}
@@ -564,11 +563,10 @@ function PlanningPage() {
             {allDays.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`${styles.compactDayHeader} ${
-                  isWeekend(day)
+                className={`${styles.compactDayHeader} ${isWeekend(day)
                     ? styles.compactDayHeaderWeekend
                     : styles.compactDayHeaderNormal
-                }`}
+                  }`}
               >
                 <div className={styles.compactDayDate}>{formatDate(day, "EEE dd")}</div>
                 <div className={styles.compactDayMonth}>
@@ -580,9 +578,8 @@ function PlanningPage() {
             {visibleMembers.map((member, idx) => (
               <React.Fragment key={member.badgeId}>
                 <div
-                  className={`${styles.compactMemberCell} ${
-                    idx % 2 === 0 ? styles.compactMemberCellEven : styles.compactMemberCellOdd
-                  }`}
+                  className={`${styles.compactMemberCell} ${idx % 2 === 0 ? styles.compactMemberCellEven : styles.compactMemberCellOdd
+                    }`}
                 >
                   {member.photo ? (
                     <img
@@ -616,15 +613,14 @@ function PlanningPage() {
                   return (
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
-                      className={`${styles.compactDataCell} ${
-                        dayPresences.length > 0
+                      className={`${styles.compactDataCell} ${dayPresences.length > 0
                           ? styles.compactDataCellPresent
                           : isWeekend(day)
-                          ? styles.compactDataCellWeekend
-                          : idx % 2 === 0
-                          ? styles.compactDataCellEven
-                          : styles.compactDataCellOdd
-                      }`}
+                            ? styles.compactDataCellWeekend
+                            : idx % 2 === 0
+                              ? styles.compactDataCellEven
+                              : styles.compactDataCellOdd
+                        }`}
                     >
                       {dayPresences.length > 0 && (
                         <div className={styles.presenceTimesContainer}>
@@ -660,21 +656,21 @@ function PlanningPage() {
     const generateCalendarDays = () => {
       const year = startDate.getFullYear();
       const month = startDate.getMonth();
-      
+
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const startCalendar = new Date(firstDay);
       startCalendar.setDate(startCalendar.getDate() - firstDay.getDay() + 1); // Commencer le lundi
-      
+
       const days = [];
       const current = new Date(startCalendar);
-      
+
       // Générer 6 semaines (42 jours) pour avoir un calendrier complet
       for (let i = 0; i < 42; i++) {
         days.push(new Date(current));
         current.setDate(current.getDate() + 1);
       }
-      
+
       return days;
     };
 
@@ -691,25 +687,25 @@ function PlanningPage() {
     // Grouper les présences par jour et par membre
     const groupPresencesByDayAndMember = () => {
       const grouped = {};
-      
+
       filteredPresences.forEach(presence => {
         const date = parseTimestamp(presence.timestamp);
         const dateKey = toDateString(date);
-        
+
         if (!grouped[dateKey]) {
           grouped[dateKey] = {};
         }
-        
+
         if (!grouped[dateKey][presence.badgeId]) {
           grouped[dateKey][presence.badgeId] = [];
         }
-        
+
         grouped[dateKey][presence.badgeId].push({
           ...presence,
           parsedDate: date
         });
       });
-      
+
       return grouped;
     };
 
@@ -730,7 +726,7 @@ function PlanningPage() {
     const handleMemberMouseEnter = (badgeId, dayKey, event) => {
       const member = members.find(m => m.badgeId === badgeId);
       const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
-      
+
       setHoveredMember({
         member,
         presences: memberPresences,
@@ -756,7 +752,7 @@ function PlanningPage() {
 
       const avatarSize = 'w-8 h-8';
       const textSize = 'text-xs';
-      
+
       return (
         <div
           key={badgeId}
@@ -782,7 +778,7 @@ function PlanningPage() {
               {member.firstName?.[0]}{member.name?.[0]}
             </div>
           )}
-          
+
           {/* Compteur UNIQUEMENT si passages multiples (cas exceptionnel) */}
           {presenceCount > 1 && (
             <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold 
@@ -802,7 +798,7 @@ function PlanningPage() {
       const { member, presences, dayKey } = hoveredMember;
       const day = new Date(dayKey + 'T00:00:00');
       const isMultiplePassages = presences.length > 1;
-      
+
       return (
         <div
           className="fixed z-50 pointer-events-none"
@@ -833,14 +829,14 @@ function PlanningPage() {
                 <p className="text-blue-300 text-sm">Badge: {member?.badgeId}</p>
               </div>
             </div>
-            
+
             {/* Informations du jour */}
             <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-blue-400" />
                 <span className="text-sm">{formatDate(day, "EEEE dd MMMM")}</span>
               </div>
-              
+
               {/* Cas standard : 1 passage */}
               {!isMultiplePassages ? (
                 <div className="flex items-center gap-2">
@@ -856,7 +852,7 @@ function PlanningPage() {
                       ⚠️ {presences.length} passages (inhabituel)
                     </span>
                   </div>
-                  
+
                   {/* Liste des heures pour les cas multiples */}
                   <div className="mt-2">
                     <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
@@ -879,7 +875,7 @@ function PlanningPage() {
                 </>
               )}
             </div>
-            
+
             {/* Badge de statut */}
             <div className="flex justify-between items-center">
               <span className="px-2 py-1 bg-green-500 bg-opacity-20 text-green-400 text-xs rounded-full border border-green-500 border-opacity-30">
@@ -907,7 +903,7 @@ function PlanningPage() {
             >
               <ChevronLeft className="w-6 h-6 text-white" />
             </button>
-            
+
             <div className="text-center">
               <h2 className="text-2xl font-bold text-white capitalize">
                 {formatDate(startDate, "MMMM yyyy")}
@@ -916,7 +912,7 @@ function PlanningPage() {
                 Planning des présences
               </p>
             </div>
-            
+
             <button
               onClick={() => navigateMonth('next')}
               className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
@@ -950,17 +946,17 @@ function PlanningPage() {
                 `${member.name} ${member.firstName}`
                   .toLowerCase()
                   .includes(filterName.toLowerCase())) &&
-              (!filterBadge || member.badgeId?.includes(filterBadge));
+                (!filterBadge || member.badgeId?.includes(filterBadge));
             });
             const totalPresences = Object.values(dayMemberPresences).reduce((sum, presences) => sum + presences.length, 0);
             const isCurrentMonth = day.getMonth() === startDate.getMonth();
             const isWeekendDay = isWeekend(day);
             const isTodayDay = isToday(day);
             const isExpanded = expandedDays.has(dateKey);
-            
+
             // Gestion intelligente de l'affichage selon le nombre de membres
             let visibleMembers, hiddenMembersCount, showExpandButton;
-            
+
             if (memberIds.length <= 9) {
               // Cas normal : ≤9 membres, on affiche tout
               visibleMembers = memberIds;
@@ -989,7 +985,7 @@ function PlanningPage() {
                 showExpandButton = true;
               }
             }
-            
+
             return (
               <div
                 key={dayIndex}
@@ -1004,21 +1000,21 @@ function PlanningPage() {
                 <div className="flex justify-between items-start mb-2">
                   <span
                     className={`text-sm font-semibold
-                               ${!isCurrentMonth ? 'text-gray-400 dark:text-gray-500' : 
-                                 isTodayDay ? 'text-blue-600 dark:text-blue-400' :
-                                 isWeekendDay ? 'text-blue-600 dark:text-blue-400' : 
-                                 'text-gray-900 dark:text-gray-100'}`}
+                               ${!isCurrentMonth ? 'text-gray-400 dark:text-gray-500' :
+                        isTodayDay ? 'text-blue-600 dark:text-blue-400' :
+                          isWeekendDay ? 'text-blue-600 dark:text-blue-400' :
+                            'text-gray-900 dark:text-gray-100'}`}
                   >
                     {day.getDate()}
                   </span>
-                  
+
                   {/* Compteur total avec indicateur de densité */}
                   {totalPresences > 0 && (
                     <div className="flex items-center gap-1">
                       <span className={`text-xs px-2 py-1 rounded-full font-bold
                                      ${memberIds.length > 30 ? 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400' :
-                                       memberIds.length > 15 ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' :
-                                       'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>
+                          memberIds.length > 15 ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' :
+                            'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>
                         {memberIds.length > 99 ? '99+' : memberIds.length}
                       </span>
                       {memberIds.length > 20 && (
@@ -1045,31 +1041,31 @@ function PlanningPage() {
                       <>
                         {/* Première ligne - jusqu'à 3 membres */}
                         <div className="flex justify-start gap-1 flex-wrap">
-                          {visibleMembers.slice(0, 3).map((badgeId, index) => 
+                          {visibleMembers.slice(0, 3).map((badgeId, index) =>
                             renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index)
                           )}
                         </div>
-                        
+
                         {/* Deuxième ligne - 3 membres supplémentaires */}
                         {visibleMembers.length > 3 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(3, 6).map((badgeId, index) => 
+                            {visibleMembers.slice(3, 6).map((badgeId, index) =>
                               renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 3)
                             )}
                           </div>
                         )}
-                        
+
                         {/* Troisième ligne - 3 derniers membres */}
                         {visibleMembers.length > 6 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(6, 9).map((badgeId, index) => 
+                            {visibleMembers.slice(6, 9).map((badgeId, index) =>
                               renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 6)
                             )}
                           </div>
                         )}
                       </>
                     )}
-                    
+
                     {/* Boutons d'action */}
                     <div className="flex justify-center gap-1 mt-1">
                       {/* Indicateur membres cachés */}
@@ -1078,17 +1074,17 @@ function PlanningPage() {
                           <span className="text-xs text-white font-bold">+{hiddenMembersCount}</span>
                         </div>
                       )}
-                      
+
                       {/* Bouton d'expansion/collapse */}
                       {showExpandButton && (
                         <button
                           onClick={() => toggleDayExpansion(dateKey)}
                           className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all transform hover:scale-105
-                                     ${isExpanded 
-                                       ? 'bg-blue-500 text-white' 
-                                       : memberIds.length > 30 
-                                         ? 'bg-red-500 text-white animate-pulse' 
-                                         : 'bg-orange-500 text-white'}`}
+                                     ${isExpanded
+                              ? 'bg-blue-500 text-white'
+                              : memberIds.length > 30
+                                ? 'bg-red-500 text-white animate-pulse'
+                                : 'bg-orange-500 text-white'}`}
                           title={isExpanded ? 'Réduire' : `Voir les ${memberIds.length} membres`}
                         >
                           {isExpanded ? (
@@ -1210,9 +1206,9 @@ function PlanningPage() {
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-red-500" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Jour le plus chargé : 
+              Jour le plus chargé :
               <strong className="text-red-600 dark:text-red-400 ml-1">
-                {formatDate(new Date(stats.busiestDay.day), "dd/MM/yyyy")} 
+                {formatDate(new Date(stats.busiestDay.day), "dd/MM/yyyy")}
                 ({stats.busiestDay.members} membres, {stats.busiestDay.presences} passages)
               </strong>
             </span>
@@ -1246,25 +1242,23 @@ function PlanningPage() {
             <div className={styles.viewFilterControls}>
               <button
                 onClick={() => setViewMode("list")}
-                className={`${styles.viewButton} ${
-                  viewMode === "list"
+                className={`${styles.viewButton} ${viewMode === "list"
                     ? styles.viewButtonActive
                     : styles.viewButtonInactive
-                }`}
+                  }`}
                 title="Vue liste"
               >
                 <List className={styles.viewButtonIcon} />
               </button>
-              
+
               {/* Vue compacte uniquement si pas mobile */}
               {!isMobile && (
                 <button
                   onClick={() => setViewMode("compact")}
-                  className={`${styles.viewButton} ${
-                    viewMode === "compact"
+                  className={`${styles.viewButton} ${viewMode === "compact"
                       ? styles.viewButtonActive
                       : styles.viewButtonInactive
-                  }`}
+                    }`}
                   title="Vue compacte"
                 >
                   <Users className={styles.viewButtonIcon} />
@@ -1275,11 +1269,10 @@ function PlanningPage() {
               {!isMobile && (
                 <button
                   onClick={() => setViewMode("monthly")}
-                  className={`${styles.viewButton} ${
-                    viewMode === "monthly"
+                  className={`${styles.viewButton} ${viewMode === "monthly"
                       ? styles.viewButtonActive
                       : styles.viewButtonInactive
-                  }`}
+                    }`}
                   title="Vue mensuelle"
                 >
                   <Grid className={styles.viewButtonIcon} />
@@ -1288,11 +1281,10 @@ function PlanningPage() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`${styles.filterButton} ${
-                  showFilters
+                className={`${styles.filterButton} ${showFilters
                     ? styles.filterButtonActive
                     : styles.filterButtonInactive
-                }`}
+                  }`}
                 title="Afficher les filtres"
               >
                 <Filter className="w-5 h-5" />
@@ -1463,98 +1455,97 @@ function PlanningPage() {
         </div>
 
         {/* Filtres */}
-       {showFilters && (
-         <div className={styles.filtersContainer}>
-           <div className={styles.filtersGrid}>
-             <div>
-               <label className={styles.filterInputLabel}>
-                 Rechercher par nom
-               </label>
-               <input
-                 type="text"
-                 placeholder="Nom ou prénom..."
-                 value={filterName}
-                 onChange={(e) => setFilterName(e.target.value)}
-                 className={styles.filterInput}
-               />
-             </div>
-             <div>
-               <label className={styles.filterInputLabel}>
-                 Filtrer par badge
-               </label>
-               <input
-                 type="text"
-                 placeholder="Numéro de badge..."
-                 value={filterBadge}
-                 onChange={(e) => setFilterBadge(e.target.value)}
-                 className={styles.filterInput}
-               />
-             </div>
-             <div className={styles.checkboxContainer}>
-               <label className={styles.checkboxLabel}>
-                 <input
-                   type="checkbox"
-                   checked={showNightHours}
-                   onChange={() => setShowNightHours(!showNightHours)}
-                   className={styles.checkboxInput}
-                 />
-                 <span className={styles.checkboxText}>Afficher 00h - 06h</span>
-               </label>
-             </div>
-             <div className={styles.refreshButtonContainer}>
-               <button
-                 onClick={handleRetry}
-                 disabled={isRetrying}
-                 className={styles.refreshButton}
-               >
-                 <RefreshCw
-                   className={`${styles.refreshButtonIcon} ${
-                     isRetrying ? styles.refreshButtonIconSpin : ""
-                   }`}
-                 />
-                 Actualiser
-               </button>
-             </div>
-           </div>
-         </div>
-       )}
+        {showFilters && (
+          <div className={styles.filtersContainer}>
+            <div className={styles.filtersGrid}>
+              <div>
+                <label className={styles.filterInputLabel}>
+                  Rechercher par nom
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nom ou prénom..."
+                  value={filterName}
+                  onChange={(e) => setFilterName(e.target.value)}
+                  className={styles.filterInput}
+                />
+              </div>
+              <div>
+                <label className={styles.filterInputLabel}>
+                  Filtrer par badge
+                </label>
+                <input
+                  type="text"
+                  placeholder="Numéro de badge..."
+                  value={filterBadge}
+                  onChange={(e) => setFilterBadge(e.target.value)}
+                  className={styles.filterInput}
+                />
+              </div>
+              <div className={styles.checkboxContainer}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={showNightHours}
+                    onChange={() => setShowNightHours(!showNightHours)}
+                    className={styles.checkboxInput}
+                  />
+                  <span className={styles.checkboxText}>Afficher 00h - 06h</span>
+                </label>
+              </div>
+              <div className={styles.refreshButtonContainer}>
+                <button
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                  className={styles.refreshButton}
+                >
+                  <RefreshCw
+                    className={`${styles.refreshButtonIcon} ${isRetrying ? styles.refreshButtonIconSpin : ""
+                      }`}
+                  />
+                  Actualiser
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-       {/* Résumé des statistiques */}
-       <StatsResume />
+        {/* Résumé des statistiques */}
+        <StatsResume />
 
-       {/* Contenu principal */}
-       {visibleMembers.length === 0 ? (
-         <div className={styles.emptyStateContainer}>
-           <div className={styles.emptyStateIconContainer}>
-             <Users className={styles.emptyStateIcon} />
-           </div>
-           <h3 className={styles.emptyStateTitle}>
-             Aucune présence trouvée
-           </h3>
-           <p className={styles.emptyStateText}>
-             Aucune présence n'a été enregistrée sur cette période ou avec ces
-             filtres.
-             <br />
-             Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
-           </p>
-           <button
-             onClick={handleRetry}
-             className={styles.emptyStateButton}
-           >
-             <RefreshCw className="w-4 h-4" />
-             Recharger les données
-           </button>
-         </div>
-       ) : (
-         <>
-           {viewMode === "list" && <ListView />}
-           {viewMode === "compact" && !isMobile && <CompactView />}
-           {viewMode === "monthly" && !isMobile && <MonthlyView />}
-         </>
-       )}
-     </div>
-   </div>
- );
+        {/* Contenu principal */}
+        {visibleMembers.length === 0 ? (
+          <div className={styles.emptyStateContainer}>
+            <div className={styles.emptyStateIconContainer}>
+              <Users className={styles.emptyStateIcon} />
+            </div>
+            <h3 className={styles.emptyStateTitle}>
+              Aucune présence trouvée
+            </h3>
+            <p className={styles.emptyStateText}>
+              Aucune présence n'a été enregistrée sur cette période ou avec ces
+              filtres.
+              <br />
+              Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
+            </p>
+            <button
+              onClick={handleRetry}
+              className={styles.emptyStateButton}
+            >
+              <RefreshCw className="w-4 h-4" />
+              Recharger les données
+            </button>
+          </div>
+        ) : (
+          <>
+            {viewMode === "list" && <ListView />}
+            {viewMode === "compact" && !isMobile && <CompactView />}
+            {viewMode === "monthly" && !isMobile && <MonthlyView />}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default PlanningPage;
