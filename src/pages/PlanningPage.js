@@ -50,31 +50,31 @@ const classes = {
   // Layout
   pageContainer: "min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4",
   maxWidthWrapper: "max-w-full mx-auto",
-  
+
   // Cards
   card: "bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700",
   headerCard: "bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700",
-  
+
   // Buttons
   buttonPrimary: "px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2",
   buttonSecondary: "p-2 rounded-md transition-all",
   presetButton: "px-2 py-1 text-xs bg-white dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600",
-  
+
   // Form elements
   input: "border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100",
   select: "border-2 border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium text-sm",
-  
+
   // Icons
   iconContainer: "p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl",
-  
+
   // Text
   title: "text-3xl font-bold text-gray-900 dark:text-gray-100",
   subtitle: "text-gray-600 dark:text-gray-400 mt-1",
-  
+
   // Avatar
   avatar: "w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600",
   avatarInitials: "w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm",
-  
+
   // Tooltip
   tooltip: "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none",
   tooltipContent: "bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700",
@@ -522,7 +522,7 @@ function PlanningPage() {
       </div>
     </div>
   );
-// 🔹 Partie 4 — Vue Liste (pastilles quotidiennes graphiques)
+  // 🔹 Partie 4 — Vue Liste (pastilles quotidiennes graphiques)
   const ListView = () => (
     <div className={cn(classes.card, "overflow-hidden")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -631,11 +631,11 @@ function PlanningPage() {
           Aperçu rapide des présences par jour
         </p>
       </div>
-      
+
       <div className="overflow-x-auto">
         <div className="min-w-max">
           {/* En-tête des jours */}
-          <div className="grid" style={{gridTemplateColumns: `200px repeat(${allDays.length}, 80px)`}}>
+          <div className="grid" style={{ gridTemplateColumns: `200px repeat(${allDays.length}, 80px)` }}>
             <div className="p-3 font-semibold text-gray-900 dark:text-gray-100 border-r border-b-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
               Membre
             </div>
@@ -658,12 +658,12 @@ function PlanningPage() {
           {/* Lignes des membres */}
           {visibleMembers.map((member, idx) => {
             const times = groupedByMember[member.badgeId] || [];
-            
+
             return (
               <div
                 key={member.badgeId || idx}
                 className="grid hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                style={{gridTemplateColumns: `200px repeat(${allDays.length}, 80px)`}}
+                style={{ gridTemplateColumns: `200px repeat(${allDays.length}, 80px)` }}
               >
                 <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
                   {member.avatarUrl ? (
@@ -687,14 +687,14 @@ function PlanningPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 {allDays.map((day) => {
                   const dayTimes = times.filter((t) => {
                     const tDateStr = toDateString(t);
                     const dayDateStr = toDateString(day);
                     return tDateStr === dayDateStr;
                   });
-                  
+
                   return (
                     <div
                       key={`${member.badgeId}-${day.toISOString()}`}
@@ -704,13 +704,13 @@ function PlanningPage() {
                           ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                             : dayTimes.length > 1
-                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : isWeekend(day)
-                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
-                          : idx % 2 === 0
-                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
-                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                            ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                            : idx % 2 === 0
+                              ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                              : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {dayTimes.length > 0 ? dayTimes.length : ""}
@@ -724,7 +724,7 @@ function PlanningPage() {
       </div>
     </div>
   );
-// 🔹 Partie 5 — Vue Mensuelle (tooltip corrigé)
+  // 🔹 Partie 5 — Vue Mensuelle (tooltip corrigé)
   const MonthlyView = () => {
     // Génération du calendrier mensuel (6 semaines)
     const generateCalendarDays = () => {
@@ -790,7 +790,7 @@ function PlanningPage() {
 
       const avatarSize = 'w-8 h-8';
       const textSize = 'text-xs';
-      
+
       return (
         <div
           key={badgeId}
@@ -816,7 +816,7 @@ function PlanningPage() {
               {member.firstName?.[0]}{member.name?.[0]}
             </div>
           )}
-          
+
           {/* Compteur si passages multiples */}
           {presenceCount > 1 && (
             <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold 
@@ -993,7 +993,7 @@ function PlanningPage() {
                 showExpandButton = true;
               }
             }
-            
+
             return (
               <div
                 key={dayIndex}
@@ -1009,9 +1009,9 @@ function PlanningPage() {
                   <span className={cn(
                     "text-sm font-semibold",
                     !isCurrentMonth ? "text-gray-400 dark:text-gray-500"
-                    : isTodayDay ? "text-blue-600 dark:text-blue-400"
-                    : isWeekendDay ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-900 dark:text-gray-100"
+                      : isTodayDay ? "text-blue-600 dark:text-blue-400"
+                        : isWeekendDay ? "text-blue-600 dark:text-blue-400"
+                          : "text-gray-900 dark:text-gray-100"
                   )}>
                     {day.getDate()}
                   </span>
@@ -1021,8 +1021,8 @@ function PlanningPage() {
                       <span className={cn(
                         "text-xs px-2 py-1 rounded-full font-bold",
                         memberIds.length > 30 ? "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
-                        : memberIds.length > 15 ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                        : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                          : memberIds.length > 15 ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                       )}>
                         {memberIds.length > 99 ? '99+' : memberIds.length}
                       </span>
@@ -1047,20 +1047,20 @@ function PlanningPage() {
                     ) : (
                       <>
                         <div className="flex justify-start gap-1 flex-wrap">
-                          {visibleMembers.slice(0, 3).map((badgeId, index) => 
+                          {visibleMembers.slice(0, 3).map((badgeId, index) =>
                             renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index)
                           )}
                         </div>
                         {visibleMembers.length > 3 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(3, 6).map((badgeId, index) => 
+                            {visibleMembers.slice(3, 6).map((badgeId, index) =>
                               renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 3)
                             )}
                           </div>
                         )}
                         {visibleMembers.length > 6 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(6, 9).map((badgeId, index) => 
+                            {visibleMembers.slice(6, 9).map((badgeId, index) =>
                               renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 6)
                             )}
                           </div>
@@ -1075,8 +1075,8 @@ function PlanningPage() {
                           className={cn(
                             "px-2 py-1 rounded-full text-[10px] font-bold transition-all transform hover:scale-105",
                             isExpanded ? "bg-blue-500 text-white"
-                            : memberIds.length > 30 ? "bg-red-500 text-white animate-pulse"
-                            : "bg-orange-500 text-white"
+                              : memberIds.length > 30 ? "bg-red-500 text-white animate-pulse"
+                                : "bg-orange-500 text-white"
                           )}
                           title={isExpanded ? 'Réduire' : `Voir les ${memberIds.length} membres`}
                         >
@@ -1131,7 +1131,53 @@ function PlanningPage() {
     );
   };
 
-// 🔹 Partie 6 — En-tête de page, filtres et rendu principal
+  // --- Ajouter ceci avant le "return (" de PlanningPage.js
+  const handleImportExcel = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
+        let count = 0;
+        for (const row of rows) {
+          const badgeId = row["Qui"]?.toString();
+          const rawDate = row["Quand"];
+          if (!badgeId || !rawDate) continue;
+
+          // Ex: "12/03/25 08:17"
+          const match = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
+          if (!match) continue;
+
+          const [, dd, mm, yy, hh, min] = match;
+          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+          const isoDate = localDate.toISOString();
+
+          const { error } = await supabase
+            .from("presences")
+            .insert([{ badgeId, timestamp: isoDate }]);
+
+          if (!error) count++;
+        }
+
+        alert(`✅ Import terminé : ${count} présences insérées.`);
+        loadData(); // recharge après import
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      console.error("Erreur import Excel :", err);
+      alert("❌ Erreur lors de l'import.");
+    }
+  };
+
+
+  // 🔹 Partie 6 — En-tête de page, filtres et rendu principal
   return (
     <div className={classes.pageContainer}>
       <div className={classes.maxWidthWrapper}>
