@@ -246,8 +246,9 @@ function MembersPage() {
         <img
           src={member.photo}
           alt="avatar"
-          className={`absolute inset-0 w-12 h-12 object-cover rounded-full border border-gray-200 dark:border-gray-600 shadow-2xl shadow-black/60 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
+          className={`absolute inset-0 w-12 h-12 object-cover rounded-full border border-gray-200 dark:border-gray-600 shadow-2xl shadow-black/60 transform hover:-translate-y-1 transition-all duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
             }`}
+
           onLoad={() => setImageLoaded(true)}
           onError={() => {
             setImageFailed(true);
