@@ -243,19 +243,21 @@ function MembersPage() {
         </div>
 
         {/* Image qui se superpose au fallback */}
-        <img
-          src={member.photo}
-          alt="avatar"
-          className={`absolute inset-0 w-12 h-12 object-cover rounded-full border border-gray-200 dark:border-gray-600 shadow-2xl shadow-black/60 transform hover:-translate-y-1 transition-all duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
-            }`}
+        <div className="relative w-12 h-12 rounded-full shadow-[0_4px_15px_rgba(0,0,0,0.5)]">
+          <img
+            src={member.photo}
+            alt="avatar"
+            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
+              }`}
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setImageFailed(true);
+              setImageErrors((prev) => new Set([...prev, member.id]));
+            }}
+            loading="lazy"
+          />
+        </div>
 
-          onLoad={() => setImageLoaded(true)}
-          onError={() => {
-            setImageFailed(true);
-            setImageErrors((prev) => new Set([...prev, member.id]));
-          }}
-          loading="lazy"
-        />
 
       </div>
     );
