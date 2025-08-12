@@ -15,6 +15,8 @@ import {
   Clock,
   TrendingUp,
   BarChart3,
+  User,
+  Plus,
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -63,6 +65,10 @@ const classes = {
   // Avatar
   avatar: "w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600",
   avatarInitials: "w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm",
+  
+  // Tooltip
+  tooltip: "absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none",
+  tooltipContent: "bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700",
 };
 
 // Utilitaires
@@ -646,23 +652,29 @@ function PlanningPage() {
           Vue compacte ({visibleMembers.length} membres)
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Aperçu rapide des présences par heure
+          Aperçu rapide des présences par jour
         </p>
       </div>
       
       <div className="overflow-x-auto">
         <div className="min-w-max">
-          {/* En-tête des heures */}
-          <div className="grid grid-cols-[200px_repeat(var(--hours-count),_60px)] gap-0 border-b-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700" style={{'--hours-count': hours.length}}>
-            <div className="p-3 font-semibold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-600">
+          {/* En-tête des jours */}
+          <div className="grid" style={{gridTemplateColumns: `200px repeat(${allDays.length}, 80px)`}}>
+            <div className="p-3 font-semibold text-gray-900 dark:text-gray-100 border-r border-b-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
               Membre
             </div>
-            {hours.map((hour) => (
+            {allDays.map((day) => (
               <div
-                key={hour}
-                className="p-2 text-center text-xs font-medium text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-600"
+                key={day.toISOString()}
+                className={cn(
+                  "p-2 text-center border-r border-b-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700",
+                  isToday(day) && "bg-blue-100 dark:bg-blue-900/30",
+                  isWeekend(day) && !isToday(day) && "bg-blue-50 dark:bg-blue-900/10"
+                )}
               >
-                {hour.toString().padStart(2, "0")}h
+                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  {formatDate(day, "EEE dd")}
+                </div>
               </div>
             ))}
           </div>
@@ -670,20 +682,14 @@ function PlanningPage() {
           {/* Lignes des membres */}
           {visibleMembers.map((member, idx) => {
             const times = groupedByMember[member.badgeId] || [];
-            const hourCounts = {};
             
-            times.forEach((time) => {
-              const hour = time.getHours();
-              hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-            });
-
             return (
               <div
                 key={member.badgeId || idx}
-                className="grid grid-cols-[200px_repeat(var(--hours-count),_60px)] gap-0 border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                style={{'--hours-count': hours.length}}
+                className="grid hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                style={{gridTemplateColumns: `200px repeat(${allDays.length}, 80px)`}}
               >
-                <div className="p-3 border-r border-gray-200 dark:border-gray-600 flex items-center gap-3">
+                <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
                   {member.avatarUrl ? (
                     <img
                       src={member.avatarUrl}
@@ -706,23 +712,32 @@ function PlanningPage() {
                   </div>
                 </div>
                 
-                {hours.map((hour) => {
-                  const count = hourCounts[hour] || 0;
+                {allDays.map((day) => {
+                  const dayTimes = times.filter((t) => {
+                    const tDateStr = toDateString(t);
+                    const dayDateStr = toDateString(day);
+                    return tDateStr === dayDateStr;
+                  });
+                  
                   return (
                     <div
-                      key={hour}
+                      key={`${member.badgeId}-${day.toISOString()}`}
                       className={cn(
-                        "p-2 border-r border-gray-200 dark:border-gray-600 flex items-center justify-center text-xs font-bold transition-colors",
-                        count > 0
-                          ? count > 5
+                        "p-2 border-r border-b border-gray-200 dark:border-gray-600 min-h-[60px] flex items-center justify-center text-xs font-bold transition-colors",
+                        dayTimes.length > 0
+                          ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                            : count > 2
+                            : dayTimes.length > 1
                             ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
                             : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                          : "text-gray-400 dark:text-gray-500"
+                          : isWeekend(day)
+                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                          : idx % 2 === 0
+                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
-                      {count > 0 ? count : ""}
+                      {dayTimes.length > 0 ? dayTimes.length : ""}
                     </div>
                   );
                 })}
@@ -734,177 +749,498 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Mensuelle avec tooltip corrigé
+  // Vue Mensuelle - NOUVELLE VERSION avec avatars et tooltips
   const MonthlyView = () => {
-    const handleMouseEnter = (e, member) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setMousePosition({
-        x: rect.left + rect.width / 2,
-        y: rect.top
+    // Génération du calendrier mensuel
+    const generateCalendarDays = () => {
+      const year = startDate.getFullYear();
+      const month = startDate.getMonth();
+      
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startCalendar = new Date(firstDay);
+      startCalendar.setDate(startCalendar.getDate() - firstDay.getDay() + 1); // Commencer le lundi
+      
+      const days = [];
+      const current = new Date(startCalendar);
+      
+      // Générer 6 semaines (42 jours) pour avoir un calendrier complet
+      for (let i = 0; i < 42; i++) {
+        days.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+      }
+      
+      return days;
+    };
+
+    const calendarDays = generateCalendarDays();
+
+    // Grouper les présences par jour et par membre
+    const groupPresencesByDayAndMember = () => {
+      const grouped = {};
+      
+      filteredPresences.forEach(presence => {
+        const date = parseTimestamp(presence.timestamp);
+        const dateKey = toDateString(date);
+        
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = {};
+        }
+        
+        if (!grouped[dateKey][presence.badgeId]) {
+          grouped[dateKey][presence.badgeId] = [];
+        }
+        
+        grouped[dateKey][presence.badgeId].push({
+          ...presence,
+          parsedDate: date
+        });
       });
-      setHoveredMember(member);
+      
+      return grouped;
+    };
+
+    const presencesByDayAndMember = groupPresencesByDayAndMember();
+
+    // Gestion de l'expansion des jours avec beaucoup de membres
+    const toggleDayExpansion = (dayKey) => {
+      const newExpandedDays = new Set(expandedDays);
+      if (newExpandedDays.has(dayKey)) {
+        newExpandedDays.delete(dayKey);
+      } else {
+        newExpandedDays.add(dayKey);
+      }
+      setExpandedDays(newExpandedDays);
+    };
+
+    const handleMemberMouseEnter = (badgeId, dayKey, event) => {
+      const member = members.find(m => m.badgeId === badgeId);
+      const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
+      
+      const rect = event.currentTarget.getBoundingClientRect();
+      setMousePosition({ 
+        x: rect.left + rect.width / 2, 
+        y: rect.top 
+      });
+      
+      setHoveredMember({
+        member,
+        presences: memberPresences,
+        dayKey
+      });
+    };
+
+    const handleMouseMove = (event) => {
+      if (hoveredMember) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        setMousePosition({ 
+          x: rect.left + rect.width / 2, 
+          y: rect.top 
+        });
+      }
     };
 
     const handleMouseLeave = () => {
       setHoveredMember(null);
     };
 
-    return (
-      <div className={cn(classes.card, "overflow-hidden")}>
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            Vue mensuelle ({visibleMembers.length} membres)
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Calendrier détaillé des présences
-          </p>
-        </div>
+    // Rendu d'un mini-avatar de membre avec compteur
+    const renderMemberAvatar = (badgeId, presenceCount, dayKey, index) => {
+      const member = members.find(m => m.badgeId === badgeId);
+      if (!member) return null;
 
-        <div className="overflow-x-auto">
-          <div className="min-w-max">
-            {/* En-tête des jours */}
-            <div className="grid grid-cols-[200px_repeat(var(--days-count),_120px)] gap-0 border-b-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700" style={{'--days-count': allDays.length}}>
-              <div className="p-3 font-semibold text-gray-900 dark:text-gray-100 border-r border-gray-200 dark:border-gray-600">
-                Membre
-              </div>
-              {allDays.map((day) => (
-                <div
-                  key={day.toISOString()}
-                  className={cn(
-                    "p-2 text-center border-r border-gray-200 dark:border-gray-600",
-                    isToday(day)
-                      ? "bg-blue-100 dark:bg-blue-900/30"
-                      : isWeekend(day)
-                      ? "bg-blue-50 dark:bg-blue-900/10"
-                      : ""
-                  )}
-                >
-                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {formatDate(day, "EEE dd")}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {formatDate(day, "dd/MM")}
-                  </div>
-                </div>
-              ))}
+      const avatarSize = 'w-8 h-8';
+      const textSize = 'text-xs';
+      
+      return (
+        <div
+          key={badgeId}
+          className="relative group cursor-pointer"
+          onMouseEnter={(e) => handleMemberMouseEnter(badgeId, dayKey, e)}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          style={{ zIndex: index + 10 }}
+        >
+          {/* Avatar */}
+          {member.avatarUrl ? (
+            <img
+              src={member.avatarUrl}
+              alt="avatar"
+              className={`${avatarSize} object-cover rounded-full border-2 border-white dark:border-gray-800 
+                         shadow-sm hover:shadow-md transform hover:scale-110 transition-all duration-200`}
+            />
+          ) : (
+            <div className={`${avatarSize} bg-gradient-to-br from-blue-500 to-purple-600 rounded-full 
+                            flex items-center justify-center text-white font-bold ${textSize}
+                            border-2 border-white dark:border-gray-800 shadow-sm hover:shadow-md 
+                            transform hover:scale-110 transition-all duration-200`}>
+              {member.firstName?.[0]}{member.name?.[0]}
             </div>
+          )}
+          
+          {/* Compteur UNIQUEMENT si passages multiples */}
+          {presenceCount > 1 && (
+            <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold 
+                           rounded-full min-w-[16px] h-4 flex items-center justify-center 
+                           border border-white dark:border-gray-800 shadow-sm animate-pulse">
+              {presenceCount > 99 ? '99+' : presenceCount}
+            </div>
+          )}
+        </div>
+      );
+    };
 
-            {/* Lignes des membres */}
-            {visibleMembers.map((member, idx) => (
-              <React.Fragment key={member.badgeId || idx}>
-                <div className="grid grid-cols-[200px_repeat(var(--days-count),_120px)] gap-0 border-b border-gray-200 dark:border-gray-600" style={{'--days-count': allDays.length}}>
-                  <div className="p-3 border-r border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
-                    {member.avatarUrl ? (
-                      <img
-                        src={member.avatarUrl}
-                        alt={`${member.name} ${member.firstName}`}
-                        className={classes.avatar}
-                      />
-                    ) : (
-                      <div className={classes.avatarInitials}>
-                        {member.firstName?.[0] || ''}
-                        {member.name?.[0] || ''}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
-                        {member.name}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {member.firstName}
-                      </div>
+    // Tooltip optimisé avec positionnement corrigé
+    const renderTooltip = () => {
+      if (!hoveredMember) return null;
+
+      const { member, presences, dayKey } = hoveredMember;
+      const day = new Date(dayKey + 'T00:00:00');
+      const isMultiplePassages = presences.length > 1;
+      
+      return (
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{
+            left: mousePosition.x,
+            top: mousePosition.y - 10,
+            transform: 'translateX(-50%) translateY(-100%)'
+          }}
+        >
+          <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
+            {/* En-tête avec photo et nom */}
+            <div className="flex items-center gap-3 mb-3">
+              {member?.avatarUrl ? (
+                <img
+                  src={member.avatarUrl}
+                  alt="avatar"
+                  className="w-12 h-12 object-cover rounded-full border-2 border-blue-400"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                  {member?.firstName?.[0]}{member?.name?.[0]}
+                </div>
+              )}
+              <div>
+                <h4 className="font-bold text-lg text-white">
+                  {member?.name} {member?.firstName}
+                </h4>
+                <p className="text-blue-300 text-sm">Badge: {member?.badgeId}</p>
+              </div>
+            </div>
+            
+            {/* Informations du jour */}
+            <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-400" />
+                <span className="text-sm">{formatDate(day, "EEEE dd MMMM")}</span>
+              </div>
+              
+              {/* Cas standard : 1 passage */}
+              {!isMultiplePassages ? (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-green-400" />
+                  <span className="text-sm">Passage à {formatDate(presences[0].parsedDate, "HH:mm")}</span>
+                </div>
+              ) : (
+                /* Cas exceptionnel : passages multiples */
+                <>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-orange-400" />
+                    <span className="text-sm font-semibold text-orange-300">
+                      ⚠️ {presences.length} passages (inhabituel)
+                    </span>
+                  </div>
+                  
+                  {/* Liste des heures pour les cas multiples */}
+                  <div className="mt-2">
+                    <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
+                    <div className="flex flex-wrap gap-1">
+                      {presences.slice(0, 6).map((presence, index) => (
+                        <div
+                          key={index}
+                          className="bg-orange-600 bg-opacity-30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500 border-opacity-30"
+                        >
+                          {formatDate(presence.parsedDate, "HH:mm")}
+                        </div>
+                      ))}
+                      {presences.length > 6 && (
+                        <div className="bg-gray-600 bg-opacity-30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500 border-opacity-30">
+                          +{presences.length - 6}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {allDays.map((day) => {
-                    const times = groupedByMember[member.badgeId] || [];
-                    const dayPresences = times.filter((t) => {
-                      const tDateStr = toDateString(t);
-                      const dayDateStr = toDateString(day);
-                      return tDateStr === dayDateStr;
-                    });
+                </>
+              )}
+            </div>
+            
+            {/* Badge de statut */}
+            <div className="flex justify-between items-center">
+              <span className="px-2 py-1 bg-green-500 bg-opacity-20 text-green-400 text-xs rounded-full border border-green-500 border-opacity-30">
+                Présent(e)
+              </span>
+              {isMultiplePassages && (
+                <span className="text-xs text-orange-400 font-medium">
+                  Vérifier badge
+                </span>
+              )}
+            </div>
 
-                    return (
-                      <div
-                        key={`${member.badgeId}-${day.toISOString()}`}
-                        className={cn(
-                          "p-2 border-b border-r border-gray-200 dark:border-gray-600 min-h-[80px] transition-colors hover:bg-opacity-80 relative group",
-                          dayPresences.length > 0
-                            ? "bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20"
-                            : isWeekend(day)
-                            ? "bg-blue-50 dark:bg-blue-900/10"
-                            : idx % 2 === 0
-                            ? "bg-white dark:bg-gray-800"
-                            : "bg-gray-50 dark:bg-gray-700"
-                        )}
-                        onMouseEnter={(e) => handleMouseEnter(e, { member, day, presences: dayPresences })}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        {dayPresences.length > 0 && (
-                          <div className="space-y-1">
-                            {dayPresences.slice(0, 3).map((time, tidx) => (
-                              <div
-                                key={tidx}
-                                className="bg-green-600 dark:bg-green-700 text-white px-2 py-1 rounded-md text-xs font-medium text-center shadow-sm"
-                              >
-                                {formatDate(time, "HH:mm")}
-                              </div>
-                            ))}
-                            {dayPresences.length > 3 && (
-                              <div className="text-green-700 dark:text-green-400 text-xs text-center font-medium">
-                                +{dayPresences.length - 3}
-                              </div>
+            {/* Flèche du tooltip */}
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2">
+              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {/* En-tête du calendrier */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => navigatePeriod('prev')}
+              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6 text-white" />
+            </button>
+            
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white capitalize">
+                {formatDate(startDate, "MMMM yyyy")}
+              </h2>
+              <p className="text-blue-100 text-sm mt-1">
+                Planning des présences
+              </p>
+            </div>
+            
+            <button
+              onClick={() => navigatePeriod('next')}
+              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+            >
+              <ChevronRight className="w-6 h-6 text-white" />
+            </button>
+          </div>
+        </div>
+
+        {/* Jours de la semaine */}
+        <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-700">
+          {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day, index) => (
+            <div
+              key={day}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0
+                         ${index >= 5 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendrier */}
+        <div className="grid grid-cols-7">
+          {calendarDays.map((day, dayIndex) => {
+            const dateKey = toDateString(day);
+            const dayMemberPresences = presencesByDayAndMember[dateKey] || {};
+            const memberIds = Object.keys(dayMemberPresences);
+            const totalPresences = Object.values(dayMemberPresences).reduce((sum, presences) => sum + presences.length, 0);
+            const isCurrentMonth = day.getMonth() === startDate.getMonth();
+            const isWeekendDay = isWeekend(day);
+            const isTodayDay = isToday(day);
+            const isExpanded = expandedDays.has(dateKey);
+            
+            // Gestion intelligente de l'affichage selon le nombre de membres
+            let visibleMembers, hiddenMembersCount, showExpandButton;
+            
+            if (memberIds.length <= 9) {
+              // Cas normal : ≤9 membres, on affiche tout
+              visibleMembers = memberIds;
+              hiddenMembersCount = 0;
+              showExpandButton = false;
+            } else if (memberIds.length <= 20) {
+              // Cas moyen : 10-20 membres
+              if (isExpanded) {
+                visibleMembers = memberIds; // Tout afficher en mode étendu
+                hiddenMembersCount = 0;
+                showExpandButton = true;
+              } else {
+                visibleMembers = memberIds.slice(0, 6); // Afficher 6 + bouton d'expansion
+                hiddenMembersCount = memberIds.length - 6;
+                showExpandButton = true;
+              }
+            } else {
+              // Cas intense : >20 membres
+              if (isExpanded) {
+                visibleMembers = memberIds.slice(0, 30); // Max 30 même en étendu
+                hiddenMembersCount = Math.max(0, memberIds.length - 30);
+                showExpandButton = true;
+              } else {
+                visibleMembers = memberIds.slice(0, 6); // 6 + indicateur
+                hiddenMembersCount = memberIds.length - 6;
+                showExpandButton = true;
+              }
+            }
+            
+            return (
+              <div
+                key={dayIndex}
+                className={`${isExpanded ? 'min-h-[200px]' : 'min-h-[140px]'} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative
+                           ${!isCurrentMonth ? 'bg-gray-50 dark:bg-gray-700 opacity-50' : ''}
+                           ${isWeekendDay ? 'bg-blue-50 dark:bg-blue-900/10' : 'bg-white dark:bg-gray-800'}
+                           ${isTodayDay ? 'ring-2 ring-blue-500 ring-inset' : ''}
+                           ${isExpanded ? 'bg-blue-25 dark:bg-blue-900/5' : ''}
+                           hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+              >
+                {/* En-tête du jour */}
+                <div className="flex justify-between items-start mb-2">
+                  <span
+                    className={`text-sm font-semibold
+                               ${!isCurrentMonth ? 'text-gray-400 dark:text-gray-500' : 
+                                 isTodayDay ? 'text-blue-600 dark:text-blue-400' :
+                                 isWeekendDay ? 'text-blue-600 dark:text-blue-400' : 
+                                 'text-gray-900 dark:text-gray-100'}`}
+                  >
+                    {day.getDate()}
+                  </span>
+                  
+                  {/* Compteur total avec indicateur de densité */}
+                  {totalPresences > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span className={`text-xs px-2 py-1 rounded-full font-bold
+                                     ${memberIds.length > 30 ? 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400' :
+                                       memberIds.length > 15 ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' :
+                                       'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'}`}>
+                        {memberIds.length > 99 ? '99+' : memberIds.length}
+                      </span>
+                      {memberIds.length > 20 && (
+                        <span className="text-[10px] text-red-500 dark:text-red-400 font-bold">🔥</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Grille des avatars de membres - Adaptive selon le volume */}
+                {memberIds.length > 0 && (
+                  <div className="space-y-1">
+                    {isExpanded && memberIds.length > 20 ? (
+                      // Mode étendu pour gros volumes : grille dense 6 colonnes
+                      <div className="grid grid-cols-6 gap-0.5">
+                        {visibleMembers.map((badgeId, index) => (
+                          <div key={badgeId} className="flex justify-center">
+                            {renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      // Mode normal : grille 3x3 lisible
+                      <>
+                        {/* Première ligne - jusqu'à 3 membres */}
+                        <div className="flex justify-start gap-1 flex-wrap">
+                          {visibleMembers.slice(0, 3).map((badgeId, index) => 
+                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index)
+                          )}
+                        </div>
+                        
+                        {/* Deuxième ligne - 3 membres supplémentaires */}
+                        {visibleMembers.length > 3 && (
+                          <div className="flex justify-start gap-1 flex-wrap">
+                            {visibleMembers.slice(3, 6).map((badgeId, index) => 
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 3)
                             )}
                           </div>
                         )}
-                      </div>
-                    );
-                  })}
+                        
+                        {/* Troisième ligne - 3 derniers membres */}
+                        {visibleMembers.length > 6 && (
+                          <div className="flex justify-start gap-1 flex-wrap">
+                            {visibleMembers.slice(6, 9).map((badgeId, index) => 
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 6)
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {/* Boutons d'action */}
+                    <div className="flex justify-center gap-1 mt-1">
+                      {/* Indicateur membres cachés */}
+                      {hiddenMembersCount > 0 && !showExpandButton && (
+                        <div className="w-8 h-8 bg-gray-400 dark:bg-gray-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800 shadow-sm">
+                          <span className="text-xs text-white font-bold">+{hiddenMembersCount}</span>
+                        </div>
+                      )}
+                      
+                      {/* Bouton d'expansion/collapse */}
+                      {showExpandButton && (
+                        <button
+                          onClick={() => toggleDayExpansion(dateKey)}
+                          className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all transform hover:scale-105
+                                     ${isExpanded 
+                                       ? 'bg-blue-500 text-white' 
+                                       : memberIds.length > 30 
+                                         ? 'bg-red-500 text-white animate-pulse' 
+                                         : 'bg-orange-500 text-white'}`}
+                          title={isExpanded ? 'Réduire' : `Voir les ${memberIds.length} membres`}
+                        >
+                          {isExpanded ? (
+                            <span>−</span>
+                          ) : (
+                            <span>+{hiddenMembersCount}</span>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Indicateur aujourd'hui */}
+                {isTodayDay && (
+                  <div className="absolute top-1 right-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Légende */}
+        <div className="bg-gray-50 dark:bg-gray-700 p-4 border-t border-gray-200 dark:border-gray-600">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                AB
+              </div>
+              <span>Membre présent</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold relative">
+                AB
+                <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border border-white animate-pulse">
+                  3
                 </div>
-              </React.Fragment>
-            ))}
+              </div>
+              <span>Passages multiples</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="px-2 py-1 bg-orange-500 text-white rounded-full text-[10px] font-bold">
+                +44
+              </button>
+              <span>Cliquer pour voir plus</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-1 rounded-full font-bold bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">
+                50 🔥
+              </span>
+              <span>Journée très chargée</span>
+            </div>
           </div>
         </div>
 
-        {/* Tooltip corrigé */}
-        {hoveredMember && (
-          <div
-            className="fixed z-50 pointer-events-none"
-            style={{
-              left: mousePosition.x,
-              top: mousePosition.y - 10,
-              transform: 'translateX(-50%) translateY(-100%)'
-            }}
-          >
-            <div className="bg-gray-900 dark:bg-gray-800 text-white text-sm rounded-lg px-3 py-2 shadow-xl border border-gray-700 dark:border-gray-600 max-w-xs">
-              <div className="font-semibold mb-1">
-                {hoveredMember.member.name} {hoveredMember.member.firstName}
-              </div>
-              <div className="text-xs text-gray-300 dark:text-gray-400 mb-2">
-                {formatDate(hoveredMember.day, "EEEE dd MMMM")}
-              </div>
-              {hoveredMember.presences.length > 0 ? (
-                <div className="space-y-1">
-                  <div className="text-xs text-gray-300 dark:text-gray-400">
-                    {hoveredMember.presences.length} présence{hoveredMember.presences.length > 1 ? 's' : ''}:
-                  </div>
-                  {hoveredMember.presences.map((time, idx) => (
-                    <div key={idx} className="text-xs font-mono">
-                      {formatDate(time, "HH:mm")}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-gray-400 dark:text-gray-500">
-                  Aucune présence
-                </div>
-              )}
-              {/* Flèche du tooltip */}
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-                <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Tooltip */}
+        {renderTooltip()}
       </div>
     );
   };
