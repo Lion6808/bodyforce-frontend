@@ -243,7 +243,7 @@ function MembersPage() {
         </div>
 
         {/* Image qui se superpose au fallback */}
-        <div className="relative w-12 h-12 rounded-full shadow-[0_6px_15px_rgba(0,0,0,0.6)]">
+        <div className="relative w-12 h-12 rounded-full shadow-[0_6px_10px_rgba(0,0,0,0.6)]">
           <img
             src={member.photo}
             alt="avatar"
