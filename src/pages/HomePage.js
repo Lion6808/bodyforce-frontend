@@ -379,46 +379,57 @@ function HomePage() {
       {/* 🔹 Partie 1ter — Présences 7 derniers jours + Derniers passages (ADMIN) */}
       {role === "admin" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* ✅ Mini graph: 7 derniers jours — nouveau design */}
+          {/* ✅ Mini graph: 7 derniers jours — hauteur pleine + compte sur barres */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
               Présences — 7 derniers jours
             </h2>
 
             {attendance7d.length > 0 ? (
-              <div className="relative w-full overflow-hidden">
-                {/* Zone des barres */}
-                <div className="relative h-40 sm:h-48">
+              <div className="relative w-full overflow-x-hidden overflow-y-visible">
+                {/* Zone des barres (hauteur augmentée) */}
+                <div className="relative h-44 sm:h-56">
                   {/* Lignes de grille */}
-                  <div className="absolute inset-0 flex flex-col justify-between">
+                  <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
                     {[0, 1, 2, 3, 4].map((i) => (
-                      <div
-                        key={i}
-                        className="border-t border-gray-200 dark:border-gray-700/70"
-                      />
+                      <div key={i} className="border-t border-gray-200 dark:border-gray-700/70" />
                     ))}
                   </div>
 
-                  {/* Barres – largeur large + gradient + ombre + pas d'overflow (justify-between) */}
+                  {/* Barres */}
                   <div className="absolute inset-0 flex items-end justify-between px-1 sm:px-2">
                     {attendance7d.map((d, idx) => {
-                      const pct = Math.round((d.count / maxCount) * 100);
+                      const pct = maxCount > 0 ? (d.count / maxCount) * 100 : 0; // ne pas arrondir
+                      const showInside = pct >= 18; // texte dans la barre si assez haute
+
                       return (
                         <div
                           key={idx}
-                          className="flex flex-col items-center justify-end"
+                          className="flex flex-col items-center justify-end h-full"
                           style={{ width: "calc(100% / 7)" }}
                         >
                           <div
-                            className="w-6 sm:w-8 md:w-10 rounded-md shadow-md transition-all duration-300"
+                            className="relative w-6 sm:w-8 md:w-10 rounded-md shadow-md transition-all duration-300"
                             style={{
                               height: `${pct}%`,
-                              minHeight: d.count > 0 ? "12px" : "6px",
                               background:
                                 "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(34,197,94,1) 100%)",
                             }}
                             title={`${format(d.date, "dd/MM")} • ${d.count} passages`}
-                          />
+                          >
+                            {/* Compteur sur / dans la barre */}
+                            {d.count > 0 && (
+                              showInside ? (
+                                <span className="absolute top-1 left-1/2 -translate-x-1/2 text-[10px] font-semibold text-white select-none">
+                                  {d.count}
+                                </span>
+                              ) : (
+                                <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] font-semibold text-gray-600 dark:text-gray-300 select-none">
+                                  {d.count}
+                                </span>
+                              )
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -440,7 +451,7 @@ function HomePage() {
               </div>
             )}
           </div>
-
+          
           {/* ✅ Derniers passages — nouveau design */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
@@ -544,7 +555,7 @@ function HomePage() {
             Paiements à venir
           </h2>
 
-        {pendingPayments?.length > 0 ? (
+          {pendingPayments?.length > 0 ? (
             <ul className="space-y-2">
               {pendingPayments.map((p) => {
                 const late = isLateOrToday(p.encaissement_prevu);
@@ -561,9 +572,8 @@ function HomePage() {
                     </span>
                     {p.encaissement_prevu && (
                       <span
-                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${
-                          late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
-                        }`}
+                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
+                          }`}
                         title={`Échéance: ${format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}`}
                       >
                         {format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}
