@@ -807,7 +807,7 @@ function PlanningPage() {
 
       return (
         <div
-          className="fixed z-[9999] pointer-events-none"  // ← SOLUTION : z-index très élevé
+          className="fixed z-[99999] pointer-events-none"  // ← SOLUTION : z-index très élevé
           style={{
             left: mousePos.x + 15,
             top: mousePos.y - 10,
