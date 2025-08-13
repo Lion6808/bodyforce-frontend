@@ -1,10 +1,8 @@
-// 📄 HomePage.js — Page d'accueil — Dossier : src/pages — Date : 2025-08-08
-// 🎯 Fusion : Logique d'origine conservée (supabaseServices) + améliorations visuelles et responsive
-//    - Mode sombre Tailwind (`dark:`)
-//    - Widgets modernisés (couleurs, ombres)
-//    - Affichage "et N autres" pour abonnements échus
-//    - Bloc paiements à venir (badge rouge si échéance dépassée/aujourd'hui)
-//    - Commentaires convertis en commentaires JSX (ne s'affichent plus)
+// 📄 HomePage.js — Page d'accueil — Dossier : src/pages — Date : 2025-08-13
+// 🎯 Ajout: Widget "État global des paiements" (anneau de progression) pour les administrateurs
+//    - Aucune dépendance supplémentaire (SVG pur)
+//    - Progression basée sur le MONTANT payé vs total
+//    - Compatible mode sombre (Tailwind `dark:`)
 
 import React, { useEffect, useState } from "react";
 import { isToday, isBefore, parseISO, format } from "date-fns";
@@ -41,6 +39,16 @@ function HomePage() {
   const [userPayments, setUserPayments] = useState([]);
   const [userMemberData, setUserMemberData] = useState(null);
 
+  // ✅ Résumé global des paiements (montants & compte)
+  const [paymentSummary, setPaymentSummary] = useState({
+    totalCount: 0,
+    paidCount: 0,
+    pendingCount: 0,
+    totalAmount: 0,
+    paidAmount: 0,
+    pendingAmount: 0,
+  });
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -51,8 +59,31 @@ function HomePage() {
         // Paiements / profils selon rôle
         if (role === "admin") {
           const payments = await supabaseServices.getPayments();
+
+          // Liste "Paiements à venir" (non payés)
           const filtered = (payments || []).filter((p) => !p.is_paid);
           setPendingPayments(filtered);
+
+          // ✅ Calcul du résumé global
+          const totalCount = payments?.length || 0;
+          const paid = (payments || []).filter((p) => p.is_paid);
+          const pending = (payments || []).filter((p) => !p.is_paid);
+
+          const sum = (arr) =>
+            arr.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+
+          const totalAmount = sum(payments || []);
+          const paidAmount = sum(paid);
+          const pendingAmount = sum(pending);
+
+          setPaymentSummary({
+            totalCount,
+            paidCount: paid.length,
+            pendingCount: pending.length,
+            totalAmount,
+            paidAmount,
+            pendingAmount,
+          });
         } else if (role === "user" && user) {
           // Associer compte à membre (comme avant)
           const { data: memberData } = await supabase
@@ -107,6 +138,79 @@ function HomePage() {
     }
   };
 
+  // ===== Composant : Anneau de progression SVG (montant payé / total)
+  const CircularProgress = ({
+    size = 160,
+    stroke = 14,
+    value = 0, // 0..1
+    label = "Payé",
+    sublabel = "",
+  }) => {
+    const radius = (size - stroke) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const dash = Math.max(0, Math.min(1, value)) * circumference;
+    const remainder = circumference - dash;
+
+    return (
+      <div className="flex items-center justify-center">
+        <svg width={size} height={size} className="block">
+          <defs>
+            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#22c55e" /> {/* green-500 */}
+              <stop offset="100%" stopColor="#3b82f6" /> {/* blue-500 */}
+            </linearGradient>
+          </defs>
+          {/* fond */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="currentColor"
+            className="text-gray-200 dark:text-gray-700"
+            strokeWidth={stroke}
+            fill="none"
+          />
+          {/* progression */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="url(#ringGradient)"
+            strokeWidth={stroke}
+            fill="none"
+            strokeDasharray={`${dash} ${remainder}`}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+          {/* centre : pourcentage */}
+          <text
+            x="50%"
+            y="50%"
+            textAnchor="middle"
+            dominantBaseline="central"
+            className="fill-gray-900 dark:fill-white"
+            fontSize="22"
+            fontWeight="700"
+          >
+            {Math.round(value * 100)}%
+          </text>
+        </svg>
+        {/* Légendes à droite sur grands écrans (empilées dessous sur petits) */}
+      </div>
+    );
+  };
+
+  const {
+    totalAmount,
+    paidAmount,
+    pendingAmount,
+    totalCount,
+    paidCount,
+    pendingCount,
+  } = paymentSummary;
+
+  const progress = totalAmount > 0 ? paidAmount / totalAmount : 0;
+
   return (
     <div className="p-6 bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
       {/* 🔹 Partie 1 — Widgets statistiques */}
@@ -118,6 +222,74 @@ function HomePage() {
         <StatCard icon={FaFemale} label="Femmes" value={stats.femmes} color="bg-pink-500" />
         <StatCard icon={FaGraduationCap} label="Étudiants" value={stats.etudiants} color="bg-yellow-500" />
       </div>
+
+      {/* 🔹 Partie 1bis — État global des paiements (ADMIN) */}
+      {role === "admin" && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <FaCreditCard className="text-blue-500" />
+              État global des paiements
+            </h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {totalCount} opérations • {(totalAmount || 0).toFixed(2)} €
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6">
+            {/* Anneau */}
+            <div className="flex justify-center">
+              <CircularProgress value={progress} />
+            </div>
+
+            {/* Légendes et détails */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="inline-block w-3 h-3 rounded-full bg-green-500" />
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">Payé</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-gray-900 dark:text-white font-semibold">
+                    {(paidAmount || 0).toFixed(2)} €
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {paidCount} op.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="inline-block w-3 h-3 rounded-full bg-amber-500" />
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">En attente</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-gray-900 dark:text-white font-semibold">
+                    {(pendingAmount || 0).toFixed(2)} €
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {pendingCount} op.
+                  </div>
+                </div>
+              </div>
+
+              {/* Barre linéaire fine pour lecture rapide (optionnel) */}
+              <div className="mt-2">
+                <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div
+                    className="h-2 bg-gradient-to-r from-green-500 to-blue-500"
+                    style={{ width: `${Math.round(progress * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {Math.round(progress * 100)}% du montant total déjà encaissé
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🔹 Partie 2 — Listes détaillées : abonnements échus & paiements à venir */}
 
@@ -182,9 +354,7 @@ function HomePage() {
                     {p.encaissement_prevu && (
                       <span
                         className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${
-                          late
-                            ? "bg-red-500 text-white"
-                            : "bg-amber-500 text-white"
+                          late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
                         }`}
                         title={`Échéance: ${format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}`}
                       >
