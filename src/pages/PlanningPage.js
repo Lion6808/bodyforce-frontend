@@ -443,7 +443,7 @@ function PlanningPage() {
       </div>
     </div>
   );
-  
+
   // Vue Liste (pastilles journalières)
   const ListView = () => (
     <div className={cn(classes.card, "overflow-hidden")}>
@@ -668,7 +668,9 @@ function PlanningPage() {
     };
 
     const onAvatarMove = (e) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
+      if (hoveredMember) {  // ← AJOUTER cette condition
+        setMousePos({ x: e.clientX, y: e.clientY });
+      }
     };
 
     const onAvatarLeave = () => setHoveredMember(null);
@@ -724,12 +726,16 @@ function PlanningPage() {
         >
           <div className="relative bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
             <div className="flex items-center gap-3 mb-3">
-              {member?.avatarUrl ? (
-                <img src={member.avatarUrl} alt="avatar" className="w-12 h-12 object-cover rounded-full border-2 border-blue-400" />
+              {member?.photo || member?.avatarUrl ? (
+                <img
+                  src={member?.photo || member?.avatarUrl}
+                  alt={`${member?.firstName} ${member?.name}`}
+                  className="w-12 h-12 object-cover rounded-full border-2 border-blue-400"
+                />
               ) : (
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                  {member?.firstName?.[0]}
-                  {member?.name?.[0]}
+                  {member?.firstName?.[0] || ""}
+                  {member?.name?.[0] || ""}
                 </div>
               )}
               <div>
@@ -808,9 +814,8 @@ function PlanningPage() {
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
-                i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
-              }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
+                }`}
             >
               {day}
             </div>
@@ -859,11 +864,9 @@ function PlanningPage() {
             return (
               <div
                 key={idx}
-                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
-                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${
-                  today ? "ring-2 ring-blue-500 ring-inset" : ""
-                } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                  } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""
+                  } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
