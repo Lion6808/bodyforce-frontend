@@ -680,19 +680,24 @@ function PlanningPage() {
       }, 100);
     };
 
-    const renderMemberAvatar = (badgeId, presenceCount, dayKey, index) => {
+    const renderMemberAvatar = (badgeId, presenceCount, dayKey, memberIndex) => {
       const member = members.find((m) => m.badgeId === badgeId);
       if (!member) return null;
 
       // Récupérer les présences pour ce membre ce jour-là
       const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
       const multiple = memberPresences.length > 1;
+      // Z-index unique : jour * 100 + position du membre
+      const uniqueZIndex = dayIndex * 100 + memberIndex + 10;
 
       return (
         <div
           key={badgeId}
           className="relative group cursor-pointer"
-          style={{ zIndex: 100 + index }}
+          style={{ zIndex: uniqueZIndex }}
+          onMouseEnter={(e) => onAvatarEnter(badgeId, dayKey, e)}
+          onMouseMove={onAvatarMove}
+          onMouseLeave={onAvatarLeave}
         >
           {/* Avatar avec photo ou initiales */}
           {member.photo || member.avatarUrl ? (
@@ -807,7 +812,7 @@ function PlanningPage() {
 
       return (
         <div
-          className="fixed z-[1] pointer-events-none"  // ← SOLUTION : z-index très élevé
+          className="fixed z-[9999] pointer-events-none"  // ← SOLUTION : z-index très élevé
           style={{
             left: mousePos.x + 15,
             top: mousePos.y - 10,
@@ -1006,21 +1011,21 @@ function PlanningPage() {
                     ) : (
                       <>
                         <div className="flex justify-start gap-1 flex-wrap">
-                          {visibleMembers.slice(0, 3).map((badgeId, index) =>
-                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index)
+                          {visibleMembers.slice(0, 3).map((badgeId, memberIndex) =>
+                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, memberIndex)
                           )}
                         </div>
                         {visibleMembers.length > 3 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(3, 6).map((badgeId, index) =>
-                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 3)
+                            {visibleMembers.slice(3, 6).map((badgeId, memberIndex) =>
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, memberIndex + 3)
                             )}
                           </div>
                         )}
                         {visibleMembers.length > 6 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(6, 9).map((badgeId, index) =>
-                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index + 6)
+                            {visibleMembers.slice(6, 9).map((badgeId, memberIndex) =>
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, memberIndex + 6)
                             )}
                           </div>
                         )}
