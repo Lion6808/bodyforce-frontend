@@ -231,7 +231,7 @@ function HomePage() {
   const getInitials = (firstName, name) => {
     const a = (firstName || "").trim().charAt(0);
     const b = (name || "").trim().charAt(0);
-    return (a + b).toUpperCase() || "?" ;
+    return (a + b).toUpperCase() || "?";
   };
 
   // ===== Composant : Anneau de progression SVG (montant payé / total)
@@ -388,6 +388,51 @@ function HomePage() {
         </div>
       )}
 
+      {/* Derniers passages */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+          Derniers passages
+        </h2>
+        {recentPresences.length > 0 ? (
+          <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+            {recentPresences.map((r) => {
+              const m = r.member;
+              const ts = typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
+              const displayName = m
+                ? `${m.firstName || ""} ${m.name || ""}`.trim()
+                : `Badge ${r.badgeId || "?"}`;
+              return (
+                <li key={r.id} className="py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Avatar */}
+                    {m?.photo ? (
+                      <img
+                        src={m.photo}
+                        alt={displayName}
+                        className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-gray-700 shadow"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-xs font-semibold text-gray-700 dark:text-gray-200">
+                        {getInitials(m?.firstName, m?.name)}
+                      </div>
+                    )}
+                    {/* Nom */}
+                    <span className="truncate text-gray-900 dark:text-gray-100">{displayName}</span>
+                  </div>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap ml-3">
+                    {format(ts, "dd/MM/yyyy HH:mm")}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Aucun passage récent.
+          </div>
+        )}
+      </div>
       {/* 🔹 Partie 1ter — Présences 7 derniers jours + Derniers passages (ADMIN) */}
       {role === "admin" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -424,51 +469,7 @@ function HomePage() {
             )}
           </div>
 
-          {/* Derniers passages */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-              Derniers passages
-            </h2>
-            {recentPresences.length > 0 ? (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {recentPresences.map((r) => {
-                  const m = r.member;
-                  const ts = typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
-                  const displayName = m
-                    ? `${m.firstName || ""} ${m.name || ""}`.trim()
-                    : `Badge ${r.badgeId || "?"}`;
-                  return (
-                    <li key={r.id} className="py-2 flex items-center justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* Avatar */}
-                        {m?.photo ? (
-                          <img
-                            src={m.photo}
-                            alt={displayName}
-                            className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-gray-700 shadow"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-xs font-semibold text-gray-700 dark:text-gray-200">
-                            {getInitials(m?.firstName, m?.name)}
-                          </div>
-                        )}
-                        {/* Nom */}
-                        <span className="truncate text-gray-900 dark:text-gray-100">{displayName}</span>
-                      </div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap ml-3">
-                        {format(ts, "dd/MM/yyyy HH:mm")}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Aucun passage récent.
-              </div>
-            )}
-          </div>
+
         </div>
       )}
 
@@ -534,9 +535,8 @@ function HomePage() {
                     </span>
                     {p.encaissement_prevu && (
                       <span
-                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${
-                          late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
-                        }`}
+                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
+                          }`}
                         title={`Échéance: ${format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}`}
                       >
                         {format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}
