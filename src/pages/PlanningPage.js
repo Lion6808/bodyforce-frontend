@@ -1004,7 +1004,7 @@ function PlanningPage() {
                       <div className="grid grid-cols-6 gap-0.5">
                         {visibleMembers.map((badgeId, index) => (
                           <div key={badgeId} className="flex justify-center">
-                            {renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, index)}
+                            {renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, index)}
                           </div>
                         ))}
                       </div>
@@ -1012,20 +1012,20 @@ function PlanningPage() {
                       <>
                         <div className="flex justify-start gap-1 flex-wrap">
                           {visibleMembers.slice(0, 3).map((badgeId, memberIndex) =>
-                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, memberIndex)
+                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex)
                           )}
                         </div>
                         {visibleMembers.length > 3 && (
                           <div className="flex justify-start gap-1 flex-wrap">
                             {visibleMembers.slice(3, 6).map((badgeId, memberIndex) =>
-                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, memberIndex + 3)
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex + 3)
                             )}
                           </div>
                         )}
                         {visibleMembers.length > 6 && (
                           <div className="flex justify-start gap-1 flex-wrap">
                             {visibleMembers.slice(6, 9).map((badgeId, memberIndex) =>
-                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, memberIndex + 6)
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex + 6)
                             )}
                           </div>
                         )}
