@@ -1,16 +1,10 @@
 // 📄 HomePage.js — Page d'accueil — Dossier : src/pages — Date : 2025-08-13
-// 🎯 Ajouts (ADMIN uniquement) :
-//    1) Widget "État global des paiements" (anneau de progression)
-//    2) Mini-graph "Présences — 7 derniers jours" (bar chart sans dépendance)
-//    3) "Derniers passages" (nom, photo, date/heure) à partir de la table `presences` (liaison par `badgeId`)
-//
-// ⚙️ Hypothèses structure:
-//    - Table `presences`: { id, badgeId, timestamp }
-//    - Table `members`: { id, firstName, name, photo, badgeId }
-//    - Liaison par `badgeId` (déjà utilisée ailleurs dans le projet)
-//
-// 🌓 Dark mode: classes Tailwind `dark:`
-// 🧩 Dépendances: aucune nouvelle (SVG/Divs uniquement)
+// 🎯 Ajouts & refonte UI (ADMIN uniquement) :
+//    - Widget anneau paiements (déjà présent)
+//    - ✅ Nouveau design "Présences — 7 derniers jours" (bar chart responsive, gradient, grid-lines)
+//    - ✅ Nouveau design "Derniers passages" (avatar + hover + meilleure lisibilité)
+// 🌓 Dark mode: Tailwind `dark:`
+// 🧩 Zéro nouvelle dépendance
 
 import React, { useEffect, useState } from "react";
 import { isToday, isBefore, parseISO, format } from "date-fns";
@@ -56,8 +50,8 @@ function HomePage() {
   });
 
   // ✅ Présences (ADMIN)
-  const [attendance7d, setAttendance7d] = useState([]); // [{date: Date, count: number}]
-  const [recentPresences, setRecentPresences] = useState([]); // [{id, ts, member?}]
+  const [attendance7d, setAttendance7d] = useState([]); // [{date, count}]
+  const [recentPresences, setRecentPresences] = useState([]); // [{id, ts, member?, badgeId}]
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,22 +60,19 @@ function HomePage() {
         const { stats: calculatedStats } = await supabaseServices.getStatistics();
         setStats(calculatedStats || { ...stats, membresExpirés: [] });
 
-        // Paiements / profils selon rôle
         if (role === "admin") {
+          // Paiements
           const payments = await supabaseServices.getPayments();
 
-          // Liste "Paiements à venir" (non payés)
           const filtered = (payments || []).filter((p) => !p.is_paid);
           setPendingPayments(filtered);
 
-          // ✅ Calcul du résumé global (montants)
-          const totalCount = payments?.length || 0;
           const paid = (payments || []).filter((p) => p.is_paid);
           const pending = (payments || []).filter((p) => !p.is_paid);
           const sum = (arr) => arr.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
 
           setPaymentSummary({
-            totalCount,
+            totalCount: payments?.length || 0,
             paidCount: paid.length,
             pendingCount: pending.length,
             totalAmount: sum(payments || []),
@@ -89,10 +80,9 @@ function HomePage() {
             pendingAmount: sum(pending),
           });
 
-          // ✅ Présences: 7 derniers jours + derniers passages
+          // Présences: 7 derniers jours + derniers passages
           await fetchAttendanceAdmin();
         } else if (role === "user" && user) {
-          // Associer compte à membre (comme avant)
           const { data: memberData } = await supabase
             .from("members")
             .select("*")
@@ -118,18 +108,16 @@ function HomePage() {
       }
     };
 
-    // === Helper interne: charge présences (ADMIN) ===
+    // Charge présences (ADMIN)
     const fetchAttendanceAdmin = async () => {
       try {
-        // Fenêtre: aujourd'hui (23:59:59) et 6 jours en arrière (00:00:00)
         const end = new Date();
         end.setHours(23, 59, 59, 999);
         const start = new Date();
         start.setDate(end.getDate() - 6);
         start.setHours(0, 0, 0, 0);
 
-        // Récupération des présences (limite raisonnable)
-        const { data: presencesData, error: presencesError } = await supabase
+        const { data: presencesData, error } = await supabase
           .from("presences")
           .select("*")
           .gte("timestamp", start.toISOString())
@@ -137,8 +125,8 @@ function HomePage() {
           .order("timestamp", { ascending: false })
           .limit(500);
 
-        if (presencesError) {
-          console.error("Error loading presences:", presencesError);
+        if (error) {
+          console.error("Error loading presences:", error);
           setAttendance7d([]);
           setRecentPresences([]);
           return;
@@ -157,28 +145,34 @@ function HomePage() {
 
         // Comptage
         (presencesData || []).forEach((row) => {
-          const ts = typeof row.timestamp === "string" ? parseISO(row.timestamp) : new Date(row.timestamp);
+          const ts =
+            typeof row.timestamp === "string"
+              ? parseISO(row.timestamp)
+              : new Date(row.timestamp);
           const k = key(ts);
           if (countsByKey[k] !== undefined) countsByKey[k] += 1;
         });
 
-        const sevenDays = days.map((d) => ({ date: d.date, count: countsByKey[key(d.date)] || 0 }));
+        const sevenDays = days.map((d) => ({
+          date: d.date,
+          count: countsByKey[key(d.date)] || 0,
+        }));
         setAttendance7d(sevenDays);
 
-        // Derniers passages (top 10 récents) + jointure members par badgeId
+        // Derniers passages (10) + jointure members par badgeId
         const recent = (presencesData || []).slice(0, 10);
         const badgeIds = Array.from(
-          new Set(recent.map((r) => r.badgeId).filter((b) => !!b))
+          new Set(recent.map((r) => r.badgeId).filter(Boolean))
         );
 
         let membersByBadge = {};
         if (badgeIds.length > 0) {
-          const { data: membersData, error: membersErr } = await supabase
+          const { data: membersData, error: mErr } = await supabase
             .from("members")
             .select("id, firstName, name, photo, badgeId")
             .in("badgeId", badgeIds);
 
-          if (!membersErr && membersData) {
+          if (!mErr && membersData) {
             membersByBadge = membersData.reduce((acc, m) => {
               acc[m.badgeId] = m;
               return acc;
@@ -204,19 +198,6 @@ function HomePage() {
     fetchData();
   }, [role, user]);
 
-  // ===== Widget stat générique
-  const StatCard = ({ icon: Icon, label, value, color }) => (
-    <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 border border-gray-100 dark:border-gray-700">
-      <div className={`p-3 rounded-full ${color} text-white`}>
-        <Icon size={24} />
-      </div>
-      <div className="ml-4">
-        <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-        <p className="text-xl font-semibold text-gray-900 dark:text-white">{value}</p>
-      </div>
-    </div>
-  );
-
   // ===== Helpers
   const isLateOrToday = (ts) => {
     if (!ts) return false;
@@ -234,12 +215,23 @@ function HomePage() {
     return (a + b).toUpperCase() || "?";
   };
 
-  // ===== Composant : Anneau de progression SVG (montant payé / total)
-  const CircularProgress = ({
-    size = 160,
-    stroke = 14,
-    value = 0, // 0..1
-  }) => {
+  // ===== Widget StatCard générique
+  const StatCard = ({ icon: Icon, label, value, color }) => (
+    <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 border border-gray-100 dark:border-gray-700">
+      <div className={`p-3 rounded-full ${color} text-white`}>
+        <Icon size={24} />
+      </div>
+      <div className="ml-4">
+        <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+        <p className="text-xl font-semibold text-gray-900 dark:text-white">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+
+  // ===== Anneau de progression SVG (montant payé / total)
+  const CircularProgress = ({ size = 160, stroke = 14, value = 0 }) => {
     const radius = (size - stroke) / 2;
     const circumference = 2 * Math.PI * radius;
     const dash = Math.max(0, Math.min(1, value)) * circumference;
@@ -254,7 +246,6 @@ function HomePage() {
               <stop offset="100%" stopColor="#3b82f6" />
             </linearGradient>
           </defs>
-          {/* fond */}
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -264,7 +255,6 @@ function HomePage() {
             strokeWidth={stroke}
             fill="none"
           />
-          {/* progression */}
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -276,7 +266,6 @@ function HomePage() {
             strokeLinecap="round"
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
           />
-          {/* centre : % */}
           <text
             x="50%"
             y="50%"
@@ -302,7 +291,6 @@ function HomePage() {
     paidCount,
     pendingCount,
   } = paymentSummary;
-
   const progress = totalAmount > 0 ? paidAmount / totalAmount : 0;
 
   // ===== Dérivés présences
@@ -388,79 +376,63 @@ function HomePage() {
         </div>
       )}
 
-      {/* Derniers passages */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
-        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-          Derniers passages
-        </h2>
-        {recentPresences.length > 0 ? (
-          <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-            {recentPresences.map((r) => {
-              const m = r.member;
-              const ts = typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
-              const displayName = m
-                ? `${m.firstName || ""} ${m.name || ""}`.trim()
-                : `Badge ${r.badgeId || "?"}`;
-              return (
-                <li key={r.id} className="py-2 flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {/* Avatar */}
-                    {m?.photo ? (
-                      <img
-                        src={m.photo}
-                        alt={displayName}
-                        className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-gray-700 shadow"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-xs font-semibold text-gray-700 dark:text-gray-200">
-                        {getInitials(m?.firstName, m?.name)}
-                      </div>
-                    )}
-                    {/* Nom */}
-                    <span className="truncate text-gray-900 dark:text-gray-100">{displayName}</span>
-                  </div>
-                  <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap ml-3">
-                    {format(ts, "dd/MM/yyyy HH:mm")}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Aucun passage récent.
-          </div>
-        )}
-      </div>
       {/* 🔹 Partie 1ter — Présences 7 derniers jours + Derniers passages (ADMIN) */}
       {role === "admin" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Mini graph: 7 derniers jours */}
+          {/* ✅ Mini graph: 7 derniers jours — nouveau design */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
               Présences — 7 derniers jours
             </h2>
+
             {attendance7d.length > 0 ? (
-              <div className="h-32 flex items-end gap-3">
-                {attendance7d.map((d, idx) => {
-                  const pct = Math.round((d.count / maxCount) * 100);
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center justify-end">
+              <div className="relative w-full overflow-hidden">
+                {/* Zone des barres */}
+                <div className="relative h-40 sm:h-48">
+                  {/* Lignes de grille */}
+                  <div className="absolute inset-0 flex flex-col justify-between">
+                    {[0, 1, 2, 3, 4].map((i) => (
                       <div
-                        className="w-6 max-w-[24px] rounded-t bg-blue-500 dark:bg-blue-400 transition-all"
-                        style={{
-                          height: `${pct}%`,
-                          minHeight: d.count > 0 ? "8px" : "2px",
-                        }}
-                        title={`${format(d.date, "dd/MM")} • ${d.count} passages`}
+                        key={i}
+                        className="border-t border-gray-200 dark:border-gray-700/70"
                       />
-                      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {format(d.date, "dd/MM")}
-                      </div>
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+
+                  {/* Barres – largeur large + gradient + ombre + pas d'overflow (justify-between) */}
+                  <div className="absolute inset-0 flex items-end justify-between px-1 sm:px-2">
+                    {attendance7d.map((d, idx) => {
+                      const pct = Math.round((d.count / maxCount) * 100);
+                      return (
+                        <div
+                          key={idx}
+                          className="flex flex-col items-center justify-end"
+                          style={{ width: "calc(100% / 7)" }}
+                        >
+                          <div
+                            className="w-6 sm:w-8 md:w-10 rounded-md shadow-md transition-all duration-300"
+                            style={{
+                              height: `${pct}%`,
+                              minHeight: d.count > 0 ? "12px" : "6px",
+                              background:
+                                "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(34,197,94,1) 100%)",
+                            }}
+                            title={`${format(d.date, "dd/MM")} • ${d.count} passages`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Labels dates */}
+                <div className="mt-3 flex justify-between text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                  {attendance7d.map((d, idx) => (
+                    <span key={idx} className="w-0 flex-1 text-center">
+                      {format(d.date, "dd/MM")}
+                    </span>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -469,7 +441,61 @@ function HomePage() {
             )}
           </div>
 
+          {/* ✅ Derniers passages — nouveau design */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+              Derniers passages
+            </h2>
 
+            {recentPresences.length > 0 ? (
+              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                {recentPresences.map((r) => {
+                  const m = r.member;
+                  const ts =
+                    typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
+                  const displayName = m
+                    ? `${m.firstName || ""} ${m.name || ""}`.trim()
+                    : `Badge ${r.badgeId || "?"}`;
+
+                  return (
+                    <li
+                      key={r.id}
+                      className="py-2 px-1 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-md"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Avatar */}
+                        {m?.photo ? (
+                          <img
+                            src={m.photo}
+                            alt={displayName}
+                            className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-gray-700 shadow"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-semibold text-gray-700 dark:text-gray-200 ring-2 ring-white dark:ring-gray-700">
+                            {getInitials(m?.firstName, m?.name)}
+                          </div>
+                        )}
+
+                        {/* Nom */}
+                        <span className="truncate text-gray-900 dark:text-gray-100">
+                          {displayName}
+                        </span>
+                      </div>
+
+                      <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap ml-3">
+                        {format(ts, "dd/MM/yyyy HH:mm")}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Aucun passage récent.
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -518,7 +544,7 @@ function HomePage() {
             Paiements à venir
           </h2>
 
-          {pendingPayments?.length > 0 ? (
+        {pendingPayments?.length > 0 ? (
             <ul className="space-y-2">
               {pendingPayments.map((p) => {
                 const late = isLateOrToday(p.encaissement_prevu);
@@ -535,8 +561,9 @@ function HomePage() {
                     </span>
                     {p.encaissement_prevu && (
                       <span
-                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
-                          }`}
+                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${
+                          late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
+                        }`}
                         title={`Échéance: ${format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}`}
                       >
                         {format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}
@@ -554,7 +581,7 @@ function HomePage() {
         </div>
       )}
 
-      {/* Mes paiements — pour l'utilisateur connecté (on conserve le comportement d'origine) */}
+      {/* Mes paiements — pour l'utilisateur connecté */}
       {role === "user" && userPayments?.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
