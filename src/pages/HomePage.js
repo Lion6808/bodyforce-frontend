@@ -377,8 +377,7 @@ function HomePage() {
       )}
 
       {/* 🔹 Partie 1ter — Présences 7 derniers jours + Derniers passages (ADMIN) */}
-      {{/* 🔹 Partie 1ter — Présences 7 derniers jours + Derniers passages (ADMIN) */ }
-{role === "admin" && (
+      {role === "admin" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* ✅ Mini graph: 7 derniers jours — design amélioré */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
@@ -449,8 +448,8 @@ function HomePage() {
                           {/* Valeur au-dessus de la barre */}
                           <div
                             className={`text-xs font-medium mb-1 transition-all duration-200 ${d.count > 0
-                                ? "text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400"
-                                : "text-gray-400 dark:text-gray-600"
+                              ? "text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                              : "text-gray-400 dark:text-gray-600"
                               }`}
                           >
                             {d.count}
@@ -503,16 +502,16 @@ function HomePage() {
                     return (
                       <div key={idx} className="flex flex-col items-center" style={{ width: "calc(100% / 7 - 8px)" }}>
                         <span className={`text-xs font-medium ${isToday
-                            ? "text-blue-600 dark:text-blue-400 font-bold"
-                            : isWeekend
-                              ? "text-purple-600 dark:text-purple-400"
-                              : "text-gray-600 dark:text-gray-400"
+                          ? "text-blue-600 dark:text-blue-400 font-bold"
+                          : isWeekend
+                            ? "text-purple-600 dark:text-purple-400"
+                            : "text-gray-600 dark:text-gray-400"
                           }`}>
                           {format(d.date, "dd/MM")}
                         </span>
                         <span className={`text-[10px] ${isToday
-                            ? "text-blue-500 dark:text-blue-400"
-                            : "text-gray-400 dark:text-gray-500"
+                          ? "text-blue-500 dark:text-blue-400"
+                          : "text-gray-400 dark:text-gray-500"
                           }`}>
                           {format(d.date, "EEE").substring(0, 3)}
                         </span>
@@ -638,7 +637,7 @@ function HomePage() {
                       {index < 3 && (
                         <div className="ml-2">
                           <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-green-400 animate-pulse' :
-                              index === 1 ? 'bg-yellow-400' : 'bg-gray-400'
+                            index === 1 ? 'bg-yellow-400' : 'bg-gray-400'
                             }`} />
                         </div>
                       )}
