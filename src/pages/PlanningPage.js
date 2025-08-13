@@ -151,19 +151,32 @@ function PlanningPage() {
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, place: "top" });
 
   // Positionnement du tooltip: suit le pointeur, clamp + flip
-  const positionTooltip = (clientX, clientY) => {
+  // Positionnement du tooltip: relatif à l'élément + gestion scroll
+  const positionTooltip = (element) => {
+    const rect = element.getBoundingClientRect();
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+
     const margin = 12;
     const approxWidth = 300;
     const approxHeight = 160;
 
+    // Position absolue par rapport au document
+    const elementCenterX = rect.left + scrollX + (rect.width / 2);
+    const elementY = rect.top + scrollY;
+
     let place = "top";
-    let top = clientY - margin;
-    if (clientY - approxHeight - margin < 0) {
+    let top = elementY - margin - approxHeight;
+
+    // Si pas assez de place en haut, afficher en bas
+    if (elementY - approxHeight - margin < scrollY) {
       place = "bottom";
-      top = clientY + margin;
+      top = elementY + rect.height + margin;
     }
+
     const half = approxWidth / 2;
-    const left = Math.max(half + margin, Math.min(window.innerWidth - half - margin, clientX));
+    const left = Math.max(half + margin, Math.min(window.innerWidth - half - margin, elementCenterX));
+
     setTooltipPos({ x: left, y: top, place });
   };
   // Chargement Supabase (membres + présences de la période)
@@ -516,8 +529,8 @@ function PlanningPage() {
                           has
                             ? "bg-green-500 text-white shadow-sm hover:scale-105"
                             : isWeekend(day)
-                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                              ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                         )}
                       >
                         <div className="leading-none">{formatDate(day, "EEE dd").split(" ")[1]}</div>
@@ -612,13 +625,13 @@ function PlanningPage() {
                           ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                             : dayTimes.length > 1
-                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : isWeekend(day)
-                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
-                          : idx % 2 === 0
-                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
-                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                            ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                            : idx % 2 === 0
+                              ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                              : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {dayTimes.length > 0 ? dayTimes.length : ""}
@@ -676,12 +689,10 @@ function PlanningPage() {
     const onAvatarEnter = (badgeId, dayKey, e) => {
       const member = members.find((m) => m.badgeId === badgeId);
       const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
-      positionTooltip(e.clientX, e.clientY);
+      positionTooltip(e.currentTarget); // Utiliser l'élément au lieu de clientX/Y
       setHoveredMember({ member, presences: memberPresences, dayKey });
     };
-    const onAvatarMove = (e) => {
-      if (hoveredMember) positionTooltip(e.clientX, e.clientY);
-    };
+
     const onAvatarLeave = () => setHoveredMember(null);
 
     const renderMemberAvatar = (badgeId, presenceCount, dayKey, index) => {
@@ -692,7 +703,6 @@ function PlanningPage() {
           key={badgeId}
           className="relative group cursor-pointer"
           onMouseEnter={(e) => onAvatarEnter(badgeId, dayKey, e)}
-          onMouseMove={onAvatarMove}
           onMouseLeave={onAvatarLeave}
           style={{ zIndex: index + 10 }}
         >
@@ -726,7 +736,7 @@ function PlanningPage() {
 
       return (
         <div
-          className="fixed z-50 pointer-events-none"
+          className="absolute z-50 pointer-events-none"
           style={{
             left: tooltipPos.x,
             top: tooltipPos.y,
@@ -830,9 +840,8 @@ function PlanningPage() {
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
-                i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
-              }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
+                }`}
             >
               {day}
             </div>
@@ -881,11 +890,9 @@ function PlanningPage() {
             return (
               <div
                 key={idx}
-                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
-                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${
-                  today ? "ring-2 ring-blue-500 ring-inset" : ""
-                } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                  } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""
+                  } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
@@ -894,10 +901,10 @@ function PlanningPage() {
                       !inMonth
                         ? "text-gray-400 dark:text-gray-500"
                         : today
-                        ? "text-blue-600 dark:text-blue-400"
-                        : weekend
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-gray-900 dark:text-gray-100"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : weekend
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-gray-900 dark:text-gray-100"
                     )}
                   >
                     {day.getDate()}
@@ -911,8 +918,8 @@ function PlanningPage() {
                           memberIds.length > 30
                             ? "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
                             : memberIds.length > 15
-                            ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                              ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                              : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                         )}
                       >
                         {memberIds.length > 99 ? "99+" : memberIds.length}
@@ -965,8 +972,8 @@ function PlanningPage() {
                             expanded
                               ? "bg-blue-500 text-white"
                               : memberIds.length > 30
-                              ? "bg-red-500 text-white animate-pulse"
-                              : "bg-orange-500 text-white"
+                                ? "bg-red-500 text-white animate-pulse"
+                                : "bg-orange-500 text-white"
                           )}
                           title={expanded ? "Réduire" : `Voir les ${memberIds.length} membres`}
                         >
@@ -1055,21 +1062,6 @@ function PlanningPage() {
 
               {!isMobile && (
                 <button
-                  onClick={() => setViewMode("compact")}
-                  className={cn(
-                    classes.buttonSecondary,
-                    viewMode === "compact"
-                      ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
-                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                  )}
-                  title="Vue compacte"
-                >
-                  <Users className="w-5 h-5" />
-                </button>
-              )}
-
-              {!isMobile && (
-                <button
                   onClick={() => {
                     setViewMode("monthly");
                     // (optionnel) forcer période mois
@@ -1089,6 +1081,23 @@ function PlanningPage() {
                   <Grid className="w-5 h-5" />
                 </button>
               )}
+
+              {!isMobile && (
+                <button
+                  onClick={() => setViewMode("compact")}
+                  className={cn(
+                    classes.buttonSecondary,
+                    viewMode === "compact"
+                      ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  )}
+                  title="Vue compacte"
+                >
+                  <Users className="w-5 h-5" />
+                </button>
+              )}
+
+
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
