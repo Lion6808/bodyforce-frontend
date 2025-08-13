@@ -1315,10 +1315,10 @@ function PaymentsPage() {
                                 <img
                                   src={member.photo}
                                   alt="avatar"
-                                  className="h-10 w-10 rounded-full object-cover border-2 border-white dark:border-gray-600 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+                                  className="h-10 w-10 rounded-full object-cover border-2 border-white dark:border-gray-800 shadow-xl drop-shadow-lg hover:shadow-2xl hover:drop-shadow-xl transform hover:scale-105 transition-all duration-300"
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                                className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm shadow-xl drop-shadow-lg hover:shadow-2xl hover:drop-shadow-xl transform hover:scale-105 transition-all duration-300"
                                   {member.firstName?.[0] || "N"}
                                   {member.name?.[0] || "N"}
                                 </div>
