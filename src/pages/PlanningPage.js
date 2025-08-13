@@ -683,21 +683,16 @@ function PlanningPage() {
     const renderMemberAvatar = (badgeId, presenceCount, dayKey, index) => {
       const member = members.find((m) => m.badgeId === badgeId);
       if (!member) return null;
+
       return (
         <div
           key={badgeId}
-          className="relative group cursor-pointer"
-          onMouseEnter={(e) => onAvatarEnter(badgeId, dayKey, e)}
-          onMouseMove={onAvatarMove}
-          onMouseLeave={onAvatarLeave}
+          className="relative group cursor-pointer"  // ← group pour CSS hover
           style={{ zIndex: index + 10 }}
         >
+          {/* Avatar */}
           {member.avatarUrl ? (
-            <img
-              src={member.avatarUrl}
-              alt="avatar"
-              className="w-8 h-8 object-cover rounded-full border-2 border-white dark:border-gray-800 shadow-sm hover:shadow-md transform hover:scale-110 transition-all duration-200"
-            />
+            <img src={member.avatarUrl} alt="avatar" className="w-8 h-8 object-cover rounded-full border-2 border-white dark:border-gray-800 shadow-sm hover:shadow-md transform hover:scale-110 transition-all duration-200" />
           ) : (
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 border-white dark:border-gray-800 shadow-sm hover:shadow-md transform hover:scale-110 transition-all duration-200">
               {member.firstName?.[0]}
@@ -705,11 +700,33 @@ function PlanningPage() {
             </div>
           )}
 
+          {/* Badge compteur */}
           {presenceCount > 1 && (
             <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border border-white dark:border-gray-800 shadow-sm animate-pulse">
               {presenceCount > 99 ? "99+" : presenceCount}
             </div>
           )}
+
+          {/* TOOLTIP CSS comme dans la Vue Liste */}
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-30">
+            <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
+              {/* Contenu du tooltip identique à la version actuelle */}
+              <div className="flex items-center gap-3 mb-3">
+                {member?.photo || member?.avatarUrl ? (
+                  <img src={member?.photo || member?.avatarUrl} alt="avatar" className="w-12 h-12 object-cover rounded-full border-2 border-blue-400" />
+                ) : (
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                    {member?.firstName?.[0]}{member?.name?.[0]}
+                  </div>
+                )}
+                <div>
+                  <h4 className="font-bold text-lg">{member?.name} {member?.firstName}</h4>
+                  <p className="text-blue-300 text-sm">Badge: {member?.badgeId}</p>
+                </div>
+              </div>
+              {/* ... reste du contenu ... */}
+            </div>
+          </div>
         </div>
       );
     };
