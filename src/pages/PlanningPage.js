@@ -673,7 +673,12 @@ function PlanningPage() {
       }
     };
 
-    const onAvatarLeave = () => setHoveredMember(null);
+    const onAvatarLeave = () => {
+      // Délai pour éviter les clignotements quand on passe sur le tooltip
+      setTimeout(() => {
+        setHoveredMember(null);
+      }, 100);
+    };
 
     const renderMemberAvatar = (badgeId, presenceCount, dayKey, index) => {
       const member = members.find((m) => m.badgeId === badgeId);
