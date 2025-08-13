@@ -680,7 +680,7 @@ function PlanningPage() {
       }, 100);
     };
 
-    const renderMemberAvatar = (badgeId, presenceCount, dayKey, memberIndex) => {
+    const renderMemberAvatar = (badgeId, presenceCount, dayKey, dayIndex, memberIndex) => {
       const member = members.find((m) => m.badgeId === badgeId);
       if (!member) return null;
 
