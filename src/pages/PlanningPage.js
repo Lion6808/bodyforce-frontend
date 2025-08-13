@@ -152,30 +152,33 @@ function PlanningPage() {
 
   // Positionnement du tooltip: suit le pointeur, clamp + flip
   // Positionnement du tooltip: relatif à l'élément + gestion scroll
+  // Positionnement du tooltip: relatif au conteneur parent
   const positionTooltip = (element) => {
     const rect = element.getBoundingClientRect();
-    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+    const container = element.closest('.relative'); // Le conteneur du calendrier
+    const containerRect = container.getBoundingClientRect();
 
     const margin = 12;
     const approxWidth = 300;
-    const approxHeight = 160;
+    const approxHeight = 180;
 
-    // Position absolue par rapport au document
-    const elementCenterX = rect.left + scrollX + (rect.width / 2);
-    const elementY = rect.top + scrollY;
+    // Position relative au conteneur positionné
+    const elementCenterX = rect.left - containerRect.left + (rect.width / 2);
+    const elementY = rect.top - containerRect.top;
 
     let place = "top";
     let top = elementY - margin - approxHeight;
 
     // Si pas assez de place en haut, afficher en bas
-    if (elementY - approxHeight - margin < scrollY) {
+    if (top < 0) {
       place = "bottom";
       top = elementY + rect.height + margin;
     }
 
+    // Centrer horizontalement avec limites
     const half = approxWidth / 2;
-    const left = Math.max(half + margin, Math.min(window.innerWidth - half - margin, elementCenterX));
+    const containerWidth = containerRect.width;
+    let left = Math.max(half + margin, Math.min(containerWidth - half - margin, elementCenterX));
 
     setTooltipPos({ x: left, y: top, place });
   };
@@ -818,7 +821,7 @@ function PlanningPage() {
     };
 
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden relative">
         {/* En-tête calendrier */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
           <div className="flex items-center justify-between">
