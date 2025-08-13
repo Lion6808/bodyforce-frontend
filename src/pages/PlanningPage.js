@@ -148,40 +148,8 @@ function PlanningPage() {
   // Vue mensuelle (tooltip corrigé)
   const [expandedDays, setExpandedDays] = useState(new Set());
   const [hoveredMember, setHoveredMember] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, place: "top" });
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Positionnement du tooltip: suit le pointeur, clamp + flip
-  // Positionnement du tooltip: relatif à l'élément + gestion scroll
-  // Positionnement du tooltip: relatif au conteneur parent
-  const positionTooltip = (element) => {
-    const rect = element.getBoundingClientRect();
-    const container = element.closest('.relative'); // Le conteneur du calendrier
-    const containerRect = container.getBoundingClientRect();
-
-    const margin = 12;
-    const approxWidth = 300;
-    const approxHeight = 180;
-
-    // Position relative au conteneur positionné
-    const elementCenterX = rect.left - containerRect.left + (rect.width / 2);
-    const elementY = rect.top - containerRect.top;
-
-    let place = "top";
-    let top = elementY - margin - approxHeight;
-
-    // Si pas assez de place en haut, afficher en bas
-    if (top < 0) {
-      place = "bottom";
-      top = elementY + rect.height + margin;
-    }
-
-    // Centrer horizontalement avec limites
-    const half = approxWidth / 2;
-    const containerWidth = containerRect.width;
-    let left = Math.max(half + margin, Math.min(containerWidth - half - margin, elementCenterX));
-
-    setTooltipPos({ x: left, y: top, place });
-  };
   // Chargement Supabase (membres + présences de la période)
   const loadData = async (showRetryIndicator = false) => {
     try {
@@ -267,7 +235,7 @@ function PlanningPage() {
     }
   };
 
-  // Navigation ‹ › qui s’aligne via updateDateRange
+  // Navigation ‹ › qui s'aligne via updateDateRange
   const navigatePeriod = (direction) => {
     const amount = direction === "prev" ? -1 : 1;
     let newStart;
@@ -475,6 +443,7 @@ function PlanningPage() {
       </div>
     </div>
   );
+  
   // Vue Liste (pastilles journalières)
   const ListView = () => (
     <div className={cn(classes.card, "overflow-hidden")}>
@@ -648,7 +617,8 @@ function PlanningPage() {
       </div>
     </div>
   );
-  // Vue Mensuelle (tooltip clientX/Y + clamp + flip)
+
+  // Vue Mensuelle - Solution simple avec tooltip qui suit la souris
   const MonthlyView = () => {
     const generateCalendarDays = () => {
       const y = startDate.getFullYear();
@@ -689,11 +659,16 @@ function PlanningPage() {
       setExpandedDays(s);
     };
 
+    // Fonctions tooltip simplifiées
     const onAvatarEnter = (badgeId, dayKey, e) => {
       const member = members.find((m) => m.badgeId === badgeId);
       const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
-      positionTooltip(e.currentTarget); // Utiliser l'élément au lieu de clientX/Y
+      setMousePos({ x: e.clientX, y: e.clientY });
       setHoveredMember({ member, presences: memberPresences, dayKey });
+    };
+
+    const onAvatarMove = (e) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
     };
 
     const onAvatarLeave = () => setHoveredMember(null);
@@ -706,6 +681,7 @@ function PlanningPage() {
           key={badgeId}
           className="relative group cursor-pointer"
           onMouseEnter={(e) => onAvatarEnter(badgeId, dayKey, e)}
+          onMouseMove={onAvatarMove}
           onMouseLeave={onAvatarLeave}
           style={{ zIndex: index + 10 }}
         >
@@ -739,11 +715,11 @@ function PlanningPage() {
 
       return (
         <div
-          className="absolute z-50 pointer-events-none"
+          className="fixed z-50 pointer-events-none"
           style={{
-            left: tooltipPos.x,
-            top: tooltipPos.y,
-            transform: `translateX(-50%) ${tooltipPos.place === "top" ? "translateY(-100%)" : ""}`,
+            left: mousePos.x + 15,
+            top: mousePos.y - 10,
+            transform: 'translateY(-50%)'
           }}
         >
           <div className="relative bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
@@ -804,24 +780,13 @@ function PlanningPage() {
               </span>
               {multiple && <span className="text-xs text-orange-400 font-medium">Vérifier badge</span>}
             </div>
-
-            {/* Flèche */}
-            {tooltipPos.place === "top" ? (
-              <div className="absolute top-full left-1/2 -translate-x-1/2">
-                <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
-              </div>
-            ) : (
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 rotate-180">
-                <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
-              </div>
-            )}
           </div>
         </div>
       );
     };
 
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden relative">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {/* En-tête calendrier */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
           <div className="flex items-center justify-between">
@@ -843,8 +808,9 @@ function PlanningPage() {
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
-                }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
+                i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
+              }`}
             >
               {day}
             </div>
@@ -893,9 +859,11 @@ function PlanningPage() {
             return (
               <div
                 key={idx}
-                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                  } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""
-                  } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
+                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${
+                  today ? "ring-2 ring-blue-500 ring-inset" : ""
+                } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
@@ -933,7 +901,7 @@ function PlanningPage() {
                 </div>
 
                 {memberIds.length > 0 && (
-                  <div className="space-y-1" onMouseLeave={onAvatarLeave}>
+                  <div className="space-y-1">
                     {expanded && memberIds.length > 20 ? (
                       <div className="grid grid-cols-6 gap-0.5">
                         {visibleMembers.map((badgeId, index) => (
@@ -1048,7 +1016,7 @@ function PlanningPage() {
               </div>
             </div>
 
-            {/* Vues + filtre */}
+            {/* Vues + filtre - ORDRE CORRIGÉ */}
             <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
               <button
                 onClick={() => setViewMode("list")}
@@ -1063,11 +1031,11 @@ function PlanningPage() {
                 <List className="w-5 h-5" />
               </button>
 
+              {/* VUE MENSUELLE EN DEUXIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => {
                     setViewMode("monthly");
-                    // (optionnel) forcer période mois
                     if (period !== "month") {
                       setPeriod("month");
                       updateDateRange("month", startDate);
@@ -1085,6 +1053,7 @@ function PlanningPage() {
                 </button>
               )}
 
+              {/* VUE COMPACTE EN TROISIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => setViewMode("compact")}
@@ -1099,8 +1068,6 @@ function PlanningPage() {
                   <Users className="w-5 h-5" />
                 </button>
               )}
-
-
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
