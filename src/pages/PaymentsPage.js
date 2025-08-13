@@ -26,7 +26,7 @@ import MemberForm from "../components/MemberForm";
 
 // ✅ Suppression de la prop onEdit - gestion interne des états
 function PaymentsPage() {
-  
+
   // ✅ AJOUTEZ CETTE LIGNE - détection mobile manquante
   const [isMobile, setIsMobile] = useState(false);
 
@@ -45,9 +45,9 @@ function PaymentsPage() {
     // Nettoyage
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
-  
-  
-  
+
+
+
   // ✅ Détection du dark mode
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [members, setMembers] = useState([]);
@@ -602,8 +602,8 @@ function PaymentsPage() {
         <div
           key={member.id}
           className={`${isDarkMode
-              ? "bg-gray-800 border-gray-700"
-              : "bg-white border-gray-200"
+            ? "bg-gray-800 border-gray-700"
+            : "bg-white border-gray-200"
             } rounded-lg shadow border overflow-hidden`}
         >
           <div className="p-4">
@@ -615,10 +615,10 @@ function PaymentsPage() {
                     <img
                       src={member.photo}
                       alt="avatar"
-                      className="h-12 w-12 rounded-full object-cover border-2 border-gray-300"
+                      className="h-12 w-12 rounded-full object-cover border-2 border-white dark:border-gray-600 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
                     />
                   ) : (
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
                       {member.firstName?.[0] || "N"}
                       {member.name?.[0] || "N"}
                     </div>
@@ -669,10 +669,10 @@ function PaymentsPage() {
                   } rounded-full h-2`}>
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
-                        ? "bg-gradient-to-r from-green-400 to-green-600"
-                        : member.progressPercentage > 50
-                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                          : "bg-gradient-to-r from-red-400 to-red-600"
+                      ? "bg-gradient-to-r from-green-400 to-green-600"
+                      : member.progressPercentage > 50
+                        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                        : "bg-gradient-to-r from-red-400 to-red-600"
                       }`}
                     style={{
                       width: `${Math.min(member.progressPercentage, 100)}%`,
@@ -728,8 +728,8 @@ function PaymentsPage() {
                   )
                 }
                 className={`flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border ${isDarkMode
-                    ? "border-blue-500 hover:bg-blue-900/20"
-                    : "border-blue-200 hover:bg-blue-50"
+                  ? "border-blue-500 hover:bg-blue-900/20"
+                  : "border-blue-200 hover:bg-blue-50"
                   } rounded-lg transition-colors`}
               >
                 {expandedMember === member.id ? (
@@ -749,8 +749,8 @@ function PaymentsPage() {
               <button
                 onClick={() => handleEditMember(member)}
                 className={`flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border ${isDarkMode
-                    ? "border-orange-500 hover:bg-orange-900/20"
-                    : "border-orange-200 hover:bg-orange-50"
+                  ? "border-orange-500 hover:bg-orange-900/20"
+                  : "border-orange-200 hover:bg-orange-50"
                   } rounded-lg transition-colors`}
               >
                 <Edit className="w-4 h-4" />
@@ -760,8 +760,8 @@ function PaymentsPage() {
           </div>
           {expandedMember === member.id && (
             <div className={`border-t ${isDarkMode
-                ? "border-gray-700 bg-gray-900"
-                : "border-gray-200 bg-gray-50"
+              ? "border-gray-700 bg-gray-900"
+              : "border-gray-200 bg-gray-50"
               }`}>
               <div className="p-4 space-y-4">
                 <h5 className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
@@ -911,12 +911,12 @@ function PaymentsPage() {
 
   const renderConnectionError = () => (
     <div className={`min-h-screen ${isDarkMode
-        ? "bg-gradient-to-br from-gray-900 to-black"
-        : "bg-gradient-to-br from-blue-50 to-purple-50"
+      ? "bg-gradient-to-br from-gray-900 to-black"
+      : "bg-gradient-to-br from-blue-50 to-purple-50"
       } flex items-center justify-center p-4`}>
       <div className={`${isDarkMode
-          ? "bg-gray-800 border-gray-700"
-          : "bg-white border-gray-200"
+        ? "bg-gray-800 border-gray-700"
+        : "bg-white border-gray-200"
         } rounded-xl shadow-lg p-8 max-w-md w-full text-center border`}>
         <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
         <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-800"
@@ -956,8 +956,8 @@ function PaymentsPage() {
 
   const renderLoading = () => (
     <div className={`min-h-screen ${isDarkMode
-        ? "bg-gradient-to-br from-gray-900 to-black"
-        : "bg-gradient-to-br from-blue-50 to-purple-50"
+      ? "bg-gradient-to-br from-gray-900 to-black"
+      : "bg-gradient-to-br from-blue-50 to-purple-50"
       } flex items-center justify-center`}>
       <div className="text-center">
         <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -980,8 +980,8 @@ function PaymentsPage() {
 
   return (
     <div className={`min-h-screen ${isDarkMode
-        ? "bg-gradient-to-br from-gray-900 to-black"
-        : "bg-gradient-to-br from-blue-50 to-purple-50"
+      ? "bg-gradient-to-br from-gray-900 to-black"
+      : "bg-gradient-to-br from-blue-50 to-purple-50"
       } p-4 lg:p-6`}>
       <div className="max-w-full mx-auto">
         {/* Header - Responsive */}
@@ -1004,8 +1004,8 @@ function PaymentsPage() {
                 onClick={exportToCSV}
                 disabled={loading || filteredMembers.length === 0}
                 className={`flex items-center justify-center gap-2 px-4 py-2 ${isDarkMode
-                    ? "bg-gray-800 border-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:text-gray-500 text-white"
-                    : "bg-white border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                  ? "bg-gray-800 border-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:text-gray-500 text-white"
+                  : "bg-white border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
                   } border rounded-lg transition-colors text-sm font-medium`}
               >
                 <Download className="w-4 h-4" />
@@ -1172,8 +1172,8 @@ function PaymentsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full pl-10 pr-4 py-2 border ${isDarkMode
-                      ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
-                      : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
+                    : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     } rounded-lg`}
                 />
               </div>
@@ -1182,8 +1182,8 @@ function PaymentsPage() {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className={`px-4 py-2 border ${isDarkMode
-                    ? "border-gray-600 bg-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
-                    : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  ? "border-gray-600 bg-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
+                  : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   } rounded-lg sm:w-48`}
               >
                 <option value="all">Tous les statuts</option>
@@ -1196,10 +1196,10 @@ function PaymentsPage() {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${showFilters
-                    ? "bg-blue-100 text-blue-600"
-                    : isDarkMode
-                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-blue-100 text-blue-600"
+                  : isDarkMode
+                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
               >
                 <Filter className="w-4 h-4" />
@@ -1315,10 +1315,10 @@ function PaymentsPage() {
                                 <img
                                   src={member.photo}
                                   alt="avatar"
-                                  className="h-10 w-10 rounded-full object-cover border border-gray-300"
+                                  className="h-10 w-10 rounded-full object-cover border-2 border-white dark:border-gray-600 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
                                   {member.firstName?.[0] || "N"}
                                   {member.name?.[0] || "N"}
                                 </div>
@@ -1366,10 +1366,10 @@ function PaymentsPage() {
                               } rounded-full h-2`}>
                               <div
                                 className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
-                                    ? "bg-gradient-to-r from-green-400 to-green-600"
-                                    : member.progressPercentage > 50
-                                      ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                                      : "bg-gradient-to-r from-red-400 to-red-600"
+                                  ? "bg-gradient-to-r from-green-400 to-green-600"
+                                  : member.progressPercentage > 50
+                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                                    : "bg-gradient-to-r from-red-400 to-red-600"
                                   }`}
                                 style={{
                                   width: `${Math.min(
@@ -1469,8 +1469,8 @@ function PaymentsPage() {
                                     <div
                                       key={payment.id}
                                       className={`${isDarkMode
-                                          ? "bg-gray-800 border-gray-700"
-                                          : "bg-white border-gray-200"
+                                        ? "bg-gray-800 border-gray-700"
+                                        : "bg-white border-gray-200"
                                         } rounded-lg p-4 border`}
                                     >
                                       <div className="flex items-center justify-between">
