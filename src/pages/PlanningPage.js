@@ -147,8 +147,8 @@ function PlanningPage() {
 
   // Vue mensuelle (tooltip corrigé)
   const [expandedDays, setExpandedDays] = useState(new Set());
-  //const [hoveredMember, setHoveredMember] = useState(null);
-  //const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [hoveredMember, setHoveredMember] = useState(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   // Chargement Supabase (membres + présences de la période)
   const loadData = async (showRetryIndicator = false) => {
