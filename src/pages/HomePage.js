@@ -293,6 +293,48 @@ function HomePage() {
 
       {/* 🔹 Partie 2 — Listes détaillées : abonnements échus & paiements à venir */}
 
+      {/* Paiements à venir — visible aux admins même si vide */}
+      {role === "admin" && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+            Paiements à venir
+          </h2>
+
+          {pendingPayments?.length > 0 ? (
+            <ul className="space-y-2">
+              {pendingPayments.map((p) => {
+                const late = isLateOrToday(p.encaissement_prevu);
+                return (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between text-gray-700 dark:text-gray-300"
+                  >
+                    <span className="truncate">
+                      {(p.member?.firstName && p.member?.name)
+                        ? `${p.member.firstName} ${p.member.name}`
+                        : `Membre #${p.member_id}`}{" "}
+                      — {(p.amount || 0).toFixed(2)} € {p.method ? `(${p.method})` : ""}
+                    </span>
+                    {p.encaissement_prevu && (
+                      <span
+                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
+                          }`}
+                        title={`Échéance: ${format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}`}
+                      >
+                        {format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Aucun paiement en attente
+            </div>
+          )}
+        </div>
+      )}
       {/* Abonnements échus — visible aux admins même si vide */}
       {role === "admin" && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
@@ -329,49 +371,7 @@ function HomePage() {
         </div>
       )}
 
-      {/* Paiements à venir — visible aux admins même si vide */}
-      {role === "admin" && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-            Paiements à venir
-          </h2>
 
-          {pendingPayments?.length > 0 ? (
-            <ul className="space-y-2">
-              {pendingPayments.map((p) => {
-                const late = isLateOrToday(p.encaissement_prevu);
-                return (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between text-gray-700 dark:text-gray-300"
-                  >
-                    <span className="truncate">
-                      {(p.member?.firstName && p.member?.name)
-                        ? `${p.member.firstName} ${p.member.name}`
-                        : `Membre #${p.member_id}`}{" "}
-                      — {(p.amount || 0).toFixed(2)} € {p.method ? `(${p.method})` : ""}
-                    </span>
-                    {p.encaissement_prevu && (
-                      <span
-                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${
-                          late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
-                        }`}
-                        title={`Échéance: ${format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}`}
-                      >
-                        {format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Aucun paiement en attente
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Mes paiements — pour l'utilisateur connecté (on conserve le comportement d'origine) */}
       {role === "user" && userPayments?.length > 0 && (
