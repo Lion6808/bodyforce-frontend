@@ -377,7 +377,8 @@ function HomePage() {
       )}
 
       {/* 🔹 Partie 1ter — Présences 7 derniers jours + Derniers passages (ADMIN) */}
-      {role === "admin" && (
+      {{/* 🔹 Partie 1ter — Présences 7 derniers jours + Derniers passages (ADMIN) */ }
+{role === "admin" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* ✅ Mini graph: 7 derniers jours — design amélioré */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
@@ -410,14 +411,14 @@ function HomePage() {
                       const stepValue = Math.ceil(adjustedMax / steps);
 
                       return Array.from({ length: steps + 1 }, (_, i) => {
-                        const value = stepValue * (steps - i);
-                        const percentage = (value / (stepValue * steps)) * 100;
+                        const value = stepValue * i; // ✅ CORRIGÉ: i au lieu de (steps - i)
+                        const percentage = (i / steps) * 100; // ✅ CORRIGÉ: i/steps au lieu de value/max
 
                         return (
                           <div
                             key={i}
                             className="absolute w-full flex items-center"
-                            style={{ top: `${percentage}%` }}
+                            style={{ bottom: `${percentage}%` }} // ✅ CORRIGÉ: bottom au lieu de top
                           >
                             <span className="text-xs text-gray-400 dark:text-gray-500 w-8 -ml-2">
                               {value}
@@ -430,12 +431,12 @@ function HomePage() {
                   </div>
 
                   {/* Barres avec échelle corrigée */}
-                  <div className="absolute inset-0 flex items-end justify-between pl-10 pr-2">
+                  <div className="absolute inset-0 flex items-end justify-between pl-10 pr-2 pb-2">
                     {attendance7d.map((d, idx) => {
                       const maxValue = Math.max(...attendance7d.map(d => d.count));
                       const adjustedMax = maxValue > 0 ? maxValue : 10;
-                      // Calcul d'échelle corrigé - utilise 90% de la hauteur disponible
-                      const percentage = maxValue > 0 ? Math.max((d.count / adjustedMax) * 90, d.count > 0 ? 8 : 0) : 0;
+                      // Calcul d'échelle corrigé - utilise la hauteur réelle disponible
+                      const heightInPixels = maxValue > 0 ? Math.max((d.count / adjustedMax) * 180, d.count > 0 ? 12 : 4) : 4;
                       const isToday = format(d.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
                       const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6;
 
@@ -448,8 +449,8 @@ function HomePage() {
                           {/* Valeur au-dessus de la barre */}
                           <div
                             className={`text-xs font-medium mb-1 transition-all duration-200 ${d.count > 0
-                              ? "text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400"
-                              : "text-gray-400 dark:text-gray-600"
+                                ? "text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                                : "text-gray-400 dark:text-gray-600"
                               }`}
                           >
                             {d.count}
@@ -460,8 +461,7 @@ function HomePage() {
                             className={`w-full rounded-t-lg shadow-lg transition-all duration-500 group-hover:shadow-xl relative overflow-hidden ${isToday ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800" : ""
                               }`}
                             style={{
-                              height: `${percentage}%`,
-                              minHeight: d.count > 0 ? "12px" : "4px",
+                              height: `${heightInPixels}px`,
                               background: d.count > 0
                                 ? isToday
                                   ? "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(16,185,129,1) 50%, rgba(34,197,94,1) 100%)"
@@ -503,16 +503,16 @@ function HomePage() {
                     return (
                       <div key={idx} className="flex flex-col items-center" style={{ width: "calc(100% / 7 - 8px)" }}>
                         <span className={`text-xs font-medium ${isToday
-                          ? "text-blue-600 dark:text-blue-400 font-bold"
-                          : isWeekend
-                            ? "text-purple-600 dark:text-purple-400"
-                            : "text-gray-600 dark:text-gray-400"
+                            ? "text-blue-600 dark:text-blue-400 font-bold"
+                            : isWeekend
+                              ? "text-purple-600 dark:text-purple-400"
+                              : "text-gray-600 dark:text-gray-400"
                           }`}>
                           {format(d.date, "dd/MM")}
                         </span>
                         <span className={`text-[10px] ${isToday
-                          ? "text-blue-500 dark:text-blue-400"
-                          : "text-gray-400 dark:text-gray-500"
+                            ? "text-blue-500 dark:text-blue-400"
+                            : "text-gray-400 dark:text-gray-500"
                           }`}>
                           {format(d.date, "EEE").substring(0, 3)}
                         </span>
@@ -553,7 +553,6 @@ function HomePage() {
           </div>
 
           {/* ✅ Derniers passages — design amélioré */}
-          {/* ✅ Derniers passages — design amélioré (mobile-friendly) */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -574,16 +573,20 @@ function HomePage() {
                   const displayName = m
                     ? `${m.firstName || ""} ${m.name || ""}`.trim()
                     : `Badge ${r.badgeId || "?"}`;
-
+                  // Fonction simple pour calculer le temps écoulé
                   const getTimeAgo = (date) => {
                     const now = new Date();
                     const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+
                     if (diffInMinutes < 1) return "À l'instant";
                     if (diffInMinutes < 60) return `Il y a ${diffInMinutes} min`;
+
                     const diffInHours = Math.floor(diffInMinutes / 60);
                     if (diffInHours < 24) return `Il y a ${diffInHours}h`;
+
                     const diffInDays = Math.floor(diffInHours / 24);
                     if (diffInDays < 7) return `Il y a ${diffInDays}j`;
+
                     return format(date, "dd/MM/yyyy");
                   };
 
@@ -592,45 +595,37 @@ function HomePage() {
                   return (
                     <div
                       key={r.id}
-                      className="group flex items-start sm:items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
+                      className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                     >
-                      {/* Colonne gauche : avatar + infos (sur mobile, date sous le nom) */}
-                      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-                        {/* Avatar */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {/* Avatar avec effet amélioré */}
                         {m?.photo ? (
                           <img
                             src={m.photo}
                             alt={displayName}
-                            className="w-10 h-10 rounded-full object-cover shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200 flex-shrink-0"
+                            className="w-10 h-10 rounded-full object-cover shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200"
                             loading="lazy"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200 flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200">
                             {getInitials(m?.firstName, m?.name)}
                           </div>
                         )}
 
-                        {/* Texte */}
+                        {/* Informations membre */}
                         <div className="flex-1 min-w-0">
-                          {/* Nom : wrap sur mobile, truncate sur ≥sm */}
-                          <div className="font-medium text-gray-900 dark:text-gray-100 whitespace-normal break-words sm:truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {displayName}
                           </div>
-
-                          {/* Ligne info secondaire (badge + time ago) */}
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {m?.badgeId && `Badge ${m.badgeId} • `}{timeAgo}
-                          </div>
-
-                          {/* ⬇️ Date/heure visible SEULEMENT sur mobile, sous le nom */}
-                          <div className="sm:hidden mt-0.5 text-xs text-gray-600 dark:text-gray-300">
-                            {format(ts, "dd/MM/yyyy HH:mm")}
+                            {m?.badgeId && `Badge ${m.badgeId} • `}
+                            {timeAgo}
                           </div>
                         </div>
                       </div>
 
-                      {/* Colonne droite : horodatage (cachée sur mobile) */}
-                      <div className="hidden sm:flex flex-col text-right flex-shrink-0 ml-3">
+                      {/* Horodatage */}
+                      <div className="text-right flex-shrink-0 ml-3">
                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                           {format(ts, "HH:mm")}
                         </div>
@@ -639,14 +634,12 @@ function HomePage() {
                         </div>
                       </div>
 
-                      {/* Indicateur de fraîcheur (on le garde) */}
+                      {/* Indicateur de fraîcheur */}
                       {index < 3 && (
-                        <div className="ml-2 mt-1 sm:mt-0">
-                          <div
-                            className={`w-2 h-2 rounded-full ${index === 0 ? "bg-green-400 animate-pulse" :
-                                index === 1 ? "bg-yellow-400" : "bg-gray-400"
-                              }`}
-                          />
+                        <div className="ml-2">
+                          <div className={`w-2 h-2 rounded-full ${index === 0 ? 'bg-green-400 animate-pulse' :
+                              index === 1 ? 'bg-yellow-400' : 'bg-gray-400'
+                            }`} />
                         </div>
                       )}
                     </div>
@@ -665,7 +658,6 @@ function HomePage() {
               </div>
             )}
           </div>
-
         </div>
       )}
 
