@@ -684,32 +684,39 @@ function PlanningPage() {
       const member = members.find((m) => m.badgeId === badgeId);
       if (!member) return null;
 
+      // Récupérer les présences pour ce membre ce jour-là
+      const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
+      const multiple = memberPresences.length > 1;
+
       return (
         <div
           key={badgeId}
-          className="relative group cursor-pointer"  // ← group pour CSS hover
+          className="relative group cursor-pointer"
           style={{ zIndex: 100 + index }}
         >
-          {/* Avatar */}
-          {member.avatarUrl ? (
-            <img src={member.avatarUrl} alt="avatar" className="w-8 h-8 object-cover rounded-full border-2 border-white dark:border-gray-800 shadow-sm hover:shadow-md transform hover:scale-110 transition-all duration-200" />
+          {/* Avatar avec photo ou initiales */}
+          {member.photo || member.avatarUrl ? (
+            <img
+              src={member.photo || member.avatarUrl}
+              alt={`${member.firstName} ${member.name}`}
+              className="w-8 h-8 object-cover rounded-full border-2 border-white dark:border-gray-800 shadow-xl drop-shadow-lg hover:shadow-2xl hover:drop-shadow-xl transform hover:scale-110 transition-all duration-300"
+            />
           ) : (
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 border-white dark:border-gray-800 shadow-sm hover:shadow-md transform hover:scale-110 transition-all duration-200">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 border-white dark:border-gray-800 shadow-xl drop-shadow-lg hover:shadow-2xl hover:drop-shadow-xl transform hover:scale-110 transition-all duration-300">
               {member.firstName?.[0]}
               {member.name?.[0]}
             </div>
           )}
 
-          {/* Badge compteur */}
+          {/* Badge compteur pour passages multiples */}
           {presenceCount > 1 && (
             <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border border-white dark:border-gray-800 shadow-sm animate-pulse">
               {presenceCount > 99 ? "99+" : presenceCount}
             </div>
           )}
 
-          {/* TOOLTIP CSS comme dans la Vue Liste */}
           {/* TOOLTIP CSS complet */}
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-200">
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-[200]">
             <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
 
               {/* En-tête avec photo et nom */}
@@ -718,10 +725,10 @@ function PlanningPage() {
                   <img
                     src={member?.photo || member?.avatarUrl}
                     alt="avatar"
-                    className="w-12 h-12 object-cover rounded-full border-2 border-blue-400"
+                    className="w-12 h-12 object-cover rounded-full border-2 border-blue-400 shadow-lg"
                   />
                 ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
                     {member?.firstName?.[0]}{member?.name?.[0]}
                   </div>
                 )}
@@ -738,40 +745,38 @@ function PlanningPage() {
                   <span className="text-sm">{formatDate(new Date(dayKey + "T00:00:00"), "EEEE dd MMMM")}</span>
                 </div>
 
-                {/* Gestion passages multiples */}
-                {(() => {
-                  const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
-                  const multiple = memberPresences.length > 1;
-
-                  return !multiple ? (
+                {/* Cas standard : 1 passage */}
+                {!multiple ? (
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-green-400" />
+                    <span className="text-sm">Passage à {formatDate(memberPresences[0]?.parsedDate, "HH:mm")}</span>
+                  </div>
+                ) : (
+                  /* Cas exceptionnel : passages multiples */
+                  <>
                     <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-green-400" />
-                      <span className="text-sm">Passage à {formatDate(memberPresences[0]?.parsedDate, "HH:mm")}</span>
+                      <Clock className="w-4 h-4 text-orange-400" />
+                      <span className="text-sm font-semibold text-orange-300">⚠️ {memberPresences.length} passages (inhabituel)</span>
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-orange-400" />
-                        <span className="text-sm font-semibold text-orange-300">⚠️ {memberPresences.length} passages (inhabituel)</span>
+
+                    {/* Liste des heures pour les cas multiples */}
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
+                      <div className="flex flex-wrap gap-1">
+                        {memberPresences.slice(0, 6).map((presence, i) => (
+                          <div key={i} className="bg-orange-600/30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500/30">
+                            {formatDate(presence.parsedDate, "HH:mm")}
+                          </div>
+                        ))}
+                        {memberPresences.length > 6 && (
+                          <div className="bg-gray-600/30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500/30">
+                            +{memberPresences.length - 6}
+                          </div>
+                        )}
                       </div>
-                      <div className="mt-2">
-                        <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
-                        <div className="flex flex-wrap gap-1">
-                          {memberPresences.slice(0, 6).map((presence, i) => (
-                            <div key={i} className="bg-orange-600/30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500/30">
-                              {formatDate(presence.parsedDate, "HH:mm")}
-                            </div>
-                          ))}
-                          {memberPresences.length > 6 && (
-                            <div className="bg-gray-600/30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500/30">
-                              +{memberPresences.length - 6}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Badge de statut */}
@@ -779,7 +784,7 @@ function PlanningPage() {
                 <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
                   Présent(e)
                 </span>
-                {presenceCount > 1 && (
+                {multiple && (
                   <span className="text-xs text-orange-400 font-medium">Vérifier badge</span>
                 )}
               </div>
