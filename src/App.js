@@ -691,9 +691,8 @@ function SwipeResistanceIndicator({ swipeOffset, direction }) {
 
   return (
     <div
-      className={`swipe-resistance-indicator ${direction} ${
-        resistance > 0 ? "active" : ""
-      }`}
+      className={`swipe-resistance-indicator ${direction} ${resistance > 0 ? "active" : ""
+        }`}
       style={{ height }}
     />
   );
@@ -707,9 +706,8 @@ function PageIndicator({ currentIndex, totalPages, isMobile, SWIPE_PAGES }) {
       {SWIPE_PAGES.map((_, index) => (
         <div
           key={index}
-          className={`page-indicator-dot ${
-            index === currentIndex ? "active" : ""
-          }`}
+          className={`page-indicator-dot ${index === currentIndex ? "active" : ""
+            }`}
         />
       ))}
     </div>
@@ -852,6 +850,512 @@ function LoginPage() {
     </div>
   );
 }
+
+// ✅ COMPOSANTS MANQUANTS À AJOUTER DANS VOTRE APP.JS
+
+// ===== SIDEBAR DESKTOP (avec correction useLocation) =====
+function EnhancedSidebar({
+  user,
+  isAdmin,
+  onLogout,
+  toggleDarkMode,
+  getDarkModeIcon,
+  getDarkModeLabel,
+}) {
+  const location = useLocation(); // ✅ Correction : useLocation défini ici
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem("sidebar-collapsed") === "true";
+  });
+
+  // Menu conditionnel selon le rôle
+  const menu = [
+    {
+      name: "Accueil",
+      path: "/",
+      icon: <FaHome className="text-red-500 dark:text-red-400" />,
+    },
+    ...(isAdmin
+      ? [
+        {
+          name: "Membres",
+          path: "/members",
+          icon: (
+            <FaUserFriends className="text-green-500 dark:text-green-400" />
+          ),
+        },
+        {
+          name: "Planning",
+          path: "/planning",
+          icon: (
+            <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
+          ),
+        },
+        {
+          name: "Paiements",
+          path: "/payments",
+          icon: (
+            <FaCreditCard className="text-purple-500 dark:text-purple-400" />
+          ),
+        },
+        {
+          name: "Statistiques",
+          path: "/statistics",
+          icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
+        },
+        {
+          name: "Invitations",
+          path: "/invitations",
+          icon: (
+            <FaUserPlus className="text-orange-500 dark:text-orange-400" />
+          ),
+        },
+      ]
+      : [
+        {
+          name: "Mes Présences",
+          path: "/my-attendances",
+          icon: (
+            <FaClipboardList className="text-green-500 dark:text-green-400" />
+          ),
+        },
+        {
+          name: "Mon Profil",
+          path: "/profile",
+          icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
+        },
+      ]),
+  ];
+
+  const toggleSidebar = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem("sidebar-collapsed", newState.toString());
+  };
+
+  return (
+    <aside
+      className={`enhanced-sidebar ${isCollapsed ? "collapsed" : "expanded"
+        } flex-col items-center hidden lg:flex transition-all duration-400 ease-out`}
+    >
+      {/* Bouton toggle */}
+      <button
+        className="sidebar-toggle"
+        onClick={toggleSidebar}
+        aria-label={isCollapsed ? "Étendre le menu" : "Réduire le menu"}
+      >
+        <div className="toggle-icon">
+          <FaAngleDoubleRight />
+        </div>
+      </button>
+
+      {/* En-tête avec logo et titre */}
+      <div className="sidebar-logo sidebar-logo-3d text-center p-4 pb-2">
+        <h1
+          className={`sidebar-title text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2 ${isCollapsed ? "opacity-0" : "opacity-100"
+            }`}
+        >
+          CLUB BODY FORCE
+        </h1>
+        <img
+          src="/images/logo.png"
+          alt="Logo"
+          className="sidebar-logo-pulse h-32 w-auto mb-4 mx-auto transition-all duration-400"
+          onError={(e) => {
+            e.target.style.display = "none";
+          }}
+        />
+      </div>
+
+      {/* Informations utilisateur */}
+      <div
+        className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${isCollapsed ? "opacity-0" : "opacity-100"
+          }`}
+      >
+        {user?.photo ? (
+          <img
+            src={user.photo}
+            alt="Photo de profil"
+            className="w-8 h-8 rounded-full object-cover border-2 border-green-500 dark:border-blue-400"
+          />
+        ) : (
+          <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
+        )}
+
+        <div className="flex flex-col min-w-0">
+          <span className="font-medium truncate">{user?.email}</span>
+          {isAdmin && (
+            <span className="text-xs text-purple-600 dark:text-purple-400 font-bold">
+              Admin
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="sidebar-divider"></div>
+
+      {/* Menu principal */}
+      <ul className="w-full space-y-2 px-4 flex-1">
+        {menu.map((item, index) => (
+          <li
+            key={item.path}
+            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? "active" : ""
+              }`}
+            style={{ animationDelay: `${index * 0.1}s` }}
+          >
+            <Link to={item.path} className="menu-link">
+              <div className="menu-link-icon">{item.icon}</div>
+              <span className="menu-link-text">{item.name}</span>
+              {isCollapsed && <div className="menu-tooltip">{item.name}</div>}
+            </Link>
+          </li>
+        ))}
+
+        {/* Menu admin utilisateurs */}
+        {isAdmin && (
+          <li
+            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? "active" : ""
+              }`}
+            style={{ animationDelay: `${menu.length * 0.1}s` }}
+          >
+            <Link to="/admin/users" className="menu-link">
+              <div className="menu-link-icon">
+                <FaUserCircle className="text-purple-500 dark:text-purple-400" />
+              </div>
+              <span className="menu-link-text">Utilisateurs</span>
+              {isCollapsed && <div className="menu-tooltip">Utilisateurs</div>}
+            </Link>
+          </li>
+        )}
+      </ul>
+
+      <div className="sidebar-divider"></div>
+
+      {/* Footer avec actions */}
+      <div className="sidebar-footer w-full px-4 space-y-2">
+        <div className="sidebar-menu-item">
+          <button
+            onClick={toggleDarkMode}
+            className="menu-link w-full text-left"
+            title={getDarkModeLabel()}
+          >
+            <div className="menu-link-icon text-gray-600 dark:text-gray-400">
+              {getDarkModeIcon()}
+            </div>
+            <span className="menu-link-text">
+              {isCollapsed ? "" : getDarkModeLabel()}
+            </span>
+            {isCollapsed && (
+              <div className="menu-tooltip">{getDarkModeLabel()}</div>
+            )}
+          </button>
+        </div>
+
+        <div className="sidebar-menu-item">
+          <button
+            onClick={onLogout}
+            className="menu-link w-full text-left text-red-600 dark:text-red-400"
+          >
+            <div className="menu-link-icon">
+              <FaSignOutAlt />
+            </div>
+            <span className="menu-link-text">Déconnexion</span>
+            {isCollapsed && <div className="menu-tooltip">Déconnexion</div>}
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ===== MENU MOBILE ANIMÉ (MANQUANT) =====
+function AnimatedMobileMenu({
+  isOpen,
+  onClose,
+  user,
+  isAdmin,
+  location,
+  onLogout,
+  toggleDarkMode,
+  getDarkModeIcon,
+  getDarkModeLabel,
+}) {
+  const [animate, setAnimate] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
+
+  // Constantes pour les animations
+  const ANIMATION_DELAY = 200;
+  const CLOSING_DELAY = 400;
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      setIsClosing(false);
+      setIsOpening(true);
+
+      const openTimer = setTimeout(() => {
+        setIsOpening(false);
+      }, 10);
+
+      const animateTimer = setTimeout(() => setAnimate(true), ANIMATION_DELAY);
+
+      return () => {
+        clearTimeout(openTimer);
+        clearTimeout(animateTimer);
+      };
+    } else if (shouldRender) {
+      setIsClosing(true);
+      setAnimate(false);
+
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+        setIsOpening(false);
+      }, CLOSING_DELAY);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, shouldRender]);
+
+  // Handlers optimisés
+  const handleItemClick = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(onClose, ANIMATION_DELAY);
+  };
+
+  const handleLogout = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+      if (typeof onLogout === "function") {
+        onLogout();
+      }
+    }, ANIMATION_DELAY);
+  };
+
+  const handleOverlayClick = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(onClose, ANIMATION_DELAY);
+  };
+
+  const handleCloseClick = () => {
+    setAnimate(false);
+    setIsClosing(true);
+    setTimeout(onClose, ANIMATION_DELAY);
+  };
+
+  if (!shouldRender) return null;
+
+  return (
+    <>
+      <div
+        className={`mobile-menu-overlay ${isOpen && !isClosing ? "open" : ""}`}
+        onClick={handleOverlayClick}
+      />
+
+      <div
+        className={`mobile-menu-container ${!isOpening && isOpen && !isClosing ? "open" : ""
+          } ${isClosing ? "closing" : ""}`}
+      >
+        {/* Header */}
+        <div
+          className={`menu-header ${animate ? "animate" : ""
+            } p-6 border-b border-white/20`}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-3">
+              <div className="mobile-header-logo-3d">
+                <img
+                  src="/images/logo.png"
+                  alt="Logo BodyForce"
+                  className="h-12 w-auto"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              </div>
+              <h1 className="text-lg font-bold text-white">BODY FORCE</h1>
+            </div>
+            <button
+              onClick={handleCloseClick}
+              className={`close-button ${animate ? "animate" : ""
+                } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
+              aria-label="Fermer le menu"
+            >
+              <FaTimes className="text-xl" />
+            </button>
+          </div>
+        </div>
+
+        {/* User Profile */}
+        <div
+          className={`user-profile ${animate ? "animate" : ""
+            } p-6 border-b border-white/20`}
+        >
+          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
+            {user?.photo ? (
+              <img
+                src={user.photo}
+                alt="Profil"
+                className="w-10 h-10 rounded-full object-cover border-2 border-white"
+              />
+            ) : (
+              <FaUserCircle className="text-2xl text-white" />
+            )}
+
+            <div className="flex flex-col">
+              <span className="font-medium text-white text-sm">
+                {user?.email}
+              </span>
+              {isAdmin && (
+                <span className="text-xs text-yellow-300 font-bold">
+                  Administrateur
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="p-6 space-y-3">
+          <Link
+            to="/"
+            onClick={handleItemClick}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/" ? "bg-white/20" : ""
+              }`}
+          >
+            <FaHome className="text-xl text-red-300" />
+            <span className="font-medium">Accueil</span>
+          </Link>
+
+          {/* Liens conditionnels pour admin */}
+          {isAdmin && (
+            <>
+              <Link
+                to="/members"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/members" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaUserFriends className="text-xl text-green-300" />
+                <span className="font-medium">Membres</span>
+              </Link>
+
+              <Link
+                to="/planning"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/planning" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaCalendarAlt className="text-xl text-yellow-300" />
+                <span className="font-medium">Planning</span>
+              </Link>
+
+              <Link
+                to="/payments"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/payments" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaCreditCard className="text-xl text-purple-300" />
+                <span className="font-medium">Paiements</span>
+              </Link>
+
+              <Link
+                to="/statistics"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/statistics" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaChartBar className="text-xl text-blue-300" />
+                <span className="font-medium">Statistiques</span>
+              </Link>
+
+              <Link
+                to="/invitations"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/invitations" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaUserPlus className="text-xl text-orange-300" />
+                <span className="font-medium">Invitations</span>
+              </Link>
+
+              <Link
+                to="/admin/users"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/admin/users" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaUserCircle className="text-xl text-purple-300" />
+                <span className="font-medium">Utilisateurs</span>
+              </Link>
+            </>
+          )}
+
+          {/* Menu pour utilisateurs non-admin */}
+          {!isAdmin && (
+            <>
+              <Link
+                to="/my-attendances"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/my-attendances" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaClipboardList className="text-xl text-green-300" />
+                <span className="font-medium">Mes Présences</span>
+              </Link>
+
+              <Link
+                to="/profile"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/profile" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaUser className="text-xl text-blue-300" />
+                <span className="font-medium">Mon Profil</span>
+              </Link>
+            </>
+          )}
+
+          {/* Actions */}
+          <button
+            onClick={toggleDarkMode}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
+          >
+            <div className="text-xl text-gray-300">{getDarkModeIcon()}</div>
+            <span className="font-medium">{getDarkModeLabel()}</span>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
+          >
+            <FaSignOutAlt className="text-xl" />
+            <span className="font-medium">Déconnexion</span>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+
 // ✅ PARTIE 6/6 SUITE : COMPOSANT PRINCIPAL APPROUTES - FINALE
 
 function AppRoutes() {
@@ -1044,9 +1548,8 @@ function AppRoutes() {
 
       {/* Contenu principal */}
       <main
-        className={`flex-1 p-4 overflow-y-auto ${
-          isMobile ? "swipe-container" : ""
-        }`}
+        className={`flex-1 p-4 overflow-y-auto ${isMobile ? "swipe-container" : ""
+          }`}
         onTouchStart={isMobile ? onTouchStart : undefined}
         onTouchMove={isMobile ? onTouchMove : undefined}
         onTouchEnd={isMobile ? onTouchEnd : undefined}
