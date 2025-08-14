@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { supabaseServices } from "../supabaseClient";
 import MemberForm from '../components/MemberForm'; // ✅ GARDER pour mobile
 import { format, isBefore, parseISO } from "date-fns";
-import { FaEdit, FaTrash, FaPlus, FaSync, FaUser } from "react-icons/fa";
+import { FaEdit, FaTrash, FaPlus, FaSync, FaUser, FaExternalLinkAlt } from "react-icons/fa";
 
 function MembersPage() {
   const navigate = useNavigate();
@@ -594,11 +594,12 @@ function MembersPage() {
 
                         <td className="p-3">
                           <div
-                            className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200"
-                            onClick={() => handleEditMember(member)} // ✅ NOUVEAU : simple clic
+                            className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200 flex items-center gap-2 group"
+                            onClick={() => handleEditMember(member)}
                             title="Cliquer pour modifier"
                           >
-                            {member.name} {member.firstName}
+                            <span>{member.name} {member.firstName}</span>
+                            <FaExternalLinkAlt className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200" />
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             ID: {member.id}
