@@ -269,9 +269,8 @@ function InputField({ label, icon: Icon, error, ...props }) {
       <div className="relative">
         <input
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-            error ? "border-red-300 bg-red-50 dark:bg-red-950" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-          }`}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error ? "border-red-300 bg-red-50 dark:bg-red-950" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+            }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
@@ -289,9 +288,8 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
       <div className="relative">
         <select
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-            error ? "border-red-300 bg-red-50 dark:bg-red-950" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-          }`}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error ? "border-red-300 bg-red-50 dark:bg-red-950" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+            }`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
@@ -331,9 +329,8 @@ function ConfirmDialog({ isOpen, onConfirm, onCancel, title, message, type = "da
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
         <div className="p-6">
           <div className="flex items-center gap-4 mb-4">
-            <div className={`p-3 rounded-full ${
-              type === "danger" ? "bg-red-100 dark:bg-red-900/30" : "bg-orange-100 dark:bg-orange-900/30"
-            }`}>
+            <div className={`p-3 rounded-full ${type === "danger" ? "bg-red-100 dark:bg-red-900/30" : "bg-orange-100 dark:bg-orange-900/30"
+              }`}>
               {type === "danger" ? (
                 <FaTrash className="w-6 h-6 text-red-600 dark:text-red-400" />
               ) : (
@@ -344,9 +341,9 @@ function ConfirmDialog({ isOpen, onConfirm, onCancel, title, message, type = "da
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
             </div>
           </div>
-          
+
           <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
-          
+
           <div className="flex gap-3 justify-end">
             <button
               onClick={onCancel}
@@ -356,11 +353,10 @@ function ConfirmDialog({ isOpen, onConfirm, onCancel, title, message, type = "da
             </button>
             <button
               onClick={onConfirm}
-              className={`px-4 py-2 text-white rounded-lg transition-colors ${
-                type === "danger" 
-                  ? "bg-red-600 hover:bg-red-700" 
+              className={`px-4 py-2 text-white rounded-lg transition-colors ${type === "danger"
+                  ? "bg-red-600 hover:bg-red-700"
                   : "bg-orange-600 hover:bg-orange-700"
-              }`}
+                }`}
             >
               {type === "danger" ? "Supprimer" : "Confirmer"}
             </button>
@@ -376,7 +372,7 @@ function MemberFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { member, returnPath } = location.state || {};
-  
+
   const [activeTab, setActiveTab] = useState("profile");
   const [form, setForm] = useState({
     name: "", firstName: "", birthdate: "", gender: "Homme", address: "", phone: "", mobile: "", email: "",
@@ -387,7 +383,7 @@ function MemberFormPage() {
   const [showCamera, setShowCamera] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ loading: false, error: null, success: null });
-  
+
   // ✅ NOUVEAUX ÉTATS POUR LES CONFIRMATIONS
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', item: null });
 
@@ -450,7 +446,7 @@ function MemberFormPage() {
   const handleSave = async () => {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
-      
+
       if (member?.id) {
         await supabaseServices.updateMember(member.id, { ...form, files: JSON.stringify(form.files) });
         setUploadStatus({ loading: false, error: null, success: "Membre modifié avec succès !" });
@@ -542,7 +538,7 @@ function MemberFormPage() {
   // ✅ CONFIRMATION DE SUPPRESSION
   const handleConfirmDelete = async () => {
     const { type, item } = confirmDialog;
-    
+
     try {
       if (type === 'photo') {
         setForm((f) => ({ ...f, photo: null }));
@@ -559,16 +555,16 @@ function MemberFormPage() {
           const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
           if (storageError) throw new Error(`Erreur de suppression : ${storageError.message}`);
         }
-        
+
         setForm((f) => ({ ...f, files: f.files.filter((file) => file.url !== item.url) }));
         setUploadStatus({ loading: false, error: null, success: 'Fichier supprimé !' });
       }
-      
+
       setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
-    
+
     setConfirmDialog({ isOpen: false, type: '', item: null });
   };
 
@@ -612,9 +608,8 @@ function MemberFormPage() {
             <button
               type="button"
               onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
-              className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                form.etudiant ? "bg-gradient-to-r from-blue-500 to-purple-600" : "bg-gray-300 dark:bg-gray-600"
-              }`}
+              className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant ? "bg-gradient-to-r from-blue-500 to-purple-600" : "bg-gray-300 dark:bg-gray-600"
+                }`}
             >
               <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${form.etudiant ? "translate-x-7" : ""}`} />
             </button>
@@ -632,19 +627,6 @@ function MemberFormPage() {
           <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} icon={FaEnvelope} placeholder="exemple@email.com" />
           <InputField label="Téléphone fixe" name="phone" value={form.phone} onChange={handleChange} icon={FaPhone} placeholder="01 23 45 67 89" />
           <InputField label="Téléphone portable" name="mobile" value={form.mobile} onChange={handleChange} icon={FaPhone} placeholder="06 12 34 56 78" />
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderAttendanceTab = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="text-center py-12">
-        <FaClipboardList className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Suivi des présences</h3>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">Cette fonctionnalité sera bientôt disponible</p>
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-          📊 Historique des visites, statistiques de fréquentation, graphiques de présence
         </div>
       </div>
     </div>
@@ -720,14 +702,14 @@ function MemberFormPage() {
         <FaCreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
         Gestion de l'abonnement
       </h3>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <SelectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} icon={FaCreditCard} />
         <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} icon={FaIdCard} placeholder="Numéro du badge d'accès" />
         <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} icon={FaCalendarAlt} />
         <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly icon={FaCalendarAlt} />
       </div>
-      
+
       {isExpired && (
         <div className="mt-6 bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
           <div className="flex items-center">
@@ -743,7 +725,7 @@ function MemberFormPage() {
           <FaEuroSign className="w-4 h-4 text-green-600 dark:text-green-400" />
           Historique des paiements
         </h4>
-        
+
         {payments.length > 0 ? (
           <div className="space-y-3">
             {payments.map((payment) => (
@@ -771,6 +753,19 @@ function MemberFormPage() {
             <p className="text-gray-400 dark:text-gray-500 text-sm">L'historique des paiements apparaîtra ici</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+
+  const renderAttendanceTab = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="text-center py-12">
+        <FaClipboardList className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Suivi des présences</h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-6">Cette fonctionnalité sera bientôt disponible</p>
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+          📊 Historique des visites, statistiques de fréquentation, graphiques de présence
+        </div>
       </div>
     </div>
   );
@@ -809,7 +804,7 @@ function MemberFormPage() {
             <ArrowLeft className="w-4 h-4" />
             Retour à la liste
           </button>
-          
+
           <div className="text-center">
             <div className="relative mx-auto mb-4">
               {form.photo ? (
@@ -832,7 +827,7 @@ function MemberFormPage() {
             <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               {form.firstName || form.name ? `${form.firstName} ${form.name}` : "Nouveau membre"}
             </h1>
-            
+
             <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {member?.id ? `Membre depuis ${new Date().toLocaleDateString()}` : "Nouveau membre"}
             </div>
@@ -867,32 +862,32 @@ function MemberFormPage() {
         {/* Informations personnelles principales */}
         <div className="p-6 space-y-4 flex-1">
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wide">Détails personnels</h3>
-          
+
           <div className="space-y-3">
             {form.birthdate && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Anniversaire</dt>
                 <dd className="text-sm text-gray-900 dark:text-white">
-                  {new Date(form.birthdate).toLocaleDateString()} 
+                  {new Date(form.birthdate).toLocaleDateString()}
                   {age && ` (${age} ans)`}
                 </dd>
               </div>
             )}
-            
+
             {form.phone && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Téléphone</dt>
                 <dd className="text-sm text-gray-900 dark:text-white">{form.phone}</dd>
               </div>
             )}
-            
+
             {form.email && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Email</dt>
                 <dd className="text-sm text-gray-900 dark:text-white break-all">{form.email}</dd>
               </div>
             )}
-            
+
             {form.badgeId && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Badge</dt>
@@ -936,7 +931,7 @@ function MemberFormPage() {
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">Gérez les informations et documents du membre</p>
             </div>
-            
+
             <div className="flex gap-3">
               <button onClick={handleBack} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                 Annuler
@@ -962,9 +957,8 @@ function MemberFormPage() {
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {tabs.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
-                activeTab === tab.id ? "border-blue-500 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-              }`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeTab === tab.id ? "border-blue-500 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+                }`}>
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
                 {tab.count !== undefined && tab.count > 0 && (
@@ -1036,7 +1030,7 @@ function MemberFormPage() {
         onCancel={handleCancelDelete}
         title={confirmDialog.type === 'photo' ? "Supprimer la photo" : "Supprimer le document"}
         message={
-          confirmDialog.type === 'photo' 
+          confirmDialog.type === 'photo'
             ? "Êtes-vous sûr de vouloir supprimer cette photo ? Cette action est irréversible."
             : `Êtes-vous sûr de vouloir supprimer le document "${confirmDialog.item?.name}" ? Cette action est irréversible.`
         }
