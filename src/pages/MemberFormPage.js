@@ -868,8 +868,8 @@ function MemberFormPage() {
     switch (activeTab) {
       case "profile": return renderProfileTab();
       case "documents": return renderDocumentsTab();
-      case "attendance": return renderAttendanceTab();
       case "subscription": return renderSubscriptionTab(); // ✅ NOUVEAU
+      case "attendance": return renderAttendanceTab();
       case "messages": return renderMessagesTab();
       default: return renderProfileTab();
     }
