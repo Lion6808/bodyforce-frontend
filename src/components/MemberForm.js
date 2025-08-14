@@ -1,992 +1,1825 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ AJOUT : Import pour la navigation
-import { supabaseServices } from "../supabaseClient";
-// ✅ SUPPRESSION : import MemberForm depuis que nous utilisons la page
-// import MemberForm from '../components/MemberForm'
-import { format, isBefore, parseISO } from "date-fns";
-import { FaEdit, FaTrash, FaPlus, FaSync, FaUser } from "react-icons/fa";
+// 📄 MemberForm.js — Composant principal avec sélecteur caméra — Dossier : components — Date : 2025-07-25
+// 🎯 CORRECTION : Logique de la caméra entièrement revue pour éviter les conflits et assurer la stabilité.
+// 🔹 Partie 1 - Imports et composants utilitaires
 
-function MembersPage() {
-  const navigate = useNavigate(); // ✅ AJOUT : Hook de navigation
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Camera,
+  RotateCcw,
+  Check,
+  X,
+  SwitchCamera,
+  Upload,
+  User,
+} from "lucide-react";
+import Modal from "react-modal";
+import {
+  FaCamera,
+  FaFileUpload,
+  FaTrash,
+  FaDownload,
+  FaUser,
+  FaHome,
+  FaCreditCard,
+  FaFileAlt,
+  FaEuroSign,
+  FaCalendarAlt,
+  FaIdCard,
+  FaPhone,
+  FaEnvelope,
+  FaGraduationCap,
+  FaCheck,
+  FaTimes,
+  FaEye,
+  FaChevronLeft,
+  FaChevronRight,
+} from "react-icons/fa";
+import { supabase } from "../supabaseClient";
 
-  const [members, setMembers] = useState([]);
-  const [filteredMembers, setFilteredMembers] = useState([]);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [search, setSearch] = useState("");
-  const [sortAsc, setSortAsc] = useState(true);
-  // ✅ SUPPRESSION : showForm car nous utilisons la navigation
-  // const [showForm, setShowForm] = useState(false);
-  const [activeFilter, setActiveFilter] = useState(null);
-  const [loading, setLoading] = useState(true);
+const subscriptionDurations = {
+  Mensuel: 1,
+  Trimestriel: 3,
+  Semestriel: 6,
+  Annuel: 12,
+  "Année civile": 12,
+};
+
+function sanitizeFileName(name) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9_.-]/g, "");
+}
+
+// ✅ COMPOSANT CAMÉRA ENTIÈREMENT CORRIGÉ ET STABILISÉ
+function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
+  // -------------------------------------------------------------------
+  // 🔹 PARTIE 1 : LOGIQUE DU COMPOSANT (Hooks et Fonctions)
+  // -------------------------------------------------------------------
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [stream, setStream] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // On commence en chargement
   const [error, setError] = useState(null);
-  const [imageErrors, setImageErrors] = useState(new Set()); // Track failed images
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
+  const [availableCameras, setAvailableCameras] = useState([]);
+  const [facingMode, setFacingMode] = useState("user"); // 'user' = avant, 'environment' = arrière
 
-  const fetchMembers = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await supabaseServices.getMembers();
-      setMembers(data);
-      console.log(`✅ ${data.length} membres chargés depuis Supabase`);
-    } catch (err) {
-      console.error("Erreur récupération membres :", err);
-      setError(`Erreur lors du chargement: ${err.message}`);
-    } finally {
-      setLoading(false);
+  // ✅ CORRECTION : La fonction de nettoyage est la seule source de vérité pour arrêter le flux.
+  // Elle est maintenant synchrone et plus simple.
+  const cleanupStream = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      console.log("🧹 Nettoyage du stream...");
+      const currentStream = videoRef.current.srcObject;
+      currentStream.getTracks().forEach((track) => {
+        console.log(`⏹️ Arrêt du track: ${track.label}`);
+        track.stop();
+      });
+      videoRef.current.srcObject = null;
+      setStream(null);
+      console.log("✅ Nettoyage terminé.");
     }
   };
 
+  // ✅ CORRECTION : Le useEffect principal gère TOUT le cycle de vie de la caméra.
+  // Il se déclenche à l'ouverture/fermeture du modal et au changement de caméra (facingMode).
   useEffect(() => {
-    fetchMembers();
+    // Si le modal n'est pas ouvert, on ne fait rien et on s'assure que tout est nettoyé.
+    if (!isOpen) {
+      cleanupStream();
+      return;
+    }
+
+    let isMounted = true; // Pour éviter les mises à jour sur un composant démonté
+
+    const initializeCamera = async () => {
+      // On nettoie TOUJOURS un éventuel stream précédent avant d'en démarrer un nouveau.
+      // C'est la correction clé pour l'erreur "caméra déjà utilisée".
+      cleanupStream();
+
+      if (!isMounted) return;
+
+      setIsLoading(true);
+      setError(null);
+      setCapturedPhoto(null); // Réinitialise la photo si on change de caméra
+
+      try {
+        // 1. Détecter les caméras disponibles (résout le problème du bouton qui n'apparaît pas)
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(
+          (device) => device.kind === "videoinput"
+        );
+        if (isMounted) {
+          setAvailableCameras(videoDevices);
+        }
+
+        // 2. Définir les contraintes pour la caméra souhaitée
+        const constraints = {
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        };
+
+        // 3. Demander le nouveau flux vidéo
+        console.log(
+          `📹 Tentative de démarrage de la caméra en mode: ${facingMode}`
+        );
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // 4. Si la requête réussit, l'afficher dans l'élément vidéo
+        if (isMounted && videoRef.current) {
+          videoRef.current.srcObject = newStream;
+          await videoRef.current.play();
+          setStream(newStream);
+          console.log("✅ Caméra démarrée avec succès.");
+        }
+      } catch (err) {
+        console.error("❌ Erreur accès caméra :", err);
+        let errorMessage = "Impossible d'accéder à la caméra.";
+        if (err.name === "NotReadableError") {
+          errorMessage =
+            "La caméra est déjà utilisée. Essayez de fermer les autres applications ou onglets qui pourraient l'utiliser.";
+        } else if (err.name === "NotAllowedError") {
+          errorMessage =
+            "L'accès à la caméra a été refusé. Veuillez l'autoriser dans les paramètres de votre navigateur.";
+        } else if (err.name === "NotFoundError") {
+            errorMessage = `Aucune caméra en mode '${facingMode}' n'a été trouvée sur cet appareil.`;
+        }
+        if (isMounted) {
+          setError(errorMessage);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeCamera();
+
+    // La fonction de nettoyage de useEffect s'assure que le stream est arrêté
+    // lorsque le composant est démonté ou que les dépendances (isOpen, facingMode) changent.
+    return () => {
+      isMounted = false;
+      cleanupStream();
+    };
+  }, [isOpen, facingMode]); // La magie est ici : ce hook réagit à tout changement pertinent.
+
+  // ✅ CORRECTION : La fonction pour basculer la caméra ne fait que changer l'état.
+  // Le `useEffect` se chargera du reste de la logique (nettoyer, redémarrer).
+  const switchCamera = () => {
+    if (availableCameras.length > 1 && !isLoading) {
+      console.log("🔄 Basculement de la caméra...");
+      setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Gère l'effet miroir pour la caméra selfie
+    if (facingMode === "user") {
+      context.save();
+      context.scale(-1, 1);
+      context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+      context.restore();
+    } else {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
+
+    const imageData = canvas.toDataURL("image/jpeg", 0.9);
+    setCapturedPhoto(imageData);
+    
+    // ✅ CORRECTION : On arrête le stream après la capture pour libérer la caméra.
+    cleanupStream();
+  };
+
+  const confirmPhoto = () => {
+    if (capturedPhoto) {
+      onCapture(capturedPhoto);
+      onClose(); // Le `useEffect` gérera le nettoyage final
+    }
+  };
+
+  // ✅ CORRECTION : Reprendre une photo réinitialise simplement l'état de la photo capturée.
+  // Le `useEffect` redémarrera la caméra car `capturedPhoto` n'est plus vrai.
+  // Pour forcer le redémarrage, on relance le cycle en changeant `facingMode` et en y revenant.
+  const retakePhoto = () => {
+    setCapturedPhoto(null);
+    // Le `useEffect` a déjà nettoyé le stream lors de la capture.
+    // Il faut le relancer. On force le redémarrage.
+    setIsLoading(true);
+    // On force le `useEffect` à se ré-exécuter pour relancer la caméra.
+    // C'est une petite astuce pour garder une logique déclarative.
+    const currentMode = facingMode;
+    setFacingMode(''); // état intermédiaire invalide pour forcer le changement
+    setTimeout(() => setFacingMode(currentMode), 0);
+  };
+
+  const getCurrentCameraLabel = () => {
+    if (isLoading) return "Détection...";
+    const currentDevice = availableCameras.find(
+      (device) => stream?.getVideoTracks()[0]?.getSettings().deviceId === device.deviceId
+    );
+    if (currentDevice?.label) return currentDevice.label;
+    return facingMode === "user" ? "Caméra avant" : "Caméra arrière";
+  };
+  
+  // -------------------------------------------------------------------
+  // 🔹 PARTIE 2 : AFFICHAGE DU COMPOSANT (JSX)
+  // -------------------------------------------------------------------
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+      <div
+        className={`${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
+      >
+        {/* Header */}
+        <div
+          className={`p-4 border-b ${
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          } flex items-center justify-between`}
+        >
+          <h3
+            className={`text-lg font-semibold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            📸 Prendre une photo
+          </h3>
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-sm ${
+                isDarkMode ? "text-gray-300" : "text-gray-600"
+              }`}
+            >
+              {getCurrentCameraLabel()}
+            </span>
+            <button
+              onClick={onClose}
+              className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                isDarkMode ? "text-gray-300" : "text-gray-600"
+              }`}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Contenu principal */}
+        <div className="flex-1 flex flex-col items-center justify-center p-6">
+          {error && (
+            <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
+              <p className="font-medium mb-2">❌ Erreur caméra</p>
+              <p className="text-sm">{error}</p>
+              <button
+                onClick={() => setFacingMode(fm => fm === 'user' ? 'environment' : 'user')} // Tente de basculer
+                className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+              >
+                Essayer une autre caméra
+              </button>
+            </div>
+          )}
+
+          {/* Zone de prévisualisation */}
+          {!error && (
+            <div className="relative bg-black rounded-xl overflow-hidden max-w-md w-full aspect-[4/3]">
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                  <div className="text-white text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                    <p>Démarrage de la caméra...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Vidéo en temps réel */}
+              {!capturedPhoto && (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+                  style={{
+                    transform: facingMode === "user" ? "scaleX(-1)" : "none",
+                  }}
+                />
+              )}
+
+              {/* Photo capturée */}
+              {capturedPhoto && (
+                <img
+                  src={capturedPhoto}
+                  alt="Photo capturée"
+                  className="w-full h-full object-cover"
+                />
+              )}
+
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+          )}
+
+          {/* Contrôles */}
+          {!error && (
+            <div className="mt-6 flex items-center gap-4 h-16">
+              {!isLoading && !capturedPhoto ? (
+                // Contrôles pour la capture
+                <>
+                  {availableCameras.length > 1 && (
+                    <button
+                      onClick={switchCamera}
+                      className={`p-3 rounded-full border-2 ${
+                        isDarkMode
+                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                          : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                      } transition-colors flex items-center justify-center`}
+                      title={`Basculer vers ${
+                        facingMode === "user"
+                          ? "caméra arrière"
+                          : "caméra avant"
+                      }`}
+                    >
+                      <SwitchCamera className="w-6 h-6" />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={capturePhoto}
+                    disabled={!stream}
+                    className="w-16 h-16 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                  >
+                    <Camera className="w-8 h-8" />
+                  </button>
+
+                  <button
+                    onClick={onClose}
+                    className={`p-3 rounded-full border-2 ${
+                      isDarkMode
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                    } transition-colors`}
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </>
+              ) : null}
+
+              {capturedPhoto && (
+                // Contrôles après capture
+                <>
+                  <button
+                    onClick={retakePhoto}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                    Reprendre
+                  </button>
+
+                  <button
+                    onClick={confirmPhoto}
+                    className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  >
+                    <Check className="w-5 h-5" />
+                    Confirmer
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ... Le reste du fichier MemberForm reste INCHANGÉ ...
+
+// ✅ Composants utilitaires
+function InputField({ label, icon: Icon, error, ...props }) {
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          {...props}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+            error
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+          }`}
+        />
+        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+function SelectField({ label, options, icon: Icon, error, ...props }) {
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
+        {label}
+      </label>
+      <div className="relative">
+        <select
+          {...props}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+            error
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+          }`}
+        >
+          {options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, icon: Icon, children, count }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1 sm:gap-3 px-3 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 relative whitespace-nowrap text-sm ${
+        active
+          ? "bg-white bg-opacity-30 text-white shadow-lg"
+          : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+      }`}
+    >
+      <Icon className="w-4 h-4" />
+      <span className="hidden xs:inline sm:inline">{children}</span>
+      {count !== undefined && count > 0 && (
+        <span
+          className={`ml-1 sm:ml-2 px-1.5 py-0.5 text-xs rounded-full ${
+            active ? "bg-white bg-opacity-30" : "bg-white bg-opacity-20"
+          }`}
+        >
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function StatusBadge({ isExpired, isStudent }) {
+  return (
+    <div className="flex gap-2">
+      {isExpired && (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
+          <FaTimes className="w-3 h-3 mr-1" />
+          Expiré
+        </span>
+      )}
+      {isStudent && (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
+          <FaGraduationCap className="w-3 h-3 mr-1" />
+          Étudiant
+        </span>
+      )}
+    </div>
+  );
+}
+// 🔹 Partie 8 - Fonction MemberForm principale avec nouveaux états
+
+function MemberForm({ member, onSave, onCancel }) {
+  const [activeTab, setActiveTab] = useState("identity");
+  const [form, setForm] = useState({
+    name: "",
+    firstName: "",
+    birthdate: "",
+    gender: "Homme",
+    address: "",
+    phone: "",
+    mobile: "",
+    email: "",
+    subscriptionType: "Mensuel",
+    startDate: "",
+    endDate: "",
+    badgeId: "",
+    files: [],
+    photo: null,
+    etudiant: false,
+  });
+
+  const [payments, setPayments] = useState([]);
+  const [newPayment, setNewPayment] = useState({
+    amount: "",
+    method: "espèces",
+    encaissement_prevu: "",
+    commentaire: "",
+    is_paid: false,
+  });
+
+  // ✅ NOUVEAUX ÉTATS pour la caméra moderne
+  const [showCamera, setShowCamera] = useState(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // ✅ États existants conservés (pour compatibilité)
+  const [uploadStatus, setUploadStatus] = useState({
+    loading: false,
+    error: null,
+    success: null,
+  });
+
+  // États pour la gestion du swipe
+  const containerRef = useRef(null);
+  const startXRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const [translateX, setTranslateX] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const tabs = [
+    { id: "identity", label: "Identité", icon: FaUser },
+    { id: "contact", label: "Contact", icon: FaHome },
+    { id: "subscription", label: "Abonnement", icon: FaCreditCard },
+    {
+      id: "documents",
+      label: "Documents",
+      icon: FaFileAlt,
+      count: form.files.length,
+    },
+    {
+      id: "payments",
+      label: "Paiements",
+      icon: FaEuroSign,
+      count: payments.length,
+    },
+  ];
+
+  const currentTabIndex = tabs.findIndex((tab) => tab.id === activeTab);
+
+  // ✅ NOUVEAU useEffect pour détecter le dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    };
+
+    checkDarkMode();
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    let result = members.filter((m) =>
-      `${m.name || ""} ${m.firstName || ""}`
-        .toLowerCase()
-        .includes(search.toLowerCase())
-    );
+    if (member && !form.name && !form.firstName) {
+      // ✅ Ne se déclenche QUE si le form est vide (nouveau membre)
+      setForm({
+        ...member,
+        files: Array.isArray(member.files)
+          ? member.files
+          : typeof member.files === "string"
+          ? JSON.parse(member.files || "[]")
+          : [],
+        etudiant: !!member.etudiant,
+      });
 
-    // Appliquer les filtres
-    if (activeFilter === "Homme") {
-      result = result.filter((m) => m.gender === "Homme");
-    } else if (activeFilter === "Femme") {
-      result = result.filter((m) => m.gender === "Femme");
-    } else if (activeFilter === "Etudiant") {
-      result = result.filter((m) => m.etudiant);
-    } else if (activeFilter === "Expiré") {
-      result = result.filter((m) => {
-        if (!m.endDate) return true; // Pas de date = expiré
-        try {
-          return isBefore(parseISO(m.endDate), new Date());
-        } catch (e) {
-          return true; // Date invalide = expiré
-        }
-      });
-    } else if (activeFilter === "Récent") {
-      const now = new Date();
-      result = result.filter((m) => {
-        if (!m.startDate) return false;
-        try {
-          const date = parseISO(m.startDate);
-          return (
-            date.getMonth() === now.getMonth() &&
-            date.getFullYear() === now.getFullYear()
-          );
-        } catch (e) {
-          return false;
-        }
-      });
-    } else if (activeFilter === "SansCertif") {
-      result = result.filter((m) => {
-        if (!m.files) return true;
-        if (Array.isArray(m.files)) return m.files.length === 0;
-        if (typeof m.files === "string")
-          return m.files === "[]" || m.files === "";
-        return Object.keys(m.files).length === 0;
-      });
+      if (member.id) {
+        fetchPayments(member.id);
+      }
     }
+  }, [member?.id, form.name, form.firstName]);
 
-    // Tri par nom
-    result.sort((a, b) => {
-      const nameA = (a.name || "").toLowerCase();
-      const nameB = (b.name || "").toLowerCase();
-      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-    });
+  // Gestion des événements tactiles pour le swipe - Version simplifiée
+  const handleTouchStart = (e) => {
+    if (isTransitioning) return;
 
-    setFilteredMembers(result);
-  }, [members, search, sortAsc, activeFilter]);
+    const touch = e.touches[0];
+    containerRef.current.startX = touch.clientX;
+    containerRef.current.startY = touch.clientY;
+    containerRef.current.hasMoved = false;
+    containerRef.current.isSwipeHorizontal = null;
+  };
 
-  const handleDelete = async (id) => {
+  const handleTouchMove = (e) => {
+    if (isTransitioning) return;
+
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - containerRef.current.startX;
+    const deltaY = touch.clientY - containerRef.current.startY;
+
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    // Déterminer le type de mouvement une seule fois
     if (
-      window.confirm("Supprimer ce membre ? Cette action est irréversible.")
+      containerRef.current.isSwipeHorizontal === null &&
+      (absX > 10 || absY > 10)
     ) {
-      try {
-        await supabaseServices.deleteMember(id);
-        await fetchMembers(); // Recharger la liste
-        console.log(`✅ Membre ${id} supprimé`);
-      } catch (err) {
-        console.error("Erreur suppression:", err);
-        alert(`Erreur lors de la suppression: ${err.message}`);
+      containerRef.current.isSwipeHorizontal = absX > absY;
+      containerRef.current.hasMoved = true;
+    }
+
+    // Si c'est un swipe horizontal
+    if (containerRef.current.isSwipeHorizontal && absX > 15) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Calculer le feedback visuel
+      let clampedDelta = deltaX;
+
+      // Limiter aux bornes
+      if (currentTabIndex === 0 && deltaX > 0) {
+        clampedDelta = Math.min(deltaX * 0.3, 50); // Résistance au début
+      } else if (currentTabIndex === tabs.length - 1 && deltaX < 0) {
+        clampedDelta = Math.max(deltaX * 0.3, -50); // Résistance à la fin
+      } else {
+        clampedDelta = Math.max(-150, Math.min(150, deltaX)); // Mouvement libre
       }
+
+      setTranslateX(clampedDelta);
+      isDraggingRef.current = true;
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleTouchEnd = () => {
     if (
-      window.confirm(
-        `Supprimer les ${selectedIds.length} membres sélectionnés ? Cette action est irréversible.`
-      )
+      !containerRef.current.hasMoved ||
+      !containerRef.current.isSwipeHorizontal
     ) {
-      try {
-        for (const id of selectedIds) {
-          await supabaseServices.deleteMember(id);
-        }
-        setSelectedIds([]);
-        await fetchMembers();
-        console.log(`✅ ${selectedIds.length} membres supprimés`);
-      } catch (err) {
-        console.error("Erreur suppression multiple:", err);
-        alert(`Erreur lors de la suppression: ${err.message}`);
-      }
+      // Animation de retour douce
+      setTranslateX(0);
+      isDraggingRef.current = false;
+      return;
     }
-  };
 
-  // ✅ NOUVELLE FONCTION : Navigation vers la page de création d'un membre
-  const handleNewMember = () => {
-    navigate('/members/new', {
-      state: { 
-        returnPath: '/members' 
+    const threshold = 60; // Seuil pour changer d'onglet
+
+    if (Math.abs(translateX) > threshold) {
+      if (translateX > 0 && currentTabIndex > 0) {
+        setTranslateX(window.innerWidth);
+        setTimeout(() => goToTab(currentTabIndex - 1), 200);
+      } else if (translateX < 0 && currentTabIndex < tabs.length - 1) {
+        setTranslateX(-window.innerWidth);
+        setTimeout(() => goToTab(currentTabIndex + 1), 200);
+      } else {
+        setTranslateX(0);
       }
-    });
-  };
-
-  // ✅ NOUVELLE FONCTION : Navigation vers la page d'édition d'un membre
-  const handleEditMember = (member) => {
-    navigate(`/members/${member.id}/edit`, {
-      state: { 
-        member: member, 
-        returnPath: '/members' 
-      }
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filteredMembers.length) {
-      setSelectedIds([]);
     } else {
-      setSelectedIds(filteredMembers.map((m) => m.id));
+      setTranslateX(0);
+    }
+
+    isDraggingRef.current = false;
+    containerRef.current.hasMoved = false;
+    containerRef.current.isSwipeHorizontal = null;
+  };
+
+  const handleMouseDown = (e) => {
+    return;
+  };
+
+  const goToTab = (tabIndex) => {
+    if (tabIndex >= 0 && tabIndex < tabs.length && !isTransitioning) {
+      setIsTransitioning(true);
+      const direction = tabIndex > currentTabIndex ? -1 : 1;
+      const transitionDistance = direction * 100;
+
+      setTranslateX(transitionDistance);
+      setTimeout(() => {
+        setActiveTab(tabs[tabIndex].id);
+        setTranslateX(-transitionDistance);
+        setTimeout(() => {
+          setTranslateX(0);
+          setTimeout(() => setIsTransitioning(false), 300);
+        }, 50);
+      }, 150);
     }
   };
+  const fetchPayments = async (memberId) => {
+    const { data, error } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("member_id", memberId)
+      .order("date_paiement", { ascending: false });
 
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  // Handle image error
-  const handleImageError = (memberId, e) => {
-    // Add member ID to failed images set to prevent further retries
-    setImageErrors((prev) => new Set([...prev, memberId]));
-
-    // Set fallback immediately to prevent flickering
-    e.target.style.display = "none";
-  };
-
-  // Calculer les statistiques
-  const total = filteredMembers.length;
-  const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
-  const femaleCount = filteredMembers.filter(
-    (m) => m.gender === "Femme"
-  ).length;
-  const expiredCount = filteredMembers.filter((m) => {
-    if (!m.endDate) return true;
-    try {
-      return isBefore(parseISO(m.endDate), new Date());
-    } catch (e) {
-      return true;
+    if (error) {
+      console.error("Erreur chargement paiements :", error.message);
+      return;
     }
-  }).length;
 
-  const noCertCount = filteredMembers.filter((m) => {
-    if (!m.files) return true;
-    if (Array.isArray(m.files)) return m.files.length === 0;
-    if (typeof m.files === "string") return m.files === "[]" || m.files === "";
-    return Object.keys(m.files).length === 0;
-  }).length;
+    setPayments(data);
+  };
 
-  const recentCount = filteredMembers.filter((m) => {
-    if (!m.startDate) return false;
-    try {
-      const date = parseISO(m.startDate);
-      const now = new Date();
-      return (
-        date.getMonth() === now.getMonth() &&
-        date.getFullYear() === now.getFullYear()
+  const handleAddPayment = async () => {
+    if (!member?.id || !newPayment.amount) return;
+
+    const { error } = await supabase.from("payments").insert([
+      {
+        member_id: member.id,
+        amount: parseFloat(newPayment.amount),
+        method: newPayment.method,
+        encaissement_prevu: newPayment.encaissement_prevu || null,
+        commentaire: newPayment.commentaire || "",
+        is_paid: newPayment.is_paid || false,
+      },
+    ]);
+
+    if (error) {
+      console.error("Erreur ajout paiement :", error.message);
+      return;
+    }
+
+    setNewPayment({
+      amount: "",
+      method: "espèces",
+      encaissement_prevu: "",
+      commentaire: "",
+      is_paid: false,
+    });
+
+    fetchPayments(member.id);
+  };
+
+  const handleDeletePayment = async (id) => {
+    const { error } = await supabase.from("payments").delete().eq("id", id);
+    if (error) {
+      console.error("Erreur suppression paiement :", error.message);
+      return;
+    }
+    fetchPayments(member.id);
+  };
+
+  const togglePaymentStatus = async (paymentId, newStatus) => {
+    const { error } = await supabase
+      .from("payments")
+      .update({ is_paid: newStatus })
+      .eq("id", paymentId);
+
+    if (error) {
+      console.error(
+        "Erreur mise à jour du statut de paiement :",
+        error.message
       );
-    } catch (e) {
-      return false;
+      return;
     }
-  }).length;
 
-  const studentCount = filteredMembers.filter((m) => m.etudiant).length;
-
-  const getBadgeColor = (type) => {
-    switch (type) {
-      case "Mensuel":
-        return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300";
-      case "Trimestriel":
-        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300";
-      case "Semestriel":
-        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300";
-      case "Annuel":
-      case "Année civile":
-        return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300";
-      default:
-        return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300";
-    }
+    fetchPayments(member.id);
   };
 
-  // Component for avatar with fallback
-  const MemberAvatar = ({ member }) => {
-    const [imageLoaded, setImageLoaded] = useState(false);
-    const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
+  useEffect(() => {
+    if (!form.startDate) return;
+    if (form.subscriptionType === "Année civile") {
+      const year = new Date(form.startDate).getFullYear();
+      setForm((f) => ({
+        ...f,
+        startDate: `${year}-01-01`,
+        endDate: `${year}-12-31`,
+      }));
+    } else {
+      const start = new Date(form.startDate);
+      const months = subscriptionDurations[form.subscriptionType] || 1;
+      const end = new Date(start);
+      end.setMonth(start.getMonth() + months);
+      end.setDate(end.getDate() - 1);
+      setForm((f) => ({ ...f, endDate: end.toISOString().slice(0, 10) }));
+    }
+  }, [form.subscriptionType, form.startDate]);
 
-    // Si on sait que l'image a échoué ou qu'il n'y a pas de photo, afficher directement le fallback
-    const shouldShowFallback = !member.photo || imageFailed;
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((f) => ({
+      ...f,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
 
-    if (shouldShowFallback) {
-      return (
-        <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-          <FaUser
-            className={`text-xl ${member.gender === "Femme"
-              ? "text-pink-500 dark:text-pink-400"
-              : "text-blue-500 dark:text-blue-400"
-              }`}
-          />
-        </div>
+  const age = form.birthdate
+    ? Math.floor(
+        (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
+      )
+    : null;
+
+  const isExpired = form.endDate && new Date(form.endDate) < new Date();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({ ...form, files: JSON.stringify(form.files) }, true);
+  };
+  const handleFileUpload = async (e) => {
+    const files = e.target.files;
+    if (!files.length) return;
+
+    setUploadStatus({ loading: true, error: null, success: null });
+
+    try {
+      const newFiles = []; // ✅ Collecter tous les nouveaux fichiers
+
+      for (const file of files) {
+        const safeName = sanitizeFileName(file.name);
+        const filePath = `certificats/${Date.now()}_${safeName}`;
+
+        const { error } = await supabase.storage
+          .from("documents")
+          .upload(filePath, file);
+
+        if (error) {
+          throw new Error(`Erreur lors du téléversement : ${error.message}`);
+        }
+
+        const { data } = supabase.storage
+          .from("documents")
+          .getPublicUrl(filePath);
+
+        // ✅ Ajouter à la liste des nouveaux fichiers
+        newFiles.push({ name: safeName, url: data.publicUrl });
+      }
+
+      // ✅ AJOUT : Mettre à jour le state local avec TOUS les fichiers
+      const updatedFiles = [...form.files, ...newFiles];
+      setForm((f) => ({
+        ...f,
+        files: updatedFiles,
+      }));
+
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: `${newFiles.length} fichier(s) ajouté(s) ! Cliquez "Enregistrer" pour sauvegarder.`,
+      });
+
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
       );
+    } catch (err) {
+      console.error("Erreur lors du téléversement :", err);
+      setUploadStatus({ loading: false, error: err.message, success: null });
     }
 
-    return (
-      <div className="relative w-12 h-12 transform-gpu">
-        {/* Fallback qui reste visible jusqu'au chargement complet */}
-        <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${imageLoaded ? "opacity-0" : "opacity-100"
-            }`}
-        >
-          <FaUser
-            className={`text-xl ${member.gender === "Femme"
-              ? "text-pink-500 dark:text-pink-400"
-              : "text-blue-500 dark:text-blue-400"
-              }`}
-          />
-        </div>
+    // ✅ AJOUT : Réinitialiser l'input file
+    e.target.value = "";
+  };
 
-        {/* Image qui se superpose au fallback */}
-        <div className="relative w-12 h-12 rounded-full shadow-[0_6px_15px_rgba(0,0,0,0.6)]">
-          <img
-            src={member.photo}
-            alt="avatar"
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
-              }`}
-            onLoad={() => setImageLoaded(true)}
-            onError={() => {
-              setImageFailed(true);
-              setImageErrors((prev) => new Set([...prev, member.id]));
-            }}
-            loading="lazy"
-          />
-        </div>
-      </div>
+  // ✅ FONCTION MODIFIÉE - Capture photo avec nouveau modal
+  const handleCameraCapture = (imageData) => {
+    console.log(
+      "📸 Photo capturée depuis le nouveau modal:",
+      imageData.slice(0, 50) + "..."
+    );
+    setForm((f) => ({ ...f, photo: imageData }));
+    setUploadStatus({
+      loading: false,
+      error: null,
+      success: "Photo capturée avec succès !",
+    });
+    setTimeout(
+      () => setUploadStatus({ loading: false, error: null, success: null }),
+      3000
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">
-            Chargement des membres depuis Supabase...
-          </p>
+  // ✅ FONCTION NOUVELLE - Capture document avec nouveau modal
+  const captureDocument = async (imageData) => {
+    setUploadStatus({ loading: true, error: null, success: null });
+
+    try {
+      const response = await fetch(imageData);
+      const blob = await response.blob();
+
+      const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
+      const filePath = `certificats/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, blob);
+
+      if (uploadError) {
+        throw new Error(
+          `Erreur lors du téléversement du document : ${uploadError.message}`
+        );
+      }
+
+      const { data } = supabase.storage
+        .from("documents")
+        .getPublicUrl(filePath);
+
+      // ✅ AJOUT : Créer le nouveau fichier et mettre à jour le state local
+      const newFile = { name: fileName, url: data.publicUrl };
+      const updatedFiles = [...form.files, newFile];
+
+      setForm((f) => ({
+        ...f,
+        files: updatedFiles,
+      }));
+
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: 'Document capturé ! Cliquez "Enregistrer" pour sauvegarder.',
+      });
+
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
+    } catch (err) {
+      console.error("Erreur lors de la capture du document :", err);
+      setUploadStatus({
+        loading: false,
+        error: `Erreur lors de la capture du document : ${err.message}`,
+        success: null,
+      });
+    }
+  };
+  const removeFile = async (fileToRemove, event) => {
+    event?.stopPropagation();
+    event?.preventDefault();
+
+    try {
+      const url = fileToRemove.url;
+      const fullPrefix = "/storage/v1/object/public/";
+      const bucketIndex = url.indexOf(fullPrefix);
+      if (bucketIndex === -1) throw new Error("URL invalide");
+
+      const afterPrefix = url.substring(bucketIndex + fullPrefix.length);
+      const [bucket, ...pathParts] = afterPrefix.split("/");
+      const path = pathParts.join("/");
+
+      const { error: storageError } = await supabase.storage
+        .from(bucket)
+        .remove([path]);
+      if (storageError)
+        throw new Error(`Erreur de suppression : ${storageError.message}`);
+
+      const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
+      setForm((f) => ({ ...f, files: newFiles }));
+
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: 'Fichier supprimé ! Cliquez "Enregistrer" pour sauvegarder.',
+      });
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
+    } catch (err) {
+      console.error("Erreur suppression fichier :", err);
+      setUploadStatus({ loading: false, error: err.message, success: null });
+    }
+  };
+
+  // 🔹 Partie 12 - Fonctions de rendu des onglets avec section photo modernisée
+
+  // ✅ ONGLET IDENTITÉ MODIFIÉ - Nouvelle section photo avec sélecteur caméra
+  const renderIdentityTab = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField
+              label="Nom"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              icon={FaUser}
+              placeholder="Nom de famille"
+            />
+            <InputField
+              label="Prénom"
+              name="firstName"
+              value={form.firstName}
+              onChange={handleChange}
+              icon={FaUser}
+              placeholder="Prénom"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField
+              type="date"
+              label="Date de naissance"
+              name="birthdate"
+              value={form.birthdate}
+              onChange={handleChange}
+              icon={FaCalendarAlt}
+            />
+            <SelectField
+              label="Sexe"
+              name="gender"
+              value={form.gender}
+              onChange={handleChange}
+              options={["Homme", "Femme"]}
+              icon={FaUser}
+            />
+          </div>
+
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-6 rounded-xl border border-blue-200 dark:border-gray-600">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                  <FaGraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800 dark:text-white">
+                    Statut étudiant
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Bénéficiez de tarifs préférentiels
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setForm((f) => ({ ...f, etudiant: !f.etudiant }))
+                }
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  form.etudiant
+                    ? "bg-gradient-to-r from-blue-500 to-purple-600"
+                    : "bg-gray-300 dark:bg-gray-600"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${
+                    form.etudiant ? "translate-x-7" : ""
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {age !== null && (
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
+              <div className="flex items-center gap-3">
+                <FaCalendarAlt className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <span className="text-gray-700 dark:text-gray-200 font-medium">
+                  Âge : {age} ans
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-    );
-  }
+        {/* ✅ SECTION PHOTO MODERNISÉE avec sélecteur caméra */}
+        <div className="flex flex-col items-center space-y-4">
+          {/* Prévisualisation de la photo */}
+          <div className="relative">
+            {form.photo ? (
+              <div className="relative">
+                <img
+                  src={form.photo}
+                  alt="Photo du membre"
+                  className="w-40 h-40 object-cover rounded-2xl border-4 border-white shadow-lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, photo: null }))}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="w-40 h-40 flex items-center justify-center border-4 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl text-gray-400 bg-gray-50 dark:bg-gray-800">
+                <div className="text-center">
+                  <User className="w-12 h-12 mx-auto mb-2" />
+                  <p className="text-sm">Pas de photo</p>
+                </div>
+              </div>
+            )}
+          </div>
 
-  if (error) {
-    return (
-      <div className="text-center p-8 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-        <div className="text-red-600 dark:text-red-400 mb-4">⚠️ Erreur</div>
-        <p className="text-gray-700 dark:text-gray-300 mb-4">{error}</p>
-        <button
-          onClick={fetchMembers}
-          className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2"
-        >
-          <FaSync />
-          Réessayer
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-2 sm:px-4 members-container">
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
-            Liste des membres
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {members.length} membres dans la base Supabase
-          </p>
-        </div>
-        <button
-          onClick={fetchMembers}
-          disabled={loading}
-          className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg transition-colors inline-flex items-center gap-2 disabled:opacity-50"
-          title="Actualiser la liste"
-        >
-          <FaSync className={loading ? "animate-spin" : ""} />
-          Actualiser
-        </button>
-      </div>
-
-      {activeFilter && (
-        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <div className="flex justify-between items-center">
-            <span className="text-blue-700 dark:text-blue-300">
-              Filtre actif : <strong>{activeFilter}</strong> (
-              {filteredMembers.length} résultat
-              {filteredMembers.length !== 1 ? "s" : ""})
-            </span>
+          {/* ✅ NOUVEAUX BOUTONS PHOTO avec sélecteur caméra */}
+          <div className="flex flex-col gap-3 w-full">
+            {/* Bouton caméra avec sélecteur avant/arrière */}
             <button
-              onClick={() => setActiveFilter(null)}
-              className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline text-sm"
+              type="button"
+              onClick={() => setShowCamera("photo")}
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              Réinitialiser
+              <Camera className="w-4 h-4" />
+              📱 Prendre une photo
             </button>
+
+            {/* Bouton upload fichier */}
+            <label className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors cursor-pointer">
+              <Upload className="w-4 h-4" />
+              Choisir un fichier
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                      setForm((prev) => ({ ...prev, photo: e.target.result }));
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Info sur les caméras disponibles */}
+          <div className="text-center">
+            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
+              📸 Utilisez le bouton caméra pour choisir entre caméra avant
+              (selfie) et arrière
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderContactTab = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <InputField
+          label="Adresse complète"
+          name="address"
+          value={form.address}
+          onChange={handleChange}
+          icon={FaHome}
+          placeholder="Numéro, rue, ville, code postal"
+        />
+        <InputField
+          label="Email"
+          name="email"
+          type="email"
+          value={form.email}
+          onChange={handleChange}
+          icon={FaEnvelope}
+          placeholder="exemple@email.com"
+        />
+        <InputField
+          label="Téléphone fixe"
+          name="phone"
+          value={form.phone}
+          onChange={handleChange}
+          icon={FaPhone}
+          placeholder="01 23 45 67 89"
+        />
+        <InputField
+          label="Téléphone portable"
+          name="mobile"
+          value={form.mobile}
+          onChange={handleChange}
+          icon={FaPhone}
+          placeholder="06 12 34 56 78"
+        />
+      </div>
+    </div>
+  );
+
+  const renderSubscriptionTab = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SelectField
+          label="Type d'abonnement"
+          name="subscriptionType"
+          value={form.subscriptionType}
+          onChange={handleChange}
+          options={Object.keys(subscriptionDurations)}
+          icon={FaCreditCard}
+        />
+        <InputField
+          label="ID Badge"
+          name="badgeId"
+          value={form.badgeId}
+          onChange={handleChange}
+          icon={FaIdCard}
+          placeholder="Numéro du badge d'accès"
+        />
+        <InputField
+          type="date"
+          label="Date de début"
+          name="startDate"
+          value={form.startDate}
+          onChange={handleChange}
+          icon={FaCalendarAlt}
+        />
+        <InputField
+          type="date"
+          label="Date de fin"
+          name="endDate"
+          value={form.endDate}
+          readOnly
+          icon={FaCalendarAlt}
+        />
+      </div>
+
+      {isExpired && (
+        <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
+          <div className="flex items-center">
+            <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
+            <p className="text-red-800 dark:text-red-200 font-medium">
+              Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}
+            </p>
           </div>
         </div>
       )}
-
-      {/* Widgets de statistiques */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-        <Widget
-          title="👥 Total"
-          value={total}
-          onClick={() => setActiveFilter(null)}
-          active={!activeFilter}
-        />
-        <Widget
-          title="👨 Hommes"
-          value={maleCount}
-          onClick={() => setActiveFilter("Homme")}
-          active={activeFilter === "Homme"}
-        />
-        <Widget
-          title="👩 Femmes"
-          value={femaleCount}
-          onClick={() => setActiveFilter("Femme")}
-          active={activeFilter === "Femme"}
-        />
-        <Widget
-          title="🎓 Étudiants"
-          value={studentCount}
-          onClick={() => setActiveFilter("Etudiant")}
-          active={activeFilter === "Etudiant"}
-        />
-        <Widget
-          title="📅 Expirés"
-          value={expiredCount}
-          onClick={() => setActiveFilter("Expiré")}
-          active={activeFilter === "Expiré"}
-        />
-        <Widget
-          title="✅ Récents"
-          value={recentCount}
-          onClick={() => setActiveFilter("Récent")}
-          active={activeFilter === "Récent"}
-        />
-        <Widget
-          title="📂 Sans certif"
-          value={noCertCount}
-          onClick={() => setActiveFilter("SansCertif")}
-          active={activeFilter === "SansCertif"}
-        />
-      </div>
-
-      {/* Barre d'actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          {/* ✅ MODIFICATION : Utilisation de handleNewMember */}
-          <button
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
-            onClick={handleNewMember}
-          >
-            <FaPlus />
-            Ajouter un membre
-          </button>
-          {selectedIds.length > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
-            >
-              <FaTrash />
-              Supprimer ({selectedIds.length})
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <input
-            type="text"
-            placeholder="🔍 Rechercher nom, prénom..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-          />
-        </div>
-      </div>
-
-      {/* Contrôles de tri en mode desktop */}
-      <div className="hidden lg:flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={
-                selectedIds.length === filteredMembers.length &&
-                filteredMembers.length > 0
-              }
-              onChange={toggleSelectAll}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              Sélectionner tout
-            </span>
-          </label>
-        </div>
-        <button
-          onClick={() => setSortAsc(!sortAsc)}
-          className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+    </div>
+  );
+  // ✅ ONGLET DOCUMENTS MODIFIÉ - Nouveau bouton caméra pour documents
+  const renderDocumentsTab = () => (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <label
+          htmlFor="fileUpload"
+          className="cursor-pointer flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
         >
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Trier par nom
-          </span>
-          <span className="text-gray-500 dark:text-gray-400">
-            {sortAsc ? "▲" : "▼"}
-          </span>
+          <FaFileUpload className="w-4 h-4" />
+          Importer des fichiers
+        </label>
+        <input
+          type="file"
+          id="fileUpload"
+          className="hidden"
+          multiple
+          onChange={handleFileUpload}
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+        />
+
+        {/* ✅ NOUVEAU BOUTON - Caméra pour documents avec sélecteur */}
+        <button
+          type="button"
+          onClick={() => setShowCamera("document")}
+          className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+        >
+          <Camera className="w-4 h-4" />
+          📄 Photographier un document
         </button>
       </div>
 
-      {filteredMembers.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 dark:text-gray-400">
-          {search || activeFilter
-            ? "Aucun membre ne correspond aux critères de recherche"
-            : "Aucun membre trouvé dans la base de données"}
-        </div>
-      ) : (
-        <>
-          {/* Vue tableau pour desktop */}
-          <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                  <tr>
-                    <th className="p-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedIds.length === filteredMembers.length &&
-                          filteredMembers.length > 0
-                        }
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                      />
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Photo
-                    </th>
-                    <th className="p-3 text-left">
-                      <button
-                        onClick={() => setSortAsc(!sortAsc)}
-                        className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-                      >
-                        Nom{" "}
-                        <span className="text-gray-500 dark:text-gray-400">
-                          {sortAsc ? "▲" : "▼"}
-                        </span>
-                      </button>
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Infos
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Abonnement
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Badge
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Status
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                  {filteredMembers.map((member) => {
-                    const isExpired = member.endDate
-                      ? (() => {
-                        try {
-                          return isBefore(
-                            parseISO(member.endDate),
-                            new Date()
-                          );
-                        } catch (e) {
-                          return true;
-                        }
-                      })()
-                      : true;
-
-                    const hasFiles =
-                      member.files &&
-                      (Array.isArray(member.files)
-                        ? member.files.length > 0
-                        : typeof member.files === "string"
-                          ? member.files !== "[]" && member.files !== ""
-                          : Object.keys(member.files).length > 0);
-
-                    return (
-                      <tr
-                        key={member.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150 transform-gpu member-row"
-                      >
-                        <td className="p-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(member.id)}
-                            onChange={() => toggleSelect(member.id)}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                          />
-                        </td>
-
-                        <td className="p-3">
-                          <MemberAvatar member={member} />
-                        </td>
-
-                        {/* ✅ MODIFICATION : Utilisation de handleEditMember au lieu de setShowForm */}
-                        <td
-                          className="p-3 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                          onDoubleClick={() => handleEditMember(member)}
-                          title="Double-clic pour modifier"
+      {form.files.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {form.files.map((file) => (
+            <div
+              key={file.name}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                  <FaFileAlt className="w-6 h-6 text-blue-600 dark:text-blue-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-medium text-gray-800 dark:text-white truncate">
+                    {file.name}
+                  </h4>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {file.url && (
+                      <>
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 text-sm rounded-lg hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors"
                         >
-                          <div className="font-medium text-gray-900 dark:text-white">
-                            {member.name} {member.firstName}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            ID: {member.id}
-                          </div>
-                        </td>
-
-                        <td className="p-3">
-                          <div className="text-sm space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                  }`}
-                              >
-                                {member.gender}
-                              </span>
-                              {member.etudiant && (
-                                <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium">
-                                  🎓 Étudiant
-                                </span>
-                              )}
-                            </div>
-                            {member.email && (
-                              <div
-                                className="text-gray-600 dark:text-gray-400 text-xs truncate max-w-[200px]"
-                                title={member.email}
-                              >
-                                📧 {member.email}
-                              </div>
-                            )}
-                            {member.mobile && (
-                              <div className="text-gray-600 dark:text-gray-400 text-xs">
-                                📱 {member.mobile}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="p-3">
-                          <div className="space-y-1">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(
-                                member.subscriptionType
-                              )}`}
-                            >
-                              {member.subscriptionType || "Non défini"}
-                            </span>
-                            {member.startDate && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Début: {member.startDate}
-                              </div>
-                            )}
-                            {member.endDate && (
-                              <div
-                                className={`text-xs ${isExpired
-                                  ? "text-red-600 dark:text-red-400 font-medium"
-                                  : "text-gray-500 dark:text-gray-400"
-                                  }`}
-                              >
-                                Fin: {member.endDate}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="p-3">
-                          <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
-                            {member.badgeId || "—"}
-                          </span>
-                        </td>
-
-                        <td className="p-3">
-                          <div className="flex flex-col gap-1">
-                            {isExpired ? (
-                              <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                                ⚠️ Expiré
-                              </span>
-                            ) : (
-                              <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                                ✅ Actif
-                              </span>
-                            )}
-                            {hasFiles ? (
-                              <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                                📄 Docs OK
-                              </span>
-                            ) : (
-                              <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
-                                📄 Manquant
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="p-3">
-                          <div className="flex flex-col gap-2">
-                            {/* ✅ MODIFICATION : Utilisation de handleEditMember */}
-                            <button
-                              onClick={() => handleEditMember(member)}
-                              className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-1 rounded text-sm transition-colors"
-                              title="Modifier ce membre"
-                            >
-                              <FaEdit className="w-3 h-3" />
-                              Modifier
-                            </button>
-                            <button
-                              onClick={() => handleDelete(member.id)}
-                              className="flex items-center gap-1 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 px-3 py-1 rounded text-sm transition-colors"
-                              title="Supprimer ce membre"
-                            >
-                              <FaTrash className="w-3 h-3" />
-                              Supprimer
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Vue cartes pour mobile/tablette */}
-          <div className="lg:hidden space-y-4">
-            {/* Contrôles de tri mobile */}
-            <div className="flex items-center justify-between mb-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={
-                    selectedIds.length === filteredMembers.length &&
-                    filteredMembers.length > 0
-                  }
-                  onChange={toggleSelectAll}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Tout sélectionner
-                </span>
-              </label>
-              <button onClick={() => setSortAsc(!sortAsc)}>
-                <span className="text-gray-700 dark:text-gray-300">Nom</span>{" "}
-                <span className="text-gray-500 dark:text-gray-400">
-                  {sortAsc ? "▲" : "▼"}
-                </span>
-              </button>
-            </div>
-
-            {filteredMembers.map((member) => {
-              const isExpired = member.endDate
-                ? (() => {
-                  try {
-                    return isBefore(parseISO(member.endDate), new Date());
-                  } catch (e) {
-                    return true;
-                  }
-                })()
-                : true;
-
-              const hasFiles =
-                member.files &&
-                (Array.isArray(member.files)
-                  ? member.files.length > 0
-                  : typeof member.files === "string"
-                    ? member.files !== "[]" && member.files !== ""
-                    : Object.keys(member.files).length > 0);
-
-              return (
-                <div
-                  key={member.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-150 transform-gpu member-card"
-                >
-                  {/* En-tête de la carte */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(member.id)}
-                        onChange={() => toggleSelect(member.id)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
-                      />
-                      <MemberAvatar member={member} />
-                      {/* ✅ MODIFICATION : Utilisation de handleEditMember */}
-                      <div
-                        className="flex-1 cursor-pointer"
-                        onClick={() => handleEditMember(member)}
-                      >
-                        <div className="font-semibold text-gray-900 dark:text-white text-lg">
-                          {member.name} {member.firstName}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          ID: {member.id}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Informations personnelles */}
-                  <div className="mb-3">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                          }`}
-                      >
-                        {member.gender}
-                      </span>
-                      {member.etudiant && (
-                        <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full text-xs font-medium">
-                          🎓 Étudiant
-                        </span>
-                      )}
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(
-                          member.subscriptionType
-                        )}`}
-                      >
-                        {member.subscriptionType || "Non défini"}
-                      </span>
-                    </div>
-
-                    {/* Contact */}
-                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                      {member.email && (
-                        <div className="flex items-center gap-2">
-                          <span>📧</span>
-                          <span className="truncate">{member.email}</span>
-                        </div>
-                      )}
-                      {member.mobile && (
-                        <div className="flex items-center gap-2">
-                          <span>📱</span>
-                          <span>{member.mobile}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Abonnement et Badge */}
-                  <div className="grid grid-cols-2 gap-4 mb-3">
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        ABONNEMENT
-                      </div>
-                      <div className="space-y-1">
-                        {member.startDate && (
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            Début: {member.startDate}
-                          </div>
-                        )}
-                        {member.endDate && (
-                          <div
-                            className={`text-xs ${isExpired
-                              ? "text-red-600 dark:text-red-400 font-medium"
-                              : "text-gray-600 dark:text-gray-400"
-                              }`}
-                          >
-                            Fin: {member.endDate}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        BADGE
-                      </div>
-                      <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
-                        {member.badgeId || "—"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {isExpired ? (
-                      <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                        ⚠️ Expiré
-                      </span>
-                    ) : (
-                      <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                        ✅ Actif
-                      </span>
+                          <FaEye className="w-3 h-3" />
+                          Voir
+                        </a>
+                        <a
+                          href={file.url}
+                          download={file.name}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 text-sm rounded-lg hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
+                        >
+                          <FaDownload className="w-3 h-3" />
+                          Télécharger
+                        </a>
+                      </>
                     )}
-                    {hasFiles ? (
-                      <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                        📄 Docs OK
-                      </span>
-                    ) : (
-                      <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
-                        📄 Manquant
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
-                    {/* ✅ MODIFICATION : Utilisation de handleEditMember */}
                     <button
-                      onClick={() => handleEditMember(member)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors"
-                    >
-                      <FaEdit className="w-3 h-3" />
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => handleDelete(member.id)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm transition-colors"
+                      onClick={(e) => removeFile(file, e)}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 text-sm rounded-lg hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
                     >
                       <FaTrash className="w-3 h-3" />
                       Supprimer
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Résumé en bas */}
-      {filteredMembers.length > 0 && (
-        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400">
-          Affichage de {filteredMembers.length} membre
-          {filteredMembers.length !== 1 ? "s" : ""} sur {members.length} total
-          {selectedIds.length > 0 && (
-            <span className="ml-4 text-blue-600 dark:text-blue-400 font-medium">
-              • {selectedIds.length} sélectionné
-              {selectedIds.length !== 1 ? "s" : ""}
-            </span>
-          )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+          <FaFileAlt className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">
+            Aucun document
+          </p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
+            Importez des certificats, documents d'identité, etc.
+          </p>
         </div>
       )}
+    </div>
+  );
+  const renderPaymentsTab = () => (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-xl border border-green-200 dark:border-green-600">
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white mb-4">
+          <FaEuroSign className="w-5 h-5 text-green-600 dark:text-green-300" />
+          Nouveau paiement
+        </h3>
 
-      {/* ✅ SUPPRESSION COMPLÈTE : Modal du formulaire car nous utilisons la navigation
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
-            <MemberForm
-              member={selectedMember}
-              onSave={async (memberData, closeModal) => {
-                try {
-                  console.log(
-                    "💾 Sauvegarde membre:",
-                    selectedMember ? "Modification" : "Création"
-                  );
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <InputField
+            label="Montant (€)"
+            type="number"
+            name="amount"
+            value={newPayment.amount}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, amount: e.target.value }))
+            }
+            icon={FaEuroSign}
+            placeholder="0.00"
+            step="0.01"
+          />
+          <SelectField
+            label="Méthode de paiement"
+            name="method"
+            value={newPayment.method}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, method: e.target.value }))
+            }
+            options={["espèces", "chèque", "carte", "virement", "autre"]}
+            icon={FaCreditCard}
+          />
+          <InputField
+            label="Encaissement prévu"
+            type="date"
+            name="encaissement_prevu"
+            value={newPayment.encaissement_prevu}
+            onChange={(e) =>
+              setNewPayment((p) => ({
+                ...p,
+                encaissement_prevu: e.target.value,
+              }))
+            }
+            icon={FaCalendarAlt}
+          />
+        </div>
 
-                  if (selectedMember?.id) {
-                    // Modification d'un membre existant
-                    await supabaseServices.updateMember(
-                      selectedMember.id,
-                      memberData
-                    );
-                    console.log("✅ Membre modifié:", selectedMember.id);
-                  } else {
-                    // Création d'un nouveau membre
-                    const newMember = await supabaseServices.createMember(
-                      memberData
-                    );
-                    console.log("✅ Nouveau membre créé:", newMember.id);
-                  }
+        <div className="mb-4">
+          <InputField
+            label="Commentaire"
+            name="commentaire"
+            value={newPayment.commentaire}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, commentaire: e.target.value }))
+            }
+            placeholder="Note ou commentaire sur ce paiement"
+          />
+        </div>
 
-                  // Fermer le modal si demandé
-                  if (closeModal) {
-                    setShowForm(false);
-                    setSelectedMember(null);
-                  }
-
-                  // Recharger la liste
-                  await fetchMembers();
-                } catch (error) {
-                  console.error("❌ Erreur sauvegarde membre:", error);
-                  alert(`Erreur lors de la sauvegarde: ${error.message}`);
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-0 sm:justify-between">
+          <label className="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={newPayment.is_paid}
+                onChange={(e) =>
+                  setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))
                 }
-              }}
-              onCancel={() => {
-                setShowForm(false);
-                setSelectedMember(null);
-              }}
-            />
+                className="sr-only"
+              />
+              <div
+                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  newPayment.is_paid
+                    ? "bg-green-500 border-green-500"
+                    : "border-gray-300 dark:border-gray-500"
+                }`}
+              >
+                {newPayment.is_paid && (
+                  <FaCheck className="w-3 h-3 text-white" />
+                )}
+              </div>
+            </div>
+            Paiement déjà encaissé
+          </label>
+
+          <button
+            type="button"
+            onClick={handleAddPayment}
+            disabled={!newPayment.amount}
+            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none w-full sm:w-auto"
+          >
+            <FaEuroSign className="w-4 h-4" />
+            Ajouter le paiement
+          </button>
+        </div>
+      </div>
+      {/* Liste des paiements */}
+      {payments.length > 0 ? (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+            Historique des paiements
+          </h3>
+          {payments.map((pay) => (
+            <div
+              key={pay.id}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                <div className="flex-1 w-full sm:w-auto">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        pay.is_paid
+                          ? "bg-green-100 dark:bg-green-900"
+                          : "bg-orange-100 dark:bg-orange-900"
+                      }`}
+                    >
+                      <FaEuroSign
+                        className={`w-4 h-4 ${
+                          pay.is_paid
+                            ? "text-green-600 dark:text-green-300"
+                            : "text-orange-600 dark:text-orange-300"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-lg text-gray-800 dark:text-white">
+                        {pay.amount.toFixed(2)} €
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
+                        {pay.method}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 mb-3">
+                    <input
+                      type="checkbox"
+                      checked={pay.is_paid}
+                      onChange={() => togglePaymentStatus(pay.id, !pay.is_paid)}
+                      className="sr-only"
+                    />
+                    <button
+                      onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                        pay.is_paid
+                          ? "bg-green-500 border-green-500"
+                          : "border-gray-300 dark:border-gray-500 hover:border-green-400"
+                      }`}
+                    >
+                      {pay.is_paid && (
+                        <FaCheck className="w-3 h-3 text-white" />
+                      )}
+                    </button>
+                    <span
+                      className={`text-sm font-medium ${
+                        pay.is_paid
+                          ? "text-green-600 dark:text-green-300"
+                          : "text-orange-600 dark:text-orange-300"
+                      }`}
+                    >
+                      {pay.is_paid ? "Encaissé" : "En attente"}
+                    </span>
+                  </div>
+
+                  <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                    <p>
+                      Payé le {new Date(pay.date_paiement).toLocaleDateString()}
+                    </p>
+                    {pay.encaissement_prevu && (
+                      <p className="text-blue-600 dark:text-blue-300">
+                        Encaissement prévu :{" "}
+                        {new Date(pay.encaissement_prevu).toLocaleDateString()}
+                      </p>
+                    )}
+                    {pay.commentaire && (
+                      <p className="italic text-gray-500 dark:text-gray-400">
+                        {pay.commentaire}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleDeletePayment(pay.id)}
+                  className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 dark:text-red-300 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors w-full sm:w-auto"
+                >
+                  <FaTrash className="w-3 h-3" />
+                  <span className="sm:hidden">Supprimer</span>
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-gray-700 dark:text-gray-300">
+                Total des paiements :
+              </span>
+              <span className="text-2xl font-bold text-green-600 dark:text-green-300">
+                {payments
+                  .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
+                  .toFixed(2)}{" "}
+                €
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+          <FaEuroSign className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">
+            Aucun paiement enregistré
+          </p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
+            Ajoutez le premier paiement ci-dessus
+          </p>
+        </div>
+      )}
+    </div>
+  );
+  const renderCurrentTab = () => {
+    switch (activeTab) {
+      case "identity":
+        return renderIdentityTab();
+      case "contact":
+        return renderContactTab();
+      case "subscription":
+        return renderSubscriptionTab();
+      case "documents":
+        return renderDocumentsTab();
+      case "payments":
+        return renderPaymentsTab();
+      default:
+        return renderIdentityTab();
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={true}
+      onRequestClose={onCancel}
+      shouldCloseOnOverlayClick={false}
+      shouldCloseOnEsc={false}
+      contentLabel="Fiche Membre"
+      className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-6xl mx-auto mt-2 sm:mt-4 outline-none relative flex flex-col max-h-[98vh] sm:max-h-[95vh]"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-start z-50 p-2 sm:p-4"
+    >
+      {/* Header avec photo et infos principales */}
+      <div className="bg-gradient-to-r from-blue-400 to-purple-500 dark:from-blue-800 dark:to-purple-800 text-white p-4 md:p-6 rounded-t-2xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center flex-shrink-0">
+              {form.photo ? (
+                <img
+                  src={form.photo}
+                  alt="Avatar"
+                  className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover"
+                />
+              ) : (
+                <FaUser className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-2xl font-bold truncate">
+                {form.firstName || form.name
+                  ? `${form.firstName} ${form.name}`
+                  : "Nouveau membre"}
+              </h1>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
+                {form.badgeId && (
+                  <span className="flex items-center gap-1 text-xs sm:text-sm bg-white bg-opacity-20 px-2 py-1 rounded-full self-start">
+                    <FaIdCard className="w-3 h-3" />
+                    Badge: {form.badgeId}
+                  </span>
+                )}
+                <StatusBadge isExpired={isExpired} isStudent={form.etudiant} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all duration-200 flex-1 sm:flex-none text-sm"
+            >
+              <FaTimes className="w-4 h-4" />
+              <span className="hidden sm:inline">Annuler</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition-all duration-200 font-semibold shadow-lg flex-1 sm:flex-none text-sm"
+            >
+              <FaCheck className="w-4 h-4" />
+              Enregistrer
+            </button>
+          </div>
+        </div>
+        {/* Navigation par onglets avec scroll horizontal */}
+        <div className="overflow-x-auto scrollbar-hide">
+          <div className="flex gap-1 sm:gap-2 min-w-max pb-2 sm:pb-0">
+            {tabs.map((tab, index) => (
+              <TabButton
+                key={tab.id}
+                active={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                icon={tab.icon}
+                count={tab.count}
+              >
+                {tab.label}
+              </TabButton>
+            ))}
+          </div>
+        </div>
+
+        {/* Indicateurs de progression et navigation (mobile) */}
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => goToTab(currentTabIndex - 1)}
+            disabled={currentTabIndex === 0}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+              currentTabIndex === 0
+                ? "text-white text-opacity-40 cursor-not-allowed"
+                : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+            }`}
+          >
+            <FaChevronLeft className="w-3 h-3" />
+            <span className="hidden sm:inline">Précédent</span>
+          </button>
+
+          <div className="flex justify-center gap-2">
+            {tabs.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToTab(index)}
+                className={`w-2 h-2 rounded-full transition-colors ${
+                  currentTabIndex === index
+                    ? "bg-white"
+                    : "bg-white bg-opacity-40"
+                }`}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={() => goToTab(currentTabIndex + 1)}
+            disabled={currentTabIndex === tabs.length - 1}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+              currentTabIndex === tabs.length - 1
+                ? "text-white text-opacity-40 cursor-not-allowed"
+                : "text-white text-opacity-80 hover:text-white hover:bg-white hover:bg-opacity-20"
+            }`}
+          >
+            <span className="hidden sm:inline">Suivant</span>
+            <FaChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+
+        <div className="text-center mt-3 text-xs text-white text-opacity-70">
+          💡 Glissez horizontalement ou utilisez les flèches pour naviguer
+        </div>
+      </div>
+
+      {/* Notifications de statut */}
+      {uploadStatus.loading && (
+        <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+            <p className="text-blue-700 dark:text-blue-300">
+              Téléversement en cours...
+            </p>
           </div>
         </div>
       )}
-      */}
-    </div>
+
+      {uploadStatus.error && (
+        <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4">
+          <div className="flex items-center">
+            <FaTimes className="w-4 h-4 text-red-400 dark:text-red-300 mr-3" />
+            <p className="text-red-700 dark:text-red-200">
+              {uploadStatus.error}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {uploadStatus.success && (
+        <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-400 dark:border-green-700 p-4">
+          <div className="flex items-center">
+            <FaCheck className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
+            <p className="text-green-700 dark:text-green-100">
+              {uploadStatus.success}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Contenu des onglets avec gestion du swipe */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div
+          ref={containerRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            transform: `translateX(${translateX}px)`,
+            transition: isDraggingRef.current
+              ? "none"
+              : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          <div className="p-4 md:p-6 min-h-full">
+            <form onSubmit={handleSubmit}>{renderCurrentTab()}</form>
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ NOUVEAU MODAL CAMÉRA - Intégration complète avec corrections */}
+      {showCamera && (
+        <CameraModal
+          key={showCamera} // ✅ CORRECTION : Ajout d'une clé pour forcer la réinitialisation complète du composant
+          isOpen={!!showCamera}
+          onClose={() => {
+            console.log("🚪 Fermeture du modal caméra");
+            setShowCamera(null);
+          }}
+          onCapture={async (imageData) => { // ✅ CORRECTION : Gestion asynchrone de la capture
+            console.log(
+              "📸 Photo capturée depuis le modal:",
+              imageData.slice(0, 50) + "..."
+            );
+
+            // On ferme le modal immédiatement pour une meilleure expérience utilisateur
+            setShowCamera(null);
+
+            if (showCamera === "document") {
+              // On attend la fin du traitement du document (qui est asynchrone)
+              await captureDocument(imageData);
+            } else {
+              // Le traitement de la photo de profil est synchrone
+              handleCameraCapture(imageData);
+            }
+          }}
+          isDarkMode={isDarkMode}
+        />
+      )}
+    </Modal>
   );
 }
 
-// Composant Widget pour les statistiques
-function Widget({ title, value, onClick, active = false }) {
-  return (
-    <div
-      onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
-        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-        }`}
-    >
-      <div
-        className={`text-sm ${active
-          ? "text-blue-700 dark:text-blue-300 font-medium"
-          : "text-gray-500 dark:text-gray-400"
-          }`}
-      >
-        {title}
-      </div>
-      <div
-        className={`text-xl font-bold ${active
-          ? "text-blue-800 dark:text-blue-200"
-          : "text-gray-800 dark:text-gray-200"
-          }`}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
+export default MemberForm;
 
-export default MembersPage;
+// ✅ RÉSUMÉ DES CORRECTIONS APPLIQUÉES :
+/*
+🔧 CORRECTIONS POUR L'ERREUR WEBCAM ET LA STABILITÉ :
 
+1. 🔄 GESTION DU CYCLE DE VIE UNIFIÉE AVEC `useEffect`
+   - Un seul `useEffect` gère maintenant l'ouverture, la fermeture, et le changement de caméra.
+   - Il dépend de `[isOpen, facingMode]`, ce qui le force à se ré-exécuter uniquement lorsque c'est nécessaire.
+   - Cela élimine les conditions de concurrence (race conditions) qui causaient l'erreur "caméra occupée".
+
+2. 🧹 NETTOYAGE SÉQUENTIEL ET OBLIGATOIRE
+   - La logique garantit qu'un flux vidéo est TOUJOURS complètement arrêté (`cleanupStream`) AVANT de tenter d'en démarrer un nouveau.
+   - C'est la correction la plus critique pour résoudre le conflit entre la caméra avant et arrière.
+
+3. 🕵️ DÉTECTION PRÉCOCE DES CAMÉRAS
+   - La liste des caméras disponibles est maintenant récupérée dès l'initialisation.
+   - Le bouton pour basculer entre les caméras apparaît donc correctement dès la première ouverture, s'il y a plusieurs caméras.
+
+4. 🚦 GESTION D'ERREURS AMÉLIORÉE
+   - Des messages d'erreur plus clairs sont affichés à l'utilisateur, par exemple si la caméra est introuvable (`NotFoundError`) ou si l'accès est refusé.
+
+5. 📸 LOGIQUE DE REPRISE DE PHOTO FIABILISÉE
+   - La fonction "Reprendre" une photo force maintenant correctement le redémarrage du flux vidéo.
+
+6. 🔑 RÉINITIALISATION FORCÉE DU MODAL (NOUVELLE CORRECTION)
+   - Ajout d'une prop `key` au composant `<CameraModal>`.
+   - Cela force React à créer une nouvelle instance du modal à chaque ouverture, que ce soit pour une photo de profil ou un document.
+   - Cela garantit qu'aucun état interne (comme une caméra mal libérée) ne soit conservé entre les utilisations.
+
+RÉSULTAT : Le composant caméra est maintenant beaucoup plus stable. L'erreur "La caméra est occupée"
+lors du basculement ne devrait plus se produire, et l'expérience utilisateur est plus fluide.
+*/
