@@ -9,7 +9,7 @@ import { FaEdit, FaTrash, FaPlus, FaSync, FaUser } from "react-icons/fa";
 
 function MembersPage() {
   const navigate = useNavigate();
-  
+
   // ✅ États existants
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
@@ -31,7 +31,7 @@ function MembersPage() {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024); // lg breakpoint
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -45,11 +45,11 @@ function MembersPage() {
       setShowForm(true);
     } else {
       // Mode desktop : naviguer vers MemberFormPage
-      navigate('/members/edit', { 
-        state: { 
+      navigate('/members/edit', {
+        state: {
           member: member,
           returnPath: '/members'
-        } 
+        }
       });
     }
   };
@@ -62,11 +62,11 @@ function MembersPage() {
       setShowForm(true);
     } else {
       // Mode desktop : naviguer vers MemberFormPage
-      navigate('/members/new', { 
-        state: { 
+      navigate('/members/new', {
+        state: {
           member: null,
           returnPath: '/members'
-        } 
+        }
       });
     }
   };
@@ -640,8 +640,6 @@ function MembersPage() {
 
                         <td className="p-3">
                           <div className="space-y-1">
-                            // ✅ PARTIE 5/5 SUITE : FIN DES TABLEAUX ET MODAL
-
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(
                                 member.subscriptionType
