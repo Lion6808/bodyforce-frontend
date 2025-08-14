@@ -1,21 +1,82 @@
+// ✅ PARTIE 1/5 : IMPORTS ET DÉBUT DU COMPOSANT
+
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabaseServices } from "../supabaseClient";
-import MemberForm from '../components/MemberForm'
+import MemberForm from '../components/MemberForm'; // ✅ GARDER pour mobile
 import { format, isBefore, parseISO } from "date-fns";
 import { FaEdit, FaTrash, FaPlus, FaSync, FaUser } from "react-icons/fa";
 
 function MembersPage() {
+  const navigate = useNavigate();
+  
+  // ✅ États existants
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
-  const [selectedMember, setSelectedMember] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
-  const [showForm, setShowForm] = useState(false);
   const [activeFilter, setActiveFilter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [imageErrors, setImageErrors] = useState(new Set()); // Track failed images
+  const [imageErrors, setImageErrors] = useState(new Set());
+
+  // ✅ NOUVEAUX États pour l'approche hybride
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ Détection de la taille d'écran
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024); // lg breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // ✅ HANDLER HYBRIDE pour l'édition
+  const handleEditMember = (member) => {
+    if (isMobile) {
+      // Mode mobile : utiliser le modal MemberForm
+      setSelectedMember(member);
+      setShowForm(true);
+    } else {
+      // Mode desktop : naviguer vers MemberFormPage
+      navigate('/members/edit', { 
+        state: { 
+          member: member,
+          returnPath: '/members'
+        } 
+      });
+    }
+  };
+
+  // ✅ HANDLER HYBRIDE pour l'ajout
+  const handleAddMember = () => {
+    if (isMobile) {
+      // Mode mobile : utiliser le modal MemberForm
+      setSelectedMember(null);
+      setShowForm(true);
+    } else {
+      // Mode desktop : naviguer vers MemberFormPage
+      navigate('/members/new', { 
+        state: { 
+          member: null,
+          returnPath: '/members'
+        } 
+      });
+    }
+  };
+
+  // ✅ HANDLER pour fermer le modal (mobile uniquement)
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setSelectedMember(null);
+  };
+  // ✅ PARTIE 2/5 : FONCTIONS UTILITAIRES
 
   const fetchMembers = async () => {
     try {
@@ -52,11 +113,11 @@ function MembersPage() {
       result = result.filter((m) => m.etudiant);
     } else if (activeFilter === "Expiré") {
       result = result.filter((m) => {
-        if (!m.endDate) return true; // Pas de date = expiré
+        if (!m.endDate) return true;
         try {
           return isBefore(parseISO(m.endDate), new Date());
         } catch (e) {
-          return true; // Date invalide = expiré
+          return true;
         }
       });
     } else if (activeFilter === "Récent") {
@@ -99,7 +160,7 @@ function MembersPage() {
     ) {
       try {
         await supabaseServices.deleteMember(id);
-        await fetchMembers(); // Recharger la liste
+        await fetchMembers();
         console.log(`✅ Membre ${id} supprimé`);
       } catch (err) {
         console.error("Erreur suppression:", err);
@@ -142,14 +203,11 @@ function MembersPage() {
     );
   };
 
-  // Handle image error
   const handleImageError = (memberId, e) => {
-    // Add member ID to failed images set to prevent further retries
     setImageErrors((prev) => new Set([...prev, memberId]));
-
-    // Set fallback immediately to prevent flickering
     e.target.style.display = "none";
   };
+  // ✅ PARTIE 3/5 : CALCULS ET COMPOSANTS UTILITAIRES
 
   // Calculer les statistiques
   const total = filteredMembers.length;
@@ -206,12 +264,10 @@ function MembersPage() {
   };
 
   // Component for avatar with fallback
-  // REMPLACEZ votre MemberAvatar existant par ceci :
   const MemberAvatar = ({ member }) => {
     const [imageLoaded, setImageLoaded] = useState(false);
     const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
 
-    // Si on sait que l'image a échoué ou qu'il n'y a pas de photo, afficher directement le fallback
     const shouldShowFallback = !member.photo || imageFailed;
 
     if (shouldShowFallback) {
@@ -229,7 +285,6 @@ function MembersPage() {
 
     return (
       <div className="relative w-12 h-12 transform-gpu">
-        {/* Fallback qui reste visible jusqu'au chargement complet */}
         <div
           className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${imageLoaded ? "opacity-0" : "opacity-100"
             }`}
@@ -242,7 +297,6 @@ function MembersPage() {
           />
         </div>
 
-        {/* Image qui se superpose au fallback */}
         <div className="relative w-12 h-12 rounded-full shadow-[0_6px_15px_rgba(0,0,0,0.6)]">
           <img
             src={member.photo}
@@ -257,12 +311,10 @@ function MembersPage() {
             loading="lazy"
           />
         </div>
-
-
-
       </div>
     );
   };
+  // ✅ PARTIE 4/5 : ÉTATS DE CHARGEMENT ET DÉBUT DU JSX
 
   if (loading) {
     return (
@@ -384,10 +436,7 @@ function MembersPage() {
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <button
             className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
-            onClick={() => {
-              setSelectedMember(null);
-              setShowForm(true);
-            }}
+            onClick={handleAddMember} // ✅ Handler hybride
           >
             <FaPlus />
             Ajouter un membre
@@ -413,6 +462,7 @@ function MembersPage() {
           />
         </div>
       </div>
+      // ✅ PARTIE 5/5 : TABLEAUX, MODALS ET FIN DU COMPOSANT
 
       {/* Contrôles de tri en mode desktop */}
       <div className="hidden lg:flex items-center justify-between mb-4">
@@ -544,10 +594,7 @@ function MembersPage() {
 
                         <td
                           className="p-3 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                          onDoubleClick={() => {
-                            setSelectedMember(member);
-                            setShowForm(true);
-                          }}
+                          onDoubleClick={() => handleEditMember(member)} // ✅ Handler hybride
                           title="Double-clic pour modifier"
                         >
                           <div className="font-medium text-gray-900 dark:text-white">
@@ -593,6 +640,8 @@ function MembersPage() {
 
                         <td className="p-3">
                           <div className="space-y-1">
+                            // ✅ PARTIE 5/5 SUITE : FIN DES TABLEAUX ET MODAL
+
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(
                                 member.subscriptionType
@@ -650,10 +699,7 @@ function MembersPage() {
                         <td className="p-3">
                           <div className="flex flex-col gap-2">
                             <button
-                              onClick={() => {
-                                setSelectedMember(member);
-                                setShowForm(true);
-                              }}
+                              onClick={() => handleEditMember(member)} // ✅ Handler hybride
                               className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-1 rounded text-sm transition-colors"
                               title="Modifier ce membre"
                             >
@@ -740,10 +786,7 @@ function MembersPage() {
                       <MemberAvatar member={member} />
                       <div
                         className="flex-1 cursor-pointer"
-                        onClick={() => {
-                          setSelectedMember(member);
-                          setShowForm(true);
-                        }}
+                        onClick={() => handleEditMember(member)} // ✅ Handler hybride
                       >
                         <div className="font-semibold text-gray-900 dark:text-white text-lg">
                           {member.name} {member.firstName}
@@ -856,10 +899,7 @@ function MembersPage() {
                   {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
                     <button
-                      onClick={() => {
-                        setSelectedMember(member);
-                        setShowForm(true);
-                      }}
+                      onClick={() => handleEditMember(member)} // ✅ Handler hybride
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors"
                     >
                       <FaEdit className="w-3 h-3" />
@@ -894,8 +934,8 @@ function MembersPage() {
         </div>
       )}
 
-      {/* Modal du formulaire */}
-      {showForm && (
+      {/* ✅ MODAL CONDITIONNEL - Affiché uniquement en mobile */}
+      {showForm && isMobile && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
           <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
             <MemberForm
@@ -935,10 +975,7 @@ function MembersPage() {
                   alert(`Erreur lors de la sauvegarde: ${error.message}`);
                 }
               }}
-              onCancel={() => {
-                setShowForm(false);
-                setSelectedMember(null);
-              }}
+              onCancel={handleCloseForm}
             />
           </div>
         </div>
@@ -947,8 +984,7 @@ function MembersPage() {
   );
 }
 
-// Composant Widget pour les statistiques...
-// REMPLACEZ votre Widget existant par ceci :
+// Composant Widget pour les statistiques
 function Widget({ title, value, onClick, active = false }) {
   return (
     <div

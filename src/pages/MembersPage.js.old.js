@@ -1,22 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"; // ✅ AJOUT : Import pour la navigation
 import { supabaseServices } from "../supabaseClient";
-// ✅ SUPPRESSION : import MemberForm depuis que nous utilisons la page
-// import MemberForm from '../components/MemberForm'
+//import MemberForm from '../components/MemberForm' // ✅ SUPPRESSION : import MemberForm depuis que nous utilisons la page
 import { format, isBefore, parseISO } from "date-fns";
 import { FaEdit, FaTrash, FaPlus, FaSync, FaUser } from "react-icons/fa";
 
 function MembersPage() {
-  const navigate = useNavigate(); // ✅ AJOUT : Hook de navigation
-
+   const navigate = useNavigate(); // ✅ AJOUT : Hook de navigation
+  
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [search, setSearch] = useState("");
   const [sortAsc, setSortAsc] = useState(true);
-  // ✅ SUPPRESSION : showForm car nous utilisons la navigation
-  // const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [activeFilter, setActiveFilter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -133,25 +131,6 @@ function MembersPage() {
     }
   };
 
-  // ✅ NOUVELLE FONCTION : Navigation vers la page de création d'un membre
-  const handleNewMember = () => {
-    navigate('/members/new', {
-      state: { 
-        returnPath: '/members' 
-      }
-    });
-  };
-
-  // ✅ NOUVELLE FONCTION : Navigation vers la page d'édition d'un membre
-  const handleEditMember = (member) => {
-    navigate(`/members/${member.id}/edit`, {
-      state: { 
-        member: member, 
-        returnPath: '/members' 
-      }
-    });
-  };
-
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredMembers.length) {
       setSelectedIds([]);
@@ -230,6 +209,7 @@ function MembersPage() {
   };
 
   // Component for avatar with fallback
+  // REMPLACEZ votre MemberAvatar existant par ceci :
   const MemberAvatar = ({ member }) => {
     const [imageLoaded, setImageLoaded] = useState(false);
     const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
@@ -280,6 +260,9 @@ function MembersPage() {
             loading="lazy"
           />
         </div>
+
+
+
       </div>
     );
   };
@@ -402,10 +385,12 @@ function MembersPage() {
       {/* Barre d'actions */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          {/* ✅ MODIFICATION : Utilisation de handleNewMember */}
           <button
             className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
-            onClick={handleNewMember}
+            onClick={() => {
+              setSelectedMember(null);
+              setShowForm(true);
+            }}
           >
             <FaPlus />
             Ajouter un membre
@@ -560,10 +545,12 @@ function MembersPage() {
                           <MemberAvatar member={member} />
                         </td>
 
-                        {/* ✅ MODIFICATION : Utilisation de handleEditMember au lieu de setShowForm */}
                         <td
                           className="p-3 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                          onDoubleClick={() => handleEditMember(member)}
+                          onDoubleClick={() => {
+                            setSelectedMember(member);
+                            setShowForm(true);
+                          }}
                           title="Double-clic pour modifier"
                         >
                           <div className="font-medium text-gray-900 dark:text-white">
@@ -665,9 +652,11 @@ function MembersPage() {
 
                         <td className="p-3">
                           <div className="flex flex-col gap-2">
-                            {/* ✅ MODIFICATION : Utilisation de handleEditMember */}
                             <button
-                              onClick={() => handleEditMember(member)}
+                              onClick={() => {
+                                setSelectedMember(member);
+                                setShowForm(true);
+                              }}
                               className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-1 rounded text-sm transition-colors"
                               title="Modifier ce membre"
                             >
@@ -752,10 +741,12 @@ function MembersPage() {
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
                       />
                       <MemberAvatar member={member} />
-                      {/* ✅ MODIFICATION : Utilisation de handleEditMember */}
                       <div
                         className="flex-1 cursor-pointer"
-                        onClick={() => handleEditMember(member)}
+                        onClick={() => {
+                          setSelectedMember(member);
+                          setShowForm(true);
+                        }}
                       >
                         <div className="font-semibold text-gray-900 dark:text-white text-lg">
                           {member.name} {member.firstName}
@@ -867,9 +858,11 @@ function MembersPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
-                    {/* ✅ MODIFICATION : Utilisation de handleEditMember */}
                     <button
-                      onClick={() => handleEditMember(member)}
+                      onClick={() => {
+                        setSelectedMember(member);
+                        setShowForm(true);
+                      }}
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors"
                     >
                       <FaEdit className="w-3 h-3" />
@@ -904,7 +897,7 @@ function MembersPage() {
         </div>
       )}
 
-      {/* ✅ SUPPRESSION COMPLÈTE : Modal du formulaire car nous utilisons la navigation
+      {/* Modal du formulaire */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
           <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
@@ -953,12 +946,12 @@ function MembersPage() {
           </div>
         </div>
       )}
-      */}
     </div>
   );
 }
 
-// Composant Widget pour les statistiques
+// Composant Widget pour les statistiques...
+// REMPLACEZ votre Widget existant par ceci :
 function Widget({ title, value, onClick, active = false }) {
   return (
     <div
@@ -989,4 +982,3 @@ function Widget({ title, value, onClick, active = false }) {
 }
 
 export default MembersPage;
-
