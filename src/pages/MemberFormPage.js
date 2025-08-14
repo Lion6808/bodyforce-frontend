@@ -40,6 +40,7 @@ import {
   FaChartLine,
   FaChartBar,
   FaFilter,
+  FaClock
 } from "react-icons/fa";
 import { supabase, supabaseServices } from "../supabaseClient";
 
