@@ -1185,7 +1185,7 @@ function PlanningPage() {
             {role === "admin" && (
               <div className="mt-4">
                 <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition">
-                  <input type="file" accept=".xlsx" onChange={handleImportExcel} className="hidden" />
+                  <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
                   📁 Importer fichier Excel (.xlsx)
                 </label>
               </div>
