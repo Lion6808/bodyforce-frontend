@@ -1,6 +1,6 @@
-// 📄 MemberFormPage.js — MODIFIÉ avec nouveaux onglets et confirmations
-// 🎯 Onglets réorganisés : Profil | Documents | Présence | Abonnement | Messages
-// 🔒 Confirmations de suppression ajoutées
+// 📄 MemberFormPage.js — COMPLET CORRIGÉ avec gestion des paiements et onglets réorganisés
+// 🎯 Onglets réorganisés : Profil | Documents | Abonnement | Présence | Messages
+// 🔒 Gestion complète des paiements alignée sur MemberForm
 
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -36,6 +36,7 @@ import {
   FaPaperPlane,
   FaComments,
   FaClipboardList, // Pour l'onglet Présence
+  FaSync,
 } from "react-icons/fa";
 import { supabase, supabaseServices } from "../supabaseClient";
 
@@ -269,8 +270,9 @@ function InputField({ label, icon: Icon, error, ...props }) {
       <div className="relative">
         <input
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error ? "border-red-300 bg-red-50 dark:bg-red-950" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-            }`}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+            error ? "border-red-300 bg-red-50 dark:bg-red-950" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+          }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
@@ -288,8 +290,9 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
       <div className="relative">
         <select
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error ? "border-red-300 bg-red-50 dark:bg-red-950" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-            }`}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+            error ? "border-red-300 bg-red-50 dark:bg-red-950" : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+          }`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
@@ -329,8 +332,9 @@ function ConfirmDialog({ isOpen, onConfirm, onCancel, title, message, type = "da
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
         <div className="p-6">
           <div className="flex items-center gap-4 mb-4">
-            <div className={`p-3 rounded-full ${type === "danger" ? "bg-red-100 dark:bg-red-900/30" : "bg-orange-100 dark:bg-orange-900/30"
-              }`}>
+            <div className={`p-3 rounded-full ${
+              type === "danger" ? "bg-red-100 dark:bg-red-900/30" : "bg-orange-100 dark:bg-orange-900/30"
+            }`}>
               {type === "danger" ? (
                 <FaTrash className="w-6 h-6 text-red-600 dark:text-red-400" />
               ) : (
@@ -341,9 +345,9 @@ function ConfirmDialog({ isOpen, onConfirm, onCancel, title, message, type = "da
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
             </div>
           </div>
-
+          
           <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
-
+          
           <div className="flex gap-3 justify-end">
             <button
               onClick={onCancel}
@@ -353,10 +357,11 @@ function ConfirmDialog({ isOpen, onConfirm, onCancel, title, message, type = "da
             </button>
             <button
               onClick={onConfirm}
-              className={`px-4 py-2 text-white rounded-lg transition-colors ${type === "danger"
-                  ? "bg-red-600 hover:bg-red-700"
+              className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                type === "danger" 
+                  ? "bg-red-600 hover:bg-red-700" 
                   : "bg-orange-600 hover:bg-orange-700"
-                }`}
+              }`}
             >
               {type === "danger" ? "Supprimer" : "Confirmer"}
             </button>
@@ -372,7 +377,7 @@ function MemberFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { member, returnPath } = location.state || {};
-
+  
   const [activeTab, setActiveTab] = useState("profile");
   const [form, setForm] = useState({
     name: "", firstName: "", birthdate: "", gender: "Homme", address: "", phone: "", mobile: "", email: "",
@@ -380,19 +385,29 @@ function MemberFormPage() {
   });
 
   const [payments, setPayments] = useState([]);
+  
+  // ✅ NOUVEL ÉTAT pour gestion des paiements
+  const [newPayment, setNewPayment] = useState({
+    amount: "",
+    method: "espèces",
+    encaissement_prevu: "",
+    commentaire: "",
+    is_paid: false,
+  });
+
   const [showCamera, setShowCamera] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ loading: false, error: null, success: null });
-
+  
   // ✅ NOUVEAUX ÉTATS POUR LES CONFIRMATIONS
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', item: null });
 
-  // ✅ ONGLETS RÉORGANISÉS
+  // ✅ ONGLETS RÉORGANISÉS - Présence avant dernier
   const tabs = [
     { id: "profile", label: "Profil", icon: FaUser },
     { id: "documents", label: "Documents", icon: FaFileAlt, count: form.files.length },
+    { id: "subscription", label: "Abonnement", icon: FaCreditCard },
     { id: "attendance", label: "Présence", icon: FaClipboardList, count: 0 },
-    { id: "subscription", label: "Abonnement", icon: FaCreditCard }, // ✅ NOUVEAU
     { id: "messages", label: "Messages", icon: FaComments },
   ];
 
@@ -446,7 +461,7 @@ function MemberFormPage() {
   const handleSave = async () => {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
-
+      
       if (member?.id) {
         await supabaseServices.updateMember(member.id, { ...form, files: JSON.stringify(form.files) });
         setUploadStatus({ loading: false, error: null, success: "Membre modifié avec succès !" });
@@ -461,9 +476,80 @@ function MemberFormPage() {
     }
   };
 
+  // ✅ NOUVELLES FONCTIONS pour gestion des paiements
   const fetchPayments = async (memberId) => {
-    const { data, error } = await supabase.from("payments").select("*").eq("member_id", memberId).order("date_paiement", { ascending: false });
+    const { data, error } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("member_id", memberId)
+      .order("date_paiement", { ascending: false });
+
     if (!error) setPayments(data);
+  };
+
+  const handleAddPayment = async () => {
+    if (!member?.id || !newPayment.amount) return;
+
+    const { error } = await supabase.from("payments").insert([
+      {
+        member_id: member.id,
+        amount: parseFloat(newPayment.amount),
+        method: newPayment.method,
+        encaissement_prevu: newPayment.encaissement_prevu || null,
+        commentaire: newPayment.commentaire || "",
+        is_paid: newPayment.is_paid || false,
+      },
+    ]);
+
+    if (error) {
+      console.error("Erreur ajout paiement :", error.message);
+      return;
+    }
+
+    setNewPayment({
+      amount: "",
+      method: "espèces",
+      encaissement_prevu: "",
+      commentaire: "",
+      is_paid: false,
+    });
+
+    fetchPayments(member.id);
+  };
+
+  const handleDeletePayment = async (id) => {
+    const { error } = await supabase.from("payments").delete().eq("id", id);
+    if (error) {
+      console.error("Erreur suppression paiement :", error.message);
+      return;
+    }
+    fetchPayments(member.id);
+  };
+
+  const togglePaymentStatus = async (paymentId, newStatus) => {
+    const { error } = await supabase
+      .from("payments")
+      .update({ is_paid: newStatus })
+      .eq("id", paymentId);
+
+    if (error) {
+      console.error("Erreur mise à jour du statut de paiement :", error.message);
+      return;
+    }
+
+    fetchPayments(member.id);
+  };
+
+  // ✅ FONCTION DE FORMATAGE
+  const formatPrice = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '0,00 €';
+    }
+    
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(amount);
   };
 
   const handleFileUpload = async (e) => {
@@ -538,13 +624,12 @@ function MemberFormPage() {
   // ✅ CONFIRMATION DE SUPPRESSION
   const handleConfirmDelete = async () => {
     const { type, item } = confirmDialog;
-
+    
     try {
       if (type === 'photo') {
         setForm((f) => ({ ...f, photo: null }));
         setUploadStatus({ loading: false, error: null, success: 'Photo supprimée !' });
       } else if (type === 'file' && item) {
-        // Supprimer du storage Supabase
         const url = item.url;
         const fullPrefix = "/storage/v1/object/public/";
         const bucketIndex = url.indexOf(fullPrefix);
@@ -555,16 +640,16 @@ function MemberFormPage() {
           const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
           if (storageError) throw new Error(`Erreur de suppression : ${storageError.message}`);
         }
-
+        
         setForm((f) => ({ ...f, files: f.files.filter((file) => file.url !== item.url) }));
         setUploadStatus({ loading: false, error: null, success: 'Fichier supprimé !' });
       }
-
+      
       setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
-
+    
     setConfirmDialog({ isOpen: false, type: '', item: null });
   };
 
@@ -608,8 +693,9 @@ function MemberFormPage() {
             <button
               type="button"
               onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
-              className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant ? "bg-gradient-to-r from-blue-500 to-purple-600" : "bg-gray-300 dark:bg-gray-600"
-                }`}
+              className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                form.etudiant ? "bg-gradient-to-r from-blue-500 to-purple-600" : "bg-gray-300 dark:bg-gray-600"
+              }`}
             >
               <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${form.etudiant ? "translate-x-7" : ""}`} />
             </button>
@@ -627,6 +713,19 @@ function MemberFormPage() {
           <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} icon={FaEnvelope} placeholder="exemple@email.com" />
           <InputField label="Téléphone fixe" name="phone" value={form.phone} onChange={handleChange} icon={FaPhone} placeholder="01 23 45 67 89" />
           <InputField label="Téléphone portable" name="mobile" value={form.mobile} onChange={handleChange} icon={FaPhone} placeholder="06 12 34 56 78" />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAttendanceTab = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="text-center py-12">
+        <FaClipboardList className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Suivi des présences</h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-6">Cette fonctionnalité sera bientôt disponible</p>
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+          📊 Historique des visites, statistiques de fréquentation, graphiques de présence
         </div>
       </div>
     </div>
@@ -695,22 +794,13 @@ function MemberFormPage() {
     </div>
   );
 
-  // ✅ NOUVEL ONGLET ABONNEMENT
-// ✅ ONGLET ABONNEMENT CORRIGÉ - Utilise 'amount' au lieu de 'montant'
+  // ✅ NOUVEL ONGLET ABONNEMENT COMPLET avec gestion des paiements
   const renderSubscriptionTab = () => {
-    // Calcul de la somme totale des paiements avec le bon champ
+    // Calcul de la somme totale des paiements
     const totalPayments = payments.reduce((sum, payment) => {
-      const amount = parseFloat(payment.amount) || 0; // ✅ Utilise 'amount' comme dans MemberForm
+      const amount = parseFloat(payment.amount) || 0;
       return sum + amount;
     }, 0);
-
-    // Formatage du montant en euros
-    const formatPrice = (amount) => {
-      return new Intl.NumberFormat('fr-FR', {
-        style: 'currency',
-        currency: 'EUR'
-      }).format(amount);
-    };
 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -735,6 +825,84 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* ✅ SECTION AJOUT DE PAIEMENT - Comme dans MemberForm */}
+        {member?.id && (
+          <div className="mt-8 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-xl border border-green-200 dark:border-green-600">
+            <h4 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white mb-4">
+              <FaEuroSign className="w-5 h-5 text-green-600 dark:text-green-300" />
+              Nouveau paiement
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              <InputField
+                label="Montant (€)"
+                type="number"
+                name="amount"
+                value={newPayment.amount}
+                onChange={(e) => setNewPayment((p) => ({ ...p, amount: e.target.value }))}
+                icon={FaEuroSign}
+                placeholder="0.00"
+                step="0.01"
+              />
+              <SelectField
+                label="Méthode de paiement"
+                name="method"
+                value={newPayment.method}
+                onChange={(e) => setNewPayment((p) => ({ ...p, method: e.target.value }))}
+                options={["espèces", "chèque", "carte", "virement", "autre"]}
+                icon={FaCreditCard}
+              />
+              <InputField
+                label="Encaissement prévu"
+                type="date"
+                name="encaissement_prevu"
+                value={newPayment.encaissement_prevu}
+                onChange={(e) => setNewPayment((p) => ({ ...p, encaissement_prevu: e.target.value }))}
+                icon={FaCalendarAlt}
+              />
+            </div>
+
+            <div className="mb-4">
+              <InputField
+                label="Commentaire"
+                name="commentaire"
+                value={newPayment.commentaire}
+                onChange={(e) => setNewPayment((p) => ({ ...p, commentaire: e.target.value }))}
+                placeholder="Note ou commentaire sur ce paiement"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-0 sm:justify-between">
+              <label className="flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={newPayment.is_paid}
+                    onChange={(e) => setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))}
+                    className="sr-only"
+                  />
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                    newPayment.is_paid ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-500"
+                  }`}>
+                    {newPayment.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                  </div>
+                </div>
+                Paiement déjà encaissé
+              </label>
+
+              <button
+                type="button"
+                onClick={handleAddPayment}
+                disabled={!newPayment.amount}
+                className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none w-full sm:w-auto"
+              >
+                <FaEuroSign className="w-4 h-4" />
+                Ajouter le paiement
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Section historique des paiements */}
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
@@ -743,7 +911,7 @@ function MemberFormPage() {
               Historique des paiements
             </h4>
             
-            {/* ✅ AFFICHAGE DE LA SOMME TOTALE */}
+            {/* AFFICHAGE DE LA SOMME TOTALE */}
             {payments.length > 0 && (
               <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 px-4 py-2 rounded-lg border border-green-200 dark:border-green-700">
                 <div className="text-center">
@@ -757,71 +925,90 @@ function MemberFormPage() {
           </div>
           
           {payments.length > 0 ? (
-            <div className="space-y-3">
-              {payments.map((payment, index) => (
-                <div key={payment.id} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {/* ✅ Utilise 'amount' au lieu de 'montant' */}
-                        {formatPrice(parseFloat(payment.amount) || 0)} - {payment.method || 'Méthode non définie'}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {/* ✅ Vérifie le nom exact du champ date */}
-                        {payment.date_paiement ? new Date(payment.date_paiement).toLocaleDateString('fr-FR', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        }) : 'Date non définie'}
-                      </p>
+            <div className="space-y-4">
+              {payments.map((pay) => (
+                <div key={pay.id} className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                    <div className="flex-1 w-full sm:w-auto">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`p-2 rounded-lg ${
+                          pay.is_paid ? "bg-green-100 dark:bg-green-900" : "bg-orange-100 dark:bg-orange-900"
+                        }`}>
+                          <FaEuroSign className={`w-4 h-4 ${
+                            pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
+                          }`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-lg text-gray-800 dark:text-white">
+                            {formatPrice(parseFloat(pay.amount) || 0)}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
+                            {pay.method}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 mb-3">
+                        <button
+                          onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                            pay.is_paid ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-500 hover:border-green-400"
+                          }`}
+                        >
+                          {pay.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                        </button>
+                        <span className={`text-sm font-medium ${
+                          pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"
+                        }`}>
+                          {pay.is_paid ? "Encaissé" : "En attente"}
+                        </span>
+                      </div>
+
+                      <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                        <p>Payé le {new Date(pay.date_paiement).toLocaleDateString()}</p>
+                        {pay.encaissement_prevu && (
+                          <p className="text-blue-600 dark:text-blue-300">
+                            Encaissement prévu : {new Date(pay.encaissement_prevu).toLocaleDateString()}
+                          </p>
+                        )}
+                        {pay.commentaire && (
+                          <p className="italic text-gray-500 dark:text-gray-400">
+                            💬 {pay.commentaire}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        payment.is_paid 
-                          ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                          : 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200'
-                      }`}>
-                        {payment.is_paid ? 'Payé' : 'En attente'}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        #{index + 1}
-                      </span>
-                    </div>
+
+                    <button
+                      onClick={() => handleDeletePayment(pay.id)}
+                      className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 dark:text-red-300 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors w-full sm:w-auto"
+                    >
+                      <FaTrash className="w-3 h-3" />
+                      <span className="sm:hidden">Supprimer</span>
+                    </button>
                   </div>
-                  
-                  {/* ✅ Affichage des commentaires si disponibles */}
-                  {payment.commentaire && (
-                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 italic">
-                        💬 {payment.commentaire}
-                      </p>
-                    </div>
-                  )}
                 </div>
               ))}
-              
-              {/* ✅ RÉSUMÉ EN BAS DE LISTE */}
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {payments.length} paiement{payments.length > 1 ? 's' : ''} enregistré{payments.length > 1 ? 's' : ''}
+
+              {/* Résumé total */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {payments.length} paiement{payments.length > 1 ? 's' : ''} enregistré{payments.length > 1 ? 's' : ''}
+                    </p>
+                    {payments.length > 1 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Du {new Date(Math.min(...payments.map(p => new Date(p.date_paiement)))).toLocaleDateString()} 
+                        au {new Date(Math.max(...payments.map(p => new Date(p.date_paiement)))).toLocaleDateString()}
                       </p>
-                      {payments.length > 1 && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Du {new Date(Math.min(...payments.map(p => new Date(p.date_paiement)))).toLocaleDateString()} 
-                          au {new Date(Math.max(...payments.map(p => new Date(p.date_paiement)))).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Total</p>
-                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {formatPrice(totalPayments)}
-                      </p>
-                    </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Total</p>
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {formatPrice(totalPayments)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -837,19 +1024,6 @@ function MemberFormPage() {
       </div>
     );
   };
-
-  const renderAttendanceTab = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="text-center py-12">
-        <FaClipboardList className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Suivi des présences</h3>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">Cette fonctionnalité sera bientôt disponible</p>
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-          📊 Historique des visites, statistiques de fréquentation, graphiques de présence
-        </div>
-      </div>
-    </div>
-  );
 
   const renderMessagesTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -868,7 +1042,7 @@ function MemberFormPage() {
     switch (activeTab) {
       case "profile": return renderProfileTab();
       case "documents": return renderDocumentsTab();
-      case "subscription": return renderSubscriptionTab(); // ✅ NOUVEAU
+      case "subscription": return renderSubscriptionTab();
       case "attendance": return renderAttendanceTab();
       case "messages": return renderMessagesTab();
       default: return renderProfileTab();
@@ -885,7 +1059,7 @@ function MemberFormPage() {
             <ArrowLeft className="w-4 h-4" />
             Retour à la liste
           </button>
-
+          
           <div className="text-center">
             <div className="relative mx-auto mb-4">
               {form.photo ? (
@@ -908,7 +1082,7 @@ function MemberFormPage() {
             <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               {form.firstName || form.name ? `${form.firstName} ${form.name}` : "Nouveau membre"}
             </h1>
-
+            
             <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
               {member?.id ? `Membre depuis ${new Date().toLocaleDateString()}` : "Nouveau membre"}
             </div>
@@ -943,32 +1117,32 @@ function MemberFormPage() {
         {/* Informations personnelles principales */}
         <div className="p-6 space-y-4 flex-1">
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wide">Détails personnels</h3>
-
+          
           <div className="space-y-3">
             {form.birthdate && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Anniversaire</dt>
                 <dd className="text-sm text-gray-900 dark:text-white">
-                  {new Date(form.birthdate).toLocaleDateString()}
+                  {new Date(form.birthdate).toLocaleDateString()} 
                   {age && ` (${age} ans)`}
                 </dd>
               </div>
             )}
-
+            
             {form.phone && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Téléphone</dt>
                 <dd className="text-sm text-gray-900 dark:text-white">{form.phone}</dd>
               </div>
             )}
-
+            
             {form.email && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Email</dt>
                 <dd className="text-sm text-gray-900 dark:text-white break-all">{form.email}</dd>
               </div>
             )}
-
+            
             {form.badgeId && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Badge</dt>
@@ -1012,7 +1186,7 @@ function MemberFormPage() {
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">Gérez les informations et documents du membre</p>
             </div>
-
+            
             <div className="flex gap-3">
               <button onClick={handleBack} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                 Annuler
@@ -1038,8 +1212,9 @@ function MemberFormPage() {
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {tabs.map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeTab === tab.id ? "border-blue-500 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-                }`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
+                activeTab === tab.id ? "border-blue-500 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+              }`}>
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
                 {tab.count !== undefined && tab.count > 0 && (
@@ -1111,7 +1286,7 @@ function MemberFormPage() {
         onCancel={handleCancelDelete}
         title={confirmDialog.type === 'photo' ? "Supprimer la photo" : "Supprimer le document"}
         message={
-          confirmDialog.type === 'photo'
+          confirmDialog.type === 'photo' 
             ? "Êtes-vous sûr de vouloir supprimer cette photo ? Cette action est irréversible."
             : `Êtes-vous sûr de vouloir supprimer le document "${confirmDialog.item?.name}" ? Cette action est irréversible.`
         }
