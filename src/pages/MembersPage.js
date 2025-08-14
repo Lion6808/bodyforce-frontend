@@ -462,7 +462,7 @@ function MembersPage() {
           />
         </div>
       </div>
-      // ✅ PARTIE 5/5 : TABLEAUX, MODALS ET FIN DU COMPOSANT
+
 
       {/* Contrôles de tri en mode desktop */}
       <div className="hidden lg:flex items-center justify-between mb-4">
