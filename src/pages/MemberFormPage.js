@@ -37,6 +37,9 @@ import {
   FaComments,
   FaClipboardList, // Pour l'onglet Présence
   FaSync,
+  FaChartLine,     // ← AJOUTER
+  FaChartBar,      // ← AJOUTER
+  FaFilter,        // ← AJOUTER
 } from "react-icons/fa";
 import { supabase, supabaseServices } from "../supabaseClient";
 
