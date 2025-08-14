@@ -1,6 +1,6 @@
-// 📄 MemberFormPage.js — Page dédiée pour la saisie/modification des membres (Desktop) — Date : 2025-08-13
-// 🎯 Design inspiré de la capture fournie : Panel gauche (photo + infos) + Panel droit (onglets)
-// 🔹 Reprend TOUTES les fonctionnalités de MemberForm.js en version page complète
+// 📄 MemberFormPage.js — MODIFIÉ avec nouveaux onglets et confirmations
+// 🎯 Onglets réorganisés : Profil | Documents | Présence | Abonnement | Messages
+// 🔒 Confirmations de suppression ajoutées
 
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -35,6 +35,7 @@ import {
   FaEdit,
   FaPaperPlane,
   FaComments,
+  FaClipboardList, // Pour l'onglet Présence
 } from "react-icons/fa";
 import { supabase, supabaseServices } from "../supabaseClient";
 
@@ -54,7 +55,7 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 
-// ✅ COMPOSANT CAMÉRA
+// ✅ COMPOSANT CAMÉRA (inchangé)
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -257,7 +258,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   );
 }
 
-// ✅ COMPOSANTS UTILITAIRES
+// ✅ COMPOSANTS UTILITAIRES (inchangés)
 function InputField({ label, icon: Icon, error, ...props }) {
   return (
     <div className="space-y-2">
@@ -321,6 +322,55 @@ function StatusBadge({ isExpired, isStudent }) {
   );
 }
 
+// ✅ MODAL DE CONFIRMATION
+function ConfirmDialog({ isOpen, onConfirm, onCancel, title, message, type = "danger" }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+        <div className="p-6">
+          <div className="flex items-center gap-4 mb-4">
+            <div className={`p-3 rounded-full ${
+              type === "danger" ? "bg-red-100 dark:bg-red-900/30" : "bg-orange-100 dark:bg-orange-900/30"
+            }`}>
+              {type === "danger" ? (
+                <FaTrash className="w-6 h-6 text-red-600 dark:text-red-400" />
+              ) : (
+                <FaTimes className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              )}
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+            </div>
+          </div>
+          
+          <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
+          
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={onConfirm}
+              className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                type === "danger" 
+                  ? "bg-red-600 hover:bg-red-700" 
+                  : "bg-orange-600 hover:bg-orange-700"
+              }`}
+            >
+              {type === "danger" ? "Supprimer" : "Confirmer"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ✅ COMPOSANT PRINCIPAL
 function MemberFormPage() {
   const navigate = useNavigate();
@@ -337,12 +387,16 @@ function MemberFormPage() {
   const [showCamera, setShowCamera] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({ loading: false, error: null, success: null });
+  
+  // ✅ NOUVEAUX ÉTATS POUR LES CONFIRMATIONS
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', item: null });
 
+  // ✅ ONGLETS RÉORGANISÉS
   const tabs = [
     { id: "profile", label: "Profil", icon: FaUser },
-    { id: "attendance", label: "Présence", icon: FaCalendarAlt, count: 0 },
     { id: "documents", label: "Documents", icon: FaFileAlt, count: form.files.length },
-    { id: "ranks", label: "Grades", icon: FaGraduationCap },
+    { id: "attendance", label: "Présence", icon: FaClipboardList, count: 0 },
+    { id: "subscription", label: "Abonnement", icon: FaCreditCard }, // ✅ NOUVEAU
     { id: "messages", label: "Messages", icon: FaComments },
   ];
 
@@ -467,27 +521,62 @@ function MemberFormPage() {
     }
   };
 
-  const removeFile = async (fileToRemove, event) => {
-    event?.stopPropagation();
-    event?.preventDefault();
+  // ✅ SUPPRESSION PHOTO AVEC CONFIRMATION
+  const handleRemovePhoto = () => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'photo',
+      item: null
+    });
+  };
+
+  // ✅ SUPPRESSION FICHIER AVEC CONFIRMATION
+  const handleRemoveFile = (fileToRemove) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'file',
+      item: fileToRemove
+    });
+  };
+
+  // ✅ CONFIRMATION DE SUPPRESSION
+  const handleConfirmDelete = async () => {
+    const { type, item } = confirmDialog;
+    
     try {
-      const url = fileToRemove.url;
-      const fullPrefix = "/storage/v1/object/public/";
-      const bucketIndex = url.indexOf(fullPrefix);
-      if (bucketIndex === -1) throw new Error("URL invalide");
-      const afterPrefix = url.substring(bucketIndex + fullPrefix.length);
-      const [bucket, ...pathParts] = afterPrefix.split("/");
-      const path = pathParts.join("/");
-      const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
-      if (storageError) throw new Error(`Erreur de suppression : ${storageError.message}`);
-      setForm((f) => ({ ...f, files: f.files.filter((file) => file.url !== fileToRemove.url) }));
-      setUploadStatus({ loading: false, error: null, success: 'Fichier supprimé !' });
+      if (type === 'photo') {
+        setForm((f) => ({ ...f, photo: null }));
+        setUploadStatus({ loading: false, error: null, success: 'Photo supprimée !' });
+      } else if (type === 'file' && item) {
+        // Supprimer du storage Supabase
+        const url = item.url;
+        const fullPrefix = "/storage/v1/object/public/";
+        const bucketIndex = url.indexOf(fullPrefix);
+        if (bucketIndex !== -1) {
+          const afterPrefix = url.substring(bucketIndex + fullPrefix.length);
+          const [bucket, ...pathParts] = afterPrefix.split("/");
+          const path = pathParts.join("/");
+          const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
+          if (storageError) throw new Error(`Erreur de suppression : ${storageError.message}`);
+        }
+        
+        setForm((f) => ({ ...f, files: f.files.filter((file) => file.url !== item.url) }));
+        setUploadStatus({ loading: false, error: null, success: 'Fichier supprimé !' });
+      }
+      
       setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
+    
+    setConfirmDialog({ isOpen: false, type: '', item: null });
   };
 
+  const handleCancelDelete = () => {
+    setConfirmDialog({ isOpen: false, type: '', item: null });
+  };
+
+  // ✅ ONGLET PROFIL (Simplifié - abonnement retiré)
   const renderProfileTab = () => (
     <div className="space-y-8">
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -545,34 +634,13 @@ function MemberFormPage() {
           <InputField label="Téléphone portable" name="mobile" value={form.mobile} onChange={handleChange} icon={FaPhone} placeholder="06 12 34 56 78" />
         </div>
       </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-          <FaCreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-          Abonnement
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SelectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} icon={FaCreditCard} />
-          <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} icon={FaIdCard} placeholder="Numéro du badge d'accès" />
-          <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} icon={FaCalendarAlt} />
-          <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly icon={FaCalendarAlt} />
-        </div>
-        {isExpired && (
-          <div className="mt-6 bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
-            <div className="flex items-center">
-              <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
-              <p className="text-red-800 dark:text-red-200 font-medium">Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}</p>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 
   const renderAttendanceTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="text-center py-12">
-        <FaCalendarAlt className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+        <FaClipboardList className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
         <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Suivi des présences</h3>
         <p className="text-gray-500 dark:text-gray-400 mb-6">Cette fonctionnalité sera bientôt disponible</p>
         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
@@ -625,7 +693,7 @@ function MemberFormPage() {
                         </a>
                       </>
                     )}
-                    <button onClick={(e) => removeFile(file, e)} className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 text-sm rounded-lg hover:bg-red-200 dark:hover:bg-red-700 transition-colors">
+                    <button onClick={() => handleRemoveFile(file)} className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-200 text-sm rounded-lg hover:bg-red-200 dark:hover:bg-red-700 transition-colors">
                       <FaTrash className="w-3 h-3" />
                       Supprimer
                     </button>
@@ -645,15 +713,64 @@ function MemberFormPage() {
     </div>
   );
 
-  const renderRanksTab = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="text-center py-12">
-        <FaGraduationCap className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Gestion des grades</h3>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">Cette fonctionnalité sera bientôt disponible</p>
-        <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-sm text-purple-700 dark:text-purple-300">
-          🥋 Progression des ceintures, examens, certifications
+  // ✅ NOUVEL ONGLET ABONNEMENT
+  const renderSubscriptionTab = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+        <FaCreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+        Gestion de l'abonnement
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SelectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} icon={FaCreditCard} />
+        <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} icon={FaIdCard} placeholder="Numéro du badge d'accès" />
+        <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} icon={FaCalendarAlt} />
+        <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly icon={FaCalendarAlt} />
+      </div>
+      
+      {isExpired && (
+        <div className="mt-6 bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
+          <div className="flex items-center">
+            <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
+            <p className="text-red-800 dark:text-red-200 font-medium">Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}</p>
+          </div>
         </div>
+      )}
+
+      {/* Section historique des paiements */}
+      <div className="mt-8">
+        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <FaEuroSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+          Historique des paiements
+        </h4>
+        
+        {payments.length > 0 ? (
+          <div className="space-y-3">
+            {payments.map((payment) => (
+              <div key={payment.id} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {payment.montant}€ - {payment.type_abonnement}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {new Date(payment.date_paiement).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-sm font-medium">
+                    Payé
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+            <FaEuroSign className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-300 font-medium">Aucun paiement enregistré</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm">L'historique des paiements apparaîtra ici</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -674,9 +791,9 @@ function MemberFormPage() {
   const renderCurrentTab = () => {
     switch (activeTab) {
       case "profile": return renderProfileTab();
-      case "attendance": return renderAttendanceTab();
       case "documents": return renderDocumentsTab();
-      case "ranks": return renderRanksTab();
+      case "attendance": return renderAttendanceTab();
+      case "subscription": return renderSubscriptionTab(); // ✅ NOUVEAU
       case "messages": return renderMessagesTab();
       default: return renderProfileTab();
     }
@@ -698,7 +815,7 @@ function MemberFormPage() {
               {form.photo ? (
                 <div className="relative">
                   <img src={form.photo} alt="Photo du membre" className="w-32 h-32 object-cover rounded-full border-4 border-gray-200 dark:border-gray-600 shadow-lg mx-auto" />
-                  <button type="button" onClick={() => setForm((prev) => ({ ...prev, photo: null }))} className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors">
+                  <button type="button" onClick={handleRemovePhoto} className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -911,6 +1028,20 @@ function MemberFormPage() {
           isDarkMode={isDarkMode}
         />
       )}
+
+      {/* ✅ MODAL DE CONFIRMATION */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        title={confirmDialog.type === 'photo' ? "Supprimer la photo" : "Supprimer le document"}
+        message={
+          confirmDialog.type === 'photo' 
+            ? "Êtes-vous sûr de vouloir supprimer cette photo ? Cette action est irréversible."
+            : `Êtes-vous sûr de vouloir supprimer le document "${confirmDialog.item?.name}" ? Cette action est irréversible.`
+        }
+        type="danger"
+      />
     </div>
   );
 }
