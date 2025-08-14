@@ -592,12 +592,12 @@ function MembersPage() {
                           <MemberAvatar member={member} />
                         </td>
 
-                        <td
-                          className="p-3 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                          onDoubleClick={() => handleEditMember(member)} // ✅ Handler hybride
-                          title="Double-clic pour modifier"
-                        >
-                          <div className="font-medium text-gray-900 dark:text-white">
+                        <td className="p-3">
+                          <div
+                            className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200"
+                            onClick={() => handleEditMember(member)} // ✅ NOUVEAU : simple clic
+                            title="Cliquer pour modifier"
+                          >
                             {member.name} {member.firstName}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -782,11 +782,12 @@ function MembersPage() {
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
                       />
                       <MemberAvatar member={member} />
-                      <div
-                        className="flex-1 cursor-pointer"
-                        onClick={() => handleEditMember(member)} // ✅ Handler hybride
-                      >
-                        <div className="font-semibold text-gray-900 dark:text-white text-lg">
+                      <div className="flex-1">
+                        <div
+                          className="font-semibold text-gray-900 dark:text-white text-lg cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200"
+                          onClick={() => handleEditMember(member)}
+                          title="Cliquer pour modifier"
+                        >
                           {member.name} {member.firstName}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
