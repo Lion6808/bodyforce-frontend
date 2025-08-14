@@ -696,66 +696,147 @@ function MemberFormPage() {
   );
 
   // ✅ NOUVEL ONGLET ABONNEMENT
-  const renderSubscriptionTab = () => (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-        <FaCreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-        Gestion de l'abonnement
-      </h3>
+// ✅ ONGLET ABONNEMENT CORRIGÉ - Utilise 'amount' au lieu de 'montant'
+  const renderSubscriptionTab = () => {
+    // Calcul de la somme totale des paiements avec le bon champ
+    const totalPayments = payments.reduce((sum, payment) => {
+      const amount = parseFloat(payment.amount) || 0; // ✅ Utilise 'amount' comme dans MemberForm
+      return sum + amount;
+    }, 0);
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SelectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} icon={FaCreditCard} />
-        <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} icon={FaIdCard} placeholder="Numéro du badge d'accès" />
-        <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} icon={FaCalendarAlt} />
-        <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly icon={FaCalendarAlt} />
-      </div>
+    // Formatage du montant en euros
+    const formatPrice = (amount) => {
+      return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: 'EUR'
+      }).format(amount);
+    };
 
-      {isExpired && (
-        <div className="mt-6 bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
-          <div className="flex items-center">
-            <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
-            <p className="text-red-800 dark:text-red-200 font-medium">Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}</p>
-          </div>
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+          <FaCreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+          Gestion de l'abonnement
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <SelectField label="Type d'abonnement" name="subscriptionType" value={form.subscriptionType} onChange={handleChange} options={Object.keys(subscriptionDurations)} icon={FaCreditCard} />
+          <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} icon={FaIdCard} placeholder="Numéro du badge d'accès" />
+          <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} icon={FaCalendarAlt} />
+          <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly icon={FaCalendarAlt} />
         </div>
-      )}
-
-      {/* Section historique des paiements */}
-      <div className="mt-8">
-        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <FaEuroSign className="w-4 h-4 text-green-600 dark:text-green-400" />
-          Historique des paiements
-        </h4>
-
-        {payments.length > 0 ? (
-          <div className="space-y-3">
-            {payments.map((payment) => (
-              <div key={payment.id} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {payment.montant}€ - {payment.type_abonnement}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(payment.date_paiement).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-sm font-medium">
-                    Payé
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
-            <FaEuroSign className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-300 font-medium">Aucun paiement enregistré</p>
-            <p className="text-gray-400 dark:text-gray-500 text-sm">L'historique des paiements apparaîtra ici</p>
+        
+        {isExpired && (
+          <div className="mt-6 bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
+            <div className="flex items-center">
+              <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
+              <p className="text-red-800 dark:text-red-200 font-medium">Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}</p>
+            </div>
           </div>
         )}
+
+        {/* Section historique des paiements */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <FaEuroSign className="w-4 h-4 text-green-600 dark:text-green-400" />
+              Historique des paiements
+            </h4>
+            
+            {/* ✅ AFFICHAGE DE LA SOMME TOTALE */}
+            {payments.length > 0 && (
+              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 px-4 py-2 rounded-lg border border-green-200 dark:border-green-700">
+                <div className="text-center">
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Total encaissé</p>
+                  <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                    {formatPrice(totalPayments)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {payments.length > 0 ? (
+            <div className="space-y-3">
+              {payments.map((payment, index) => (
+                <div key={payment.id} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {/* ✅ Utilise 'amount' au lieu de 'montant' */}
+                        {formatPrice(parseFloat(payment.amount) || 0)} - {payment.method || 'Méthode non définie'}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {/* ✅ Vérifie le nom exact du champ date */}
+                        {payment.date_paiement ? new Date(payment.date_paiement).toLocaleDateString('fr-FR', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        }) : 'Date non définie'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        payment.is_paid 
+                          ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                          : 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200'
+                      }`}>
+                        {payment.is_paid ? 'Payé' : 'En attente'}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        #{index + 1}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* ✅ Affichage des commentaires si disponibles */}
+                  {payment.commentaire && (
+                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 italic">
+                        💬 {payment.commentaire}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {/* ✅ RÉSUMÉ EN BAS DE LISTE */}
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {payments.length} paiement{payments.length > 1 ? 's' : ''} enregistré{payments.length > 1 ? 's' : ''}
+                      </p>
+                      {payments.length > 1 && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Du {new Date(Math.min(...payments.map(p => new Date(p.date_paiement)))).toLocaleDateString()} 
+                          au {new Date(Math.max(...payments.map(p => new Date(p.date_paiement)))).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">Total</p>
+                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatPrice(totalPayments)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+              <FaEuroSign className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-300 font-medium">Aucun paiement enregistré</p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm">L'historique des paiements apparaîtra ici</p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderAttendanceTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
