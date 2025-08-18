@@ -646,49 +646,30 @@ function MemberFormPage() {
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleBack = (editedMemberId = null) => {
-    if (returnPath) {
-      // Si on a modifié un membre, transmettre l'info pour le repositionnement
-      if (editedMemberId) {
-        navigate(returnPath, {
-          state: {
-            returnedFromEdit: true,
-            editedMemberId: editedMemberId,
-          },
-        });
-      } else {
-        navigate(returnPath);
-      }
-    } else {
-      navigate(-1);
-    }
+  const handleBack = () => {
+    if (returnPath) navigate(returnPath);
+    else navigate(-1);
   };
 
   const handleSave = async () => {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
 
-      let savedMemberId;
-
       if (member?.id) {
-        // Modification d'un membre existant
         await supabaseServices.updateMember(member.id, {
           ...form,
           files: JSON.stringify(form.files),
         });
-        savedMemberId = member.id;
         setUploadStatus({
           loading: false,
           error: null,
           success: "Membre modifié avec succès !",
         });
       } else {
-        // Création d'un nouveau membre
-        const newMember = await supabaseServices.createMember({
+        await supabaseServices.createMember({
           ...form,
           files: JSON.stringify(form.files),
         });
-        savedMemberId = newMember.id;
         setUploadStatus({
           loading: false,
           error: null,
@@ -696,8 +677,7 @@ function MemberFormPage() {
         });
       }
 
-      // ✅ Retour avec l'ID du membre pour repositionnement
-      setTimeout(() => handleBack(savedMemberId), 1500);
+      setTimeout(() => handleBack(), 1500);
     } catch (error) {
       setUploadStatus({
         loading: false,
