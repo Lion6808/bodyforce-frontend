@@ -1,9 +1,8 @@
-// ✅ PARTIE 1/5 : IMPORTS ET DÉBUT DU COMPOSANT
-
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// ✅ MembersPage.js COMPLET avec repositionnement automatique
+import React, { useEffect, useState, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabaseServices } from "../supabaseClient";
-import MemberForm from "../components/MemberForm"; // ✅ GARDER pour mobile
+import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
 import {
   FaEdit,
@@ -16,6 +15,11 @@ import {
 
 function MembersPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ✅ NOUVEAU : Récupérer l'ID du membre depuis l'état de navigation
+  const returnedFromEdit = location.state?.returnedFromEdit;
+  const editedMemberId = location.state?.editedMemberId;
 
   // ✅ États existants
   const [members, setMembers] = useState([]);
@@ -28,34 +32,77 @@ function MembersPage() {
   const [error, setError] = useState(null);
   const [imageErrors, setImageErrors] = useState(new Set());
 
-  // ✅ NOUVEAUX États pour l'approche hybride
+  // ✅ États pour l'approche hybride
   const [selectedMember, setSelectedMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  // ✅ NOUVEAU : Ref pour les éléments membres
+  const memberRefs = useRef({});
+
   // ✅ Détection de la taille d'écran
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024); // lg breakpoint
+      setIsMobile(window.innerWidth < 1024);
     };
-
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ HANDLER HYBRIDE pour l'édition
+  // ✅ NOUVEAU : Effet pour le repositionnement après retour d'édition
+  useEffect(() => {
+    if (
+      returnedFromEdit &&
+      editedMemberId &&
+      !loading &&
+      filteredMembers.length > 0
+    ) {
+      // Petit délai pour s'assurer que le DOM est mis à jour
+      setTimeout(() => {
+        scrollToMember(editedMemberId);
+        // Nettoyer l'état de navigation
+        window.history.replaceState({}, "", location.pathname);
+      }, 100);
+    }
+  }, [returnedFromEdit, editedMemberId, loading, filteredMembers]);
+
+  // ✅ NOUVELLE FONCTION : Scroll vers un membre spécifique
+  const scrollToMember = (memberId) => {
+    const memberElement = memberRefs.current[memberId];
+    if (memberElement) {
+      // Scroll avec animation douce
+      memberElement.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      // Effet visuel temporaire pour mettre en évidence
+      memberElement.style.transition = "all 0.3s ease";
+      memberElement.style.transform = "scale(1.02)";
+      memberElement.style.boxShadow = "0 8px 25px rgba(59, 130, 246, 0.3)";
+      memberElement.style.borderColor = "#3B82F6";
+
+      setTimeout(() => {
+        memberElement.style.transform = "";
+        memberElement.style.boxShadow = "";
+        memberElement.style.borderColor = "";
+      }, 1000);
+    }
+  };
+
+  // ✅ HANDLER HYBRIDE pour l'édition (MODIFIÉ)
   const handleEditMember = (member) => {
     if (isMobile) {
-      // Mode mobile : utiliser le modal MemberForm
       setSelectedMember(member);
       setShowForm(true);
     } else {
-      // Mode desktop : naviguer vers MemberFormPage
+      // Mode desktop : naviguer vers MemberFormPage avec l'ID du membre
       navigate("/members/edit", {
         state: {
           member: member,
           returnPath: "/members",
+          memberId: member.id, // ✅ AJOUT : Passer l'ID pour le retour
         },
       });
     }
@@ -64,11 +111,9 @@ function MembersPage() {
   // ✅ HANDLER HYBRIDE pour l'ajout
   const handleAddMember = () => {
     if (isMobile) {
-      // Mode mobile : utiliser le modal MemberForm
       setSelectedMember(null);
       setShowForm(true);
     } else {
-      // Mode desktop : naviguer vers MemberFormPage
       navigate("/members/new", {
         state: {
           member: null,
@@ -83,7 +128,6 @@ function MembersPage() {
     setShowForm(false);
     setSelectedMember(null);
   };
-  // ✅ PARTIE 2/5 : FONCTIONS UTILITAIRES
 
   const fetchMembers = async () => {
     try {
@@ -214,7 +258,6 @@ function MembersPage() {
     setImageErrors((prev) => new Set([...prev, memberId]));
     e.target.style.display = "none";
   };
-  // ✅ PARTIE 3/5 : CALCULS ET COMPOSANTS UTILITAIRES
 
   // Calculer les statistiques
   const total = filteredMembers.length;
@@ -325,7 +368,6 @@ function MembersPage() {
       </div>
     );
   };
-  // ✅ PARTIE 4/5 : ÉTATS DE CHARGEMENT ET DÉBUT DU JSX
 
   if (loading) {
     return (
@@ -447,7 +489,7 @@ function MembersPage() {
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <button
             className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
-            onClick={handleAddMember} // ✅ Handler hybride
+            onClick={handleAddMember}
           >
             <FaPlus />
             Ajouter un membre
@@ -587,6 +629,10 @@ function MembersPage() {
                     return (
                       <tr
                         key={member.id}
+                        // ✅ AJOUT : Ref pour le repositionnement
+                        ref={(el) => {
+                          if (el) memberRefs.current[member.id] = el;
+                        }}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150 transform-gpu member-row"
                       >
                         <td className="p-3">
@@ -712,7 +758,7 @@ function MembersPage() {
                         <td className="p-3">
                           <div className="flex flex-col gap-2">
                             <button
-                              onClick={() => handleEditMember(member)} // ✅ Handler hybride
+                              onClick={() => handleEditMember(member)}
                               className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-1 rounded text-sm transition-colors"
                               title="Modifier ce membre"
                             >
@@ -785,6 +831,10 @@ function MembersPage() {
               return (
                 <div
                   key={member.id}
+                  // ✅ AJOUT : Ref pour le repositionnement mobile
+                  ref={(el) => {
+                    if (el) memberRefs.current[member.id] = el;
+                  }}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-150 transform-gpu member-card"
                 >
                   {/* En-tête de la carte */}
@@ -915,7 +965,7 @@ function MembersPage() {
                   {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
                     <button
-                      onClick={() => handleEditMember(member)} // ✅ Handler hybride
+                      onClick={() => handleEditMember(member)}
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors"
                     >
                       <FaEdit className="w-3 h-3" />
@@ -963,29 +1013,33 @@ function MembersPage() {
                     selectedMember ? "Modification" : "Création"
                   );
 
+                  let memberId;
                   if (selectedMember?.id) {
-                    // Modification d'un membre existant
                     await supabaseServices.updateMember(
                       selectedMember.id,
                       memberData
                     );
+                    memberId = selectedMember.id;
                     console.log("✅ Membre modifié:", selectedMember.id);
                   } else {
-                    // Création d'un nouveau membre
                     const newMember = await supabaseServices.createMember(
                       memberData
                     );
+                    memberId = newMember.id;
                     console.log("✅ Nouveau membre créé:", newMember.id);
                   }
 
-                  // Fermer le modal si demandé
                   if (closeModal) {
                     setShowForm(false);
                     setSelectedMember(null);
                   }
 
-                  // Recharger la liste
                   await fetchMembers();
+
+                  // ✅ Repositionnement après sauvegarde mobile
+                  if (memberId) {
+                    setTimeout(() => scrollToMember(memberId), 200);
+                  }
                 } catch (error) {
                   console.error("❌ Erreur sauvegarde membre:", error);
                   alert(`Erreur lors de la sauvegarde: ${error.message}`);
