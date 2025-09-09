@@ -254,13 +254,100 @@ export default function StatisticsPage() {
           value={stats?.femmes || 0}
           subtitle={`${stats?.total ? ((stats.femmes / stats.total * 100).toFixed(0)) : 0}%`}
         />
-                <StatCard
+        <StatCard
           icon={<FaEuroSign className="text-green-600 text-3xl" />}
           label="Revenus"
           value={`${paymentStats.reduce((sum, p) => sum + p.value, 0).toFixed(0)}€`}
           subtitle="total des paiements"
         />
       </div>
+
+
+      {/* 🔹 Partie 7 — Listes détaillées : Top 10 membres & Abonnements expirés */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top 10 membres */}
+        <Section title="Top 10 membres les plus présents" icon={<FaStar />}>
+          {topMembers.length > 0 ? (
+            <div className="space-y-2">
+              {topMembers.map((member, index) => (
+                <div
+                  key={member.id}
+                  className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">
+                      {index === 0 && "🥇"}
+                      {index === 1 && "🥈"}
+                      {index === 2 && "🥉"}
+                      {index > 2 && `#${index + 1}`}
+                    </span>
+                    <div>
+                      <div className="font-semibold dark:text-white">
+                        {member.firstName} {member.name}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Badge: {member.badgeId}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-blue-600">{member.count}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">passages</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <NoDataMessage />
+          )}
+        </Section>
+
+        {/* Abonnements expirés */}
+        <Section
+          title="Abonnements expirés"
+          icon={<FaExclamationTriangle className="text-red-600" />}
+          urgent={stats?.membresExpirés?.length > 0}
+        >
+          {stats?.membresExpirés?.length > 0 ? (
+            <div className="space-y-2">
+              {stats.membresExpirés.slice(0, 10).map((member) => (
+                <div
+                  key={member.id}
+                  className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-100/20 rounded border-l-4 border-red-400"
+                >
+                  <div>
+                    <div className="font-semibold text-red-800 dark:text-red-300">
+                      {member.firstName} {member.name}
+                    </div>
+                    <div className="text-sm text-red-600 dark:text-red-400">
+                      Nécessite un renouvellement
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-red-700 dark:text-red-400">
+                      Expiré le
+                    </div>
+                    <div className="text-sm text-red-600 dark:text-red-300">
+                      {new Date(member.endDate).toLocaleDateString('fr-FR')}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {stats.membresExpirés.length > 10 && (
+                <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-3">
+                  ... et {stats.membresExpirés.length - 10} autres membres
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center text-green-600 py-8">
+              <FaUserCheck className="text-4xl mx-auto mb-2" />
+              <p>Tous les abonnements sont à jour !</p>
+            </div>
+          )}
+        </Section>
+      </div>
+
 
       {/* 🔹 Partie 5 — Graphiques : Présences par jour et Répartition par genre */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -371,90 +458,7 @@ export default function StatisticsPage() {
         </Section>
       </div>
 
-      {/* 🔹 Partie 7 — Listes détaillées : Top 10 membres & Abonnements expirés */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top 10 membres */}
-        <Section title="Top 10 membres les plus présents" icon={<FaStar />}>
-          {topMembers.length > 0 ? (
-            <div className="space-y-2">
-              {topMembers.map((member, index) => (
-                <div
-                  key={member.id}
-                  className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">
-                      {index === 0 && "🥇"}
-                      {index === 1 && "🥈"}
-                      {index === 2 && "🥉"}
-                      {index > 2 && `#${index + 1}`}
-                    </span>
-                    <div>
-                      <div className="font-semibold dark:text-white">
-                        {member.firstName} {member.name}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        Badge: {member.badgeId}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-blue-600">{member.count}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">passages</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <NoDataMessage />
-          )}
-        </Section>
 
-        {/* Abonnements expirés */}
-        <Section
-          title="Abonnements expirés"
-          icon={<FaExclamationTriangle className="text-red-600" />}
-          urgent={stats?.membresExpirés?.length > 0}
-        >
-          {stats?.membresExpirés?.length > 0 ? (
-            <div className="space-y-2">
-              {stats.membresExpirés.slice(0, 10).map((member) => (
-                <div
-                  key={member.id}
-                  className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-100/20 rounded border-l-4 border-red-400"
-                >
-                  <div>
-                    <div className="font-semibold text-red-800 dark:text-red-300">
-                      {member.firstName} {member.name}
-                    </div>
-                    <div className="text-sm text-red-600 dark:text-red-400">
-                      Nécessite un renouvellement
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-red-700 dark:text-red-400">
-                      Expiré le
-                    </div>
-                    <div className="text-sm text-red-600 dark:text-red-300">
-                      {new Date(member.endDate).toLocaleDateString('fr-FR')}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {stats.membresExpirés.length > 10 && (
-                <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-3">
-                  ... et {stats.membresExpirés.length - 10} autres membres
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center text-green-600 py-8">
-              <FaUserCheck className="text-4xl mx-auto mb-2" />
-              <p>Tous les abonnements sont à jour !</p>
-            </div>
-          )}
-        </Section>
-      </div>
     </div>
   );
 }
