@@ -302,7 +302,7 @@ export default function StatisticsPage() {
                   label={({ name, value, percent }) =>
                     `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
                   }
-                  labelLine={false}
+                  labelLine={true}
                 >
                   {genderStats.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
