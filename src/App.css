@@ -1371,3 +1371,7 @@
   border: 1px solid #374151 !important; /* gray-700 */
   color: #f9fafb !important;            /* gray-50 */
 }
+
+.dark .recharts-pie .recharts-label {
+  fill: #f9fafb !important; /* texte labels en dark */
+}
