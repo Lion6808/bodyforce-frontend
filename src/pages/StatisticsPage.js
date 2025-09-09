@@ -316,8 +316,8 @@ export default function StatisticsPage() {
                     borderRadius: 8,
                     padding: "8px 10px",
                   }}
-                  labelStyle={{ color: "#e5e7eb" }} // gris clair (text-gray-200)
-                  itemStyle={{ color: "#f9fafb" }} // blanc (text-gray-50)
+                  labelStyle={{ color: "#2b91c0ff" }} // gris clair (text-gray-200)
+                  itemStyle={{ color: "#2a6885ff" }} // blanc (text-gray-50)
                   cursor={{ fill: "rgba(59,130,246,0.1)" }} // effet hover bleu léger
                 />
               </PieChart>
