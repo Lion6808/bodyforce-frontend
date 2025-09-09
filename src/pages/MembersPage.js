@@ -1,14 +1,25 @@
-// ✅ PARTIE 1/5 : IMPORTS ET DÉBUT DU COMPOSANT
-
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// ✅ MembersPage.js COMPLET avec repositionnement automatique
+import React, { useEffect, useState, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabaseServices } from "../supabaseClient";
-import MemberForm from '../components/MemberForm'; // ✅ GARDER pour mobile
+import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
-import { FaEdit, FaTrash, FaPlus, FaSync, FaUser, FaExternalLinkAlt } from "react-icons/fa";
+import {
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaSync,
+  FaUser,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
 
 function MembersPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ✅ NOUVEAU : Récupérer l'ID du membre depuis l'état de navigation
+  const returnedFromEdit = location.state?.returnedFromEdit;
+  const editedMemberId = location.state?.editedMemberId;
 
   // ✅ États existants
   const [members, setMembers] = useState([]);
@@ -21,35 +32,78 @@ function MembersPage() {
   const [error, setError] = useState(null);
   const [imageErrors, setImageErrors] = useState(new Set());
 
-  // ✅ NOUVEAUX États pour l'approche hybride
+  // ✅ États pour l'approche hybride
   const [selectedMember, setSelectedMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  // ✅ NOUVEAU : Ref pour les éléments membres
+  const memberRefs = useRef({});
+
   // ✅ Détection de la taille d'écran
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024); // lg breakpoint
+      setIsMobile(window.innerWidth < 1024);
     };
-
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ HANDLER HYBRIDE pour l'édition
+  // ✅ NOUVEAU : Effet pour le repositionnement après retour d'édition
+  useEffect(() => {
+    if (
+      returnedFromEdit &&
+      editedMemberId &&
+      !loading &&
+      filteredMembers.length > 0
+    ) {
+      // Petit délai pour s'assurer que le DOM est mis à jour
+      setTimeout(() => {
+        scrollToMember(editedMemberId);
+        // Nettoyer l'état de navigation
+        window.history.replaceState({}, "", location.pathname);
+      }, 100);
+    }
+  }, [returnedFromEdit, editedMemberId, loading, filteredMembers]);
+
+  // ✅ NOUVELLE FONCTION : Scroll vers un membre spécifique
+  const scrollToMember = (memberId) => {
+    const memberElement = memberRefs.current[memberId];
+    if (memberElement) {
+      // Scroll avec animation douce
+      memberElement.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      // Effet visuel temporaire pour mettre en évidence
+      memberElement.style.transition = "all 0.3s ease";
+      memberElement.style.transform = "scale(1.02)";
+      memberElement.style.boxShadow = "0 8px 25px rgba(59, 130, 246, 0.3)";
+      memberElement.style.borderColor = "#3B82F6";
+
+      setTimeout(() => {
+        memberElement.style.transform = "";
+        memberElement.style.boxShadow = "";
+        memberElement.style.borderColor = "";
+      }, 1000);
+    }
+  };
+
+  // ✅ HANDLER HYBRIDE pour l'édition (MODIFIÉ)
   const handleEditMember = (member) => {
     if (isMobile) {
-      // Mode mobile : utiliser le modal MemberForm
       setSelectedMember(member);
       setShowForm(true);
     } else {
-      // Mode desktop : naviguer vers MemberFormPage
-      navigate('/members/edit', {
+      // Mode desktop : naviguer vers MemberFormPage avec l'ID du membre
+      navigate("/members/edit", {
         state: {
           member: member,
-          returnPath: '/members'
-        }
+          returnPath: "/members",
+          memberId: member.id, // ✅ AJOUT : Passer l'ID pour le retour
+        },
       });
     }
   };
@@ -57,16 +111,14 @@ function MembersPage() {
   // ✅ HANDLER HYBRIDE pour l'ajout
   const handleAddMember = () => {
     if (isMobile) {
-      // Mode mobile : utiliser le modal MemberForm
       setSelectedMember(null);
       setShowForm(true);
     } else {
-      // Mode desktop : naviguer vers MemberFormPage
-      navigate('/members/new', {
+      navigate("/members/new", {
         state: {
           member: null,
-          returnPath: '/members'
-        }
+          returnPath: "/members",
+        },
       });
     }
   };
@@ -76,7 +128,6 @@ function MembersPage() {
     setShowForm(false);
     setSelectedMember(null);
   };
-  // ✅ PARTIE 2/5 : FONCTIONS UTILITAIRES
 
   const fetchMembers = async () => {
     try {
@@ -207,7 +258,6 @@ function MembersPage() {
     setImageErrors((prev) => new Set([...prev, memberId]));
     e.target.style.display = "none";
   };
-  // ✅ PARTIE 3/5 : CALCULS ET COMPOSANTS UTILITAIRES
 
   // Calculer les statistiques
   const total = filteredMembers.length;
@@ -274,10 +324,11 @@ function MembersPage() {
       return (
         <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
           <FaUser
-            className={`text-xl ${member.gender === "Femme"
-              ? "text-pink-500 dark:text-pink-400"
-              : "text-blue-500 dark:text-blue-400"
-              }`}
+            className={`text-xl ${
+              member.gender === "Femme"
+                ? "text-pink-500 dark:text-pink-400"
+                : "text-blue-500 dark:text-blue-400"
+            }`}
           />
         </div>
       );
@@ -286,14 +337,16 @@ function MembersPage() {
     return (
       <div className="relative w-12 h-12 transform-gpu">
         <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${imageLoaded ? "opacity-0" : "opacity-100"
-            }`}
+          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
+            imageLoaded ? "opacity-0" : "opacity-100"
+          }`}
         >
           <FaUser
-            className={`text-xl ${member.gender === "Femme"
-              ? "text-pink-500 dark:text-pink-400"
-              : "text-blue-500 dark:text-blue-400"
-              }`}
+            className={`text-xl ${
+              member.gender === "Femme"
+                ? "text-pink-500 dark:text-pink-400"
+                : "text-blue-500 dark:text-blue-400"
+            }`}
           />
         </div>
 
@@ -301,8 +354,9 @@ function MembersPage() {
           <img
             src={member.photo}
             alt="avatar"
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
-              }`}
+            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
+              imageLoaded ? "opacity-100" : "opacity-0"
+            }`}
             onLoad={() => setImageLoaded(true)}
             onError={() => {
               setImageFailed(true);
@@ -314,7 +368,6 @@ function MembersPage() {
       </div>
     );
   };
-  // ✅ PARTIE 4/5 : ÉTATS DE CHARGEMENT ET DÉBUT DU JSX
 
   if (loading) {
     return (
@@ -436,7 +489,7 @@ function MembersPage() {
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <button
             className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
-            onClick={handleAddMember} // ✅ Handler hybride
+            onClick={handleAddMember}
           >
             <FaPlus />
             Ajouter un membre
@@ -462,7 +515,6 @@ function MembersPage() {
           />
         </div>
       </div>
-
 
       {/* Contrôles de tri en mode desktop */}
       <div className="hidden lg:flex items-center justify-between mb-4">
@@ -555,15 +607,15 @@ function MembersPage() {
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                        try {
-                          return isBefore(
-                            parseISO(member.endDate),
-                            new Date()
-                          );
-                        } catch (e) {
-                          return true;
-                        }
-                      })()
+                          try {
+                            return isBefore(
+                              parseISO(member.endDate),
+                              new Date()
+                            );
+                          } catch (e) {
+                            return true;
+                          }
+                        })()
                       : true;
 
                     const hasFiles =
@@ -571,12 +623,16 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                          ? member.files !== "[]" && member.files !== ""
-                          : Object.keys(member.files).length > 0);
+                        ? member.files !== "[]" && member.files !== ""
+                        : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
                         key={member.id}
+                        // ✅ AJOUT : Ref pour le repositionnement
+                        ref={(el) => {
+                          if (el) memberRefs.current[member.id] = el;
+                        }}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150 transform-gpu member-row"
                       >
                         <td className="p-3">
@@ -598,7 +654,9 @@ function MembersPage() {
                             onClick={() => handleEditMember(member)}
                             title="Cliquer pour modifier"
                           >
-                            <span>{member.name} {member.firstName}</span>
+                            <span>
+                              {member.name} {member.firstName}
+                            </span>
                             <FaExternalLinkAlt className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200" />
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -610,10 +668,11 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                  }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  member.gender === "Femme"
+                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                }`}
                               >
                                 {member.gender}
                               </span>
@@ -655,10 +714,11 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${isExpired
-                                  ? "text-red-600 dark:text-red-400 font-medium"
-                                  : "text-gray-500 dark:text-gray-400"
-                                  }`}
+                                className={`text-xs ${
+                                  isExpired
+                                    ? "text-red-600 dark:text-red-400 font-medium"
+                                    : "text-gray-500 dark:text-gray-400"
+                                }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -698,7 +758,7 @@ function MembersPage() {
                         <td className="p-3">
                           <div className="flex flex-col gap-2">
                             <button
-                              onClick={() => handleEditMember(member)} // ✅ Handler hybride
+                              onClick={() => handleEditMember(member)}
                               className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-1 rounded text-sm transition-colors"
                               title="Modifier ce membre"
                             >
@@ -752,12 +812,12 @@ function MembersPage() {
             {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                  try {
-                    return isBefore(parseISO(member.endDate), new Date());
-                  } catch (e) {
-                    return true;
-                  }
-                })()
+                    try {
+                      return isBefore(parseISO(member.endDate), new Date());
+                    } catch (e) {
+                      return true;
+                    }
+                  })()
                 : true;
 
               const hasFiles =
@@ -765,12 +825,16 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                    ? member.files !== "[]" && member.files !== ""
-                    : Object.keys(member.files).length > 0);
+                  ? member.files !== "[]" && member.files !== ""
+                  : Object.keys(member.files).length > 0);
 
               return (
                 <div
                   key={member.id}
+                  // ✅ AJOUT : Ref pour le repositionnement mobile
+                  ref={(el) => {
+                    if (el) memberRefs.current[member.id] = el;
+                  }}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-150 transform-gpu member-card"
                 >
                   {/* En-tête de la carte */}
@@ -802,10 +866,11 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                          }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          member.gender === "Femme"
+                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                        }`}
                       >
                         {member.gender}
                       </span>
@@ -854,10 +919,11 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${isExpired
-                              ? "text-red-600 dark:text-red-400 font-medium"
-                              : "text-gray-600 dark:text-gray-400"
-                              }`}
+                            className={`text-xs ${
+                              isExpired
+                                ? "text-red-600 dark:text-red-400 font-medium"
+                                : "text-gray-600 dark:text-gray-400"
+                            }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -899,7 +965,7 @@ function MembersPage() {
                   {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
                     <button
-                      onClick={() => handleEditMember(member)} // ✅ Handler hybride
+                      onClick={() => handleEditMember(member)}
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors"
                     >
                       <FaEdit className="w-3 h-3" />
@@ -947,29 +1013,33 @@ function MembersPage() {
                     selectedMember ? "Modification" : "Création"
                   );
 
+                  let memberId;
                   if (selectedMember?.id) {
-                    // Modification d'un membre existant
                     await supabaseServices.updateMember(
                       selectedMember.id,
                       memberData
                     );
+                    memberId = selectedMember.id;
                     console.log("✅ Membre modifié:", selectedMember.id);
                   } else {
-                    // Création d'un nouveau membre
                     const newMember = await supabaseServices.createMember(
                       memberData
                     );
+                    memberId = newMember.id;
                     console.log("✅ Nouveau membre créé:", newMember.id);
                   }
 
-                  // Fermer le modal si demandé
                   if (closeModal) {
                     setShowForm(false);
                     setSelectedMember(null);
                   }
 
-                  // Recharger la liste
                   await fetchMembers();
+
+                  // ✅ Repositionnement après sauvegarde mobile
+                  if (memberId) {
+                    setTimeout(() => scrollToMember(memberId), 200);
+                  }
                 } catch (error) {
                   console.error("❌ Erreur sauvegarde membre:", error);
                   alert(`Erreur lors de la sauvegarde: ${error.message}`);
@@ -989,24 +1059,27 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
-        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-        }`}
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
+        active
+          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+      }`}
     >
       <div
-        className={`text-sm ${active
-          ? "text-blue-700 dark:text-blue-300 font-medium"
-          : "text-gray-500 dark:text-gray-400"
-          }`}
+        className={`text-sm ${
+          active
+            ? "text-blue-700 dark:text-blue-300 font-medium"
+            : "text-gray-500 dark:text-gray-400"
+        }`}
       >
         {title}
       </div>
       <div
-        className={`text-xl font-bold ${active
-          ? "text-blue-800 dark:text-blue-200"
-          : "text-gray-800 dark:text-gray-200"
-          }`}
+        className={`text-xl font-bold ${
+          active
+            ? "text-blue-800 dark:text-blue-200"
+            : "text-gray-800 dark:text-gray-200"
+        }`}
       >
         {value}
       </div>
