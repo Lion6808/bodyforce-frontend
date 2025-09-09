@@ -243,12 +243,6 @@ export default function StatisticsPage() {
           subtitle="tarif réduit"
         />
         <StatCard
-          icon={<FaEuroSign className="text-green-600 text-3xl" />}
-          label="Revenus"
-          value={`${paymentStats.reduce((sum, p) => sum + p.value, 0).toFixed(0)}€`}
-          subtitle="total des paiements"
-        />
-        <StatCard
           icon={<FaMars className="text-blue-600 text-3xl" />}
           label="Hommes"
           value={stats?.hommes || 0}
@@ -259,6 +253,12 @@ export default function StatisticsPage() {
           label="Femmes"
           value={stats?.femmes || 0}
           subtitle={`${stats?.total ? ((stats.femmes / stats.total * 100).toFixed(0)) : 0}%`}
+        />
+                <StatCard
+          icon={<FaEuroSign className="text-green-600 text-3xl" />}
+          label="Revenus"
+          value={`${paymentStats.reduce((sum, p) => sum + p.value, 0).toFixed(0)}€`}
+          subtitle="total des paiements"
         />
       </div>
 
