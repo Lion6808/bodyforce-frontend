@@ -308,7 +308,18 @@ export default function StatisticsPage() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  wrapperStyle={{ zIndex: 50 }}
+                  contentStyle={{
+                    backgroundColor: "#1f2937", // gris foncé (bg-gray-800)
+                    border: "1px solid #374151", // gris (border-gray-700)
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                  }}
+                  labelStyle={{ color: "#e5e7eb" }} // gris clair (text-gray-200)
+                  itemStyle={{ color: "#f9fafb" }} // blanc (text-gray-50)
+                  cursor={{ fill: "rgba(59,130,246,0.1)" }} // effet hover bleu léger
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
@@ -469,8 +480,8 @@ function Section({ title, icon, children, urgent = false }) {
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
       <div
         className={`px-6 py-4 border-b ${urgent
-            ? 'bg-red-50 border-red-200 dark:bg-red-100/10 dark:border-red-400/40'
-            : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700'
+          ? 'bg-red-50 border-red-200 dark:bg-red-100/10 dark:border-red-400/40'
+          : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700'
           }`}
       >
         <h3
