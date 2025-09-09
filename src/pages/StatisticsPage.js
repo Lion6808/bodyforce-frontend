@@ -349,6 +349,7 @@ export default function StatisticsPage() {
       </div>
 
 
+
       {/* 🔹 Partie 5 — Graphiques : Présences par jour et Répartition par genre */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Évolution des présences (7 derniers jours) */}
@@ -457,8 +458,6 @@ export default function StatisticsPage() {
           )}
         </Section>
       </div>
-
-
     </div>
   );
 }
