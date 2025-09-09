@@ -302,6 +302,7 @@ export default function StatisticsPage() {
                   label={({ name, value, percent }) =>
                     `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
                   }
+                  labelLine={false}
                 >
                   {genderStats.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -467,16 +468,14 @@ function Section({ title, icon, children, urgent = false }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
       <div
-        className={`px-6 py-4 border-b ${
-          urgent
+        className={`px-6 py-4 border-b ${urgent
             ? 'bg-red-50 border-red-200 dark:bg-red-100/10 dark:border-red-400/40'
             : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700'
-        }`}
+          }`}
       >
         <h3
-          className={`text-lg font-semibold flex items-center gap-2 ${
-            urgent ? 'text-red-800 dark:text-red-400' : 'text-gray-800 dark:text-white'
-          }`}
+          className={`text-lg font-semibold flex items-center gap-2 ${urgent ? 'text-red-800 dark:text-red-400' : 'text-gray-800 dark:text-white'
+            }`}
         >
           {icon} {title}
         </h3>
