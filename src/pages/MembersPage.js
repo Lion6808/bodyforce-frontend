@@ -324,8 +324,8 @@ const MemberAvatar = ({ member }) => {
   const [lensPos, setLensPos] = useState({ x: 0, y: 0 });
   const containerRef = useRef(null);
 
-  const lensSize = 240;      // ⬅️ diamètre de la loupe en px
-  const zoom = 2.5;          // ⬅️ facteur de zoom (2 à 3 est généralement agréable)
+  const lensSize = 200;      // ⬅️ diamètre de la loupe en px
+  const zoom = 3.0;          // ⬅️ facteur de zoom (2 à 3 est généralement agréable)
 
   // Désactiver la loupe sur tactile / mobile
   const isTouch =
