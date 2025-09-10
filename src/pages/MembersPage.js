@@ -1,3 +1,7 @@
+// Ouvrir aussi sur desktop en popup
+const usePopupOnDesktop = true;
+
+
 // ✅ MembersPage.js COMPLET avec repositionnement automatique
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -253,20 +257,17 @@ function MembersPage() {
 
   // ✅ HANDLER HYBRIDE pour l'édition (MODIFIÉ)
   const handleEditMember = (member) => {
-    if (isMobile) {
-      setSelectedMember(member);
-      setShowForm(true);
-    } else {
-      // Mode desktop : naviguer vers MemberFormPage avec l'ID du membre
-      navigate("/members/edit", {
-        state: {
-          member: member,
-          returnPath: "/members",
-          memberId: member.id, // ✅ AJOUT : Passer l'ID pour le retour
-        },
-      });
-    }
-  };
+  if (isMobile || usePopupOnDesktop) {
+    setSelectedMember(member);
+    setShowForm(true);
+  } else {
+    saveMembersPageContext({ editedMemberId: member.id });
+    navigate("/members/edit", {
+      state: { member, returnPath: "/members", memberId: member.id },
+    });
+  }
+};
+
 
   // ✅ HANDLER HYBRIDE pour l'ajout
   const handleAddMember = () => {
