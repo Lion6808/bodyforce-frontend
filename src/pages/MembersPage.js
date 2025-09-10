@@ -93,6 +93,22 @@ const matchesSearch = (member, compiledClauses) => {
   return compiledClauses.some((tokens) => tokens.every((rx) => rx.test(haystack)));
 };
 
+// Analyse l'entrée utilisateur pour l'UI (badges, OR/AND, jokers, ancres)
+const analyzeSearch = (raw) => {
+  const text = (raw || "").trim();
+  if (!text) return { active: false, clauses: [], hasWildcards: false, hasAnchors: false };
+
+  const orParts = text.split(/\s+OR\s+/i).map((s) => s.trim()).filter(Boolean);
+  const clauses = orParts.map((p) => p.split(/\s+/).map((t) => t.trim()).filter(Boolean));
+
+  return {
+    active: true,
+    clauses, // ex: [["b*","homme"],["mar*"]]  => (b* AND homme) OR (mar*)
+    hasWildcards: /[*?]/.test(text),
+    hasAnchors: /(\^|\$)/.test(text),
+  };
+};
+
 
 function MembersPage() {
   const navigate = useNavigate();
@@ -404,7 +420,7 @@ function MembersPage() {
     const [lensPos, setLensPos] = useState({ x: 0, y: 0 });
     const containerRef = useRef(null);
 
-    const lensSize = 200;      // ⬅️ diamètre de la loupe en px
+    const lensSize = 160;      // ⬅️ diamètre de la loupe en px
     const zoom = 3.0;          // ⬅️ facteur de zoom (2 à 3 est généralement agréable)
 
     // Désactiver la loupe sur tactile / mobile
@@ -434,8 +450,8 @@ function MembersPage() {
         <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
           <FaUser
             className={`text-xl ${member.gender === "Femme"
-                ? "text-pink-500 dark:text-pink-400"
-                : "text-blue-500 dark:text-blue-400"
+              ? "text-pink-500 dark:text-pink-400"
+              : "text-blue-500 dark:text-blue-400"
               }`}
           />
         </div>
@@ -469,8 +485,8 @@ function MembersPage() {
         >
           <FaUser
             className={`text-xl ${member.gender === "Femme"
-                ? "text-pink-500 dark:text-pink-400"
-                : "text-blue-500 dark:text-blue-400"
+              ? "text-pink-500 dark:text-pink-400"
+              : "text-blue-500 dark:text-blue-400"
               }`}
           />
         </div>
@@ -663,8 +679,76 @@ function MembersPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
           />
+          <SearchHints search={search} />
         </div>
       </div>
+
+      function SearchHints({search}) {
+  const info = analyzeSearch(search);
+      if (!info.active) return null;
+
+      return (
+      <div className="w-full sm:w-auto sm:max-w-[36rem] text-xs mt-1 space-y-1">
+        {/* Ligne d'état */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+            Recherche avancée
+          </span>
+          {info.hasWildcards && (
+            <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700">
+              Jokers * et ?
+            </span>
+          )}
+          {info.hasAnchors && (
+            <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
+              Ancres ^ et $
+            </span>
+          )}
+        </div>
+
+        {/* Badges des clauses/tokens */}
+        <div className="flex flex-wrap items-center gap-2">
+          {info.clauses.map((tokens, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
+              title="Tous les tokens d’un groupe = AND"
+            >
+              {tokens.map((t, j) => (
+                <span
+                  key={j}
+                  className="px-1.5 py-0.5 rounded bg-white/70 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 font-mono"
+                >
+                  {t}
+                </span>
+              ))}
+              <span className="ml-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">AND</span>
+            </div>
+          ))}
+          {info.clauses.length > 1 && (
+            <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400" title="Groupes reliés par OR">
+              (Groupes reliés par OR)
+            </span>
+          )}
+        </div>
+
+        {/* Mini aide */}
+        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+          Exemples : <code className="font-mono">b*</code> (commence par b),{" "}
+          <code className="font-mono">*son</code> (finit par son),{" "}
+          <code className="font-mono">mar?</code> (mar + 1 char),{" "}
+          <code className="font-mono">homme mar*</code> (AND),{" "}
+          <code className="font-mono">b* OR mar*</code> (OR),{" "}
+          <code className="font-mono">^mar*</code> (ancré début),{" "}
+          <code className="font-mono">*tin$</code> (ancré fin).
+        </div>
+      </div>
+      );
+}
+
+
+
+
 
       {/* Contrôles de tri en mode desktop */}
       <div className="hidden lg:flex items-center justify-between mb-4">
@@ -819,8 +903,8 @@ function MembersPage() {
                             <div className="flex items-center gap-2">
                               <span
                                 className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                                   }`}
                               >
                                 {member.gender}
@@ -864,8 +948,8 @@ function MembersPage() {
                             {member.endDate && (
                               <div
                                 className={`text-xs ${isExpired
-                                    ? "text-red-600 dark:text-red-400 font-medium"
-                                    : "text-gray-500 dark:text-gray-400"
+                                  ? "text-red-600 dark:text-red-400 font-medium"
+                                  : "text-gray-500 dark:text-gray-400"
                                   }`}
                               >
                                 Fin: {member.endDate}
@@ -1015,8 +1099,8 @@ function MembersPage() {
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                           }`}
                       >
                         {member.gender}
@@ -1067,8 +1151,8 @@ function MembersPage() {
                         {member.endDate && (
                           <div
                             className={`text-xs ${isExpired
-                                ? "text-red-600 dark:text-red-400 font-medium"
-                                : "text-gray-600 dark:text-gray-400"
+                              ? "text-red-600 dark:text-red-400 font-medium"
+                              : "text-gray-600 dark:text-gray-400"
                               }`}
                           >
                             Fin: {member.endDate}
@@ -1206,22 +1290,22 @@ function Widget({ title, value, onClick, active = false }) {
     <div
       onClick={onClick}
       className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
-          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
         }`}
     >
       <div
         className={`text-sm ${active
-            ? "text-blue-700 dark:text-blue-300 font-medium"
-            : "text-gray-500 dark:text-gray-400"
+          ? "text-blue-700 dark:text-blue-300 font-medium"
+          : "text-gray-500 dark:text-gray-400"
           }`}
       >
         {title}
       </div>
       <div
         className={`text-xl font-bold ${active
-            ? "text-blue-800 dark:text-blue-200"
-            : "text-gray-800 dark:text-gray-200"
+          ? "text-blue-800 dark:text-blue-200"
+          : "text-gray-800 dark:text-gray-200"
           }`}
       >
         {value}
