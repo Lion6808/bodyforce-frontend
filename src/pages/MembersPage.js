@@ -257,17 +257,20 @@ function MembersPage() {
 
   // ✅ HANDLER HYBRIDE pour l'édition (MODIFIÉ)
   const handleEditMember = (member) => {
-  if (isMobile || usePopupOnDesktop) {
-    setSelectedMember(member);
-    setShowForm(true);
-  } else {
-    saveMembersPageContext({ editedMemberId: member.id });
-    navigate("/members/edit", {
-      state: { member, returnPath: "/members", memberId: member.id },
-    });
-  }
-};
-
+    if (isMobile) {
+      setSelectedMember(member);
+      setShowForm(true);
+    } else {
+      // Mode desktop : naviguer vers MemberFormPage avec l'ID du membre
+      navigate("/members/edit", {
+        state: {
+          member: member,
+          returnPath: "/members",
+          memberId: member.id, // ✅ AJOUT : Passer l'ID pour le retour
+        },
+      });
+    }
+  };
 
   // ✅ HANDLER HYBRIDE pour l'ajout
   const handleAddMember = () => {
