@@ -314,60 +314,134 @@ function MembersPage() {
   };
 
   // Component for avatar with fallback
-  const MemberAvatar = ({ member }) => {
-    const [imageLoaded, setImageLoaded] = useState(false);
-    const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
+// Component for avatar with fallback + magnifier on hover
+const MemberAvatar = ({ member }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
 
-    const shouldShowFallback = !member.photo || imageFailed;
+  // --- Loupe ---
+  const [showLens, setShowLens] = useState(false);
+  const [lensPos, setLensPos] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
 
-    if (shouldShowFallback) {
-      return (
-        <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-          <FaUser
-            className={`text-xl ${
-              member.gender === "Femme"
-                ? "text-pink-500 dark:text-pink-400"
-                : "text-blue-500 dark:text-blue-400"
-            }`}
-          />
-        </div>
-      );
-    }
+  const lensSize = 120;      // ⬅️ diamètre de la loupe en px
+  const zoom = 2.5;          // ⬅️ facteur de zoom (2 à 3 est généralement agréable)
 
+  // Désactiver la loupe sur tactile / mobile
+  const isTouch =
+    typeof window !== "undefined" &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
+  const shouldShowFallback = !member.photo || imageFailed;
+
+  // Gestion du survol
+  const handleMouseEnter = () => {
+    if (!isTouch) setShowLens(true);
+  };
+  const handleMouseLeave = () => setShowLens(false);
+
+  const handleMouseMove = (e) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left; // position de la souris dans le conteneur
+    const y = e.clientY - rect.top;
+
+    setLensPos({ x, y });
+  };
+
+  if (shouldShowFallback) {
     return (
-      <div className="relative w-12 h-12 transform-gpu">
-        <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
-            imageLoaded ? "opacity-0" : "opacity-100"
+      <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+        <FaUser
+          className={`text-xl ${
+            member.gender === "Femme"
+              ? "text-pink-500 dark:text-pink-400"
+              : "text-blue-500 dark:text-blue-400"
           }`}
-        >
-          <FaUser
-            className={`text-xl ${
-              member.gender === "Femme"
-                ? "text-pink-500 dark:text-pink-400"
-                : "text-blue-500 dark:text-blue-400"
-            }`}
-          />
-        </div>
-
-        <div className="relative w-12 h-12 rounded-full shadow-[0_6px_15px_rgba(0,0,0,0.6)]">
-          <img
-            src={member.photo}
-            alt="avatar"
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
-              imageLoaded ? "opacity-100" : "opacity-0"
-            }`}
-            onLoad={() => setImageLoaded(true)}
-            onError={() => {
-              setImageFailed(true);
-              setImageErrors((prev) => new Set([...prev, member.id]));
-            }}
-            loading="lazy"
-          />
-        </div>
+        />
       </div>
     );
-  };
+  }
+
+  // Taille de l’avatar (gardé à 48px pour coller à ta table)
+  const avatarSize = 48; // = 12 * 4 (w-12 h-12)
+
+  // Calculs pour la texture de fond de la loupe
+  const bgSize = `${avatarSize * zoom}px ${avatarSize * zoom}px`;
+
+  // Position de fond : on centre la zone autour du pointeur
+  // Convertir pos curseur (dans le conteneur) vers la zone zoomée
+  const bgPosX = -(lensPos.x * zoom - lensSize / 2);
+  const bgPosY = -(lensPos.y * zoom - lensSize / 2);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-12 h-12 transform-gpu group"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseMove={handleMouseMove}
+      style={{ cursor: isTouch ? "default" : "zoom-in" }}
+    >
+      {/* Placeholder (icône) pendant le chargement */}
+      <div
+        className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
+          imageLoaded ? "opacity-0" : "opacity-100"
+        }`}
+      >
+        <FaUser
+          className={`text-xl ${
+            member.gender === "Femme"
+              ? "text-pink-500 dark:text-pink-400"
+              : "text-blue-500 dark:text-blue-400"
+          }`}
+        />
+      </div>
+
+      {/* Avatar avec ombre existante (accentuée) */}
+      <div className="relative w-12 h-12 rounded-full shadow-[0_10px_24px_rgba(0,0,0,0.65)]">
+        <img
+          src={member.photo}
+          alt="avatar"
+          className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
+            imageLoaded ? "opacity-100" : "opacity-0"
+          }`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            setImageFailed(true);
+            setImageErrors((prev) => new Set([...prev, member.id]));
+          }}
+          loading="lazy"
+          draggable={false}
+        />
+      </div>
+
+      {/* Loupe (affichée au survol, desktop only) */}
+      {showLens && imageLoaded && (
+        <div
+          className="pointer-events-none absolute rounded-full ring-2 ring-white dark:ring-gray-800 shadow-xl"
+          style={{
+            width: `${lensSize}px`,
+            height: `${lensSize}px`,
+            // Positionner le centre de la loupe sous le pointeur
+            left: `${lensPos.x - lensSize / 2}px`,
+            top: `${lensPos.y - lensSize / 2}px`,
+            backgroundImage: `url(${member.photo})`,
+            backgroundRepeat: "no-repeat",
+            backgroundSize: bgSize,
+            backgroundPosition: `${bgPosX}px ${bgPosY}px`,
+            // Légère vignette pour relief
+            boxShadow:
+              "0 14px 30px rgba(0,0,0,0.35), inset 0 0 20px rgba(0,0,0,0.25)",
+            // Un peu de blur en périphérie pour effet verre
+            backdropFilter: "blur(0.5px)",
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
 
   if (loading) {
     return (
