@@ -880,7 +880,7 @@ function MembersPage() {
                     return (
                       <tr
                         key={member.id}
-                        data-member-id={member.id} {/* ← AJOUT pour le scroll */}
+                        data-member-id={member.id}
                         ref={(el) => {
                           if (el) memberRefs.current[member.id] = el;
                         }}
@@ -1058,7 +1058,7 @@ function MembersPage() {
               return (
                 <div
                   key={member.id}
-                  data-member-id={member.id} {/* ← AJOUT pour le scroll */}
+                  data-member-id={member.id} 
                   ref={(el) => {
                     if (el) memberRefs.current[member.id] = el;
                   }}
