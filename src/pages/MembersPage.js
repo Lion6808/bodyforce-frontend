@@ -209,6 +209,27 @@ function MembersPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // ✅ Force la restauration manuelle du scroll pendant la vie de la page
+  useEffect(() => {
+    const { history } = window;
+    const prev = history.scrollRestoration;
+    try {
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+      }
+    } catch { }
+    return () => {
+      try {
+        if ('scrollRestoration' in history) {
+          history.scrollRestoration = prev || 'auto';
+        }
+      } catch { }
+    };
+  }, []);
+
+
+
+
   // ✅ Lecture du contexte sauvegardé (recherche, filtres, tri, sélection, scroll...)
   //    Se joue une seule fois au montage de MembersPage.
   useEffect(() => {
@@ -246,26 +267,56 @@ function MembersPage() {
     }
   }, [returnedFromEdit, editedMemberIdFromState, loading, filteredMembers, location.pathname]);
 
-  // ✅ NOUVEAU : Effet de repositionnement après restauration sessionStorage
+
+  // ✅ Repositionnement après restauration sessionStorage (robuste, avec retry)
   useEffect(() => {
     const ctx = restoreRef.current;
     if (!ctx) return;
     if (loading) return;
 
-    // 1) Repositionnement de la fenêtre (scroll global)
-    if (typeof ctx.scrollY === "number") {
-      window.scrollTo({ top: ctx.scrollY, behavior: "auto" });
-    }
+    const scrollEl = document.scrollingElement || document.documentElement;
 
-    // 2) Focus visuel sur le membre (si encore présent)
-    if (ctx.editedMemberId) {
-      setTimeout(() => scrollToMember(ctx.editedMemberId), 50);
-    }
+    let attempts = 0;
+    const maxAttempts = 25;   // ~1.25s si interval=50ms
+    const interval = 50;
 
-    // 3) Nettoyage pour ne pas rejouer au prochain affichage
-    restoreRef.current = null;
-    sessionStorage.removeItem("membersPageCtx");
+    const cleanup = () => {
+      restoreRef.current = null;
+      sessionStorage.removeItem("membersPageCtx");
+    };
+
+    const tryRestore = () => {
+      attempts += 1;
+
+      // 1) Si on a un membre ciblé et que sa ligne est présente, on scrolle dessus (le plus précis)
+      if (ctx.editedMemberId && memberRefs.current[ctx.editedMemberId]) {
+        scrollToMember(ctx.editedMemberId);
+        cleanup();
+        return;
+      }
+
+      // 2) Sinon, on restaure la position verticale
+      if (scrollEl) {
+        scrollEl.scrollTo({ top: ctx.scrollY, behavior: "auto" });
+      } else {
+        window.scrollTo({ top: ctx.scrollY, behavior: "auto" });
+      }
+
+      // 3) Condition d’arrêt : on est (presque) à la bonne position OU on a trop tenté
+      const currentY = scrollEl ? scrollEl.scrollTop : window.scrollY;
+      const closeEnough = Math.abs(currentY - (ctx.scrollY || 0)) < 3;
+
+      if (closeEnough || attempts >= maxAttempts) {
+        cleanup();
+      } else {
+        setTimeout(tryRestore, interval);
+      }
+    };
+
+    // petit délai pour laisser finir la mise en page initiale
+    setTimeout(tryRestore, 40);
   }, [loading, filteredMembers]);
+
 
   // ✅ NOUVELLE FONCTION : Scroll vers un membre spécifique
   const scrollToMember = (memberId) => {
@@ -292,18 +343,22 @@ function MembersPage() {
   };
 
   // ✅ Sauvegarde du contexte (déplacé ici pour accéder aux states)
+  // ✅ Sauvegarde du contexte (scroll robuste)
   const saveMembersPageContext = (extra = {}) => {
+    // On récupère l’élément scrollable principal
+    const scrollEl = document.scrollingElement || document.documentElement;
     const ctx = {
       search,
       activeFilter,
       sortAsc,
       selectedIds,
-      scrollY: window.scrollY,
+      scrollY: scrollEl ? scrollEl.scrollTop : window.scrollY || 0,
       savedAt: Date.now(),
       ...extra,
     };
     sessionStorage.setItem("membersPageCtx", JSON.stringify(ctx));
   };
+
 
   // ✅ HANDLER HYBRIDE pour l'édition (MODIFIÉ)
   const handleEditMember = (member) => {
@@ -562,11 +617,10 @@ function MembersPage() {
       return (
         <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
           <FaUser
-            className={`text-xl ${
-              member.gender === "Femme"
-                ? "text-pink-500 dark:text-pink-400"
-                : "text-blue-500 dark:text-blue-400"
-            }`}
+            className={`text-xl ${member.gender === "Femme"
+              ? "text-pink-500 dark:text-pink-400"
+              : "text-blue-500 dark:text-blue-400"
+              }`}
           />
         </div>
       );
@@ -594,16 +648,14 @@ function MembersPage() {
       >
         {/* Placeholder (icône) pendant le chargement */}
         <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
-            imageLoaded ? "opacity-0" : "opacity-100"
-          }`}
+          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${imageLoaded ? "opacity-0" : "opacity-100"
+            }`}
         >
           <FaUser
-            className={`text-xl ${
-              member.gender === "Femme"
-                ? "text-pink-500 dark:text-pink-400"
-                : "text-blue-500 dark:text-blue-400"
-            }`}
+            className={`text-xl ${member.gender === "Femme"
+              ? "text-pink-500 dark:text-pink-400"
+              : "text-blue-500 dark:text-blue-400"
+              }`}
           />
         </div>
 
@@ -612,9 +664,8 @@ function MembersPage() {
           <img
             src={member.photo}
             alt="avatar"
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
-              imageLoaded ? "opacity-100" : "opacity-0"
-            }`}
+            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
+              }`}
             onLoad={() => setImageLoaded(true)}
             onError={() => {
               setImageFailed(true);
@@ -890,12 +941,12 @@ function MembersPage() {
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                          try {
-                            return isBefore(parseISO(member.endDate), new Date());
-                          } catch (e) {
-                            return true;
-                          }
-                        })()
+                        try {
+                          return isBefore(parseISO(member.endDate), new Date());
+                        } catch (e) {
+                          return true;
+                        }
+                      })()
                       : true;
 
                     const hasFiles =
@@ -903,8 +954,8 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                        ? member.files !== "[]" && member.files !== ""
-                        : Object.keys(member.files).length > 0);
+                          ? member.files !== "[]" && member.files !== ""
+                          : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
@@ -948,11 +999,10 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  member.gender === "Femme"
-                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                  }`}
                               >
                                 {member.gender}
                               </span>
@@ -994,11 +1044,10 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${
-                                  isExpired
-                                    ? "text-red-600 dark:text-red-400 font-medium"
-                                    : "text-gray-500 dark:text-gray-400"
-                                }`}
+                                className={`text-xs ${isExpired
+                                  ? "text-red-600 dark:text-red-400 font-medium"
+                                  : "text-gray-500 dark:text-gray-400"
+                                  }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -1092,12 +1141,12 @@ function MembersPage() {
             {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                    try {
-                      return isBefore(parseISO(member.endDate), new Date());
-                    } catch (e) {
-                      return true;
-                    }
-                  })()
+                  try {
+                    return isBefore(parseISO(member.endDate), new Date());
+                  } catch (e) {
+                    return true;
+                  }
+                })()
                 : true;
 
               const hasFiles =
@@ -1105,8 +1154,8 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                  ? member.files !== "[]" && member.files !== ""
-                  : Object.keys(member.files).length > 0);
+                    ? member.files !== "[]" && member.files !== ""
+                    : Object.keys(member.files).length > 0);
 
               return (
                 <div
@@ -1146,11 +1195,10 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          member.gender === "Femme"
-                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                          }`}
                       >
                         {member.gender}
                       </span>
@@ -1199,11 +1247,10 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${
-                              isExpired
-                                ? "text-red-600 dark:text-red-400 font-medium"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}
+                            className={`text-xs ${isExpired
+                              ? "text-red-600 dark:text-red-400 font-medium"
+                              : "text-gray-600 dark:text-gray-400"
+                              }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1339,27 +1386,24 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
-        active
-          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-      }`}
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
+        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+        }`}
     >
       <div
-        className={`text-sm ${
-          active
-            ? "text-blue-700 dark:text-blue-300 font-medium"
-            : "text-gray-500 dark:text-gray-400"
-        }`}
+        className={`text-sm ${active
+          ? "text-blue-700 dark:text-blue-300 font-medium"
+          : "text-gray-500 dark:text-gray-400"
+          }`}
       >
         {title}
       </div>
       <div
-        className={`text-xl font-bold ${
-          active
-            ? "text-blue-800 dark:text-blue-200"
-            : "text-gray-800 dark:text-gray-200"
-        }`}
+        className={`text-xl font-bold ${active
+          ? "text-blue-800 dark:text-blue-200"
+          : "text-gray-800 dark:text-gray-200"
+          }`}
       >
         {value}
       </div>
