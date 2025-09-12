@@ -880,7 +880,7 @@ function MembersPage() {
                         ref={(el) => {
                           if (el) memberRefs.current[member.id] = el;
                         }}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 hover:scale-[1.01] hover:shadow-md hover:border-blue-300 transition-all duration-200 transform-gpu member-row"
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 hover:scale-[1.01] hover:shadow-md hover:border-blue-300 transition-all duration-400 transform-gpu member-row"
 
                       >
                         <td className="p-3">
