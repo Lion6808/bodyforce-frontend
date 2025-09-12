@@ -211,13 +211,13 @@ function MembersPage() {
       if ("scrollRestoration" in history) {
         history.scrollRestoration = "manual";
       }
-    } catch {}
+    } catch { }
     return () => {
       try {
         if ("scrollRestoration" in history) {
           history.scrollRestoration = prev || "auto";
         }
-      } catch {}
+      } catch { }
     };
   }, []);
 
@@ -232,7 +232,7 @@ function MembersPage() {
       if (typeof ctx.sortAsc === "boolean") setSortAsc(ctx.sortAsc);
       if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
       restoreRef.current = ctx;
-    } catch {}
+    } catch { }
   }, []);
 
   // ✅ Repositionnement quand un memberId est passé via location.state (optionnel)
@@ -613,9 +613,8 @@ function MembersPage() {
       return (
         <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
           <FaUser
-            className={`text-xl ${
-              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-            }`}
+            className={`text-xl ${member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+              }`}
           />
         </div>
       );
@@ -637,14 +636,12 @@ function MembersPage() {
       >
         {/* Placeholder */}
         <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
-            imageLoaded ? "opacity-0" : "opacity-100"
-          }`}
+          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${imageLoaded ? "opacity-0" : "opacity-100"
+            }`}
         >
           <FaUser
-            className={`text-xl ${
-              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-            }`}
+            className={`text-xl ${member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+              }`}
           />
         </div>
 
@@ -653,9 +650,8 @@ function MembersPage() {
           <img
             src={member.photo}
             alt="avatar"
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
-              imageLoaded ? "opacity-100" : "opacity-0"
-            }`}
+            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
+              }`}
             onLoad={() => setImageLoaded(true)}
             onError={() => {
               setImageFailed(true);
@@ -861,12 +857,12 @@ function MembersPage() {
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                          try {
-                            return isBefore(parseISO(member.endDate), new Date());
-                          } catch (e) {
-                            return true;
-                          }
-                        })()
+                        try {
+                          return isBefore(parseISO(member.endDate), new Date());
+                        } catch (e) {
+                          return true;
+                        }
+                      })()
                       : true;
 
                     const hasFiles =
@@ -874,8 +870,8 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                        ? member.files !== "[]" && member.files !== ""
-                        : Object.keys(member.files).length > 0);
+                          ? member.files !== "[]" && member.files !== ""
+                          : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
@@ -884,7 +880,8 @@ function MembersPage() {
                         ref={(el) => {
                           if (el) memberRefs.current[member.id] = el;
                         }}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150 transform-gpu member-row"
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 hover:scale-[1.01] hover:shadow-md hover:border-blue-300 transition-all duration-200 transform-gpu member-row"
+
                       >
                         <td className="p-3">
                           <input
@@ -917,11 +914,10 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  member.gender === "Femme"
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
                                     ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
                                     : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                }`}
+                                  }`}
                               >
                                 {member.gender}
                               </span>
@@ -950,9 +946,8 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${
-                                  isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
-                                }`}
+                                className={`text-xs ${isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
+                                  }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -1039,12 +1034,12 @@ function MembersPage() {
             {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                    try {
-                      return isBefore(parseISO(member.endDate), new Date());
-                    } catch (e) {
-                      return true;
-                    }
-                  })()
+                  try {
+                    return isBefore(parseISO(member.endDate), new Date());
+                  } catch (e) {
+                    return true;
+                  }
+                })()
                 : true;
 
               const hasFiles =
@@ -1052,13 +1047,13 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                  ? member.files !== "[]" && member.files !== ""
-                  : Object.keys(member.files).length > 0);
+                    ? member.files !== "[]" && member.files !== ""
+                    : Object.keys(member.files).length > 0);
 
               return (
                 <div
                   key={member.id}
-                  data-member-id={member.id} 
+                  data-member-id={member.id}
                   ref={(el) => {
                     if (el) memberRefs.current[member.id] = el;
                   }}
@@ -1091,11 +1086,10 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          member.gender === "Femme"
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
                             ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
                             : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        }`}
+                          }`}
                       >
                         {member.gender}
                       </span>
@@ -1140,9 +1134,8 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${
-                              isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
-                            }`}
+                            className={`text-xs ${isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
+                              }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1268,11 +1261,10 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
-        active
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
           ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
           : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-      }`}
+        }`}
     >
       <div className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"}`}>
         {title}
