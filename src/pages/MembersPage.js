@@ -1,4 +1,5 @@
-// ✅ MembersPage.js COMPLET avec conservation du contexte + repositionnement
+// ✅ MembersPage.js COMPLET avec conservation du contexte + repositionnement (par id simple)
+
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabaseServices } from "../supabaseClient";
@@ -76,13 +77,7 @@ const matchesSearch = (member, compiledClauses) => {
   if (!compiledClauses.length) return true;
 
   const haystack = normalize(
-    [
-      member.name,
-      member.firstName,
-      member.badgeId,
-      member.email,
-      member.mobile,
-    ]
+    [member.name, member.firstName, member.badgeId, member.email, member.mobile]
       .filter(Boolean)
       .join(" ")
   );
@@ -174,10 +169,9 @@ function MembersPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ NOUVEAU : Récupérer l'ID du membre depuis l'état de navigation
+  // ✅ (gardé, au cas où)
   const returnedFromEdit = location.state?.returnedFromEdit;
   const editedMemberIdFromState = location.state?.memberId;
-
 
   // ✅ États existants
   const [members, setMembers] = useState([]);
@@ -195,9 +189,8 @@ function MembersPage() {
   const [showForm, setShowForm] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ NOUVEAU : Ref pour les éléments membres
+  // ✅ Refs
   const memberRefs = useRef({});
-  // ✅ Ref interne pour conserver le contexte lu depuis sessionStorage
   const restoreRef = useRef(null);
 
   // ✅ Détection de la taille d'écran
@@ -210,76 +203,105 @@ function MembersPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ Force la restauration manuelle du scroll pendant la vie de la page
+  // ✅ Forcer la restauration manuelle du scroll pour éviter l'auto du navigateur
   useEffect(() => {
     const { history } = window;
     const prev = history.scrollRestoration;
     try {
-      if ('scrollRestoration' in history) {
-        history.scrollRestoration = 'manual';
+      if ("scrollRestoration" in history) {
+        history.scrollRestoration = "manual";
       }
-    } catch { }
+    } catch {}
     return () => {
       try {
-        if ('scrollRestoration' in history) {
-          history.scrollRestoration = prev || 'auto';
+        if ("scrollRestoration" in history) {
+          history.scrollRestoration = prev || "auto";
         }
-      } catch { }
+      } catch {}
     };
   }, []);
 
-
-
-
-  // ✅ Lecture du contexte sauvegardé (recherche, filtres, tri, sélection, scroll...)
-  //    Se joue une seule fois au montage de MembersPage.
+  // ✅ Lecture du contexte sauvegardé (filtres/tri/selection—facultatif)
   useEffect(() => {
     const raw = sessionStorage.getItem("membersPageCtx");
     if (!raw) return;
     try {
       const ctx = JSON.parse(raw);
-
-      // Réapplique les états UI contrôlés
       if (typeof ctx.search === "string") setSearch(ctx.search);
       if (ctx.activeFilter !== undefined) setActiveFilter(ctx.activeFilter);
       if (typeof ctx.sortAsc === "boolean") setSortAsc(ctx.sortAsc);
       if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
-
-      // Garde tout le contexte pour le repositionnement (scroll + focus) ultérieur
       restoreRef.current = ctx;
-    } catch {
-      // Contexte illisible : on ignore
-    }
+    } catch {}
   }, []);
 
-  // ✅ NOUVEAU : Effet pour le repositionnement après retour d'édition (via location.state)
-  // ✅ Repositionnement quand un memberId est passé via location.state
+  // ✅ Repositionnement quand un memberId est passé via location.state (optionnel)
   useEffect(() => {
     if (!editedMemberIdFromState) return;
     if (loading || filteredMembers.length === 0) return;
 
-    // petit délai pour laisser le DOM finaliser
     const t = setTimeout(() => {
       scrollToMember(editedMemberIdFromState);
-      // Nettoyer l'état de navigation pour éviter de rescroller la prochaine fois
       window.history.replaceState({}, "", location.pathname);
     }, 100);
 
     return () => clearTimeout(t);
   }, [editedMemberIdFromState, loading, filteredMembers, location.pathname]);
 
+  // ✅ Repositionnement simple par id mémorisé (le cœur de la solution)
+  useEffect(() => {
+    if (loading || filteredMembers.length === 0) return;
 
+    const lastId = sessionStorage.getItem("membersLastId");
+    if (!lastId) return;
 
-  // ✅ Repositionnement après restauration sessionStorage (robuste, avec retry)
+    let attempts = 0;
+    const maxAttempts = 40; // ~2s max
+    let done = false;
+
+    const highlight = (el) => {
+      el.style.transition = "all 0.3s ease";
+      el.style.transform = "scale(1.02)";
+      el.style.boxShadow = "0 8px 25px rgba(59,130,246,0.3)";
+      el.style.borderColor = "#3B82F6";
+      setTimeout(() => {
+        el.style.transform = "";
+        el.style.boxShadow = "";
+        el.style.borderColor = "";
+      }, 1000);
+    };
+
+    const tryScroll = () => {
+      if (done) return;
+      const sel = `[data-member-id="${CSS.escape(String(lastId))}"]`;
+      const el = document.querySelector(sel);
+      if (el) {
+        el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
+        highlight(el);
+        sessionStorage.removeItem("membersLastId");
+        done = true;
+        return;
+      }
+      attempts += 1;
+      if (attempts < maxAttempts) {
+        requestAnimationFrame(tryScroll);
+      } else {
+        sessionStorage.removeItem("membersLastId");
+      }
+    };
+
+    requestAnimationFrame(tryScroll);
+  }, [loading, filteredMembers]);
+
+  // ✅ Repositionnement après restauration de scrollY (si tu veux garder)
   useEffect(() => {
     const ctx = restoreRef.current;
     if (!ctx) return;
     if (loading) return;
 
     const scrollEl = document.scrollingElement || document.documentElement;
-
     let attempts = 0;
-    const maxAttempts = 25;   // ~1.25s si interval=50ms
+    const maxAttempts = 25;
     const interval = 50;
 
     const cleanup = () => {
@@ -290,21 +312,19 @@ function MembersPage() {
     const tryRestore = () => {
       attempts += 1;
 
-      // 1) Si on a un membre ciblé et que sa ligne est présente, on scrolle dessus (le plus précis)
+      // Si on a un membre ciblé et sa ligne est prête, on scrolle dessus (mais membersLastId est prioritaire)
       if (ctx.editedMemberId && memberRefs.current[ctx.editedMemberId]) {
         scrollToMember(ctx.editedMemberId);
         cleanup();
         return;
       }
 
-      // 2) Sinon, on restaure la position verticale
       if (scrollEl) {
-        scrollEl.scrollTo({ top: ctx.scrollY, behavior: "auto" });
+        scrollEl.scrollTo({ top: ctx.scrollY || 0, behavior: "auto" });
       } else {
-        window.scrollTo({ top: ctx.scrollY, behavior: "auto" });
+        window.scrollTo({ top: ctx.scrollY || 0, behavior: "auto" });
       }
 
-      // 3) Condition d’arrêt : on est (presque) à la bonne position OU on a trop tenté
       const currentY = scrollEl ? scrollEl.scrollTop : window.scrollY;
       const closeEnough = Math.abs(currentY - (ctx.scrollY || 0)) < 3;
 
@@ -315,27 +335,20 @@ function MembersPage() {
       }
     };
 
-    // petit délai pour laisser finir la mise en page initiale
     setTimeout(tryRestore, 40);
   }, [loading, filteredMembers]);
 
-
   // ✅ NOUVELLE FONCTION : Scroll vers un membre spécifique
   const scrollToMember = (memberId) => {
-    const memberElement = memberRefs.current[memberId];
+    const memberElement = memberRefs.current[memberId] || document.querySelector(`[data-member-id="${CSS.escape(String(memberId))}"]`);
     if (memberElement) {
-      // Scroll avec animation douce
-      memberElement.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+      memberElement.scrollIntoView({ behavior: "smooth", block: "center" });
 
-      // Effet visuel temporaire pour mettre en évidence
+      // Effet visuel
       memberElement.style.transition = "all 0.3s ease";
       memberElement.style.transform = "scale(1.02)";
       memberElement.style.boxShadow = "0 8px 25px rgba(59, 130, 246, 0.3)";
       memberElement.style.borderColor = "#3B82F6";
-
       setTimeout(() => {
         memberElement.style.transform = "";
         memberElement.style.boxShadow = "";
@@ -344,10 +357,8 @@ function MembersPage() {
     }
   };
 
-  // ✅ Sauvegarde du contexte (déplacé ici pour accéder aux states)
-  // ✅ Sauvegarde du contexte (scroll robuste)
+  // ✅ Sauvegarde du contexte (facultatif, tu l’avais déjà)
   const saveMembersPageContext = (extra = {}) => {
-    // On récupère l’élément scrollable principal
     const scrollEl = document.scrollingElement || document.documentElement;
     const ctx = {
       search,
@@ -361,37 +372,30 @@ function MembersPage() {
     sessionStorage.setItem("membersPageCtx", JSON.stringify(ctx));
   };
 
-
-  // ✅ HANDLER HYBRIDE pour l'édition (MODIFIÉ)
+  // ✅ HANDLER HYBRIDE pour l'édition — mémorise juste l'id
   const handleEditMember = (member) => {
     if (isMobile) {
       setSelectedMember(member);
       setShowForm(true);
     } else {
-      // 🔹 Sauvegarde le contexte + l’ID du membre ciblé
-      saveMembersPageContext({ editedMemberId: member.id });
+      sessionStorage.setItem("membersLastId", String(member.id)); // <— clé simple
+      saveMembersPageContext({ editedMemberId: member.id }); // (optionnel)
       navigate("/members/edit", {
-        state: {
-          member,
-          returnPath: "/members",
-          memberId: member.id,
-        },
+        state: { member, returnPath: "/members", memberId: member.id },
       });
     }
   };
 
-  // ✅ HANDLER HYBRIDE pour l'ajout
+  // ✅ HANDLER HYBRIDE pour l'ajout — nettoie l'id mémorisé
   const handleAddMember = () => {
     if (isMobile) {
       setSelectedMember(null);
       setShowForm(true);
     } else {
+      sessionStorage.removeItem("membersLastId");
       saveMembersPageContext({ editedMemberId: null });
       navigate("/members/new", {
-        state: {
-          member: null,
-          returnPath: "/members",
-        },
+        state: { member: null, returnPath: "/members" },
       });
     }
   };
@@ -448,10 +452,7 @@ function MembersPage() {
         if (!m.startDate) return false;
         try {
           const date = parseISO(m.startDate);
-          return (
-            date.getMonth() === now.getMonth() &&
-            date.getFullYear() === now.getFullYear()
-          );
+          return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
         } catch (e) {
           return false;
         }
@@ -460,8 +461,7 @@ function MembersPage() {
       result = result.filter((m) => {
         if (!m.files) return true;
         if (Array.isArray(m.files)) return m.files.length === 0;
-        if (typeof m.files === "string")
-          return m.files === "[]" || m.files === "";
+        if (typeof m.files === "string") return m.files === "[]" || m.files === "";
         return Object.keys(m.files).length === 0;
       });
     }
@@ -518,9 +518,7 @@ function MembersPage() {
   };
 
   const toggleSelect = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
   const handleImageError = (memberId, e) => {
@@ -553,10 +551,7 @@ function MembersPage() {
     try {
       const date = parseISO(m.startDate);
       const now = new Date();
-      return (
-        date.getMonth() === now.getMonth() &&
-        date.getFullYear() === now.getFullYear()
-      );
+      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     } catch (e) {
       return false;
     }
@@ -591,7 +586,7 @@ function MembersPage() {
     const containerRef = useRef(null);
 
     const lensSize = 160; // diamètre de la loupe en px
-    const zoom = 3.0; // facteur de zoom (2 à 3 est généralement agréable)
+    const zoom = 3.0; // facteur de zoom
 
     // Désactiver la loupe sur tactile / mobile
     const isTouch =
@@ -609,9 +604,8 @@ function MembersPage() {
     const handleMouseMove = (e) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left; // position de la souris dans le conteneur
+      const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-
       setLensPos({ x, y });
     };
 
@@ -619,23 +613,16 @@ function MembersPage() {
       return (
         <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
           <FaUser
-            className={`text-xl ${member.gender === "Femme"
-              ? "text-pink-500 dark:text-pink-400"
-              : "text-blue-500 dark:text-blue-400"
-              }`}
+            className={`text-xl ${
+              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+            }`}
           />
         </div>
       );
     }
 
-    // Taille de l’avatar (gardé à 48px pour coller à ta table)
-    const avatarSize = 48; // = 12 * 4 (w-12 h-12)
-
-    // Calculs pour la texture de fond de la loupe
+    const avatarSize = 48; // = 12 * 4
     const bgSize = `${avatarSize * zoom}px ${avatarSize * zoom}px`;
-
-    // Position de fond : on centre la zone autour du pointeur
-    // Convertir pos curseur (dans le conteneur) vers la zone zoomée
     const bgPosX = -(lensPos.x * zoom - lensSize / 2);
     const bgPosY = -(lensPos.y * zoom - lensSize / 2);
 
@@ -648,26 +635,27 @@ function MembersPage() {
         onMouseMove={handleMouseMove}
         style={{ cursor: isTouch ? "default" : "zoom-in" }}
       >
-        {/* Placeholder (icône) pendant le chargement */}
+        {/* Placeholder */}
         <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${imageLoaded ? "opacity-0" : "opacity-100"
-            }`}
+          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
+            imageLoaded ? "opacity-0" : "opacity-100"
+          }`}
         >
           <FaUser
-            className={`text-xl ${member.gender === "Femme"
-              ? "text-pink-500 dark:text-pink-400"
-              : "text-blue-500 dark:text-blue-400"
-              }`}
+            className={`text-xl ${
+              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+            }`}
           />
         </div>
 
-        {/* Avatar avec ombre existante (accentuée) */}
+        {/* Avatar */}
         <div className="relative w-12 h-12 rounded-full shadow-[0_10px_24px_rgba(0,0,0,0.65)]">
           <img
             src={member.photo}
             alt="avatar"
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
-              }`}
+            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
+              imageLoaded ? "opacity-100" : "opacity-0"
+            }`}
             onLoad={() => setImageLoaded(true)}
             onError={() => {
               setImageFailed(true);
@@ -678,24 +666,20 @@ function MembersPage() {
           />
         </div>
 
-        {/* Loupe (affichée au survol, desktop only) */}
+        {/* Loupe */}
         {showLens && imageLoaded && (
           <div
             className="pointer-events-none absolute rounded-full ring-2 ring-white dark:ring-gray-800 shadow-xl"
             style={{
               width: `${lensSize}px`,
               height: `${lensSize}px`,
-              // Positionner le centre de la loupe sous le pointeur
               left: `${lensPos.x - lensSize / 2}px`,
               top: `${lensPos.y - lensSize / 2}px`,
               backgroundImage: `url(${member.photo})`,
               backgroundRepeat: "no-repeat",
               backgroundSize: bgSize,
               backgroundPosition: `${bgPosX}px ${bgPosY}px`,
-              // Légère vignette pour relief
-              boxShadow:
-                "0 14px 30px rgba(0,0,0,0.35), inset 0 0 20px rgba(0,0,0,0.25)",
-              // Un peu de blur en périphérie pour effet verre
+              boxShadow: "0 14px 30px rgba(0,0,0,0.35), inset 0 0 20px rgba(0,0,0,0.25)",
               backdropFilter: "blur(0.5px)",
             }}
           />
@@ -737,12 +721,8 @@ function MembersPage() {
     <div className="px-2 sm:px-4 members-container">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
-            Liste des membres
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {members.length} membres dans la base Supabase
-          </p>
+          <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Liste des membres</h1>
+          <p className="text-gray-600 dark:text-gray-400">{members.length} membres dans la base Supabase</p>
         </div>
         <button
           onClick={fetchMembers}
@@ -759,8 +739,7 @@ function MembersPage() {
         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <div className="flex justify-between items-center">
             <span className="text-blue-700 dark:text-blue-300">
-              Filtre actif : <strong>{activeFilter}</strong> (
-              {filteredMembers.length} résultat
+              Filtre actif : <strong>{activeFilter}</strong> ({filteredMembers.length} résultat
               {filteredMembers.length !== 1 ? "s" : ""})
             </span>
             <button
@@ -775,48 +754,13 @@ function MembersPage() {
 
       {/* Widgets de statistiques */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-        <Widget
-          title="👥 Total"
-          value={total}
-          onClick={() => setActiveFilter(null)}
-          active={!activeFilter}
-        />
-        <Widget
-          title="👨 Hommes"
-          value={maleCount}
-          onClick={() => setActiveFilter("Homme")}
-          active={activeFilter === "Homme"}
-        />
-        <Widget
-          title="👩 Femmes"
-          value={femaleCount}
-          onClick={() => setActiveFilter("Femme")}
-          active={activeFilter === "Femme"}
-        />
-        <Widget
-          title="🎓 Étudiants"
-          value={studentCount}
-          onClick={() => setActiveFilter("Etudiant")}
-          active={activeFilter === "Etudiant"}
-        />
-        <Widget
-          title="📅 Expirés"
-          value={expiredCount}
-          onClick={() => setActiveFilter("Expiré")}
-          active={activeFilter === "Expiré"}
-        />
-        <Widget
-          title="✅ Récents"
-          value={recentCount}
-          onClick={() => setActiveFilter("Récent")}
-          active={activeFilter === "Récent"}
-        />
-        <Widget
-          title="📂 Sans certif"
-          value={noCertCount}
-          onClick={() => setActiveFilter("SansCertif")}
-          active={activeFilter === "SansCertif"}
-        />
+        <Widget title="👥 Total" value={total} onClick={() => setActiveFilter(null)} active={!activeFilter} />
+        <Widget title="👨 Hommes" value={maleCount} onClick={() => setActiveFilter("Homme")} active={activeFilter === "Homme"} />
+        <Widget title="👩 Femmes" value={femaleCount} onClick={() => setActiveFilter("Femme")} active={activeFilter === "Femme"} />
+        <Widget title="🎓 Étudiants" value={studentCount} onClick={() => setActiveFilter("Etudiant")} active={activeFilter === "Etudiant"} />
+        <Widget title="📅 Expirés" value={expiredCount} onClick={() => setActiveFilter("Expiré")} active={activeFilter === "Expiré"} />
+        <Widget title="✅ Récents" value={recentCount} onClick={() => setActiveFilter("Récent")} active={activeFilter === "Récent"} />
+        <Widget title="📂 Sans certif" value={noCertCount} onClick={() => setActiveFilter("SansCertif")} active={activeFilter === "SansCertif"} />
       </div>
 
       {/* Barre d'actions */}
@@ -858,28 +802,19 @@ function MembersPage() {
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={
-                selectedIds.length === filteredMembers.length &&
-                filteredMembers.length > 0
-              }
+              checked={selectedIds.length === filteredMembers.length && filteredMembers.length > 0}
               onChange={toggleSelectAll}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              Sélectionner tout
-            </span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Sélectionner tout</span>
           </label>
         </div>
         <button
           onClick={() => setSortAsc(!sortAsc)}
           className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         >
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Trier par nom
-          </span>
-          <span className="text-gray-500 dark:text-gray-400">
-            {sortAsc ? "▲" : "▼"}
-          </span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Trier par nom</span>
+          <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
         </button>
       </div>
 
@@ -900,55 +835,38 @@ function MembersPage() {
                     <th className="p-3 text-left">
                       <input
                         type="checkbox"
-                        checked={
-                          selectedIds.length === filteredMembers.length &&
-                          filteredMembers.length > 0
-                        }
+                        checked={selectedIds.length === filteredMembers.length && filteredMembers.length > 0}
                         onChange={toggleSelectAll}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                     </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Photo
-                    </th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Photo</th>
                     <th className="p-3 text-left">
                       <button
                         onClick={() => setSortAsc(!sortAsc)}
                         className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                       >
                         Nom{" "}
-                        <span className="text-gray-500 dark:text-gray-400">
-                          {sortAsc ? "▲" : "▼"}
-                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
                       </button>
                     </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Infos
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Abonnement
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Badge
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Status
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Actions
-                    </th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Infos</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Abonnement</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Badge</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Status</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                        try {
-                          return isBefore(parseISO(member.endDate), new Date());
-                        } catch (e) {
-                          return true;
-                        }
-                      })()
+                          try {
+                            return isBefore(parseISO(member.endDate), new Date());
+                          } catch (e) {
+                            return true;
+                          }
+                        })()
                       : true;
 
                     const hasFiles =
@@ -956,13 +874,13 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                          ? member.files !== "[]" && member.files !== ""
-                          : Object.keys(member.files).length > 0);
+                        ? member.files !== "[]" && member.files !== ""
+                        : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
                         key={member.id}
-                        // ✅ AJOUT : Ref pour le repositionnement
+                        data-member-id={member.id} {/* ← AJOUT pour le scroll */}
                         ref={(el) => {
                           if (el) memberRefs.current[member.id] = el;
                         }}
@@ -992,19 +910,18 @@ function MembersPage() {
                             </span>
                             <FaExternalLinkAlt className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200" />
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            ID: {member.id}
-                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
                         </td>
 
                         <td className="p-3">
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                  }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  member.gender === "Femme"
+                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                }`}
                               >
                                 {member.gender}
                               </span>
@@ -1015,41 +932,27 @@ function MembersPage() {
                               )}
                             </div>
                             {member.email && (
-                              <div
-                                className="text-gray-600 dark:text-gray-400 text-xs truncate max-w-[200px]"
-                                title={member.email}
-                              >
+                              <div className="text-gray-600 dark:text-gray-400 text-xs truncate max-w-[200px]" title={member.email}>
                                 📧 {member.email}
                               </div>
                             )}
-                            {member.mobile && (
-                              <div className="text-gray-600 dark:text-gray-400 text-xs">
-                                📱 {member.mobile}
-                              </div>
-                            )}
+                            {member.mobile && <div className="text-gray-600 dark:text-gray-400 text-xs">📱 {member.mobile}</div>}
                           </div>
                         </td>
 
                         <td className="p-3">
                           <div className="space-y-1">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(
-                                member.subscriptionType
-                              )}`}
-                            >
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor(member.subscriptionType)}`}>
                               {member.subscriptionType || "Non défini"}
                             </span>
                             {member.startDate && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Début: {member.startDate}
-                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">Début: {member.startDate}</div>
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${isExpired
-                                  ? "text-red-600 dark:text-red-400 font-medium"
-                                  : "text-gray-500 dark:text-gray-400"
-                                  }`}
+                                className={`text-xs ${
+                                  isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
+                                }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -1121,34 +1024,27 @@ function MembersPage() {
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={
-                    selectedIds.length === filteredMembers.length &&
-                    filteredMembers.length > 0
-                  }
+                  checked={selectedIds.length === filteredMembers.length && filteredMembers.length > 0}
                   onChange={toggleSelectAll}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Tout sélectionner
-                </span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Tout sélectionner</span>
               </label>
               <button onClick={() => setSortAsc(!sortAsc)}>
                 <span className="text-gray-700 dark:text-gray-300">Nom</span>{" "}
-                <span className="text-gray-500 dark:text-gray-400">
-                  {sortAsc ? "▲" : "▼"}
-                </span>
+                <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
               </button>
             </div>
 
             {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                  try {
-                    return isBefore(parseISO(member.endDate), new Date());
-                  } catch (e) {
-                    return true;
-                  }
-                })()
+                    try {
+                      return isBefore(parseISO(member.endDate), new Date());
+                    } catch (e) {
+                      return true;
+                    }
+                  })()
                 : true;
 
               const hasFiles =
@@ -1156,13 +1052,13 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                    ? member.files !== "[]" && member.files !== ""
-                    : Object.keys(member.files).length > 0);
+                  ? member.files !== "[]" && member.files !== ""
+                  : Object.keys(member.files).length > 0);
 
               return (
                 <div
                   key={member.id}
-                  // ✅ AJOUT : Ref pour le repositionnement mobile
+                  data-member-id={member.id} {/* ← AJOUT pour le scroll */}
                   ref={(el) => {
                     if (el) memberRefs.current[member.id] = el;
                   }}
@@ -1186,9 +1082,7 @@ function MembersPage() {
                         >
                           {member.name} {member.firstName}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          ID: {member.id}
-                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
                       </div>
                     </div>
                   </div>
@@ -1197,10 +1091,11 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                          }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          member.gender === "Femme"
+                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                        }`}
                       >
                         {member.gender}
                       </span>
@@ -1238,21 +1133,16 @@ function MembersPage() {
                   {/* Abonnement et Badge */}
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
-                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        ABONNEMENT
-                      </div>
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ABONNEMENT</div>
                       <div className="space-y-1">
                         {member.startDate && (
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            Début: {member.startDate}
-                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">Début: {member.startDate}</div>
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${isExpired
-                              ? "text-red-600 dark:text-red-400 font-medium"
-                              : "text-gray-600 dark:text-gray-400"
-                              }`}
+                            className={`text-xs ${
+                              isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
+                            }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1260,9 +1150,7 @@ function MembersPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        BADGE
-                      </div>
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">BADGE</div>
                       <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
                         {member.badgeId || "—"}
                       </span>
@@ -1337,23 +1225,15 @@ function MembersPage() {
               member={selectedMember}
               onSave={async (memberData, closeModal) => {
                 try {
-                  console.log(
-                    "💾 Sauvegarde membre:",
-                    selectedMember ? "Modification" : "Création"
-                  );
+                  console.log("💾 Sauvegarde membre:", selectedMember ? "Modification" : "Création");
 
                   let memberId;
                   if (selectedMember?.id) {
-                    await supabaseServices.updateMember(
-                      selectedMember.id,
-                      memberData
-                    );
+                    await supabaseServices.updateMember(selectedMember.id, memberData);
                     memberId = selectedMember.id;
                     console.log("✅ Membre modifié:", selectedMember.id);
                   } else {
-                    const newMember = await supabaseServices.createMember(
-                      memberData
-                    );
+                    const newMember = await supabaseServices.createMember(memberData);
                     memberId = newMember.id;
                     console.log("✅ Nouveau membre créé:", newMember.id);
                   }
@@ -1388,25 +1268,16 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
-        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-        }`}
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
+        active
+          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+      }`}
     >
-      <div
-        className={`text-sm ${active
-          ? "text-blue-700 dark:text-blue-300 font-medium"
-          : "text-gray-500 dark:text-gray-400"
-          }`}
-      >
+      <div className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"}`}>
         {title}
       </div>
-      <div
-        className={`text-xl font-bold ${active
-          ? "text-blue-800 dark:text-blue-200"
-          : "text-gray-800 dark:text-gray-200"
-          }`}
-      >
+      <div className={`text-xl font-bold ${active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"}`}>
         {value}
       </div>
     </div>
