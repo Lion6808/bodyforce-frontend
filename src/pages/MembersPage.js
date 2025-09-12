@@ -1,8 +1,4 @@
-// Ouvrir aussi sur desktop en popup
-const usePopupOnDesktop = true;
-
-
-// ✅ MembersPage.js COMPLET avec repositionnement automatique
+// ✅ MembersPage.js COMPLET avec conservation du contexte + repositionnement
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabaseServices } from "../supabaseClient";
@@ -16,8 +12,6 @@ import {
   FaUser,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-
-
 
 // Normalise: minuscules + suppression des accents
 const normalize = (s = "") =>
@@ -176,14 +170,13 @@ function SearchHints({ search }) {
   );
 }
 
-
 function MembersPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
   // ✅ NOUVEAU : Récupérer l'ID du membre depuis l'état de navigation
   const returnedFromEdit = location.state?.returnedFromEdit;
-  const editedMemberId = location.state?.editedMemberId;
+  const editedMemberIdFromState = location.state?.editedMemberId;
 
   // ✅ États existants
   const [members, setMembers] = useState([]);
@@ -203,6 +196,8 @@ function MembersPage() {
 
   // ✅ NOUVEAU : Ref pour les éléments membres
   const memberRefs = useRef({});
+  // ✅ Ref interne pour conserver le contexte lu depuis sessionStorage
+  const restoreRef = useRef(null);
 
   // ✅ Détection de la taille d'écran
   useEffect(() => {
@@ -214,22 +209,63 @@ function MembersPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ NOUVEAU : Effet pour le repositionnement après retour d'édition
+  // ✅ Lecture du contexte sauvegardé (recherche, filtres, tri, sélection, scroll...)
+  //    Se joue une seule fois au montage de MembersPage.
+  useEffect(() => {
+    const raw = sessionStorage.getItem("membersPageCtx");
+    if (!raw) return;
+    try {
+      const ctx = JSON.parse(raw);
+
+      // Réapplique les états UI contrôlés
+      if (typeof ctx.search === "string") setSearch(ctx.search);
+      if (ctx.activeFilter !== undefined) setActiveFilter(ctx.activeFilter);
+      if (typeof ctx.sortAsc === "boolean") setSortAsc(ctx.sortAsc);
+      if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
+
+      // Garde tout le contexte pour le repositionnement (scroll + focus) ultérieur
+      restoreRef.current = ctx;
+    } catch {
+      // Contexte illisible : on ignore
+    }
+  }, []);
+
+  // ✅ NOUVEAU : Effet pour le repositionnement après retour d'édition (via location.state)
   useEffect(() => {
     if (
       returnedFromEdit &&
-      editedMemberId &&
+      editedMemberIdFromState &&
       !loading &&
       filteredMembers.length > 0
     ) {
-      // Petit délai pour s'assurer que le DOM est mis à jour
       setTimeout(() => {
-        scrollToMember(editedMemberId);
+        scrollToMember(editedMemberIdFromState);
         // Nettoyer l'état de navigation
         window.history.replaceState({}, "", location.pathname);
       }, 100);
     }
-  }, [returnedFromEdit, editedMemberId, loading, filteredMembers]);
+  }, [returnedFromEdit, editedMemberIdFromState, loading, filteredMembers, location.pathname]);
+
+  // ✅ NOUVEAU : Effet de repositionnement après restauration sessionStorage
+  useEffect(() => {
+    const ctx = restoreRef.current;
+    if (!ctx) return;
+    if (loading) return;
+
+    // 1) Repositionnement de la fenêtre (scroll global)
+    if (typeof ctx.scrollY === "number") {
+      window.scrollTo({ top: ctx.scrollY, behavior: "auto" });
+    }
+
+    // 2) Focus visuel sur le membre (si encore présent)
+    if (ctx.editedMemberId) {
+      setTimeout(() => scrollToMember(ctx.editedMemberId), 50);
+    }
+
+    // 3) Nettoyage pour ne pas rejouer au prochain affichage
+    restoreRef.current = null;
+    sessionStorage.removeItem("membersPageCtx");
+  }, [loading, filteredMembers]);
 
   // ✅ NOUVELLE FONCTION : Scroll vers un membre spécifique
   const scrollToMember = (memberId) => {
@@ -255,18 +291,33 @@ function MembersPage() {
     }
   };
 
+  // ✅ Sauvegarde du contexte (déplacé ici pour accéder aux states)
+  const saveMembersPageContext = (extra = {}) => {
+    const ctx = {
+      search,
+      activeFilter,
+      sortAsc,
+      selectedIds,
+      scrollY: window.scrollY,
+      savedAt: Date.now(),
+      ...extra,
+    };
+    sessionStorage.setItem("membersPageCtx", JSON.stringify(ctx));
+  };
+
   // ✅ HANDLER HYBRIDE pour l'édition (MODIFIÉ)
   const handleEditMember = (member) => {
     if (isMobile) {
       setSelectedMember(member);
       setShowForm(true);
     } else {
-      // Mode desktop : naviguer vers MemberFormPage avec l'ID du membre
+      // 🔹 Sauvegarde le contexte + l’ID du membre ciblé
+      saveMembersPageContext({ editedMemberId: member.id });
       navigate("/members/edit", {
         state: {
-          member: member,
+          member,
           returnPath: "/members",
-          memberId: member.id, // ✅ AJOUT : Passer l'ID pour le retour
+          memberId: member.id,
         },
       });
     }
@@ -278,6 +329,7 @@ function MembersPage() {
       setSelectedMember(null);
       setShowForm(true);
     } else {
+      saveMembersPageContext({ editedMemberId: null });
       navigate("/members/new", {
         state: {
           member: null,
@@ -316,7 +368,6 @@ function MembersPage() {
     // --- Nouveau filtrage avancé avec jokers/conditions ---
     const compiledClauses = parseSearch(search);
     let result = members.filter((m) => matchesSearch(m, compiledClauses));
-
 
     // Appliquer les filtres
     if (activeFilter === "Homme") {
@@ -369,9 +420,7 @@ function MembersPage() {
   }, [members, search, sortAsc, activeFilter]);
 
   const handleDelete = async (id) => {
-    if (
-      window.confirm("Supprimer ce membre ? Cette action est irréversible.")
-    ) {
+    if (window.confirm("Supprimer ce membre ? Cette action est irréversible.")) {
       try {
         await supabaseServices.deleteMember(id);
         await fetchMembers();
@@ -425,9 +474,7 @@ function MembersPage() {
   // Calculer les statistiques
   const total = filteredMembers.length;
   const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
-  const femaleCount = filteredMembers.filter(
-    (m) => m.gender === "Femme"
-  ).length;
+  const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
   const expiredCount = filteredMembers.filter((m) => {
     if (!m.endDate) return true;
     try {
@@ -476,7 +523,6 @@ function MembersPage() {
     }
   };
 
-  // Component for avatar with fallback
   // Component for avatar with fallback + magnifier on hover
   const MemberAvatar = ({ member }) => {
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -487,8 +533,8 @@ function MembersPage() {
     const [lensPos, setLensPos] = useState({ x: 0, y: 0 });
     const containerRef = useRef(null);
 
-    const lensSize = 160;      // ⬅️ diamètre de la loupe en px
-    const zoom = 3.0;          // ⬅️ facteur de zoom (2 à 3 est généralement agréable)
+    const lensSize = 160; // diamètre de la loupe en px
+    const zoom = 3.0; // facteur de zoom (2 à 3 est généralement agréable)
 
     // Désactiver la loupe sur tactile / mobile
     const isTouch =
@@ -516,10 +562,11 @@ function MembersPage() {
       return (
         <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
           <FaUser
-            className={`text-xl ${member.gender === "Femme"
-              ? "text-pink-500 dark:text-pink-400"
-              : "text-blue-500 dark:text-blue-400"
-              }`}
+            className={`text-xl ${
+              member.gender === "Femme"
+                ? "text-pink-500 dark:text-pink-400"
+                : "text-blue-500 dark:text-blue-400"
+            }`}
           />
         </div>
       );
@@ -547,14 +594,16 @@ function MembersPage() {
       >
         {/* Placeholder (icône) pendant le chargement */}
         <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${imageLoaded ? "opacity-0" : "opacity-100"
-            }`}
+          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
+            imageLoaded ? "opacity-0" : "opacity-100"
+          }`}
         >
           <FaUser
-            className={`text-xl ${member.gender === "Femme"
-              ? "text-pink-500 dark:text-pink-400"
-              : "text-blue-500 dark:text-blue-400"
-              }`}
+            className={`text-xl ${
+              member.gender === "Femme"
+                ? "text-pink-500 dark:text-pink-400"
+                : "text-blue-500 dark:text-blue-400"
+            }`}
           />
         </div>
 
@@ -563,8 +612,9 @@ function MembersPage() {
           <img
             src={member.photo}
             alt="avatar"
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
-              }`}
+            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
+              imageLoaded ? "opacity-100" : "opacity-0"
+            }`}
             onLoad={() => setImageLoaded(true)}
             onError={() => {
               setImageFailed(true);
@@ -600,7 +650,6 @@ function MembersPage() {
       </div>
     );
   };
-
 
   if (loading) {
     return (
@@ -841,15 +890,12 @@ function MembersPage() {
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                        try {
-                          return isBefore(
-                            parseISO(member.endDate),
-                            new Date()
-                          );
-                        } catch (e) {
-                          return true;
-                        }
-                      })()
+                          try {
+                            return isBefore(parseISO(member.endDate), new Date());
+                          } catch (e) {
+                            return true;
+                          }
+                        })()
                       : true;
 
                     const hasFiles =
@@ -857,8 +903,8 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                          ? member.files !== "[]" && member.files !== ""
-                          : Object.keys(member.files).length > 0);
+                        ? member.files !== "[]" && member.files !== ""
+                        : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
@@ -902,10 +948,11 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                  }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  member.gender === "Femme"
+                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                }`}
                               >
                                 {member.gender}
                               </span>
@@ -947,10 +994,11 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${isExpired
-                                  ? "text-red-600 dark:text-red-400 font-medium"
-                                  : "text-gray-500 dark:text-gray-400"
-                                  }`}
+                                className={`text-xs ${
+                                  isExpired
+                                    ? "text-red-600 dark:text-red-400 font-medium"
+                                    : "text-gray-500 dark:text-gray-400"
+                                }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -1044,12 +1092,12 @@ function MembersPage() {
             {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                  try {
-                    return isBefore(parseISO(member.endDate), new Date());
-                  } catch (e) {
-                    return true;
-                  }
-                })()
+                    try {
+                      return isBefore(parseISO(member.endDate), new Date());
+                    } catch (e) {
+                      return true;
+                    }
+                  })()
                 : true;
 
               const hasFiles =
@@ -1057,8 +1105,8 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                    ? member.files !== "[]" && member.files !== ""
-                    : Object.keys(member.files).length > 0);
+                  ? member.files !== "[]" && member.files !== ""
+                  : Object.keys(member.files).length > 0);
 
               return (
                 <div
@@ -1098,10 +1146,11 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                          }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          member.gender === "Femme"
+                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                        }`}
                       >
                         {member.gender}
                       </span>
@@ -1150,10 +1199,11 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${isExpired
-                              ? "text-red-600 dark:text-red-400 font-medium"
-                              : "text-gray-600 dark:text-gray-400"
-                              }`}
+                            className={`text-xs ${
+                              isExpired
+                                ? "text-red-600 dark:text-red-400 font-medium"
+                                : "text-gray-600 dark:text-gray-400"
+                            }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1289,24 +1339,27 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
-        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-        }`}
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
+        active
+          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+      }`}
     >
       <div
-        className={`text-sm ${active
-          ? "text-blue-700 dark:text-blue-300 font-medium"
-          : "text-gray-500 dark:text-gray-400"
-          }`}
+        className={`text-sm ${
+          active
+            ? "text-blue-700 dark:text-blue-300 font-medium"
+            : "text-gray-500 dark:text-gray-400"
+        }`}
       >
         {title}
       </div>
       <div
-        className={`text-xl font-bold ${active
-          ? "text-blue-800 dark:text-blue-200"
-          : "text-gray-800 dark:text-gray-200"
-          }`}
+        className={`text-xl font-bold ${
+          active
+            ? "text-blue-800 dark:text-blue-200"
+            : "text-gray-800 dark:text-gray-200"
+        }`}
       >
         {value}
       </div>
