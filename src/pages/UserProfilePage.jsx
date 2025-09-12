@@ -1,26 +1,19 @@
 // 📄 Fichier : src/pages/UserProfilePage.jsx
-// 🧩 Type   : React Page
-// 📆 Date   : 2025-09-12
+// 🎯 Objectif : Page "Mon profil" utilisateur avec même design que l’onglet Admin
+// 🌓 Dark mode OK • 📱 Responsive OK • 🧮 Anniversaire & âge FIABLES
+// 💳 Paiements : résumé (4 tuiles) + échéances (à venir/retard) + historique
 //
-// ✅ Ce fichier est complet et autonome.
-//    - Design aligné sur MyAttendancesPage (tuiles, cartes, ombres, dark mode, mobile)
-//    - Identité : Nom, Photo, Email, Badge, Téléphone, Adresse
-//    - Ajouts : Anniversaire, Âge (calculé), Statut étudiant
-//    - Abonnement : statut basé uniquement sur startDate/endDate
-//    - Paiements : résumé, échéances à venir/retard, historique (normalisation tolérante de schémas)
+// Champs lus côté member (tolérance noms):
+//  - firstname, lastname, email, photo, badgeId
+//  - phone | telephone, mobile | phoneMobile | portable
+//  - address, city, zip | postalCode
+//  - birthDate | birthday | dateOfBirth | birthdate | date_naissance
+//  - student | etudiant (booléen)
+//  - startDate, endDate
 //
-// ⚠️ Hypothèses côté BDD pour la section Paiements (tolérance aux variantes):
-//    Table "payments" avec, selon tes variantes existantes :
-//      - id
-//      - memberId ou member_id
-//      - amount ou total
-//      - dueDate ou due_date ou expectedDate ou date
-//      - paidAt ou paid_at ou paymentDate (pour la date d’encaissement réelle)
-//      - status (ex. "paid" | "pending") ou paid (booléen)
-//      - method | type | paymentMethod (texte)
-//      - note | description (texte)
-//    → Le code normalise ces champs pour s’adapter à la réalité actuelle.
-//    → Si ton schéma diffère, change simplement les alias dans `normalizePayment`.
+// Paiements (table "payments") : on normalise fields (amount/total, dueDate/due_date/date/expectedDate,
+// paidAt/paid_at/paymentDate, status/paid/isPaid, method/type/paymentMethod, note/description)
+// et on filtre par memberId | member_id.
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -45,6 +38,46 @@ import {
 /* -------------------------------------------
    Helpers
 -------------------------------------------- */
+
+// Parse très tolérant : dd/MM/yyyy • yyyy-MM-dd • dd-MM-yyyy • ISO • timestamp
+const parseFlexibleDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+  if (typeof value === "number") {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return null;
+
+    // 1975-05-14 (ou 1975-05-14T..)
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+      const [, Y, M, D] = iso.map(Number);
+      return new Date(Y, M - 1, D);
+    }
+
+    // 14/05/1975
+    const fr = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (fr) {
+      const [, d, m, y] = fr.map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    // 14-05-1975
+    const frDash = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (frDash) {
+      const [, d, m, y] = frDash.map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    const t = Date.parse(s);
+    if (!isNaN(t)) return new Date(t);
+  }
+  return null;
+};
+
 const formatIntl = (date, fmt) => {
   try {
     const map = {
@@ -52,19 +85,12 @@ const formatIntl = (date, fmt) => {
       "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
       "MMMM yyyy": { month: "long", year: "numeric" },
       "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
-      "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
     };
     if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
     return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
   } catch {
     return "";
   }
-};
-
-const parseMaybeDate = (value) => {
-  if (!value) return null;
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? null : d;
 };
 
 const calcAge = (birthDate) => {
@@ -90,36 +116,23 @@ const getMembershipStatus = (start, end) => {
 const toneClasses = (tone) => {
   switch (tone) {
     case "success":
-      return {
-        badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-        dot: "bg-emerald-500",
-      };
+      return { badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" };
     case "danger":
-      return {
-        badge: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-        dot: "bg-rose-500",
-      };
+      return { badge: "bg-rose-500/15 text-rose-700 dark:text-rose-300", dot: "bg-rose-500" };
     case "info":
-      return {
-        badge: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
-        dot: "bg-indigo-500",
-      };
+      return { badge: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300", dot: "bg-indigo-500" };
     default:
-      return {
-        badge: "bg-gray-500/15 text-gray-700 dark:text-gray-300",
-        dot: "bg-gray-500",
-      };
+      return { badge: "bg-gray-500/15 text-gray-700 dark:text-gray-300", dot: "bg-gray-500" };
   }
 };
 
-const formatCurrency = (n) => {
-  const num = typeof n === "number" ? n : Number(n || 0);
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(num);
-};
+const formatCurrency = (n) =>
+  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(n || 0));
 
 /* -------------------------------------------
-   Tuiles & éléments UI
+   UI Subcomponents (mêmes styles que Présences)
 -------------------------------------------- */
+
 function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
   const gradient =
     accent === "green"
@@ -146,9 +159,7 @@ function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
           <Icon className="text-lg" />
         </div>
         <div>
-          <div className="text-xs uppercase tracking-wide text-gray-600 dark:text-gray-300">
-            {title}
-          </div>
+          <div className="text-xs uppercase tracking-wide text-gray-600 dark:text-gray-300">{title}</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
         </div>
       </div>
@@ -164,23 +175,22 @@ function InfoRow({ icon: Icon, label, value }) {
       </div>
       <div className="min-w-0">
         <div className="text-xs text-gray-600 dark:text-gray-300">{label}</div>
-        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 break-words">
-          {value || "—"}
-        </div>
+        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 break-words">{value || "—"}</div>
       </div>
     </div>
   );
 }
 
 function PaymentLine({ p }) {
-  // p: { id, amount, dueDate, paidAt, isPaid, method, note, overdue, upcoming }
   return (
     <li className="py-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
-        <div className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 flex-shrink-0
+        <div
+          className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 flex-shrink-0
           ${p.overdue ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                      : p.isPaid ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                                 : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}`}>
+            : p.isPaid ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+            : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}`}
+        >
           {p.isPaid ? <FaMoneyCheckAlt /> : p.overdue ? <FaExclamationTriangle /> : <FaCalendarCheck />}
           {p.isPaid ? "Payé" : p.overdue ? "En retard" : "À venir"}
         </div>
@@ -195,10 +205,12 @@ function PaymentLine({ p }) {
           </div>
         </div>
       </div>
-      <div className={`text-sm font-semibold flex-shrink-0
+      <div
+        className={`text-sm font-semibold flex-shrink-0
         ${p.isPaid ? "text-emerald-700 dark:text-emerald-300"
-                   : p.overdue ? "text-rose-700 dark:text-rose-300"
-                               : "text-amber-700 dark:text-amber-300"}`}>
+          : p.overdue ? "text-rose-700 dark:text-rose-300"
+          : "text-amber-700 dark:text-amber-300"}`}
+      >
         {formatCurrency(p.amount)}
       </div>
     </li>
@@ -211,75 +223,69 @@ function PaymentLine({ p }) {
 export default function UserProfilePage() {
   const { user, userMemberData } = useAuth();
 
-  // Nom & identité
+  // --- Identité
   const firstname = userMemberData?.firstname || "";
   const lastname = userMemberData?.lastname || "";
-  const displayName = (firstname || lastname)
-    ? `${firstname} ${lastname}`.trim()
-    : (user?.email || "Utilisateur");
+  const displayName =
+    firstname || lastname ? `${firstname} ${lastname}`.trim() : user?.email || "Utilisateur";
 
   const email = user?.email || userMemberData?.email || "—";
   const badgeId = userMemberData?.badgeId || "—";
   const photo = userMemberData?.photo || "";
 
-  // Coordonnées (optionnelles)
-  const phone = userMemberData?.phone || userMemberData?.telephone || "";
+  // --- Coordonnées
+  const phone = userMemberData?.phone ?? userMemberData?.telephone ?? "";
+  const mobile =
+    userMemberData?.mobile ?? userMemberData?.phoneMobile ?? userMemberData?.portable ?? "";
   const address = userMemberData?.address || "";
   const city = userMemberData?.city || "";
-  const zip = userMemberData?.zip || userMemberData?.postalCode || "";
+  const zip = userMemberData?.zip ?? userMemberData?.postalCode ?? "";
 
-  // Anniversaire / âge
+  // --- Anniversaire / âge (robuste)
   const birthRaw =
-    userMemberData?.birthDate ||
-    userMemberData?.birthday ||
-    userMemberData?.dateOfBirth ||
+    userMemberData?.birthDate ??
+    userMemberData?.birthdate ??
+    userMemberData?.birthday ??
+    userMemberData?.dateOfBirth ??
+    userMemberData?.date_naissance ??
     null;
-  const birthDate = parseMaybeDate(birthRaw);
-  const age = useMemo(() => calcAge(birthDate), [birthDate]);
+  const birthDate = parseFlexibleDate(birthRaw);
   const birthStr = birthDate ? formatIntl(birthDate, "dd/MM/yyyy") : "—";
+  const age = useMemo(() => calcAge(birthDate), [birthDate]);
 
-  // Étudiant ?
+  // --- Étudiant ?
   const isStudent = !!(userMemberData?.student ?? userMemberData?.etudiant ?? false);
 
-  // Abonnement (statut depuis dates)
-  const startDate = parseMaybeDate(userMemberData?.startDate);
-  const endDate = parseMaybeDate(userMemberData?.endDate);
+  // --- Abonnement
+  const startDate = parseFlexibleDate(userMemberData?.startDate);
+  const endDate = parseFlexibleDate(userMemberData?.endDate);
   const subscription = getMembershipStatus(startDate, endDate);
   const tone = toneClasses(subscription.tone);
-
   const startStr = startDate ? formatIntl(startDate, "dd/MM/yyyy") : "—";
   const endStr = endDate ? formatIntl(endDate, "dd/MM/yyyy") : "—";
 
-  /* ----------------------
-     Paiements (Supabase)
-  ----------------------- */
+  // --- Paiements
   const [payments, setPayments] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
+  const memberId = userMemberData?.id ?? userMemberData?.memberId ?? null;
 
-  const memberId = userMemberData?.id || userMemberData?.memberId || null;
-
-  // Normalisation d’un enregistrement payment selon les variantes de schéma
   const normalizePayment = (row) => {
     const amount = Number(row?.amount ?? row?.total ?? 0);
     const dueDate =
-      parseMaybeDate(row?.dueDate) ||
-      parseMaybeDate(row?.due_date) ||
-      parseMaybeDate(row?.expectedDate) ||
-      parseMaybeDate(row?.date) ||
+      parseFlexibleDate(row?.dueDate) ||
+      parseFlexibleDate(row?.due_date) ||
+      parseFlexibleDate(row?.expectedDate) ||
+      parseFlexibleDate(row?.date) ||
       null;
     const paidAt =
-      parseMaybeDate(row?.paidAt) ||
-      parseMaybeDate(row?.paid_at) ||
-      parseMaybeDate(row?.paymentDate) ||
+      parseFlexibleDate(row?.paidAt) ||
+      parseFlexibleDate(row?.paid_at) ||
+      parseFlexibleDate(row?.paymentDate) ||
       null;
 
     const status = (row?.status || "").toString().toLowerCase();
     const paidFlag = row?.paid ?? row?.isPaid ?? null;
-
-    const isPaid =
-      (typeof paidFlag === "boolean" && paidFlag) ||
-      status === "paid" ||
-      !!paidAt;
+    const isPaid = (typeof paidFlag === "boolean" && paidFlag) || status === "paid" || !!paidAt;
 
     const method = row?.method || row?.type || row?.paymentMethod || "";
     const note = row?.note || row?.description || "";
@@ -291,7 +297,6 @@ export default function UserProfilePage() {
 
     return {
       id: row?.id ?? Math.random().toString(36).slice(2),
-      raw: row,
       amount,
       dueDate,
       paidAt,
@@ -308,7 +313,6 @@ export default function UserProfilePage() {
     const fetchPayments = async () => {
       setLoadingPayments(true);
       try {
-        // Pas d’order côté SQL (trop dépendant des noms de colonnes) → tri en JS
         const { data, error } = await supabase
           .from("payments")
           .select("*")
@@ -320,16 +324,14 @@ export default function UserProfilePage() {
           return;
         }
         const list = (data || []).map(normalizePayment);
-        // Tri: non payés d’abord (échéance la plus proche), puis payés (du plus récent au plus ancien)
-        const sortKey = (p) => p.dueDate?.getTime?.() || p.paidAt?.getTime?.() || 0;
+
+        // Tri : non payés (proches d’abord), puis payés (plus récents d’abord)
         list.sort((a, b) => {
           if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
           if (!a.isPaid && !b.isPaid) {
-            // non payés → plus proche d’abord
-            return (a.dueDate ? a.dueDate.getTime() : Infinity) - (b.dueDate ? b.dueDate.getTime() : Infinity);
+            return (a.dueDate?.getTime?.() ?? Infinity) - (b.dueDate?.getTime?.() ?? Infinity);
           }
-          // payés → plus récent d’abord
-          return (b.paidAt ? b.paidAt.getTime() : 0) - (a.paidAt ? a.paidAt.getTime() : 0);
+          return (b.paidAt?.getTime?.() ?? 0) - (a.paidAt?.getTime?.() ?? 0);
         });
 
         setPayments(list);
@@ -345,32 +347,21 @@ export default function UserProfilePage() {
 
   const paymentsStats = useMemo(() => {
     const today = new Date();
-    const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
+    const startYear = new Date(today.getFullYear(), 0, 1);
     const unpaid = payments.filter((p) => !p.isPaid);
     const overdue = unpaid.filter((p) => p.overdue);
     const upcoming = unpaid.filter((p) => p.upcoming);
-
-    const nextDue = unpaid
-      .filter((p) => p.dueDate)
-      .sort((a, b) => a.dueDate - b.dueDate)[0]?.dueDate || null;
-
-    const outstanding = unpaid.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-    // Total payé sur l’année courante
-    const startYear = new Date(today.getFullYear(), 0, 1);
+    const outstanding = unpaid.reduce((s, p) => s + (p.amount || 0), 0);
     const paidThisYear = payments
       .filter((p) => p.isPaid && p.paidAt && p.paidAt >= startYear)
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
+      .reduce((s, p) => s + (p.amount || 0), 0);
 
     return {
-      unpaidCount: unpaid.length,
-      overdueCount: overdue.length,
       upcomingCount: upcoming.length,
-      nextDue,
+      overdueCount: overdue.length,
       outstanding,
       paidThisYear,
-      upcomingList: [...upcoming, ...overdue].slice(0, 6), // on met les retard aussi dans la liste courte
+      upcomingList: [...upcoming, ...overdue].slice(0, 6),
       historyPaid: payments.filter((p) => p.isPaid).slice(0, 8),
     };
   }, [payments]);
@@ -392,12 +383,7 @@ export default function UserProfilePage() {
           </div>
           <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-white dark:ring-gray-700 shadow-lg flex-shrink-0">
             {photo ? (
-              <img
-                src={photo}
-                alt="avatar"
-                className="absolute inset-0 w-full h-full object-cover"
-                loading="lazy"
-              />
+              <img src={photo} alt="avatar" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-400">
                 <FaUser />
@@ -407,7 +393,7 @@ export default function UserProfilePage() {
         </div>
       </div>
 
-      {/* Bandeau "Identité" + statut d’abonnement */}
+      {/* Identité & abonnement */}
       <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
         <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -417,7 +403,7 @@ export default function UserProfilePage() {
             <div>
               <div className="text-sm font-semibold">Identité & abonnement</div>
               <div className="text-xs text-gray-600 dark:text-gray-300">
-                {displayName} {badgeId && badgeId !== "—" ? `(Badge : ${badgeId})` : ""}
+                {email} {badgeId && badgeId !== "—" ? `(Badge : ${badgeId})` : ""}
               </div>
             </div>
           </div>
@@ -428,7 +414,7 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Tuiles récap : Étudiant, Anniversaire, Âge, Période abonnement */}
+        {/* Tuiles : Étudiant / Anniversaire / Âge / Période */}
         <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
           <StatTile icon={FaGraduationCap} title="Statut étudiant" value={isStudent ? "Oui" : "Non"} accent="purple" />
           <StatTile icon={FaBirthdayCake} title="Anniversaire" value={birthStr} accent="orange" />
@@ -437,13 +423,14 @@ export default function UserProfilePage() {
         </div>
       </div>
 
-      {/* Détails de contact & adresse */}
+      {/* Coordonnées & Adresse */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
           <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Coordonnées</div>
           <div className="divide-y dark:divide-gray-700">
             <InfoRow icon={FaEnvelope} label="Email" value={email} />
             <InfoRow icon={FaPhone} label="Téléphone" value={phone || "—"} />
+            <InfoRow icon={FaPhone} label="Téléphone portable" value={mobile || "—"} />
             <InfoRow icon={FaIdCard} label="Badge" value={badgeId} />
           </div>
         </div>
@@ -458,9 +445,7 @@ export default function UserProfilePage() {
         </div>
       </div>
 
-      {/* =======================
-           Section PAIEMENTS
-         ======================= */}
+      {/* Paiements */}
       <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
         <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -474,51 +459,26 @@ export default function UserProfilePage() {
               </div>
             </div>
           </div>
-          {loadingPayments && (
-            <div className="text-xs text-gray-600 dark:text-gray-300">Chargement…</div>
-          )}
+          {loadingPayments && <div className="text-xs text-gray-600 dark:text-gray-300">Chargement…</div>}
         </div>
 
-        {/* Tuiles résumé paiements */}
+        {/* Tuiles résumé */}
         <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
-          <StatTile
-            icon={FaCalendarCheck}
-            title="Échéances à venir"
-            value={paymentsStats.upcomingCount}
-            accent="indigo"
-          />
-          <StatTile
-            icon={FaExclamationTriangle}
-            title="Échéances en retard"
-            value={paymentsStats.overdueCount}
-            accent="orange"
-          />
-          <StatTile
-            icon={FaMoneyCheckAlt}
-            title="Total restant"
-            value={formatCurrency(paymentsStats.outstanding)}
-            accent="purple"
-          />
-          <StatTile
-            icon={FaEuroSign}
-            title="Payé cette année"
-            value={formatCurrency(paymentsStats.paidThisYear)}
-            accent="green"
-          />
+          <StatTile icon={FaCalendarCheck} title="Échéances à venir" value={paymentsStats.upcomingCount} accent="indigo" />
+          <StatTile icon={FaExclamationTriangle} title="Échéances en retard" value={paymentsStats.overdueCount} accent="orange" />
+          <StatTile icon={FaMoneyCheckAlt} title="Total restant" value={formatCurrency(paymentsStats.outstanding)} accent="purple" />
+          <StatTile icon={FaEuroSign} title="Payé cette année" value={formatCurrency(paymentsStats.paidThisYear)} accent="green" />
         </div>
 
-        {/* Listes paiements */}
+        {/* Listes */}
         <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Échéances à venir (et retards) */}
           <div className="rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
             <div className="px-4 py-3 border-b dark:border-gray-700 font-semibold text-gray-900 dark:text-gray-100">
               Échéances à venir / en retard
             </div>
             <div className="p-4">
               {paymentsStats.upcomingList.length === 0 ? (
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  Aucune échéance à afficher.
-                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">Aucune échéance à afficher.</div>
               ) : (
                 <ul className="divide-y dark:divide-gray-700">
                   {paymentsStats.upcomingList.map((p) => (
@@ -529,16 +489,13 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          {/* Historique des paiements (derniers) */}
           <div className="rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
             <div className="px-4 py-3 border-b dark:border-gray-700 font-semibold text-gray-900 dark:text-gray-100">
               Historique des paiements
             </div>
             <div className="p-4">
               {paymentsStats.historyPaid.length === 0 ? (
-                <div className="text-sm text-gray-600 dark:text-gray-300">
-                  Aucun paiement enregistré.
-                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">Aucun paiement enregistré.</div>
               ) : (
                 <ul className="divide-y dark:divide-gray-700">
                   {paymentsStats.historyPaid.map((p) => (
