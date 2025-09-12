@@ -1,24 +1,23 @@
 // 📄 Fichier : src/pages/MyAttendancesPage.js
-// 🧩 Type   : React Page
-// 📁 Dossier: src/pages
-// 📆 Date   : 2025-09-12
-//
-// ✅ Contenu complet, prêt à coller tel quel
-// - Lecture des présences de l’utilisateur connecté (badgeId depuis AuthContext.userMemberData)
-// - Filtres de dates, bouton Actualiser
-// - Tuiles statistiques (Total, Jours uniques, Moyenne/jour, Heure favorite)
-// - Répartition par jour de la semaine (barres)
-// - Répartition par heure (grille 24h)
-// - Historique des visites (liste triée desc.)
-// - Compatible dark mode (classes Tailwind `dark:`)
-// - Aucune dépendance extérieure supplémentaire
+// 🎯 Objectif : Vue "Mes présences" pour utilisateur simple avec le DESIGN de l’onglet Admin
+// 🌓 Dark mode : OK (classes Tailwind `dark:`)
+// 🔗 Données : presences (Supabase) filtrées par badgeId de userMemberData (AuthContext)
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
+import {
+  FaCalendarAlt,
+  FaIdCard,
+  FaUser,
+  FaRedoAlt,
+  FaClock,
+  FaFireAlt,
+  FaChartBar,
+} from "react-icons/fa";
 
 /* -------------------------------------------
-   Helpers de date (alignés avec MemberFormPage)
+   Helpers de date (alignés avec ta base)
 -------------------------------------------- */
 const formatIntl = (date, fmt) => {
   try {
@@ -81,20 +80,20 @@ const calculateAttendanceStats = (presences) => {
   const avgVisitsPerDay = uniqueDays ? Math.round((totalVisits / uniqueDays) * 10) / 10 : 0;
 
   const peakHour = hourlyDistribution.indexOf(Math.max(...hourlyDistribution));
-  const dayNames = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+  const dayNames = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
   const peakDay = dayNames[weeklyDistribution.indexOf(Math.max(...weeklyDistribution))] || "";
 
   const dailyStats = Object.entries(dailyPresences)
     .map(([date, visits]) => ({
       date: new Date(date),
       visits: visits.length,
-      first: visits[visits.length - 1]?.parsedDate, // arrivée la plus tôt dans la journée (car data triée desc ensuite)
-      last: visits[0]?.parsedDate,                   // dernier badge de la journée
+      first: visits[visits.length - 1]?.parsedDate,
+      last: visits[0]?.parsedDate,
     }))
     .sort((a, b) => b.date - a.date);
 
-  const firstVisit = presences[presences.length - 1]?.parsedDate || null; // plus ancienne dans l’intervalle
-  const lastVisit = presences[0]?.parsedDate || null;                      // plus récente
+  const firstVisit = presences[presences.length - 1]?.parsedDate || null;
+  const lastVisit = presences[0]?.parsedDate || null;
 
   return {
     totalVisits,
@@ -111,22 +110,82 @@ const calculateAttendanceStats = (presences) => {
 };
 
 /* -------------------------------------------
-   PETIT COMPOSANT : StatCard (tuile)
+   UI Subcomponents (même esprit que l'onglet)
 -------------------------------------------- */
-function StatCard({ title, value }) {
+function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
+  const gradient =
+    accent === "green"
+      ? "from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/10"
+      : accent === "purple"
+      ? "from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/10"
+      : accent === "orange"
+      ? "from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10"
+      : "from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10";
+
+  const iconBg =
+    accent === "green"
+      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+      : accent === "purple"
+      ? "bg-purple-500/10 text-purple-600 dark:text-purple-300"
+      : accent === "orange"
+      ? "bg-amber-500/10 text-amber-600 dark:text-amber-300"
+      : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300";
+
   return (
-    <div className="p-4 rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700">
-      <div className="text-xs text-gray-500 dark:text-gray-400">{title}</div>
-      <div className="text-2xl font-bold">{value}</div>
+    <div className={`p-4 rounded-2xl border dark:border-gray-700 shadow-sm bg-gradient-to-br ${gradient}`}>
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}>
+          <Icon className="text-lg" />
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {title}
+          </div>
+          <div className="text-2xl font-bold">{value}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BarRow({ label, value, max }) {
+  const width = max ? (value / max) * 100 : 0;
+  return (
+    <div className="flex items-center gap-3 my-1">
+      <div className="w-10 text-xs text-gray-500 dark:text-gray-400">{label}</div>
+      <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all"
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      <div className="w-8 text-right text-xs text-gray-500 dark:text-gray-400">{value}</div>
+    </div>
+  );
+}
+
+function HourCell({ hour, count, max }) {
+  const alpha = max ? 0.15 + (count / max) * 0.6 : 0.15;
+  return (
+    <div className="flex flex-col items-center">
+      <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{hour}h</div>
+      <div
+        className="w-11 h-11 rounded-xl flex items-center justify-center shadow-sm"
+        style={{ background: `rgba(99,102,241,${alpha})` }} // indigo
+        title={`${count} visite${count > 1 ? "s" : ""}`}
+      >
+        <span className="text-xs font-semibold">{count || ""}</span>
+      </div>
     </div>
   );
 }
 
 /* -------------------------------------------
-   PAGE : MyAttendancesPage
+   PAGE
 -------------------------------------------- */
 export default function MyAttendancesPage() {
   const { user, userMemberData } = useAuth();
+
   const [range, setRange] = useState(() => {
     const today = new Date();
     const monthAgo = new Date();
@@ -138,23 +197,27 @@ export default function MyAttendancesPage() {
   });
   const [loading, setLoading] = useState(false);
   const [presences, setPresences] = useState([]);
+
   const stats = useMemo(() => calculateAttendanceStats(presences), [presences]);
 
   const badgeId = userMemberData?.badgeId || null;
-  // 🔁 Si tu préfères filtrer par email côté table `presences`, remplace la requête par:
-  // .eq("email", user?.email)
+  const memberName =
+    userMemberData?.firstname || userMemberData?.lastname
+      ? `${userMemberData?.firstname || ""} ${userMemberData?.lastname || ""}`.trim()
+      : user?.email || "Utilisateur";
+
+  // Photo membre si dispo
+  const memberPhoto = userMemberData?.photo || "";
 
   useEffect(() => {
     const fetchPresences = async () => {
-      if (!user) return;
-      if (!badgeId) return; // pas de badge lié -> rien à afficher
-
+      if (!user || !badgeId) return;
       setLoading(true);
       try {
         const { data, error } = await supabase
           .from("presences")
           .select("*")
-          .eq("badgeId", badgeId) // ⬅️ switch possible vers .eq("email", user.email)
+          .eq("badgeId", badgeId) // 🔁 possibilité de switcher par email si besoin
           .gte("timestamp", `${range.start}T00:00:00`)
           .lte("timestamp", `${range.end}T23:59:59`)
           .order("timestamp", { ascending: false });
@@ -180,60 +243,148 @@ export default function MyAttendancesPage() {
     fetchPresences();
   }, [user, badgeId, range.start, range.end]);
 
+  // Raccourcis période
+  const setDays = (days) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    setRange({ start: formatIntl(start, "yyyy-MM-dd"), end: formatIntl(end, "yyyy-MM-dd") });
+  };
+
+  const setMonths = (months) => {
+    const end = new Date();
+    const start = new Date();
+    start.setMonth(start.getMonth() - months);
+    setRange({ start: formatIntl(start, "yyyy-MM-dd"), end: formatIntl(end, "yyyy-MM-dd") });
+  };
+
+  const dayLabels = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+
   return (
     <div className="p-4 md:p-6">
-      {/* Titre + période choisie */}
-      <div className="mb-4">
-        <h1 className="text-xl md:text-2xl font-semibold">Mes présences</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Visualisez vos visites et statistiques d’assiduité.
-        </p>
+      {/* Header + fiche mini comme l’onglet */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold">Mes présences</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Consultez vos statistiques et l’historique de vos visites.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className="text-sm font-medium">{memberName}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Badge : {badgeId || "—"}
+            </div>
+          </div>
+          <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-white dark:ring-gray-800 shadow-lg">
+            {memberPhoto ? (
+              <img
+                src={memberPhoto}
+                alt="avatar"
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-gray-400">
+                <FaUser />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Bandeau filtres & action */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end justify-between mb-4">
-        <div className="flex gap-3">
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">Début</label>
-            <input
-              type="date"
-              value={range.start}
-              onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))}
-              className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700"
-            />
+      {/* Bloc "Suivi des présences" */}
+      <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
+        <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
+              <FaChartBar />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Suivi des présences</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Membre : {memberName} {badgeId ? `(Badge : ${badgeId})` : ""}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-gray-500 dark:text-gray-400 mb-1">Fin</label>
-            <input
-              type="date"
-              value={range.end}
-              onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
-              className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700"
-            />
+
+          <div className="flex flex-wrap items-end gap-2">
+            <button
+              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => setDays(7)}
+            >
+              7 derniers jours
+            </button>
+            <button
+              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => setDays(30)}
+            >
+              30 derniers jours
+            </button>
+            <button
+              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => setMonths(3)}
+            >
+              3 derniers mois
+            </button>
+
+            <div className="flex items-end gap-2">
+              <div className="flex flex-col">
+                <label className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                  Début
+                </label>
+                <input
+                  type="date"
+                  value={range.start}
+                  onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))}
+                  className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 text-sm"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">
+                  Fin
+                </label>
+                <input
+                  type="date"
+                  value={range.end}
+                  onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
+                  className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 text-sm"
+                />
+              </div>
+              <button
+                onClick={() => setRange((r) => ({ ...r }))}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 shadow-sm"
+                title="Actualiser"
+              >
+                <FaRedoAlt /> Actualiser
+              </button>
+            </div>
           </div>
         </div>
 
-        <button
-          onClick={() => setRange((r) => ({ ...r }))} // force refresh (inutile mais explicite)
-          className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.99]"
-        >
-          Actualiser
-        </button>
+        {/* Tuiles récap */}
+        <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <StatTile icon={FaCalendarAlt} title="Total visites" value={stats.totalVisits} accent="indigo" />
+          <StatTile icon={FaIdCard} title="Jours uniques" value={stats.uniqueDays} accent="green" />
+          <StatTile icon={FaClock} title="Moyenne / jour" value={stats.avgVisitsPerDay} accent="purple" />
+          <StatTile icon={FaFireAlt} title="Heure favorite" value={stats.peakHour >= 0 ? `${stats.peakHour}h` : "-"} accent="orange" />
+        </div>
       </div>
 
-      {/* États */}
+      {/* États simples */}
       {!user && (
-        <div className="p-4 rounded-xl border bg-yellow-50 text-yellow-800">
+        <div className="p-4 rounded-2xl border dark:border-gray-700 bg-yellow-50 text-yellow-800 mb-6">
           Vous devez être connecté pour voir vos présences.
         </div>
       )}
       {user && !userMemberData && (
-        <div className="p-4 rounded-xl border bg-yellow-50 text-yellow-800">
+        <div className="p-4 rounded-2xl border dark:border-gray-700 bg-yellow-50 text-yellow-800 mb-6">
           Aucun profil membre lié à votre compte. Contactez un administrateur.
         </div>
       )}
       {user && userMemberData && !badgeId && (
-        <div className="p-4 rounded-xl border bg-yellow-50 text-yellow-800">
+        <div className="p-4 rounded-2xl border dark:border-gray-700 bg-yellow-50 text-yellow-800 mb-6">
           Aucun badge n’est associé à votre profil. Contactez un administrateur.
         </div>
       )}
@@ -243,81 +394,43 @@ export default function MyAttendancesPage() {
         <div className="my-6 text-sm text-gray-500 dark:text-gray-400">Chargement…</div>
       )}
 
-      {/* Contenu principal (stats + répartitions + historique) */}
+      {/* Contenu principal (mêmes cartes que l'onglet) */}
       {!loading && user && userMemberData && badgeId && (
-        <>
-          {/* Tuiles récap */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
-            <StatCard title="Total visites" value={stats.totalVisits} />
-            <StatCard title="Jours uniques" value={stats.uniqueDays} />
-            <StatCard title="Moyenne/jour" value={stats.avgVisitsPerDay} />
-            <StatCard title="Heure favorite" value={stats.peakHour >= 0 ? `${stats.peakHour}h` : "-"} />
-          </div>
-
-          {/* Répartition par jour de la semaine */}
-          <div className="p-4 rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 mb-6">
-            <h4 className="font-semibold mb-3">Répartition par jour de la semaine</h4>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Répartition par jour */}
+          <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="font-semibold mb-3">Répartition par jour de la semaine</div>
             {(() => {
-              const labels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
               const max = Math.max(...stats.weeklyDistribution);
-              return labels.map((label, idx) => {
-                const val = stats.weeklyDistribution[idx] || 0;
-                const width = max ? (val / max) * 100 : 0;
-                return (
-                  <div key={label} className="flex items-center gap-3 my-1">
-                    <div className="w-10 text-xs text-gray-500 dark:text-gray-400">{label}</div>
-                    <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-green-500 dark:bg-green-400 transition-all"
-                        style={{ width: `${width}%` }}
-                      />
-                    </div>
-                    <div className="w-8 text-right text-xs text-gray-500 dark:text-gray-400">
-                      {val}
-                    </div>
-                  </div>
-                );
-              });
+              return dayLabels.map((lbl, idx) => (
+                <BarRow key={lbl} label={lbl} value={stats.weeklyDistribution[idx] || 0} max={max} />
+              ));
             })()}
             {stats.peakDay && (
-              <div className="mt-3 text-sm text-blue-600 dark:text-blue-300">
+              <div className="mt-4 text-sm text-indigo-600 dark:text-indigo-300">
                 Jour préféré : {stats.peakDay}
               </div>
             )}
           </div>
 
           {/* Répartition par heure */}
-          <div className="p-4 rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700 mb-6">
-            <h4 className="font-semibold mb-3">Répartition par heure</h4>
+          <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="font-semibold mb-3">Répartition par heure</div>
             <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-2">
-              {Array.from({ length: 24 }).map((_, hour) => {
-                const count = stats.hourlyDistribution[hour] || 0;
-                const max = Math.max(...stats.hourlyDistribution);
-                const alpha = max ? 0.15 + (count / max) * 0.6 : 0.15;
-                return (
-                  <div key={hour} className="flex flex-col items-center">
-                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">{hour}h</div>
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center"
-                      style={{ background: `rgba(99,102,241,${alpha})` }} // indigo-500 en rgba
-                      title={`${count} visite${count > 1 ? "s" : ""}`}
-                    >
-                      <span className="text-xs font-semibold">{count || ""}</span>
-                    </div>
-                  </div>
-                );
-              })}
+              {Array.from({ length: 24 }).map((_, h) => (
+                <HourCell key={h} hour={h} count={stats.hourlyDistribution[h] || 0} max={Math.max(...stats.hourlyDistribution)} />
+              ))}
             </div>
             {stats.peakHour >= 0 && (
-              <div className="mt-3 text-sm text-purple-600 dark:text-purple-300">
+              <div className="mt-4 text-sm text-purple-600 dark:text-purple-300">
                 Heure de pointe : {stats.peakHour}h
               </div>
             )}
           </div>
 
-          {/* Historique des visites */}
-          <div className="p-4 rounded-xl border bg-white dark:bg-gray-800 dark:border-gray-700">
-            <h4 className="font-semibold mb-3">Historique des visites</h4>
+          {/* Historique des visites (prend toute la largeur) */}
+          <div className="lg:col-span-2 p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="font-semibold mb-3">Historique des visites</div>
             {stats.dailyStats.length === 0 ? (
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 Aucune visite sur la période sélectionnée.
@@ -328,17 +441,22 @@ export default function MyAttendancesPage() {
                   const k = d.date.toISOString();
                   return (
                     <li key={k} className="py-3 flex items-center justify-between">
-                      <div className="text-sm">
-                        <div className="font-medium">
-                          {formatIntl(d.date, "EEEE dd MMMM")}
+                      <div className="flex items-center gap-3">
+                        <div className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs">
+                          {formatIntl(d.date, "dd/MM/yyyy")}
                         </div>
-                        <div className="text-gray-500 dark:text-gray-400 text-xs">
-                          {d.visits} visite{d.visits > 1 ? "s" : ""}
+                        <div className="text-sm">
+                          <div className="font-medium">
+                            {formatIntl(d.date, "EEEE dd MMMM")}
+                          </div>
+                          <div className="text-gray-500 dark:text-gray-400 text-xs">
+                            {d.visits} visite{d.visits > 1 ? "s" : ""}
+                          </div>
                         </div>
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-300">
-                        {d.first && `Arrivée: ${formatIntl(d.first, "HH:mm")}`}
-                        {d.last && d.first !== d.last && ` – Dernier badge: ${formatIntl(d.last, "HH:mm")}`}
+                        {d.first && `Arrivée : ${formatIntl(d.first, "HH:mm")}`}
+                        {d.last && d.first !== d.last && ` — Dernier badge : ${formatIntl(d.last, "HH:mm")}`}
                       </div>
                     </li>
                   );
@@ -346,7 +464,7 @@ export default function MyAttendancesPage() {
               </ul>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

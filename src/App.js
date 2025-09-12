@@ -911,17 +911,17 @@ function EnhancedSidebar({
         },
       ]
       : [
+                {
+          name: "Mon Profil",
+          path: "/profile",
+          icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
+        },
         {
           name: "Mes Présences",
           path: "/my-attendances",
           icon: (
             <FaClipboardList className="text-green-500 dark:text-green-400" />
           ),
-        },
-        {
-          name: "Mon Profil",
-          path: "/profile",
-          icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
         },
       ]),
   ];
