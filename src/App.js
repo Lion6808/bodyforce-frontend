@@ -1308,6 +1308,17 @@ function AnimatedMobileMenu({
           {!isAdmin && (
             <>
               <Link
+                to="/profile"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/profile" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaUser className="text-xl text-blue-300" />
+                <span className="font-medium">Mon Profil</span>
+              </Link>
+
+              <Link
                 to="/my-attendances"
                 onClick={handleItemClick}
                 className={`menu-item ${animate ? "animate" : ""
@@ -1318,16 +1329,6 @@ function AnimatedMobileMenu({
                 <span className="font-medium">Mes Présences</span>
               </Link>
 
-              <Link
-                to="/profile"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/profile" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaUser className="text-xl text-blue-300" />
-                <span className="font-medium">Mon Profil</span>
-              </Link>
             </>
           )}
 
