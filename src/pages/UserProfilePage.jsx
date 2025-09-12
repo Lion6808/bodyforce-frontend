@@ -1,17 +1,32 @@
 // 📄 Fichier : src/pages/UserProfilePage.jsx
-// (corrigé : mapping Paiements aligné sur l'onglet admin)
+// 🎯 "Mon profil" — design aligné onglet Admin, dark-mode & mobile OK
+// 💳 Paiements : même logique que l’admin (colonnes FR supportées)
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../supabaseClient";
 import {
-  FaUser, FaIdCard, FaEnvelope, FaPhone, FaMapMarkerAlt,
-  FaChild, FaBirthdayCake, FaGraduationCap, FaShieldAlt,
-  FaCalendarAlt, FaEuroSign, FaExclamationTriangle,
-  FaCalendarCheck, FaMoneyCheckAlt,
+  FaUser,
+  FaIdCard,
+  FaEnvelope,
+  FaPhone,
+  FaMapMarkerAlt,
+  FaChild,
+  FaBirthdayCake,
+  FaGraduationCap,
+  FaShieldAlt,
+  FaCalendarAlt,
+  FaEuroSign,
+  FaExclamationTriangle,
+  FaCalendarCheck,
+  FaMoneyCheckAlt,
 } from "react-icons/fa";
 
-/* ---------------- Helpers (identiques) ---------------- */
+/* -------------------------------------------
+   Helpers
+-------------------------------------------- */
+
+// Parse très tolérant : dd/MM/yyyy • yyyy-MM-dd • dd-MM-yyyy • ISO • timestamp
 const parseFlexibleDate = (value) => {
   if (!value) return null;
   if (value instanceof Date && !isNaN(value.getTime())) return value;
@@ -22,26 +37,34 @@ const parseFlexibleDate = (value) => {
   if (typeof value === "string") {
     const s = value.trim();
     if (!s) return null;
+
+    // 1975-05-14 (ou 1975-05-14T..)
     const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (iso) {
       const [, Y, M, D] = iso.map(Number);
       return new Date(Y, M - 1, D);
     }
+
+    // 14/05/1975
     const fr = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (fr) {
       const [, d, m, y] = fr.map(Number);
       return new Date(y, m - 1, d);
     }
+
+    // 14-05-1975
     const frDash = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
     if (frDash) {
       const [, d, m, y] = frDash.map(Number);
       return new Date(y, m - 1, d);
     }
+
     const t = Date.parse(s);
     if (!isNaN(t)) return new Date(t);
   }
   return null;
 };
+
 const formatIntl = (date, fmt) => {
   try {
     const map = {
@@ -52,8 +75,11 @@ const formatIntl = (date, fmt) => {
     };
     if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
     return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
-  } catch { return ""; }
+  } catch {
+    return "";
+  }
 };
+
 const calcAge = (birthDate) => {
   if (!birthDate) return null;
   const now = new Date();
@@ -62,6 +88,7 @@ const calcAge = (birthDate) => {
   if (m < 0 || (m === 0 && now.getDate() < birthDate.getDate())) age--;
   return age < 0 ? null : age;
 };
+
 const getMembershipStatus = (start, end) => {
   const today = new Date();
   if (start && end) {
@@ -72,6 +99,7 @@ const getMembershipStatus = (start, end) => {
   if (end) return today > end ? { label: "Expiré", tone: "danger" } : { label: "—", tone: "neutral" };
   return { label: "—", tone: "neutral" };
 };
+
 const toneClasses = (tone) => {
   switch (tone) {
     case "success":
@@ -84,10 +112,16 @@ const toneClasses = (tone) => {
       return { badge: "bg-gray-500/15 text-gray-700 dark:text-gray-300", dot: "bg-gray-500" };
   }
 };
+
 const formatCurrency = (n) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(n || 0));
 
-/* ---------------- UI subcomponents (inchangés) ---------------- */
+const ordinal = (i) => (i === 1 ? "1er" : `${i}ème`);
+
+/* -------------------------------------------
+   UI Subcomponents (mêmes styles que Présences)
+-------------------------------------------- */
+
 function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
   const gradient =
     accent === "green"
@@ -97,6 +131,7 @@ function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
       : accent === "purple"
       ? "from-purple-50 to-fuchsia-50 dark:from-purple-900/30 dark:to-fuchsia-900/20"
       : "from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/20";
+
   const iconBg =
     accent === "green"
       ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
@@ -105,6 +140,7 @@ function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
       : accent === "purple"
       ? "bg-purple-500/15 text-purple-600 dark:text-purple-300"
       : "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300";
+
   return (
     <div className={`p-4 rounded-2xl border dark:border-gray-700 shadow-sm bg-gradient-to-br ${gradient}`}>
       <div className="flex items-center gap-3">
@@ -119,6 +155,7 @@ function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
     </div>
   );
 }
+
 function InfoRow({ icon: Icon, label, value }) {
   return (
     <div className="flex items-start gap-3 py-2">
@@ -132,14 +169,17 @@ function InfoRow({ icon: Icon, label, value }) {
     </div>
   );
 }
+
 function PaymentLine({ p }) {
   return (
     <li className="py-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
-        <div className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 flex-shrink-0
+        <div
+          className={`px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 flex-shrink-0
           ${p.overdue ? "bg-rose-500/15 text-rose-700 dark:text-rose-300"
-                      : p.isPaid ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                                 : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}`}>
+            : p.isPaid ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+            : "bg-amber-500/15 text-amber-700 dark:text-amber-300"}`}
+        >
           {p.isPaid ? <FaMoneyCheckAlt /> : p.overdue ? <FaExclamationTriangle /> : <FaCalendarCheck />}
           {p.isPaid ? "Payé" : p.overdue ? "En retard" : "À venir"}
         </div>
@@ -152,67 +192,81 @@ function PaymentLine({ p }) {
           <div className="text-gray-600 dark:text-gray-300 text-xs truncate">
             {p.method ? `Mode: ${p.method}` : ""} {p.note ? `• ${p.note}` : ""}
           </div>
+          {p.rank ? (
+            <div className="text-xs text-gray-500 dark:text-gray-400 italic">{ordinal(p.rank)}</div>
+          ) : null}
         </div>
       </div>
-      <div className={`text-sm font-semibold flex-shrink-0
+      <div
+        className={`text-sm font-semibold flex-shrink-0
         ${p.isPaid ? "text-emerald-700 dark:text-emerald-300"
-                   : p.overdue ? "text-rose-700 dark:text-rose-300"
-                               : "text-amber-700 dark:text-amber-300"}`}>
+          : p.overdue ? "text-rose-700 dark:text-rose-300"
+          : "text-amber-700 dark:text-amber-300"}`}
+      >
         {formatCurrency(p.amount)}
       </div>
     </li>
   );
 }
 
-/* ---------------- Page ---------------- */
+/* -------------------------------------------
+   Page
+-------------------------------------------- */
 export default function UserProfilePage() {
   const { user, userMemberData } = useAuth();
 
-  // Identité
+  // --- Identité
   const firstname = userMemberData?.firstname || "";
-  const lastname  = userMemberData?.lastname  || "";
-  const displayName = firstname || lastname ? `${firstname} ${lastname}`.trim() : user?.email || "Utilisateur";
-  const email   = user?.email || userMemberData?.email || "—";
+  const lastname = userMemberData?.lastname || "";
+  const displayName =
+    firstname || lastname ? `${firstname} ${lastname}`.trim() : user?.email || "Utilisateur";
+
+  const email = user?.email || userMemberData?.email || "—";
   const badgeId = userMemberData?.badgeId || "—";
-  const photo   = userMemberData?.photo || "";
+  const photo = userMemberData?.photo || "";
 
-  // Coordonnées
-  const phone   = userMemberData?.phone ?? userMemberData?.telephone ?? "";
-  const mobile  = userMemberData?.mobile ?? userMemberData?.phoneMobile ?? userMemberData?.portable ?? "";
+  // --- Coordonnées
+  const phone = userMemberData?.phone ?? userMemberData?.telephone ?? "";
+  const mobile =
+    userMemberData?.mobile ?? userMemberData?.phoneMobile ?? userMemberData?.portable ?? "";
   const address = userMemberData?.address || "";
-  const city    = userMemberData?.city || "";
-  const zip     = userMemberData?.zip ?? userMemberData?.postalCode ?? "";
+  const city = userMemberData?.city || "";
+  const zip = userMemberData?.zip ?? userMemberData?.postalCode ?? "";
 
-  // Anniversaire / âge
+  // --- Anniversaire / âge (robuste)
   const birthRaw =
-    userMemberData?.birthDate ?? userMemberData?.birthdate ?? userMemberData?.birthday ??
-    userMemberData?.dateOfBirth ?? userMemberData?.date_naissance ?? null;
+    userMemberData?.birthDate ??
+    userMemberData?.birthdate ??
+    userMemberData?.birthday ??
+    userMemberData?.dateOfBirth ??
+    userMemberData?.date_naissance ??
+    null;
   const birthDate = parseFlexibleDate(birthRaw);
-  const birthStr  = birthDate ? formatIntl(birthDate, "dd/MM/yyyy") : "—";
-  const age       = useMemo(() => calcAge(birthDate), [birthDate]);
+  const birthStr = birthDate ? formatIntl(birthDate, "dd/MM/yyyy") : "—";
+  const age = useMemo(() => calcAge(birthDate), [birthDate]);
 
-  // Étudiant
+  // --- Étudiant ?
   const isStudent = !!(userMemberData?.student ?? userMemberData?.etudiant ?? false);
 
-  // Abonnement
+  // --- Abonnement
   const startDate = parseFlexibleDate(userMemberData?.startDate);
-  const endDate   = parseFlexibleDate(userMemberData?.endDate);
+  const endDate = parseFlexibleDate(userMemberData?.endDate);
   const subscription = getMembershipStatus(startDate, endDate);
   const tone = toneClasses(subscription.tone);
   const startStr = startDate ? formatIntl(startDate, "dd/MM/yyyy") : "—";
-  const endStr   = endDate   ? formatIntl(endDate, "dd/MM/yyyy")   : "—";
+  const endStr = endDate ? formatIntl(endDate, "dd/MM/yyyy") : "—";
 
-  // Paiements
+  // --- Paiements
   const [payments, setPayments] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
   const memberId = userMemberData?.id ?? userMemberData?.memberId ?? null;
 
-  // 🔧 IMPORTANT : mapping 100% aligné avec l'onglet admin (payments.member_id, date_paiement, encaissement_prevu, is_paid, commentaire)
+  // Normalisation alignée sur l'onglet admin
   const normalizePayment = (row) => {
     const amount = Number(row?.amount ?? row?.montant ?? row?.total ?? 0);
 
     const dueDate =
-      parseFlexibleDate(row?.encaissement_prevu) ||   // ✅ admin
+      parseFlexibleDate(row?.encaissement_prevu) || // ✅ admin
       parseFlexibleDate(row?.dueDate) ||
       parseFlexibleDate(row?.due_date) ||
       parseFlexibleDate(row?.expectedDate) ||
@@ -220,25 +274,24 @@ export default function UserProfilePage() {
       null;
 
     const paidAt =
-      parseFlexibleDate(row?.date_paiement) ||         // ✅ admin
+      parseFlexibleDate(row?.date_paiement) ||       // ✅ admin
       parseFlexibleDate(row?.paidAt) ||
       parseFlexibleDate(row?.paid_at) ||
       parseFlexibleDate(row?.paymentDate) ||
       null;
 
-    const status   = (row?.status || "").toString().toLowerCase();
+    const status = (row?.status || "").toString().toLowerCase();
     const paidFlag = row?.is_paid ?? row?.paid ?? row?.isPaid ?? row?.encaisse ?? null; // ✅ admin: is_paid
-    const isPaid   = (typeof paidFlag === "boolean" && paidFlag) || status === "paid" || !!paidAt;
+    const isPaid = (typeof paidFlag === "boolean" && paidFlag) || status === "paid" || !!paidAt;
 
-    const method = row?.method || row?.methode || row?.type || row?.paymentMethod || "";
-    const note   = row?.commentaire || row?.note || row?.description || "";
+    const method = row?.methode || row?.method || row?.type || row?.paymentMethod || ""; // ✅ admin: methode
+    const note = row?.commentaire || row?.note || row?.description || ""; // ✅ admin: commentaire
 
     const today = new Date();
     const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const overdue  = !isPaid && dueDate && dueDate < midnight;
+    const overdue = !isPaid && dueDate && dueDate < midnight;
     const upcoming = !isPaid && dueDate && dueDate >= midnight;
 
-    // rang / ordinal (si présent côté admin)
     const rank = row?.rang ?? row?.rank ?? row?.sequence ?? row?.index ?? null;
 
     return {
@@ -257,28 +310,39 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     if (!memberId) return;
+
     const fetchPayments = async () => {
       setLoadingPayments(true);
       try {
-        const { data, error } = await supabase
+        // 1er essai : colonne admin canonique
+        let { data, error } = await supabase
           .from("payments")
           .select("*")
-          .or(`member_id.eq.${memberId},memberId.eq.${memberId}`) // ✅ admin: member_id
-          .order("date_paiement", { ascending: false });         // ✅ admin: tri par date_paiement
+          .eq("member_id", memberId); // ✅ pas d'OR, évite l'erreur 42703
+
+        // Fallback si la colonne n’existe pas
+        if (error && error.code === "42703") {
+          ({ data, error } = await supabase
+            .from("payments")
+            .select("*")
+            .eq("memberId", memberId));
+        }
 
         if (error) {
           console.error("[UserProfilePage] payments error:", error);
           setPayments([]);
           return;
         }
+
         const list = (data || []).map(normalizePayment);
 
-        // Tri identique à l'admin :
-        // - d'abord les payés du plus récent au plus ancien
-        // - puis les non payés, échéance la plus proche d'abord
+        // Tri identique à l’admin :
+        // - payés d’abord (du plus récent au plus ancien)
+        // - puis non payés (échéance la plus proche d’abord)
         list.sort((a, b) => {
           if (a.isPaid !== b.isPaid) return a.isPaid ? -1 : 1;
-          if (a.isPaid && b.isPaid) return (b.paidAt?.getTime?.() ?? 0) - (a.paidAt?.getTime?.() ?? 0);
+          if (a.isPaid && b.isPaid)
+            return (b.paidAt?.getTime?.() ?? 0) - (a.paidAt?.getTime?.() ?? 0);
           return (a.dueDate?.getTime?.() ?? Infinity) - (b.dueDate?.getTime?.() ?? Infinity);
         });
 
@@ -290,6 +354,7 @@ export default function UserProfilePage() {
         setLoadingPayments(false);
       }
     };
+
     fetchPayments();
   }, [memberId]);
 
@@ -309,10 +374,8 @@ export default function UserProfilePage() {
       overdueCount: overdue.length,
       outstanding,
       paidThisYear,
-      // Historique : on affiche tous les payés (comme l’admin)
-      historyPaid: payments.filter((p) => p.isPaid),
-      // Échéances : on liste à venir + en retard
       upcomingList: [...upcoming, ...overdue],
+      historyPaid: payments.filter((p) => p.isPaid),
     };
   }, [payments]);
 
@@ -363,6 +426,7 @@ export default function UserProfilePage() {
           </div>
         </div>
 
+        {/* Tuiles : Étudiant / Anniversaire / Âge / Période */}
         <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
           <StatTile icon={FaGraduationCap} title="Statut étudiant" value={isStudent ? "Oui" : "Non"} accent="purple" />
           <StatTile icon={FaBirthdayCake} title="Anniversaire" value={birthStr} accent="orange" />
@@ -402,7 +466,9 @@ export default function UserProfilePage() {
             </div>
             <div>
               <div className="text-sm font-semibold">Paiements</div>
-              <div className="text-xs text-gray-600 dark:text-gray-300">Échéances, retards et historique d’encaissement</div>
+              <div className="text-xs text-gray-600 dark:text-gray-300">
+                Échéances, retards et historique d’encaissement
+              </div>
             </div>
           </div>
           {loadingPayments && <div className="text-xs text-gray-600 dark:text-gray-300">Chargement…</div>}
@@ -418,6 +484,7 @@ export default function UserProfilePage() {
 
         {/* Listes */}
         <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Échéances */}
           <div className="rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
             <div className="px-4 py-3 border-b dark:border-gray-700 font-semibold text-gray-900 dark:text-gray-100">
               Échéances à venir / en retard
@@ -435,6 +502,7 @@ export default function UserProfilePage() {
             </div>
           </div>
 
+          {/* Historique des paiements */}
           <div className="rounded-xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
             <div className="px-4 py-3 border-b dark:border-gray-700 font-semibold text-gray-900 dark:text-gray-100">
               Historique des paiements
