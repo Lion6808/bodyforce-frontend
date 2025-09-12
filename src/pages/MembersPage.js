@@ -176,7 +176,8 @@ function MembersPage() {
 
   // ✅ NOUVEAU : Récupérer l'ID du membre depuis l'état de navigation
   const returnedFromEdit = location.state?.returnedFromEdit;
-  const editedMemberIdFromState = location.state?.editedMemberId;
+  const editedMemberIdFromState = location.state?.memberId;
+
 
   // ✅ États existants
   const [members, setMembers] = useState([]);
@@ -252,20 +253,21 @@ function MembersPage() {
   }, []);
 
   // ✅ NOUVEAU : Effet pour le repositionnement après retour d'édition (via location.state)
+  // ✅ Repositionnement quand un memberId est passé via location.state
   useEffect(() => {
-    if (
-      returnedFromEdit &&
-      editedMemberIdFromState &&
-      !loading &&
-      filteredMembers.length > 0
-    ) {
-      setTimeout(() => {
-        scrollToMember(editedMemberIdFromState);
-        // Nettoyer l'état de navigation
-        window.history.replaceState({}, "", location.pathname);
-      }, 100);
-    }
-  }, [returnedFromEdit, editedMemberIdFromState, loading, filteredMembers, location.pathname]);
+    if (!editedMemberIdFromState) return;
+    if (loading || filteredMembers.length === 0) return;
+
+    // petit délai pour laisser le DOM finaliser
+    const t = setTimeout(() => {
+      scrollToMember(editedMemberIdFromState);
+      // Nettoyer l'état de navigation pour éviter de rescroller la prochaine fois
+      window.history.replaceState({}, "", location.pathname);
+    }, 100);
+
+    return () => clearTimeout(t);
+  }, [editedMemberIdFromState, loading, filteredMembers, location.pathname]);
+
 
 
   // ✅ Repositionnement après restauration sessionStorage (robuste, avec retry)
