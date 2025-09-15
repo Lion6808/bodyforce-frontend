@@ -221,40 +221,40 @@ function HomePage() {
             </linearGradient>
           </defs>
 
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="currentColor"
-          className="text-gray-200 dark:text-gray-700"
-          strokeWidth={stroke}
-          fill="none"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="url(#ringGradient)"
-          strokeWidth={stroke}
-          fill="none"
-          strokeDasharray={`${dash} ${remainder}`}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-        {/* centrage vertical sans propriété exotique */}
-        <text
-          x="50%"
-          y="50%"
-          dy=".35em"
-          textAnchor="middle"
-          className="fill-gray-900 dark:fill-white"
-          fontSize="22"
-          fontWeight="700"
-        >
-          {Math.round(value * 100)}%
-        </text>
-      </svg>
-    </div>
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="currentColor"
+            className="text-gray-200 dark:text-gray-700"
+            strokeWidth={stroke}
+            fill="none"
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="url(#ringGradient)"
+            strokeWidth={stroke}
+            fill="none"
+            strokeDasharray={`${dash} ${remainder}`}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+          {/* centrage vertical sans propriété exotique */}
+          <text
+            x="50%"
+            y="50%"
+            dy=".35em"
+            textAnchor="middle"
+            className="fill-gray-900 dark:fill-white"
+            fontSize="22"
+            fontWeight="700"
+          >
+            {Math.round(value * 100)}%
+          </text>
+        </svg>
+      </div>
     );
   };
 
@@ -303,7 +303,7 @@ function HomePage() {
                 Bonjour{memberFirstName ? `, ${memberFirstName}` : ""} 👋
               </h1>
               <p className="mt-1 text-sm md:text-base text-gray-600 dark:text-gray-300">
-                Heureux de vous revoir sur votre espace. Retrouvez ici vos dernières informations et vos paiements.
+                Heureux de vous revoir sur votre espace. Retrouvez ici vos dernières informations.
               </p>
 
               {/* Badges d’info rapides */}
@@ -325,7 +325,7 @@ function HomePage() {
       )}
 
       {/* 🔹 Widgets statistiques (ADMIN uniquement) */}
-      {isAdmin && (
+      {(
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard icon={FaUsers} label="Total Membres" value={stats.total} color="bg-blue-500" />
           <StatCard icon={FaUserCheck} label="Actifs" value={stats.actifs} color="bg-green-500" />
@@ -453,21 +453,19 @@ function HomePage() {
                           style={{ width: "calc(100% / 7 - 8px)" }}
                         >
                           <div
-                            className={`text-xs font-medium mb-1 transition-all duration-200 ${
-                              d.count > 0
+                            className={`text-xs font-medium mb-1 transition-all duration-200 ${d.count > 0
                                 ? "text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400"
                                 : "text-gray-400 dark:text-gray-600"
-                            }`}
+                              }`}
                           >
                             {d.count}
                           </div>
 
                           <div
-                            className={`w-full rounded-t-lg shadow-lg transition-all duration-500 group-hover:shadow-xl relative overflow-hidden ${
-                              isTodayLabel
+                            className={`w-full rounded-t-lg shadow-lg transition-all duration-500 group-hover:shadow-xl relative overflow-hidden ${isTodayLabel
                                 ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
                                 : ""
-                            }`}
+                              }`}
                             style={{
                               height: `${heightInPixels}px`,
                               background:
@@ -475,8 +473,8 @@ function HomePage() {
                                   ? isTodayLabel
                                     ? "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(16,185,129,1) 50%, rgba(34,197,94,1) 100%)"
                                     : isWeekend
-                                    ? "linear-gradient(180deg, rgba(139,92,246,1) 0%, rgba(168,85,247,1) 100%)"
-                                    : "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(34,197,94,1) 100%)"
+                                      ? "linear-gradient(180deg, rgba(139,92,246,1) 0%, rgba(168,85,247,1) 100%)"
+                                      : "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(34,197,94,1) 100%)"
                                   : "linear-gradient(180deg, rgba(156,163,175,0.3) 0%, rgba(156,163,175,0.1) 100%)",
                             }}
                           >
@@ -508,20 +506,18 @@ function HomePage() {
                     return (
                       <div key={idx} className="flex flex-col items-center" style={{ width: "calc(100% / 7 - 8px)" }}>
                         <span
-                          className={`text-xs font-medium ${
-                            isTodayLabel
+                          className={`text-xs font-medium ${isTodayLabel
                               ? "text-blue-600 dark:text-blue-400 font-bold"
                               : isWeekend
-                              ? "text-purple-600 dark:text-purple-400"
-                              : "text-gray-600 dark:text-gray-400"
-                          }`}
+                                ? "text-purple-600 dark:text-purple-400"
+                                : "text-gray-600 dark:text-gray-400"
+                            }`}
                         >
                           {format(d.date, "dd/MM")}
                         </span>
                         <span
-                          className={`text-[10px] ${
-                            isTodayLabel ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"
-                          }`}
+                          className={`text-[10px] ${isTodayLabel ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"
+                            }`}
                         >
                           {format(d.date, "EEE").substring(0, 3)}
                         </span>
@@ -630,9 +626,8 @@ function HomePage() {
                       {index < 3 && (
                         <div className="ml-2">
                           <div
-                            className={`w-2 h-2 rounded-full ${
-                              index === 0 ? "bg-green-400 animate-pulse" : index === 1 ? "bg-yellow-400" : "bg-gray-400"
-                            }`}
+                            className={`w-2 h-2 rounded-full ${index === 0 ? "bg-green-400 animate-pulse" : index === 1 ? "bg-yellow-400" : "bg-gray-400"
+                              }`}
                           />
                         </div>
                       )}
@@ -708,9 +703,8 @@ function HomePage() {
                     </span>
                     {p.encaissement_prevu && (
                       <span
-                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${
-                          late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
-                        }`}
+                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
+                          }`}
                         title={`Échéance: ${format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}`}
                       >
                         {format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}
