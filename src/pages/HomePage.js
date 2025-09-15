@@ -1,4 +1,4 @@
-// 📄 HomePage.js — Page d'accueil — Dossier : src/pages — Date : 2025-08-13
+// 📄 HomePage.js — Page d'accueil — Dossier : src/pages
 // 👤 Utilisateur: Hero de bienvenue + grande photo (affiché dès qu'un user est connecté)
 // 🛡️ Admin: widgets stats/paiements/présences réservés à role === "admin"
 
@@ -19,7 +19,7 @@ import { supabaseServices, supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 
 function HomePage() {
-  const { user, role } = useAuth();
+  const { user, role, userMemberData: memberCtx } = useAuth();
   const isAdmin = (role || "").toLowerCase() === "admin";
 
   const [stats, setStats] = useState({
@@ -34,7 +34,6 @@ function HomePage() {
 
   const [pendingPayments, setPendingPayments] = useState([]);
   const [userPayments, setUserPayments] = useState([]);
-  const [userMemberData, setUserMemberData] = useState(null);
 
   // Résumé global des paiements (admin)
   const [paymentSummary, setPaymentSummary] = useState({
@@ -146,41 +145,17 @@ function HomePage() {
 
           await fetchAttendanceAdmin();
         } else if (user) {
-          // 🔐 Utilisateur connecté (quel que soit le rôle ≠ admin) : récup member + paiements
-          // 1) membre par user_id, fallback email
-          let memberData = null;
-          let { data: m1, error: e1 } = await supabase
-            .from("members")
-            .select("*")
-            .eq("user_id", user.id)
-            .limit(1)
-            .maybeSingle();
-
-          if (!e1 && m1) memberData = m1;
-          else {
-            const { data: m2, error: e2 } = await supabase
-              .from("members")
-              .select("*")
-              .eq("email", user.email)
-              .limit(1)
-              .maybeSingle();
-            if (!e2 && m2) memberData = m2;
-          }
-
-          setUserMemberData(memberData || null);
-
-          // 2) paiements du membre
-          if (memberData?.id) {
-            // d'abord member_id (schéma FR)
+          // Utilisateur (non admin) : on s’appuie sur le membre du contexte
+          if (memberCtx?.id) {
             let { data: memberPayments, error: pErr } = await supabase
               .from("payments")
               .select("*")
-              .eq("member_id", memberData.id)
+              .eq("member_id", memberCtx.id)
               .order("date_paiement", { ascending: false });
 
             // fallback si colonnes différentes
             if (pErr && pErr.code === "42703") {
-              const { data: alt } = await supabase.from("payments").select("*").eq("memberId", memberData.id);
+              const { data: alt } = await supabase.from("payments").select("*").eq("memberId", memberCtx.id);
               memberPayments = alt || [];
             }
             setUserPayments(memberPayments || []);
@@ -189,7 +164,6 @@ function HomePage() {
           }
         } else {
           // pas connecté
-          setUserMemberData(null);
           setUserPayments([]);
         }
       } catch (e) {
@@ -198,7 +172,7 @@ function HomePage() {
     };
 
     fetchData();
-  }, [role, user, isAdmin]);
+  }, [role, user, isAdmin, memberCtx?.id, supabase]);
 
   // ===== Helpers
   const isLateOrToday = (ts) => {
@@ -247,40 +221,40 @@ function HomePage() {
             </linearGradient>
           </defs>
 
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke="currentColor"
-            className="text-gray-200 dark:text-gray-700"
-            strokeWidth={stroke}
-            fill="none"
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke="url(#ringGradient)"
-            strokeWidth={stroke}
-            fill="none"
-            strokeDasharray={`${dash} ${remainder}`}
-            strokeLinecap="round"
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          />
-          {/* Pour centrer verticalement le label sans propriété exotique */}
-          <text
-            x="50%"
-            y="50%"
-            dy=".35em"
-            textAnchor="middle"
-            className="fill-gray-900 dark:fill-white"
-            fontSize="22"
-            fontWeight="700"
-          >
-            {Math.round(value * 100)}%
-          </text>
-        </svg>
-      </div>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="currentColor"
+          className="text-gray-200 dark:text-gray-700"
+          strokeWidth={stroke}
+          fill="none"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="url(#ringGradient)"
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={`${dash} ${remainder}`}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+        {/* centrage vertical sans propriété exotique */}
+        <text
+          x="50%"
+          y="50%"
+          dy=".35em"
+          textAnchor="middle"
+          className="fill-gray-900 dark:fill-white"
+          fontSize="22"
+          fontWeight="700"
+        >
+          {Math.round(value * 100)}%
+        </text>
+      </svg>
+    </div>
     );
   };
 
@@ -288,14 +262,15 @@ function HomePage() {
   const { totalAmount, paidAmount, pendingAmount, totalCount, paidCount, pendingCount } = paymentSummary;
   const progress = totalAmount > 0 ? paidAmount / totalAmount : 0;
 
-  // ===== Données affichage utilisateur
+  // ===== Données affichage utilisateur (HERO)
   const memberFirstName =
-    userMemberData?.firstName || userMemberData?.firstname || userMemberData?.prenom || "";
-  const memberLastName = userMemberData?.name || userMemberData?.lastname || userMemberData?.nom || "";
+    memberCtx?.firstName || memberCtx?.firstname || memberCtx?.prenom || "";
+  const memberLastName =
+    memberCtx?.name || memberCtx?.lastname || memberCtx?.nom || "";
   const memberDisplayName =
     (memberFirstName || memberLastName ? `${memberFirstName} ${memberLastName}`.trim() : user?.email) ||
     "Bienvenue";
-  const memberPhoto = userMemberData?.photo || "";
+  const memberPhoto = memberCtx?.photo || "";
 
   return (
     <div className="p-6 bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
@@ -308,6 +283,7 @@ function HomePage() {
             <div className="relative">
               {memberPhoto ? (
                 <img
+                  key={memberPhoto} // force le remount si l’URL change
                   src={memberPhoto}
                   alt={memberDisplayName}
                   className="w-32 h-32 md:w-40 md:h-40 rounded-2xl object-cover shadow-xl ring-4 ring-white dark:ring-gray-700"
@@ -332,9 +308,9 @@ function HomePage() {
 
               {/* Badges d’info rapides */}
               <div className="mt-4 flex flex-wrap items-center gap-2 justify-center md:justify-start">
-                {userMemberData?.badgeId && (
+                {memberCtx?.badgeId && (
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">
-                    Badge : {userMemberData.badgeId}
+                    Badge : {memberCtx.badgeId}
                   </span>
                 )}
                 {userPayments?.length > 0 && (
@@ -369,7 +345,7 @@ function HomePage() {
               État global des paiements
             </h2>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {paymentSummary.totalCount} opérations • {(paymentSummary.totalAmount || 0).toFixed(2)} €
+              {totalCount} opérations • {(totalAmount || 0).toFixed(2)} €
             </span>
           </div>
 
@@ -386,9 +362,9 @@ function HomePage() {
                 </div>
                 <div className="text-right">
                   <div className="text-gray-900 dark:text-white font-semibold">
-                    {(paymentSummary.paidAmount || 0).toFixed(2)} €
+                    {(paidAmount || 0).toFixed(2)} €
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{paymentSummary.paidCount} op.</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{paidCount} op.</div>
                 </div>
               </div>
 
@@ -399,9 +375,9 @@ function HomePage() {
                 </div>
                 <div className="text-right">
                   <div className="text-gray-900 dark:text-white font-semibold">
-                    {(paymentSummary.pendingAmount || 0).toFixed(2)} €
+                    {(pendingAmount || 0).toFixed(2)} €
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{paymentSummary.pendingCount} op.</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{pendingCount} op.</div>
                 </div>
               </div>
 
@@ -418,10 +394,10 @@ function HomePage() {
         </div>
       )}
 
-      {/* 🔹 Partie 1ter — Présences 7 derniers jours + Derniers passages (ADMIN) */}
+      {/* 🔹 Présences 7 derniers jours + Derniers passages (ADMIN) */}
       {isAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* ✅ Mini graph: 7 derniers jours — design amélioré */}
+          {/* Graph 7 derniers jours */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Présences — 7 derniers jours</h2>
@@ -439,9 +415,7 @@ function HomePage() {
 
             {attendance7d.length > 0 ? (
               <div className="relative w-full">
-                {/* Zone des barres - Hauteur augmentée */}
                 <div className="relative h-48 sm:h-56 lg:h-60">
-                  {/* Lignes de grille avec labels */}
                   <div className="absolute inset-0">
                     {(() => {
                       const maxValue = Math.max(...attendance7d.map((d) => d.count));
@@ -463,7 +437,6 @@ function HomePage() {
                     })()}
                   </div>
 
-                  {/* Barres avec échelle corrigée */}
                   <div className="absolute inset-0 flex items-end justify-between pl-10 pr-2 pb-2">
                     {attendance7d.map((d, idx) => {
                       const maxValue = Math.max(...attendance7d.map((d) => d.count));
@@ -479,7 +452,6 @@ function HomePage() {
                           className="flex flex-col items-center justify-end group cursor-pointer"
                           style={{ width: "calc(100% / 7 - 8px)" }}
                         >
-                          {/* Valeur au-dessus de la barre */}
                           <div
                             className={`text-xs font-medium mb-1 transition-all duration-200 ${
                               d.count > 0
@@ -490,7 +462,6 @@ function HomePage() {
                             {d.count}
                           </div>
 
-                          {/* Barre */}
                           <div
                             className={`w-full rounded-t-lg shadow-lg transition-all duration-500 group-hover:shadow-xl relative overflow-hidden ${
                               isTodayLabel
@@ -509,13 +480,11 @@ function HomePage() {
                                   : "linear-gradient(180deg, rgba(156,163,175,0.3) 0%, rgba(156,163,175,0.1) 100%)",
                             }}
                           >
-                            {/* Effet brillant */}
                             {d.count > 0 && (
                               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             )}
                           </div>
 
-                          {/* Tooltip au survol */}
                           <div className="absolute bottom-full mb-8 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-3 py-2 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-10">
                             <div className="font-medium">{format(d.date, "EEEE dd/MM")}</div>
                             <div className="text-gray-300 dark:text-gray-400">
@@ -523,7 +492,6 @@ function HomePage() {
                               {isTodayLabel && " (Aujourd'hui)"}
                               {isWeekend && " (Week-end)"}
                             </div>
-                            {/* Flèche */}
                             <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
                           </div>
                         </div>
@@ -532,7 +500,6 @@ function HomePage() {
                   </div>
                 </div>
 
-                {/* Labels dates améliorés */}
                 <div className="mt-4 flex justify-between pl-10 pr-2">
                   {attendance7d.map((d, idx) => {
                     const isTodayLabel = format(d.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
@@ -563,7 +530,6 @@ function HomePage() {
                   })}
                 </div>
 
-                {/* Légende */}
                 <div className="mt-4 flex flex-wrap gap-4 justify-center text-xs">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded bg-gradient-to-b from-blue-500 to-green-500" />
@@ -594,7 +560,7 @@ function HomePage() {
             )}
           </div>
 
-          {/* ✅ Derniers passages — design amélioré */}
+          {/* Derniers passages */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Derniers passages</h2>
@@ -612,7 +578,6 @@ function HomePage() {
                   const ts = typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
                   const displayName = m ? `${m.firstName || ""} ${m.name || ""}`.trim() : `Badge ${r.badgeId || "?"}`;
 
-                  // Fonction simple pour calculer le temps écoulé
                   const getTimeAgo = (date) => {
                     const now = new Date();
                     const diffInMinutes = Math.floor((now - date) / (1000 * 60));
@@ -633,7 +598,6 @@ function HomePage() {
                       className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {/* Avatar avec effet amélioré */}
                         {m?.photo ? (
                           <img
                             src={m.photo}
@@ -647,7 +611,6 @@ function HomePage() {
                           </div>
                         )}
 
-                        {/* Informations membre */}
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {displayName}
@@ -659,13 +622,11 @@ function HomePage() {
                         </div>
                       </div>
 
-                      {/* Horodatage */}
                       <div className="text-right flex-shrink-0 ml-3">
                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{format(ts, "HH:mm")}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{format(ts, "dd/MM")}</div>
                       </div>
 
-                      {/* Indicateur de fraîcheur */}
                       {index < 3 && (
                         <div className="ml-2">
                           <div
@@ -699,9 +660,7 @@ function HomePage() {
         </div>
       )}
 
-      {/* 🔹 Partie 2 — Listes détaillées : abonnements échus & paiements à venir */}
-
-      {/* Abonnements échus — visible aux admins même si vide */}
+      {/* 🔹 Abonnements échus (ADMIN) */}
       {isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Abonnements échus</h2>
@@ -730,7 +689,7 @@ function HomePage() {
         </div>
       )}
 
-      {/* Paiements à venir — visible aux admins même si vide */}
+      {/* 🔹 Paiements à venir (ADMIN) */}
       {isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Paiements à venir</h2>
@@ -767,7 +726,7 @@ function HomePage() {
         </div>
       )}
 
-      {/* Mes paiements — pour tout utilisateur NON admin */}
+      {/* 🔹 Mes paiements — pour tout utilisateur NON admin */}
       {!isAdmin && user && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Mes paiements</h2>
@@ -798,5 +757,3 @@ function HomePage() {
 }
 
 export default HomePage;
-
-// ✅ FIN DU FICHIER
