@@ -50,9 +50,11 @@ function HomePage() {
   const [attendance7d, setAttendance7d] = useState([]);
   const [recentPresences, setRecentPresences] = useState([]);
 
+
   useEffect(() => {
-    // --- ADMIN: présences 7j + derniers passages
+    // --- ADMIN: présences 7j + derniers passages (cette fonction ne change pas)
     const fetchAttendanceAdmin = async () => {
+      // ... (le contenu de cette fonction reste identique)
       try {
         const end = new Date();
         end.setHours(23, 59, 59, 999);
@@ -75,7 +77,6 @@ function HomePage() {
           return;
         }
 
-        // 7 jours init
         const key = (d) => format(d, "yyyy-MM-dd");
         const days = [];
         const countsByKey = {};
@@ -86,7 +87,6 @@ function HomePage() {
           countsByKey[key(d)] = 0;
         }
 
-        // Comptage
         (presencesData || []).forEach((row) => {
           const ts = typeof row.timestamp === "string" ? parseISO(row.timestamp) : new Date(row.timestamp);
           const k = key(ts);
@@ -95,7 +95,6 @@ function HomePage() {
 
         setAttendance7d(days.map((d) => ({ date: d.date, count: countsByKey[key(d.date)] || 0 })));
 
-        // Derniers passages enrichis
         const recent = (presencesData || []).slice(0, 10);
         const badgeIds = Array.from(new Set(recent.map((r) => r.badgeId).filter(Boolean)));
         let membersByBadge = {};
@@ -121,18 +120,23 @@ function HomePage() {
       }
     };
 
+    // ✅ VERSION CORRIGÉE de fetchData
     const fetchData = async () => {
       try {
-        // ✅ On vérifie d'abord si un utilisateur est connecté
         if (user) {
-          // --- STATS GLOBALES (pour tous les utilisateurs connectés) ---
-          // MODIFICATION 1 : La récupération des stats a été déplacée ici
-          const { stats: calculatedStats } = await supabaseServices.getStatistics();
-          setStats(calculatedStats || { ...stats, membresExpirés: [] });
+          // --- STATS GLOBALES ---
+          // On isole l'appel aux stats pour qu'il ne bloque pas le reste en cas d'erreur
+          try {
+            const { stats: calculatedStats } = await supabaseServices.getStatistics();
+            setStats(calculatedStats || { ...stats, membresExpirés: [] });
+          } catch (statsError) {
+            console.error("Could not fetch statistics for non-admin user:", statsError.message);
+            // On continue, les stats afficheront juste 0, mais le reste de la page chargera.
+          }
 
           // --- LOGIQUE SPÉCIFIQUE AU RÔLE ---
           if (isAdmin) {
-            // Uniquement pour les admins : paiements et présences
+            // Logique de l'admin (paiements globaux, présences)
             const payments = await supabaseServices.getPayments();
             const paid = (payments || []).filter((p) => p.is_paid);
             const pending = (payments || []).filter((p) => !p.is_paid);
@@ -149,9 +153,8 @@ function HomePage() {
             });
 
             await fetchAttendanceAdmin();
-
           } else {
-            // Pour les utilisateurs non-admin : leurs propres paiements
+            // Logique de l'utilisateur non-admin (ses paiements)
             if (memberCtx?.id) {
               let { data: memberPayments, error: pErr } = await supabase
                 .from("payments")
