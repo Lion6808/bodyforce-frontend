@@ -1,6 +1,7 @@
 // 📄 HomePage.js — Page d'accueil — Dossier : src/pages
 // 👤 Utilisateur: Hero de bienvenue + grande photo (affiché dès qu'un user est connecté)
 // 🛡️ Admin: widgets stats/paiements/présences réservés à role === "admin"
+// ✅ CORRIGÉ: Les stats sont maintenant chargées pour tous les utilisateurs connectés.
 
 import React, { useEffect, useState } from "react";
 import { isToday, isBefore, parseISO, format } from "date-fns";
@@ -122,48 +123,53 @@ function HomePage() {
 
     const fetchData = async () => {
       try {
-        if (isAdmin) {
-          // Stats globales (admin seulement)
+        // ✅ On vérifie d'abord si un utilisateur est connecté
+        if (user) {
+          // --- STATS GLOBALES (pour tous les utilisateurs connectés) ---
+          // MODIFICATION 1 : La récupération des stats a été déplacée ici
           const { stats: calculatedStats } = await supabaseServices.getStatistics();
           setStats(calculatedStats || { ...stats, membresExpirés: [] });
 
-          // Paiements (admin)
-          const payments = await supabaseServices.getPayments();
-          const paid = (payments || []).filter((p) => p.is_paid);
-          const pending = (payments || []).filter((p) => !p.is_paid);
-          const sum = (arr) => arr.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+          // --- LOGIQUE SPÉCIFIQUE AU RÔLE ---
+          if (isAdmin) {
+            // Uniquement pour les admins : paiements et présences
+            const payments = await supabaseServices.getPayments();
+            const paid = (payments || []).filter((p) => p.is_paid);
+            const pending = (payments || []).filter((p) => !p.is_paid);
+            const sum = (arr) => arr.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
 
-          setPendingPayments(pending);
-          setPaymentSummary({
-            totalCount: payments?.length || 0,
-            paidCount: paid.length,
-            pendingCount: pending.length,
-            totalAmount: sum(payments || []),
-            paidAmount: sum(paid),
-            pendingAmount: sum(pending),
-          });
+            setPendingPayments(pending);
+            setPaymentSummary({
+              totalCount: payments?.length || 0,
+              paidCount: paid.length,
+              pendingCount: pending.length,
+              totalAmount: sum(payments || []),
+              paidAmount: sum(paid),
+              pendingAmount: sum(pending),
+            });
 
-          await fetchAttendanceAdmin();
-        } else if (user) {
-          // Utilisateur (non admin) : on s’appuie sur le membre du contexte
-          if (memberCtx?.id) {
-            let { data: memberPayments, error: pErr } = await supabase
-              .from("payments")
-              .select("*")
-              .eq("member_id", memberCtx.id)
-              .order("date_paiement", { ascending: false });
+            await fetchAttendanceAdmin();
 
-            // fallback si colonnes différentes
-            if (pErr && pErr.code === "42703") {
-              const { data: alt } = await supabase.from("payments").select("*").eq("memberId", memberCtx.id);
-              memberPayments = alt || [];
-            }
-            setUserPayments(memberPayments || []);
           } else {
-            setUserPayments([]);
+            // Pour les utilisateurs non-admin : leurs propres paiements
+            if (memberCtx?.id) {
+              let { data: memberPayments, error: pErr } = await supabase
+                .from("payments")
+                .select("*")
+                .eq("member_id", memberCtx.id)
+                .order("date_paiement", { ascending: false });
+
+              if (pErr && pErr.code === "42703") {
+                const { data: alt } = await supabase.from("payments").select("*").eq("memberId", memberCtx.id);
+                memberPayments = alt || [];
+              }
+              setUserPayments(memberPayments || []);
+            } else {
+              setUserPayments([]);
+            }
           }
         } else {
-          // pas connecté
+          // Pas d'utilisateur connecté
           setUserPayments([]);
         }
       } catch (e) {
@@ -324,8 +330,9 @@ function HomePage() {
         </div>
       )}
 
-      {/* 🔹 Widgets statistiques (ADMIN uniquement) */}
-      {(
+      {/* 🔹 Widgets statistiques (pour tous les utilisateurs connectés) */}
+      {/* MODIFICATION 2 : On affiche si un utilisateur est connecté */}
+      {user && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard icon={FaUsers} label="Total Membres" value={stats.total} color="bg-blue-500" />
           <StatCard icon={FaUserCheck} label="Actifs" value={stats.actifs} color="bg-green-500" />
@@ -673,76 +680,15 @@ function HomePage() {
                 ))}
               </ul>
               {stats.membresExpirés.length > 5 && (
-                <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  et {stats.membresExpirés.length - 5} autres…
+                <div className="mt-4 text-center">
+                  <a href="/members?filter=expired" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                    Voir les {stats.membresExpirés.length - 5} autres...
+                  </a>
                 </div>
               )}
             </>
           ) : (
-            <div className="text-sm text-gray-500 dark:text-gray-400">Aucun abonnement échu</div>
-          )}
-        </div>
-      )}
-
-      {/* 🔹 Paiements à venir (ADMIN) */}
-      {isAdmin && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Paiements à venir</h2>
-
-          {pendingPayments?.length > 0 ? (
-            <ul className="space-y-2">
-              {pendingPayments.map((p) => {
-                const late = isLateOrToday(p.encaissement_prevu);
-                return (
-                  <li key={p.id} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                    <span className="truncate">
-                      {p.member?.firstName && p.member?.name
-                        ? `${p.member.firstName} ${p.member.name}`
-                        : `Membre #${p.member_id}`}{" "}
-                      — {(p.amount || 0).toFixed(2)} € {p.method ? `(${p.method})` : ""}
-                    </span>
-                    {p.encaissement_prevu && (
-                      <span
-                        className={`text-xs px-2 py-1 rounded ml-3 whitespace-nowrap ${late ? "bg-red-500 text-white" : "bg-amber-500 text-white"
-                          }`}
-                        title={`Échéance: ${format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}`}
-                      >
-                        {format(parseISO(p.encaissement_prevu), "dd/MM/yyyy")}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-500 dark:text-gray-400">Aucun paiement en attente</div>
-          )}
-        </div>
-      )}
-
-      {/* 🔹 Mes paiements — pour tout utilisateur NON admin */}
-      {!isAdmin && user && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Mes paiements</h2>
-
-          {userPayments?.length > 0 ? (
-            <ul className="space-y-2">
-              {userPayments.map((payment) => (
-                <li key={payment.id} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                  <span className="truncate">
-                    {payment.date_paiement ? format(parseISO(payment.date_paiement), "dd/MM/yyyy") : "Date n/d"} —{" "}
-                    {(payment.amount || 0).toFixed(2)} € {payment.method ? `(${payment.method})` : ""}
-                  </span>
-                  {payment.is_paid ? (
-                    <span className="bg-green-500 text-white text-xs px-2 py-1 rounded">Payé</span>
-                  ) : (
-                    <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded">En attente</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-500 dark:text-gray-400">Aucune opération pour le moment.</div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Aucun membre avec un abonnement échu.</p>
           )}
         </div>
       )}
