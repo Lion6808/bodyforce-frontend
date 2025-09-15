@@ -792,4 +792,4 @@ function HomePage() {
 
 export default HomePage;
 
-// ✅ FIN DU FICHIER
+// ✅ FIN DU FICHIER.
