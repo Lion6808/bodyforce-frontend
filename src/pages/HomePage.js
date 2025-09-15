@@ -326,7 +326,7 @@ function HomePage() {
                 Bonjour{memberFirstName ? `, ${memberFirstName}` : ""} 👋
               </h1>
               <p className="mt-1 text-sm md:text-base text-gray-600 dark:text-gray-300">
-                Heureux de vous revoir sur votre espace. Retrouvez ici vos dernières informations et vos paiements.
+                Heureux de vous revoir sur votre espace. Retrouvez ici vos informations.
               </p>
 
               {/* Badges d’info rapides */}
