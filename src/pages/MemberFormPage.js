@@ -3,6 +3,7 @@
 // 🔒 Gestion complète des paiements alignée sur MemberForm
 // ✅ NOUVEAU : Retour intelligent avec repositionnement automatique
 
+import MemberMessagesTab from "../components/MemberMessagesTab";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -219,27 +220,23 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
       <div
-        className={`${
-          isDarkMode ? "bg-gray-800" : "bg-white"
-        } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
+        className={`${isDarkMode ? "bg-gray-800" : "bg-white"
+          } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
       >
         <div
-          className={`p-4 border-b ${
-            isDarkMode ? "border-gray-700" : "border-gray-200"
-          } flex items-center justify-between`}
+          className={`p-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"
+            } flex items-center justify-between`}
         >
           <h3
-            className={`text-lg font-semibold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
+            className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
+              }`}
           >
             📸 Prendre une photo
           </h3>
           <button
             onClick={onClose}
-            className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-              isDarkMode ? "text-gray-300" : "text-gray-600"
-            }`}
+            className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${isDarkMode ? "text-gray-300" : "text-gray-600"
+              }`}
           >
             <X className="w-5 h-5" />
           </button>
@@ -270,9 +267,8 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover transition-opacity duration-300 ${
-                    isLoading ? "opacity-0" : "opacity-100"
-                  }`}
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${isLoading ? "opacity-0" : "opacity-100"
+                    }`}
                   style={{
                     transform: facingMode === "user" ? "scaleX(-1)" : "none",
                   }}
@@ -298,11 +294,10 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   {availableCameras.length > 1 && (
                     <button
                       onClick={switchCamera}
-                      className={`p-3 rounded-full border-2 ${
-                        isDarkMode
+                      className={`p-3 rounded-full border-2 ${isDarkMode
                           ? "border-gray-600 text-gray-300 hover:bg-gray-700"
                           : "border-gray-300 text-gray-600 hover:bg-gray-100"
-                      } transition-colors`}
+                        } transition-colors`}
                     >
                       <SwitchCamera className="w-6 h-6" />
                     </button>
@@ -316,11 +311,10 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   </button>
                   <button
                     onClick={onClose}
-                    className={`p-3 rounded-full border-2 ${
-                      isDarkMode
+                    className={`p-3 rounded-full border-2 ${isDarkMode
                         ? "border-gray-600 text-gray-300 hover:bg-gray-700"
                         : "border-gray-300 text-gray-600 hover:bg-gray-100"
-                    } transition-colors`}
+                      } transition-colors`}
                   >
                     <X className="w-6 h-6" />
                   </button>
@@ -364,11 +358,10 @@ function InputField({ label, icon: Icon, error, ...props }) {
       <div className="relative">
         <input
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-            error
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error
               ? "border-red-300 bg-red-50 dark:bg-red-950"
               : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-          }`}
+            }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
@@ -386,11 +379,10 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
       <div className="relative">
         <select
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-            error
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error
               ? "border-red-300 bg-red-50 dark:bg-red-950"
               : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-          }`}
+            }`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -440,11 +432,10 @@ function ConfirmDialog({
         <div className="p-6">
           <div className="flex items-center gap-4 mb-4">
             <div
-              className={`p-3 rounded-full ${
-                type === "danger"
+              className={`p-3 rounded-full ${type === "danger"
                   ? "bg-red-100 dark:bg-red-900/30"
                   : "bg-orange-100 dark:bg-orange-900/30"
-              }`}
+                }`}
             >
               {type === "danger" ? (
                 <FaTrash className="w-6 h-6 text-red-600 dark:text-red-400" />
@@ -470,11 +461,10 @@ function ConfirmDialog({
             </button>
             <button
               onClick={onConfirm}
-              className={`px-4 py-2 text-white rounded-lg transition-colors ${
-                type === "danger"
+              className={`px-4 py-2 text-white rounded-lg transition-colors ${type === "danger"
                   ? "bg-red-600 hover:bg-red-700"
                   : "bg-orange-600 hover:bg-orange-700"
-              }`}
+                }`}
             >
               {type === "danger" ? "Supprimer" : "Confirmer"}
             </button>
@@ -590,8 +580,8 @@ function MemberFormPage() {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-          ? JSON.parse(member.files || "[]")
-          : [],
+            ? JSON.parse(member.files || "[]")
+            : [],
         etudiant: !!member.etudiant,
       });
       if (member.id) fetchPayments(member.id);
@@ -630,8 +620,8 @@ function MemberFormPage() {
 
   const age = form.birthdate
     ? Math.floor(
-        (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
-      )
+      (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
+    )
     : null;
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
 
@@ -1121,16 +1111,14 @@ function MemberFormPage() {
             <button
               type="button"
               onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
-              className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                form.etudiant
+              className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant
                   ? "bg-gradient-to-r from-blue-500 to-purple-600"
                   : "bg-gray-300 dark:bg-gray-600"
-              }`}
+                }`}
             >
               <span
-                className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${
-                  form.etudiant ? "translate-x-7" : ""
-                }`}
+                className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${form.etudiant ? "translate-x-7" : ""
+                  }`}
               />
             </button>
           </div>
@@ -1414,11 +1402,10 @@ function MemberFormPage() {
                     className="sr-only"
                   />
                   <div
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                      newPayment.is_paid
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${newPayment.is_paid
                         ? "bg-green-500 border-green-500"
                         : "border-gray-300 dark:border-gray-500"
-                    }`}
+                      }`}
                   >
                     {newPayment.is_paid && (
                       <FaCheck className="w-3 h-3 text-white" />
@@ -1474,18 +1461,16 @@ function MemberFormPage() {
                     <div className="flex-1 w-full sm:w-auto">
                       <div className="flex items-center gap-3 mb-3">
                         <div
-                          className={`p-2 rounded-lg ${
-                            pay.is_paid
+                          className={`p-2 rounded-lg ${pay.is_paid
                               ? "bg-green-100 dark:bg-green-900"
                               : "bg-orange-100 dark:bg-orange-900"
-                          }`}
+                            }`}
                         >
                           <FaEuroSign
-                            className={`w-4 h-4 ${
-                              pay.is_paid
+                            className={`w-4 h-4 ${pay.is_paid
                                 ? "text-green-600 dark:text-green-300"
                                 : "text-orange-600 dark:text-orange-300"
-                            }`}
+                              }`}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1503,22 +1488,20 @@ function MemberFormPage() {
                           onClick={() =>
                             togglePaymentStatus(pay.id, !pay.is_paid)
                           }
-                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                            pay.is_paid
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${pay.is_paid
                               ? "bg-green-500 border-green-500"
                               : "border-gray-300 dark:border-gray-500 hover:border-green-400"
-                          }`}
+                            }`}
                         >
                           {pay.is_paid && (
                             <FaCheck className="w-3 h-3 text-white" />
                           )}
                         </button>
                         <span
-                          className={`text-sm font-medium ${
-                            pay.is_paid
+                          className={`text-sm font-medium ${pay.is_paid
                               ? "text-green-600 dark:text-green-300"
                               : "text-orange-600 dark:text-orange-300"
-                          }`}
+                            }`}
                         >
                           {pay.is_paid ? "Encaissé" : "En attente"}
                         </span>
@@ -1864,11 +1847,10 @@ function MemberFormPage() {
                       </div>
                       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-6 relative overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            index === 0 || index === 6
+                          className={`h-full rounded-full transition-all duration-500 ${index === 0 || index === 6
                               ? "bg-gradient-to-r from-blue-400 to-blue-600"
                               : "bg-gradient-to-r from-green-400 to-green-600"
-                          }`}
+                            }`}
                           style={{ width: `${percentage}%` }}
                         ></div>
                         <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-800 dark:text-gray-200">
@@ -1917,9 +1899,8 @@ function MemberFormPage() {
                           <div
                             className="w-full bg-gradient-to-t from-purple-500 to-purple-400 rounded-t flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
                             style={{ height: `${height}px` }}
-                            title={`${hour}h: ${count} visite${
-                              count > 1 ? "s" : ""
-                            }`}
+                            title={`${hour}h: ${count} visite${count > 1 ? "s" : ""
+                              }`}
                           >
                             {count > 0 && height > 20 ? count : ""}
                           </div>
@@ -1962,22 +1943,20 @@ function MemberFormPage() {
               {stats.dailyStats.map((day, index) => (
                 <div
                   key={index}
-                  className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-                    isToday(day.date)
+                  className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${isToday(day.date)
                       ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
                       : isWeekend(day.date)
-                      ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700"
-                      : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
-                  }`}
+                        ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700"
+                        : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                    }`}
                 >
                   <div className="flex items-center gap-4">
                     <div className="text-center">
                       <div
-                        className={`text-lg font-bold ${
-                          isToday(day.date)
+                        className={`text-lg font-bold ${isToday(day.date)
                             ? "text-blue-600 dark:text-blue-400"
                             : "text-gray-900 dark:text-white"
-                        }`}
+                          }`}
                       >
                         {day.date.getDate()}
                       </div>
@@ -2024,13 +2003,12 @@ function MemberFormPage() {
                     </div>
 
                     <div
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        day.count === 1
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${day.count === 1
                           ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
                           : day.count <= 3
-                          ? "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
-                          : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
-                      }`}
+                            ? "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
+                            : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
+                        }`}
                     >
                       {day.count}
                     </div>
@@ -2072,6 +2050,7 @@ function MemberFormPage() {
         <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
           Journal des messages
         </h3>
+        <MemberMessagesTab memberId={currentMember?.id} />
         <p className="text-gray-500 dark:text-gray-400 mb-6">
           Cette fonctionnalité sera bientôt disponible
         </p>
@@ -2315,11 +2294,10 @@ function MemberFormPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
-                  activeTab === tab.id
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeTab === tab.id
                     ? "border-blue-500 text-blue-600 dark:text-blue-400"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-                }`}
+                  }`}
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}

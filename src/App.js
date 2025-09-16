@@ -701,9 +701,8 @@ function SwipeResistanceIndicator({ swipeOffset, direction }) {
 
   return (
     <div
-      className={`swipe-resistance-indicator ${direction} ${
-        resistance > 0 ? "active" : ""
-      }`}
+      className={`swipe-resistance-indicator ${direction} ${resistance > 0 ? "active" : ""
+        }`}
       style={{ height }}
     />
   );
@@ -717,9 +716,8 @@ function PageIndicator({ currentIndex, totalPages, isMobile, SWIPE_PAGES }) {
       {SWIPE_PAGES.map((_, index) => (
         <div
           key={index}
-          className={`page-indicator-dot ${
-            index === currentIndex ? "active" : ""
-          }`}
+          className={`page-indicator-dot ${index === currentIndex ? "active" : ""
+            }`}
         />
       ))}
     </div>
@@ -888,66 +886,66 @@ function EnhancedSidebar({
     },
     ...(isAdmin
       ? [
-          {
-            name: "Membres",
-            path: "/members",
-            icon: (
-              <FaUserFriends className="text-green-500 dark:text-green-400" />
-            ),
-          },
-          {
-            name: "Planning",
-            path: "/planning",
-            icon: (
-              <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
-            ),
-          },
-          {
-            name: "Paiements",
-            path: "/payments",
-            icon: (
-              <FaCreditCard className="text-purple-500 dark:text-purple-400" />
-            ),
-          },
-          {
-            name: "Statistiques",
-            path: "/statistics",
-            icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
-          },
-          // ✅ AJOUT : Messages (admin)
-          {
-            name: "Messages",
-            path: "/messages",
-            icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
-          },
-          {
-            name: "Invitations",
-            path: "/invitations",
-            icon: (
-              <FaUserPlus className="text-orange-500 dark:text-orange-400" />
-            ),
-          },
-        ]
+        {
+          name: "Membres",
+          path: "/members",
+          icon: (
+            <FaUserFriends className="text-green-500 dark:text-green-400" />
+          ),
+        },
+        {
+          name: "Planning",
+          path: "/planning",
+          icon: (
+            <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
+          ),
+        },
+        {
+          name: "Paiements",
+          path: "/payments",
+          icon: (
+            <FaCreditCard className="text-purple-500 dark:text-purple-400" />
+          ),
+        },
+        {
+          name: "Statistiques",
+          path: "/statistics",
+          icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
+        },
+        // ✅ AJOUT : Messages (admin)
+        {
+          name: "Messages",
+          path: "/messages",
+          icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
+        },
+        {
+          name: "Invitations",
+          path: "/invitations",
+          icon: (
+            <FaUserPlus className="text-orange-500 dark:text-orange-400" />
+          ),
+        },
+      ]
       : [
-          // ✅ AJOUT : Messages (non-admin)
-          {
-            name: "Messages",
-            path: "/messages",
-            icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
-          },
-          {
-            name: "Mon Profil",
-            path: "/profile",
-            icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
-          },
-          {
-            name: "Mes Présences",
-            path: "/my-attendances",
-            icon: (
-              <FaClipboardList className="text-green-500 dark:text-green-400" />
-            ),
-          },
-        ]),
+        // ✅ AJOUT : Messages (non-admin)
+        {
+          name: "Messages",
+          path: "/messages",
+          icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
+        },
+        {
+          name: "Mon Profil",
+          path: "/profile",
+          icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
+        },
+        {
+          name: "Mes Présences",
+          path: "/my-attendances",
+          icon: (
+            <FaClipboardList className="text-green-500 dark:text-green-400" />
+          ),
+        },
+      ]),
   ];
 
   const toggleSidebar = () => {
@@ -1004,6 +1002,10 @@ function EnhancedSidebar({
         ) : (
           <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
         )}
+        {/* … après l'avatar … */}
+        <div className="ml-auto">
+          <NotificationBell />
+        </div>
 
         <div className="flex flex-col min-w-0">
           <span className="font-medium truncate">{user?.email}</span>

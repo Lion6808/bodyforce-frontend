@@ -246,3 +246,94 @@ export async function listSentByCurrentAdmin({ limit = 50, offset = 0 } = {}) {
   if (error) throw error;
   return data || [];
 }
+
+/* ========= Threads (historique style chat) ========= */
+
+/** IDs des membres admins (via la vue admin_members) */
+export async function fetchAdminMemberIds() {
+  const { data, error } = await supabase.from("admin_members").select("id");
+  if (error) throw error;
+  return (data || []).map((r) => r.id);
+}
+
+/** Fil admin<->membre (toutes directions) */
+export async function listThreadWithMember(memberId) {
+  if (!memberId) return [];
+
+  // Messages reçus par ce membre (admin -> membre)
+  const { data: inbound, error: inErr } = await supabase
+    .from("message_recipients")
+    .select(`
+      id,
+      message_id,
+      created_at,
+      read_at,
+      messages:message_id (
+        id, subject, body, created_at, author_member_id, is_broadcast
+      )
+    `)
+    .eq("recipient_member_id", memberId)
+    .order("created_at", { ascending: true });
+  if (inErr) throw inErr;
+
+  // Messages envoyés par ce membre (membre -> admins)
+  const { data: outbound, error: outErr } = await supabase
+    .from("messages")
+    .select("id, subject, body, created_at, author_member_id, is_broadcast")
+    .eq("author_member_id", memberId)
+    .order("created_at", { ascending: true });
+  if (outErr) throw outErr;
+
+  const A = (inbound || []).map((r) => ({
+    kind: "inbound",          // admin -> membre
+    id: `in_${r.id}`,
+    message_id: r.message_id,
+    created_at: r.messages?.created_at || r.created_at,
+    subject: r.messages?.subject,
+    body: r.messages?.body,
+    author_member_id: r.messages?.author_member_id,
+  }));
+
+  const B = (outbound || []).map((m) => ({
+    kind: "outbound",         // membre -> admin
+    id: `out_${m.id}`,
+    message_id: m.id,
+    created_at: m.created_at,
+    subject: m.subject,
+    body: m.body,
+    author_member_id: m.author_member_id,
+  }));
+
+  const all = [...A, ...B].sort(
+    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+  );
+  return all;
+}
+
+/** Fil "mes messages" (moi <-> admins) pour un membre connecté */
+export async function listMyThread(myMemberId) {
+  return listThreadWithMember(myMemberId);
+}
+
+/** Envoi direct à 1 membre (admin -> membre) */
+export async function sendToMember({ toMemberId, subject, body, authorMemberId }) {
+  return sendMessage({
+    subject,
+    body,
+    recipientMemberIds: [toMemberId],
+    authorMemberId: authorMemberId ?? null,
+    isBroadcast: false,
+  });
+}
+
+/** Envoi membre -> admins (destinataires = tous les admin_members) */
+export async function sendToAdmins({ subject, body, authorMemberId }) {
+  const adminIds = await fetchAdminMemberIds();
+  return sendMessage({
+    subject,
+    body,
+    recipientMemberIds: adminIds,
+    authorMemberId: authorMemberId ?? null,
+    isBroadcast: false,
+  });
+}
