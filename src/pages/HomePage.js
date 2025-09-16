@@ -1,7 +1,8 @@
 // 📄 HomePage.js — Page d'accueil — Dossier : src/pages
 // 👤 Utilisateur: Hero de bienvenue + grande photo (affiché dès qu'un user est connecté)
 // 🛡️ Admin: widgets stats/paiements/présences réservés à role === "admin"
-// ✅ CORRIGÉ: Les stats sont maintenant chargées pour tous les utilisateurs connectés.
+// ✅ Les stats sont chargées pour tous les utilisateurs connectés.
+// ✅ Non-admin : affiche “Vos paiements” (liste des paiements du membre connecté).
 
 import React, { useEffect, useState } from "react";
 import { isToday, isBefore, parseISO, format } from "date-fns";
@@ -50,11 +51,53 @@ function HomePage() {
   const [attendance7d, setAttendance7d] = useState([]);
   const [recentPresences, setRecentPresences] = useState([]);
 
+  // --- Helper robuste pour récupérer les paiements d'un membre (gère member_id/memberId + colonnes de date)
+  const fetchMemberPayments = async (memberId) => {
+    if (!memberId) return [];
+    const memberCols = ["member_id", "memberId"];
+    const dateCols = ["date_paiement", "payment_date", "due_date", "date", "created_at"];
+
+    for (const mcol of memberCols) {
+      try {
+        // Vérifie d'abord que la colonne membre existe (pas de tri)
+        let { data, error } = await supabase.from("payments").select("*").eq(mcol, memberId);
+        if (error) continue;
+
+        // Puis essaie d'ordonner par une colonne de date existante (desc)
+        for (const dcol of dateCols) {
+          const { data: ordered, error: orderErr } = await supabase
+            .from("payments")
+            .select("*")
+            .eq(mcol, memberId)
+            .order(dcol, { ascending: false });
+          if (!orderErr && ordered) return ordered;
+        }
+        // Si aucune colonne date ne passe, on renvoie la liste brute
+        return data || [];
+      } catch {
+        // essaie l'autre variante mcol
+      }
+    }
+
+    // Fallback éventuel via services si disponibles
+    try {
+      if (supabaseServices?.payments?.listByMemberId) {
+        const list = await supabaseServices.payments.listByMemberId(memberId);
+        if (Array.isArray(list)) return list;
+      }
+      if (supabaseServices?.getPaymentsByMemberId) {
+        const list = await supabaseServices.getPaymentsByMemberId(memberId);
+        if (Array.isArray(list)) return list;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  };
 
   useEffect(() => {
-    // --- ADMIN: présences 7j + derniers passages (cette fonction ne change pas)
+    // --- ADMIN: présences 7j + derniers passages
     const fetchAttendanceAdmin = async () => {
-      // ... (le contenu de cette fonction reste identique)
       try {
         const end = new Date();
         end.setHours(23, 59, 59, 999);
@@ -120,23 +163,21 @@ function HomePage() {
       }
     };
 
-    // ✅ VERSION CORRIGÉE de fetchData
+    // --- Données globales + spécifiques au rôle
     const fetchData = async () => {
       try {
         if (user) {
-          // --- STATS GLOBALES ---
-          // On isole l'appel aux stats pour qu'il ne bloque pas le reste en cas d'erreur
+          // --- STATS GLOBALES (ne bloque pas le reste si erreur)
           try {
             const { stats: calculatedStats } = await supabaseServices.getStatistics();
-            setStats(calculatedStats || { ...stats, membresExpirés: [] });
+            setStats(calculatedStats || { total: 0, actifs: 0, expirés: 0, hommes: 0, femmes: 0, etudiants: 0, membresExpirés: [] });
           } catch (statsError) {
-            console.error("Could not fetch statistics for non-admin user:", statsError.message);
-            // On continue, les stats afficheront juste 0, mais le reste de la page chargera.
+            console.error("Could not fetch statistics:", statsError?.message);
           }
 
           // --- LOGIQUE SPÉCIFIQUE AU RÔLE ---
           if (isAdmin) {
-            // Logique de l'admin (paiements globaux, présences)
+            // Admin : paiements globaux + présences
             const payments = await supabaseServices.getPayments();
             const paid = (payments || []).filter((p) => p.is_paid);
             const pending = (payments || []).filter((p) => !p.is_paid);
@@ -154,18 +195,9 @@ function HomePage() {
 
             await fetchAttendanceAdmin();
           } else {
-            // Logique de l'utilisateur non-admin (ses paiements)
+            // Non-admin : charger SES paiements
             if (memberCtx?.id) {
-              let { data: memberPayments, error: pErr } = await supabase
-                .from("payments")
-                .select("*")
-                .eq("member_id", memberCtx.id)
-                .order("date_paiement", { ascending: false });
-
-              if (pErr && pErr.code === "42703") {
-                const { data: alt } = await supabase.from("payments").select("*").eq("memberId", memberCtx.id);
-                memberPayments = alt || [];
-              }
+              const memberPayments = await fetchMemberPayments(memberCtx.id);
               setUserPayments(memberPayments || []);
             } else {
               setUserPayments([]);
@@ -198,6 +230,7 @@ function HomePage() {
     const a = (firstName || "").trim().charAt(0);
     const b = (name || "").trim().charAt(0);
     return (a + b).toUpperCase() || "?";
+    // eslint-disable-next-line
   };
 
   // ===== Widget StatCard générique
@@ -250,7 +283,6 @@ function HomePage() {
             strokeLinecap="round"
             transform={`rotate(-90 ${size / 2} ${size / 2})`}
           />
-          {/* centrage vertical sans propriété exotique */}
           <text
             x="50%"
             y="50%"
@@ -272,18 +304,15 @@ function HomePage() {
   const progress = totalAmount > 0 ? paidAmount / totalAmount : 0;
 
   // ===== Données affichage utilisateur (HERO)
-  const memberFirstName =
-    memberCtx?.firstName || memberCtx?.firstname || memberCtx?.prenom || "";
-  const memberLastName =
-    memberCtx?.name || memberCtx?.lastname || memberCtx?.nom || "";
+  const memberFirstName = memberCtx?.firstName || memberCtx?.firstname || memberCtx?.prenom || "";
+  const memberLastName = memberCtx?.name || memberCtx?.lastname || memberCtx?.nom || "";
   const memberDisplayName =
-    (memberFirstName || memberLastName ? `${memberFirstName} ${memberLastName}`.trim() : user?.email) ||
-    "Bienvenue";
+    (memberFirstName || memberLastName ? `${memberFirstName} ${memberLastName}`.trim() : user?.email) || "Bienvenue";
   const memberPhoto = memberCtx?.photo || "";
 
   return (
     <div className="p-6 bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-      {/* 🔷 HERO UTILISATEUR : message de bienvenue + grande photo (affiché dès qu'il y a un user) */}
+      {/* 🔷 HERO UTILISATEUR : message de bienvenue + grande photo */}
       {user && (
         <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-blue-500/10 dark:from-indigo-400/10 dark:via-emerald-400/10 dark:to-blue-400/10" />
@@ -292,7 +321,7 @@ function HomePage() {
             <div className="relative">
               {memberPhoto ? (
                 <img
-                  key={memberPhoto} // force le remount si l’URL change
+                  key={memberPhoto}
                   src={memberPhoto}
                   alt={memberDisplayName}
                   className="w-32 h-32 md:w-40 md:h-40 rounded-2xl object-cover shadow-xl ring-4 ring-white dark:ring-gray-700"
@@ -334,7 +363,6 @@ function HomePage() {
       )}
 
       {/* 🔹 Widgets statistiques (pour tous les utilisateurs connectés) */}
-      {/* MODIFICATION 2 : On affiche si un utilisateur est connecté */}
       {user && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard icon={FaUsers} label="Total Membres" value={stats.total} color="bg-blue-500" />
@@ -343,6 +371,76 @@ function HomePage() {
           <StatCard icon={FaMale} label="Hommes" value={stats.hommes} color="bg-indigo-500" />
           <StatCard icon={FaFemale} label="Femmes" value={stats.femmes} color="bg-pink-500" />
           <StatCard icon={FaGraduationCap} label="Étudiants" value={stats.etudiants} color="bg-yellow-500" />
+        </div>
+      )}
+
+      {/* 🔹 Vos paiements (UTILISATEUR NON-ADMIN) */}
+      {user && !isAdmin && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <FaCreditCard className="text-blue-500" />
+              Vos paiements
+            </h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {userPayments?.length || 0} opération(s)
+            </span>
+          </div>
+
+          {userPayments?.length > 0 ? (
+            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+              {userPayments.map((p) => {
+                const isPaid = !!p.is_paid;
+                const amount = Number(p.amount) || 0;
+                const dateRaw =
+                  p.date_paiement || p.payment_date || p.due_date || p.date || p.created_at;
+                let dateStr = "";
+                try {
+                    if (dateRaw) {
+                      const d = typeof dateRaw === "string" ? parseISO(dateRaw) : new Date(dateRaw);
+                      dateStr = format(d, "dd/MM/yyyy");
+                    }
+                } catch {
+                  // ignore parse error; leave empty
+                }
+
+                return (
+                  <li key={p.id} className="py-3 flex items-center justify-between">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {p.label || p.libelle || "Paiement"}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {dateStr || "—"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-sm font-semibold ${
+                          isPaid ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                        }`}
+                      >
+                        {amount.toFixed(2)} €
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 text-xs rounded-full ${
+                          isPaid
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                            : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                        }`}
+                      >
+                        {isPaid ? "Réglé" : "En attente"}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Aucun paiement trouvé pour votre compte.
+            </div>
+          )}
         </div>
       )}
 
@@ -393,7 +491,10 @@ function HomePage() {
 
               <div className="mt-2">
                 <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                  <div className="h-2 bg-gradient-to-r from-green-500 to-blue-500" style={{ width: `${Math.round(progress * 100)}%` }} />
+                  <div
+                    className="h-2 bg-gradient-to-r from-green-500 to-blue-500"
+                    style={{ width: `${Math.round(progress * 100)}%` }}
+                  />
                 </div>
                 <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {Math.round(progress * 100)}% du montant total déjà encaissé
@@ -451,8 +552,7 @@ function HomePage() {
                     {attendance7d.map((d, idx) => {
                       const maxValue = Math.max(...attendance7d.map((d) => d.count));
                       const adjustedMax = maxValue > 0 ? maxValue : 10;
-                      const heightInPixels =
-                        maxValue > 0 ? Math.max((d.count / adjustedMax) * 180, d.count > 0 ? 12 : 4) : 4;
+                      const heightInPixels = maxValue > 0 ? Math.max((d.count / adjustedMax) * 180, d.count > 0 ? 12 : 4) : 4;
                       const isTodayLabel = format(d.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
                       const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6;
 
@@ -463,19 +563,19 @@ function HomePage() {
                           style={{ width: "calc(100% / 7 - 8px)" }}
                         >
                           <div
-                            className={`text-xs font-medium mb-1 transition-all duration-200 ${d.count > 0
+                            className={`text-xs font-medium mb-1 transition-all duration-200 ${
+                              d.count > 0
                                 ? "text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400"
                                 : "text-gray-400 dark:text-gray-600"
-                              }`}
+                            }`}
                           >
                             {d.count}
                           </div>
 
                           <div
-                            className={`w-full rounded-t-lg shadow-lg transition-all duration-500 group-hover:shadow-xl relative overflow-hidden ${isTodayLabel
-                                ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800"
-                                : ""
-                              }`}
+                            className={`w-full rounded-t-lg shadow-lg transition-all duration-500 group-hover:shadow-xl relative overflow-hidden ${
+                              isTodayLabel ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800" : ""
+                            }`}
                             style={{
                               height: `${heightInPixels}px`,
                               background:
@@ -483,8 +583,8 @@ function HomePage() {
                                   ? isTodayLabel
                                     ? "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(16,185,129,1) 50%, rgba(34,197,94,1) 100%)"
                                     : isWeekend
-                                      ? "linear-gradient(180deg, rgba(139,92,246,1) 0%, rgba(168,85,247,1) 100%)"
-                                      : "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(34,197,94,1) 100%)"
+                                    ? "linear-gradient(180deg, rgba(139,92,246,1) 0%, rgba(168,85,247,1) 100%)"
+                                    : "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(34,197,94,1) 100%)"
                                   : "linear-gradient(180deg, rgba(156,163,175,0.3) 0%, rgba(156,163,175,0.1) 100%)",
                             }}
                           >
@@ -516,18 +616,20 @@ function HomePage() {
                     return (
                       <div key={idx} className="flex flex-col items-center" style={{ width: "calc(100% / 7 - 8px)" }}>
                         <span
-                          className={`text-xs font-medium ${isTodayLabel
+                          className={`text-xs font-medium ${
+                            isTodayLabel
                               ? "text-blue-600 dark:text-blue-400 font-bold"
                               : isWeekend
-                                ? "text-purple-600 dark:text-purple-400"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}
+                              ? "text-purple-600 dark:text-purple-400"
+                              : "text-gray-600 dark:text-gray-400"
+                          }`}
                         >
                           {format(d.date, "dd/MM")}
                         </span>
                         <span
-                          className={`text-[10px] ${isTodayLabel ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"
-                            }`}
+                          className={`text-[10px] ${
+                            isTodayLabel ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"
+                          }`}
                         >
                           {format(d.date, "EEE").substring(0, 3)}
                         </span>
@@ -636,8 +738,9 @@ function HomePage() {
                       {index < 3 && (
                         <div className="ml-2">
                           <div
-                            className={`w-2 h-2 rounded-full ${index === 0 ? "bg-green-400 animate-pulse" : index === 1 ? "bg-yellow-400" : "bg-gray-400"
-                              }`}
+                            className={`w-2 h-2 rounded-full ${
+                              index === 0 ? "bg-green-400 animate-pulse" : index === 1 ? "bg-yellow-400" : "bg-gray-400"
+                            }`}
                           />
                         </div>
                       )}
