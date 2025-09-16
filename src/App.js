@@ -1,5 +1,9 @@
 // ✅ PARTIE 1/6 : IMPORTS ET CONFIGURATIONS
 
+// Messagerie
+import MessagesPage from "./pages/MessagesPage";
+import NotificationBell from "./components/NotificationBell";
+
 // src/App.js
 import React, { useState, useEffect } from "react";
 import {
@@ -34,6 +38,7 @@ import {
   FaAngleDoubleLeft,
   FaAngleDoubleRight,
   FaClipboardList, // Icône pour les présences
+  FaEnvelope,      // ✅ AJOUT : icône Messages
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
@@ -129,6 +134,7 @@ const getSwipePages = (isAdmin) => {
     ];
   }
 };
+
 // ✅ PARTIE 2/6 : HOOK POUR LA GESTION DU MODE SOMBRE
 
 function useDarkMode() {
@@ -252,6 +258,7 @@ function useDarkMode() {
     getDarkModeLabel,
   };
 }
+
 // ✅ PARTIE 3/6 : HOOK POUR LA NAVIGATION PAR SWIPE
 
 function useSwipeNavigation(isAdmin) {
@@ -380,6 +387,7 @@ function useSwipeNavigation(isAdmin) {
     SWIPE_PAGES,
   };
 }
+
 // ✅ PARTIE 4/6 : HOOK PWA ET COMPOSANTS UTILITAIRES
 
 function usePWA() {
@@ -498,6 +506,7 @@ function usePWA() {
 }
 
 // ✅ FONCTION App() CORRIGÉE
+
 function App() {
   const { user, loading } = useAuth();
 
@@ -565,6 +574,7 @@ function App() {
     </Router>
   );
 }
+
 // ✅ PARTIE 5/6 : COMPOSANTS PWA ET PAGE DE CONNEXION - COMPLÈTE
 
 // ===== COMPOSANT TOAST PWA =====
@@ -628,7 +638,7 @@ function InstallPrompt({ show, onInstall, onDismiss }) {
             </div>
           </div>
 
-          {/* Boutons d'action */}
+          {/* Boutons d’action */}
           <div className="discrete-install-actions">
             <button
               onClick={onDismiss}
@@ -691,8 +701,9 @@ function SwipeResistanceIndicator({ swipeOffset, direction }) {
 
   return (
     <div
-      className={`swipe-resistance-indicator ${direction} ${resistance > 0 ? "active" : ""
-        }`}
+      className={`swipe-resistance-indicator ${direction} ${
+        resistance > 0 ? "active" : ""
+      }`}
       style={{ height }}
     />
   );
@@ -706,8 +717,9 @@ function PageIndicator({ currentIndex, totalPages, isMobile, SWIPE_PAGES }) {
       {SWIPE_PAGES.map((_, index) => (
         <div
           key={index}
-          className={`page-indicator-dot ${index === currentIndex ? "active" : ""
-            }`}
+          className={`page-indicator-dot ${
+            index === currentIndex ? "active" : ""
+          }`}
         />
       ))}
     </div>
@@ -876,54 +888,66 @@ function EnhancedSidebar({
     },
     ...(isAdmin
       ? [
-        {
-          name: "Membres",
-          path: "/members",
-          icon: (
-            <FaUserFriends className="text-green-500 dark:text-green-400" />
-          ),
-        },
-        {
-          name: "Planning",
-          path: "/planning",
-          icon: (
-            <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
-          ),
-        },
-        {
-          name: "Paiements",
-          path: "/payments",
-          icon: (
-            <FaCreditCard className="text-purple-500 dark:text-purple-400" />
-          ),
-        },
-        {
-          name: "Statistiques",
-          path: "/statistics",
-          icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
-        },
-        {
-          name: "Invitations",
-          path: "/invitations",
-          icon: (
-            <FaUserPlus className="text-orange-500 dark:text-orange-400" />
-          ),
-        },
-      ]
+          {
+            name: "Membres",
+            path: "/members",
+            icon: (
+              <FaUserFriends className="text-green-500 dark:text-green-400" />
+            ),
+          },
+          {
+            name: "Planning",
+            path: "/planning",
+            icon: (
+              <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
+            ),
+          },
+          {
+            name: "Paiements",
+            path: "/payments",
+            icon: (
+              <FaCreditCard className="text-purple-500 dark:text-purple-400" />
+            ),
+          },
+          {
+            name: "Statistiques",
+            path: "/statistics",
+            icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
+          },
+          // ✅ AJOUT : Messages (admin)
+          {
+            name: "Messages",
+            path: "/messages",
+            icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
+          },
+          {
+            name: "Invitations",
+            path: "/invitations",
+            icon: (
+              <FaUserPlus className="text-orange-500 dark:text-orange-400" />
+            ),
+          },
+        ]
       : [
-                {
-          name: "Mon Profil",
-          path: "/profile",
-          icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
-        },
-        {
-          name: "Mes Présences",
-          path: "/my-attendances",
-          icon: (
-            <FaClipboardList className="text-green-500 dark:text-green-400" />
-          ),
-        },
-      ]),
+          // ✅ AJOUT : Messages (non-admin)
+          {
+            name: "Messages",
+            path: "/messages",
+            icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
+          },
+          {
+            name: "Mon Profil",
+            path: "/profile",
+            icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
+          },
+          {
+            name: "Mes Présences",
+            path: "/my-attendances",
+            icon: (
+              <FaClipboardList className="text-green-500 dark:text-green-400" />
+            ),
+          },
+        ]),
   ];
 
   const toggleSidebar = () => {
@@ -1280,6 +1304,18 @@ function AnimatedMobileMenu({
                 <span className="font-medium">Statistiques</span>
               </Link>
 
+              {/* ✅ AJOUT : Messages (admin, mobile) */}
+              <Link
+                to="/messages"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/messages" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaEnvelope className="text-xl text-blue-300" />
+                <span className="font-medium">Messages</span>
+              </Link>
+
               <Link
                 to="/invitations"
                 onClick={handleItemClick}
@@ -1307,6 +1343,18 @@ function AnimatedMobileMenu({
           {/* Menu pour utilisateurs non-admin */}
           {!isAdmin && (
             <>
+              {/* ✅ AJOUT : Messages (non-admin, mobile) */}
+              <Link
+                to="/messages"
+                onClick={handleItemClick}
+                className={`menu-item ${animate ? "animate" : ""
+                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/messages" ? "bg-white/20" : ""
+                  }`}
+              >
+                <FaEnvelope className="text-xl text-blue-300" />
+                <span className="font-medium">Messages</span>
+              </Link>
+
               <Link
                 to="/profile"
                 onClick={handleItemClick}
@@ -1328,7 +1376,6 @@ function AnimatedMobileMenu({
                 <FaClipboardList className="text-xl text-green-300" />
                 <span className="font-medium">Mes Présences</span>
               </Link>
-
             </>
           )}
 
@@ -1355,7 +1402,6 @@ function AnimatedMobileMenu({
     </>
   );
 }
-
 
 // ✅ PARTIE 6/6 SUITE : COMPOSANT PRINCIPAL APPROUTES - FINALE
 
@@ -1477,6 +1523,9 @@ function AppRoutes() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* ✅ AJOUT : cloche de notifications (mobile header) */}
+          <NotificationBell />
+
           <button
             onClick={toggleDarkMode}
             className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -1591,6 +1640,9 @@ function AppRoutes() {
 
             {/* Route profil accessible à tous */}
             <Route path="/profile" element={<UserProfilePage />} />
+
+            {/* ✅ Messages accessible à tous (protégé par l'app globale déjà) */}
+            <Route path="/messages" element={<MessagesPage />} />
 
             {/* Redirection par défaut */}
             <Route path="*" element={<Navigate to="/" />} />
