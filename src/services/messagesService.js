@@ -337,3 +337,14 @@ export async function sendToAdmins({ subject, body, authorMemberId }) {
     isBroadcast: false,
   });
 }
+
+// ✅ Envoi diffusion globale (admin -> tous les membres)
+export async function sendBroadcast({ subject, body, excludeAuthor = true }) {
+  const { data, error } = await supabase.rpc("send_broadcast_message", {
+    p_subject: subject,
+    p_body: body,
+    p_exclude_author: excludeAuthor,
+  });
+  if (error) throw error;
+  return data; // retourne message_id (uuid)
+}
