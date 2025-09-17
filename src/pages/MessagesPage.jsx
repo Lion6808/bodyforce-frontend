@@ -1,19 +1,12 @@
 // 📄 src/pages/MessagesPage.jsx — Conversations + Fil + Diffusion + Envoi à un groupe
-// ✅ Corrigé : 
-// - Annuaire destinataires basé sur `members`
-// - Envoi via RPC `send_message()`
-// - Inbox/Outbox via `v_inbox` et `v_outbox`
-// - Envoi possible pour tous (admin & non-admin)
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO } from "date-fns";
-
 import {
   sendToAdmins,
   sendToMember,
-  sendBroadcast, // RPC diffusion globale (gardé pour compatibilité)
+  sendBroadcast, // RPC diffusion globale
   listMyThread,  // ✅ clé pour le fil membre↔staff
 } from "../services/messagesService";
 import * as MsgSvc from "../services/messagesService";
@@ -80,19 +73,19 @@ export default function MessagesPage() {
     if (!me?.id) return;
     setLoadingConvs(true);
     try {
-      // ✅ Nouveau : on lit directement dans les vues v_inbox et v_outbox
-      const [inRes, outRes] = await Promise.all([
-        supabase.from("v_inbox").select("*").order("created_at", { ascending: false }),
-        supabase.from("v_outbox").select("*").order("created_at", { ascending: false }),
-      ]);
-      if (inRes.error) throw inRes.error;
-      if (outRes.error) throw outRes.error;
+      // 1) Inbox (je reçois)
+      const { data: inbox, error: e1 } = await supabase
+        .from("message_recipients")
+        .select(`
+          id, read_at, created_at,
+          messages:message_id (id, subject, body, created_at, author_member_id)
+        `)
+        .eq("recipient_member_id", me.id);
+      if (e1) throw e1;
 
-      const inbox = inRes.data || [];
-      const outbox = outRes.data || [];
-
-      // Construire les conversations (admin = multi, user = staff unique)
       if (!isAdmin) {
+        // ====== MODE MEMBRE ======
+        // Une seule conversation “Équipe BodyForce” (ADMIN_SENTINEL)
         let conv = {
           otherId: ADMIN_SENTINEL,
           name: "Équipe BodyForce",
@@ -102,33 +95,58 @@ export default function MessagesPage() {
           unread: 0,
         };
 
-        (inbox || []).forEach((m) => {
+        // Maj avec ce que j’ai reçu (admins -> moi)
+        (inbox || []).forEach((rec) => {
+          const m = rec.messages;
+          if (!m) return;
           if (!conv.lastAt || new Date(m.created_at) > new Date(conv.lastAt)) {
             conv.lastAt = m.created_at;
             conv.lastBody = m.body || m.subject || "";
           }
-          if (!m.read_at) conv.unread += 1;
+          if (!rec.read_at) conv.unread += 1;
         });
 
-        (outbox || []).forEach((m) => {
+        // Maj avec ce que j’ai envoyé (moi -> admins), sans lire message_recipients (interdit par RLS)
+        const { data: sent, error: e2 } = await supabase
+          .from("messages")
+          .select("id, subject, body, created_at")
+          .eq("author_user_id", user.id);
+        if (e2) throw e2;
+
+        (sent || []).forEach((m) => {
           if (!conv.lastAt || new Date(m.created_at) > new Date(conv.lastAt)) {
             conv.lastAt = m.created_at;
             conv.lastBody = m.body || m.subject || "";
           }
         });
 
-        const list = conv.lastAt ? [conv] : [];
+        const list = conv.lastAt ? [conv] : []; // rien si aucun échange
         setConvs(list);
+
+        // Conversation active par défaut
         if (!activeOtherId) {
           setActiveOtherId(list[0]?.otherId ?? ADMIN_SENTINEL);
         }
         return;
       }
 
-      // ===== MODE ADMIN : multi conversations
+      // ====== MODE ADMIN ======
+      // 2) J’ai écrit -> autre = destinataire (l’admin peut lire message_recipients)
+      const { data: sent, error: e2 } = await supabase
+        .from("messages")
+        .select(`
+          id, subject, body, created_at, author_member_id, author_user_id,
+          recipients:message_recipients (recipient_member_id)
+        `)
+        .eq("author_user_id", user.id);
+      if (e2) throw e2;
+
       const map = new Map();
 
-      (inbox || []).forEach((m) => {
+      // Reçus (autre = auteur)
+      (inbox || []).forEach((rec) => {
+        const m = rec.messages;
+        if (!m) return;
         const otherId = m.author_member_id;
         if (!otherId) return;
         const prev = map.get(otherId) || {
@@ -141,13 +159,14 @@ export default function MessagesPage() {
           prev.lastAt = m.created_at;
           prev.lastBody = m.body || m.subject || "";
         }
-        if (!m.read_at) prev.unread += 1;
+        if (!rec.read_at) prev.unread += 1;
         map.set(otherId, prev);
       });
 
-      (outbox || []).forEach((m) => {
-        (m.recipients || []).forEach((rid) => {
-          const otherId = rid.recipient_member_id;
+      // Envoyés (autre = destinataire)
+      (sent || []).forEach((m) => {
+        (m.recipients || []).forEach((rcpt) => {
+          const otherId = rcpt.recipient_member_id;
           if (!otherId) return;
           const prev = map.get(otherId) || {
             otherId,
@@ -164,12 +183,13 @@ export default function MessagesPage() {
       });
 
       const items = Array.from(map.values());
-      if (items.length === 0) {
+      const otherIds = items.map((x) => x.otherId);
+
+      if (otherIds.length === 0) {
         setConvs([]);
         return;
       }
 
-      const otherIds = items.map((x) => x.otherId);
       const { data: others, error: e3 } = await supabase
         .from("members")
         .select("id, firstName, name, email, photo, badgeId")
@@ -206,6 +226,7 @@ export default function MessagesPage() {
       setLoadingConvs(false);
     }
   }
+
   // ========= Thread loader =========
   async function fetchThread(otherId) {
     if (!me?.id || otherId == null) {
@@ -216,8 +237,9 @@ export default function MessagesPage() {
 
     try {
       if (!isAdmin && otherId === ADMIN_SENTINEL) {
-        // ===== Fil unique membre ↔ staff
+        // ===== Fil unique membre ↔ staff (sans lire message_recipients des admins)
         const all = await listMyThread(me.id);
+        // Normaliser pour les bulles (author_member_id = me.id pour mes messages)
         const mapped = (all || []).map((m) => ({
           kind: m.direction === "out" ? "out" : "in",
           id: m.id,
@@ -227,9 +249,8 @@ export default function MessagesPage() {
           created_at: m.created_at,
           author_member_id: m.direction === "out" ? me.id : m.author_member_id,
         }));
-        setThread(
-          mapped.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-        );
+        setThread(mapped.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
+        // Pas d’appel RPC “mark_conversation_read” côté membre (RPC absente chez toi)
         setConvs((prev) =>
           prev.map((c) =>
             c.otherId === ADMIN_SENTINEL ? { ...c, unread: 0 } : c
@@ -239,41 +260,45 @@ export default function MessagesPage() {
         return;
       }
 
-      // ===== Admin ou membre ↔ autreId classique
-      const { data: inboxData, error: eIn } = await supabase
-        .from("v_inbox")
-        .select("*")
-        .eq("recipient_member_id", me.id)
-        .order("created_at", { ascending: true });
+      // ===== Admin : fil 1 ↔ 1 classique
+      const { data: inbound, error: eIn } = await supabase
+        .from("message_recipients")
+        .select(`
+          id, read_at, created_at,
+          messages:message_id (id, subject, body, created_at, author_member_id)
+        `)
+        .eq("recipient_member_id", me.id);
       if (eIn) throw eIn;
 
-      const inboundFiltered = (inboxData || [])
-        .filter((m) => m.author_member_id === otherId)
-        .map((m) => ({
+      const inboundFiltered = (inbound || [])
+        .map((r) => ({
           kind: "in",
-          id: `in_${m.message_id}`,
-          message_id: m.message_id,
-          subject: m.subject,
-          body: m.body,
-          created_at: m.created_at,
-          author_member_id: m.author_member_id,
-        }));
+          id: `in_${r.id}`,
+          message_id: r.messages?.id,
+          subject: r.messages?.subject,
+          body: r.messages?.body,
+          created_at: r.messages?.created_at || r.created_at,
+          author_member_id: r.messages?.author_member_id,
+        }))
+        .filter((x) => x.author_member_id === otherId);
 
-      const { data: outboxData, error: eOut } = await supabase
-        .from("v_outbox")
-        .select("*")
-        .eq("author_user_id", user.id)
-        .order("created_at", { ascending: true });
+      const { data: sent, error: eOut } = await supabase
+        .from("messages")
+        .select(`
+          id, subject, body, created_at, author_member_id, author_user_id,
+          recipients:message_recipients (recipient_member_id)
+        `)
+        .eq("author_user_id", user.id);
       if (eOut) throw eOut;
 
       const outboundFiltered = [];
-      (outboxData || []).forEach((m) => {
+      (sent || []).forEach((m) => {
         (m.recipients || []).forEach((rcpt) => {
           if (rcpt.recipient_member_id === otherId) {
             outboundFiltered.push({
               kind: "out",
               id: `out_${m.id}_${otherId}`,
-              message_id: m.message_id,
+              message_id: m.id,
               subject: m.subject,
               body: m.body,
               created_at: m.created_at,
@@ -288,7 +313,7 @@ export default function MessagesPage() {
       );
       setThread(all);
 
-      // Marquer comme lu si RPC disponible
+      // Marquer comme lu (si RPC dispo, côté admin seulement)
       try {
         if (typeof MsgSvc.markConversationRead === "function" && isAdmin) {
           await MsgSvc.markConversationRead(otherId);
@@ -296,9 +321,7 @@ export default function MessagesPage() {
             prev.map((c) => (c.otherId === otherId ? { ...c, unread: 0 } : c))
           );
         }
-      } catch {
-        /* noop */
-      }
+      } catch { /* noop */ }
 
       scrollToEnd();
     } finally {
@@ -332,19 +355,14 @@ export default function MessagesPage() {
     fetchThread(activeOtherId);
   }, [activeOtherId, selectMode, isBroadcast]); // eslint-disable-line
 
-  // ✅ Realtime Inbox
+  // ✅ Realtime pour TOUS (membre et admin) sur ma boîte de réception
   useEffect(() => {
     if (!me?.id) return;
     const ch = supabase
       .channel(`msg_inbox_${me.id}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "message_recipients",
-          filter: `recipient_member_id=eq.${me.id}`,
-        },
+        { event: "INSERT", schema: "public", table: "message_recipients", filter: `recipient_member_id=eq.${me.id}` },
         async () => {
           await fetchConversations();
           if (activeOtherId != null && !selectMode && !isBroadcast) {
@@ -354,12 +372,7 @@ export default function MessagesPage() {
       )
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "message_recipients",
-          filter: `recipient_member_id=eq.${me.id}`,
-        },
+        { event: "UPDATE", schema: "public", table: "message_recipients", filter: `recipient_member_id=eq.${me.id}` },
         async () => {
           await fetchConversations();
         }
@@ -368,19 +381,14 @@ export default function MessagesPage() {
     return () => supabase.removeChannel(ch);
   }, [me?.id, activeOtherId, selectMode, isBroadcast]); // eslint-disable-line
 
-  // ✅ Realtime Outbox
+  // ✅ Realtime sur mes envois (quand j’écris un message)
   useEffect(() => {
     if (!me?.id) return;
     const ch = supabase
       .channel(`msg_out_${me.id}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `author_user_id=eq.${user?.id || "00000000-0000-0000-0000-000000000000"}`,
-        },
+        { event: "INSERT", schema: "public", table: "messages", filter: `author_user_id=eq.${user?.id || "00000000-0000-0000-0000-000000000000"}` },
         async () => {
           await fetchConversations();
           if (activeOtherId != null && !selectMode && !isBroadcast) {
@@ -392,7 +400,7 @@ export default function MessagesPage() {
     return () => supabase.removeChannel(ch);
   }, [me?.id, user?.id, activeOtherId, selectMode, isBroadcast]); // eslint-disable-line
 
-  // Charger la liste complète quand admin passe en mode sélection
+  // Charger la liste complète quand on passe en mode sélection (admin)
   useEffect(() => {
     if (isAdmin && selectMode) fetchAllMembers();
   }, [isAdmin, selectMode]);
@@ -418,6 +426,7 @@ export default function MessagesPage() {
     });
   };
   const clearSelection = () => setSelectedIds(new Set());
+
   // ========= Envoi
   const onSend = async () => {
     if (sending) return;
@@ -430,39 +439,44 @@ export default function MessagesPage() {
         if (isBroadcast) {
           await sendBroadcast({ subject, body, excludeAuthor });
         } else if (selectMode) {
+          // 1 message + N destinataires
           const recips = Array.from(selectedIds);
           if (recips.length === 0) return;
 
-          const { error } = await supabase.rpc("send_message", {
-            p_author_member_id: me.id,
-            p_subject: subject.trim(),
-            p_body: body.trim(),
-            p_recipient_member_ids: recips,
-            p_is_broadcast: false,
-          });
-          if (error) throw error;
+          const { data: msg, error: e1 } = await supabase
+            .from("messages")
+            .insert({
+              subject,
+              body,
+              author_user_id: user?.id || null,
+              author_member_id: me.id,
+              is_broadcast: false,
+            })
+            .select("id")
+            .single();
+          if (e1) throw e1;
+
+          const rows = recips.map((rid) => ({
+            message_id: msg.id,
+            recipient_member_id: rid,
+          }));
+          const { error: e2 } = await supabase.from("message_recipients").insert(rows);
+          if (e2) throw e2;
+
           clearSelection();
         } else {
           if (!activeOtherId || activeOtherId === ADMIN_SENTINEL) return;
-          const { error } = await supabase.rpc("send_message", {
-            p_author_member_id: me.id,
-            p_subject: subject.trim(),
-            p_body: body.trim(),
-            p_recipient_member_ids: [activeOtherId],
-            p_is_broadcast: false,
+          await sendToMember({
+            toMemberId: activeOtherId,
+            subject,
+            body,
+            authorMemberId: me.id,
           });
-          if (error) throw error;
         }
       } else {
         // Membre → staff (tous les admins)
-        const { error } = await supabase.rpc("send_message", {
-          p_author_member_id: me.id,
-          p_subject: subject.trim(),
-          p_body: body.trim(),
-          p_recipient_member_ids: [], // géré par la RPC pour admins
-          p_is_broadcast: false,
-        });
-        if (error) throw error;
+        await sendToAdmins({ subject, body, authorMemberId: me.id });
+        // S’assurer que la conversation active est bien le staff
         setActiveOtherId(ADMIN_SENTINEL);
       }
 
@@ -488,14 +502,11 @@ export default function MessagesPage() {
   }
 
   // ========= UI =========
-
   const ConversationRow = ({ c, active, onClick }) => (
     <button
       onClick={onClick}
       className={`w-full text-left px-3 py-3 rounded-xl transition flex items-center gap-3 ${
-        active
-          ? "bg-blue-50 dark:bg-blue-900/30"
-          : "hover:bg-gray-50 dark:hover:bg-gray-700/40"
+        active ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-gray-700/40"
       }`}
     >
       {c.otherId === ADMIN_SENTINEL ? (
@@ -539,7 +550,7 @@ export default function MessagesPage() {
 
   const Bubble = ({ msg, meId, otherName, iAmAdmin }) => {
     const mine = msg.author_member_id === meId;
-    const label = mine ? "Moi" : iAmAdmin ? `Membre · ${otherName}` : `Admin · ${otherName}`;
+    const label = mine ? "Moi" : (iAmAdmin ? `Membre · ${otherName}` : `Admin · ${otherName}`);
     return (
       <div className={`mb-3 flex ${mine ? "justify-end" : "justify-start"}`}>
         <div
@@ -549,19 +560,11 @@ export default function MessagesPage() {
               : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           }`}
         >
-          <div
-            className={`mb-1 text-[11px] ${
-              mine ? "text-white/80" : "text-gray-600 dark:text-gray-300"
-            }`}
-          >
+          <div className={`mb-1 text-[11px] ${mine ? "text-white/80" : "text-gray-600 dark:text-gray-300"}`}>
             {label} · {fmt(msg.created_at)}
           </div>
           {msg.subject && (
-            <div
-              className={`text-xs font-semibold ${
-                mine ? "text-white" : "text-gray-800 dark:text-gray-100"
-              } mb-1`}
-            >
+            <div className={`text-xs font-semibold ${mine ? "text-white" : "text-gray-800 dark:text-gray-100"} mb-1`}>
               {msg.subject}
             </div>
           )}
@@ -574,7 +577,157 @@ export default function MessagesPage() {
   return (
     <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* ====== Colonne Conversations / Sélection ====== */}
-      {/* ... (UI inchangée comme ta version d’origine, déjà envoyée en Partie 1/2) ... */}
+      <div className="lg:col-span-1">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div className="font-semibold">
+              {selectMode ? "Sélection de membres" : "Conversations"}
+            </div>
+            {isAdmin && (
+              <div className="flex items-center gap-3">
+                <label className="text-xs flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    className="accent-blue-600"
+                    checked={isBroadcast}
+                    onChange={(e) => {
+                      setIsBroadcast(e.target.checked);
+                      if (e.target.checked) setSelectMode(false);
+                    }}
+                  />
+                  <span>Diffusion</span>
+                </label>
+                <label className="text-xs flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    className="accent-blue-600"
+                    checked={selectMode}
+                    onChange={(e) => {
+                      setSelectMode(e.target.checked);
+                      if (e.target.checked) setIsBroadcast(false);
+                    }}
+                  />
+                  <span>Sélection</span>
+                </label>
+              </div>
+            )}
+          </div>
+
+          {/* Barre de recherche */}
+          <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+            {!selectMode ? (
+              <input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={`Rechercher…`}
+                disabled={isBroadcast}
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  value={selFilter}
+                  onChange={(e) => setSelFilter(e.target.value)}
+                  className="flex-1 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Rechercher un membre…"
+                />
+                <button
+                  onClick={() => {
+                    const allChecked =
+                      filteredMembersAll.length > 0 &&
+                      filteredMembersAll.every((m) => selectedIds.has(m.id));
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (allChecked) {
+                        filteredMembersAll.forEach((m) => next.delete(m.id));
+                      } else {
+                        filteredMembersAll.forEach((m) => next.add(m.id));
+                      }
+                      return next;
+                    });
+                  }}
+                  className="px-2 py-2 rounded-lg text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                >
+                  Toggle
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Liste */}
+          {!selectMode ? (
+            <div className={`max-h-[70vh] overflow-y-auto p-3 space-y-2 ${isBroadcast ? "opacity-50 pointer-events-none select-none" : ""}`}>
+              {loadingConvs && (
+                <div className="text-sm text-gray-500 dark:text-gray-400">Chargement…</div>
+              )}
+              {!loadingConvs && filteredConvs.length === 0 && (
+                <div className="text-sm text-gray-500 dark:text-gray-400">Aucune conversation</div>
+              )}
+              {filteredConvs.map((c) => (
+                <ConversationRow
+                  key={c.otherId}
+                  c={c}
+                  active={activeOtherId === c.otherId}
+                  onClick={() => {
+                    setIsBroadcast(false);
+                    setSelectMode(false);
+                    setActiveOtherId(c.otherId);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="max-h-[70vh] overflow-y-auto p-3 space-y-2">
+              {membersLoading && (
+                <div className="text-sm text-gray-500 dark:text-gray-400">Chargement…</div>
+              )}
+              {!membersLoading && filteredMembersAll.length === 0 && (
+                <div className="text-sm text-gray-500 dark:text-gray-400">Aucun membre</div>
+              )}
+              {!membersLoading &&
+                filteredMembersAll.map((m) => {
+                  const name = `${m.firstName || ""} ${m.name || ""}`.trim() || m.email || `#${m.id}`;
+                  const checked = selectedIds.has(m.id);
+                  return (
+                    <label
+                      key={m.id}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer ${
+                        checked ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-blue-600"
+                        checked={checked}
+                        onChange={() => toggleSelect(m.id)}
+                      />
+                      {m.photo ? (
+                        <img
+                          src={m.photo}
+                          alt={name}
+                          className="w-8 h-8 rounded-full object-cover border border-white dark:border-gray-700"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-[11px] font-semibold">
+                          {initials(m.firstName, m.name)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {name}
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                          {m.email || m.badgeId}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ====== Colonne Fil ====== */}
       <div className="lg:col-span-2">
@@ -613,8 +766,7 @@ export default function MessagesPage() {
               <div className="text-sm text-gray-500 dark:text-gray-400">Aucun message dans cette conversation.</div>
             ) : (
               thread.map((m) => {
-                const otherName =
-                  activeOtherId === ADMIN_SENTINEL ? "Équipe BodyForce" : "";
+                const otherName = activeOtherId === ADMIN_SENTINEL ? "Équipe BodyForce" : "";
                 return (
                   <Bubble
                     key={m.id}
@@ -704,4 +856,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-// ✅ FIN DU FICHIER
