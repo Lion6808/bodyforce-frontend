@@ -237,10 +237,26 @@ export async function listSentByCurrentAdmin({ limit = 50, offset = 0 } = {}) {
 
 /** IDs des membres admins (via la vue admin_members) */
 export async function fetchAdminMemberIds() {
-  const { data, error } = await supabase.from("admin_members").select("id");
-  if (error) throw error;
-  return (data || []).map((r) => r.id);
+  // 1) user_ids des admins (is_disabled NULL ou false)
+  const { data: roles, error: e1 } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "admin")
+    .or("is_disabled.is.null,is_disabled.eq.false");
+  if (e1) throw e1;
+  const adminUserIds = (roles || []).map((r) => r.user_id);
+  if (adminUserIds.length === 0) return [];
+
+  // 2) members.id des admins
+  const { data: members, error: e2 } = await supabase
+    .from("members")
+    .select("id")
+    .in("user_id", adminUserIds);
+  if (e2) throw e2;
+
+  return (members || []).map((m) => m.id);
 }
+
 
 /** Fil admin<->membre (toutes directions) — utile côté Admin */
 export async function listThreadWithMember(memberId) {
