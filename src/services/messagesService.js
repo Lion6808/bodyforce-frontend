@@ -348,3 +348,19 @@ export async function sendBroadcast({ subject, body, excludeAuthor = true }) {
   if (error) throw error;
   return data; // retourne message_id (uuid)
 }
+
+// ✅ Marquer TOUS mes messages comme lus (RPC mark_all_read)
+export async function markAllRead() {
+  const { data, error } = await supabase.rpc("mark_all_read");
+  if (error) throw error;
+  return data || 0;
+}
+
+// ✅ Marquer une conversation (avec otherMemberId) comme lue (RPC mark_conversation_read)
+export async function markConversationRead(otherMemberId) {
+  const { data, error } = await supabase.rpc("mark_conversation_read", {
+    p_other_member_id: otherMemberId,
+  });
+  if (error) throw error;
+  return data || 0;
+}
