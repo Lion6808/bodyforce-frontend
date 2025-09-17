@@ -1,4 +1,4 @@
-// 📄 src/pages/MessagesPage.jsx — Conversations + Fil + Diffusion + Sélection groupe
+// 📄 src/pages/MessagesPage.jsx — Conversations + Fil + Diffusion + Envoi à un groupe
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -8,7 +8,7 @@ import {
   sendToMember,
   sendBroadcast, // RPC diffusion globale
 } from "../services/messagesService";
-import * as MsgSvc from "../services/messagesService"; // pour markConversationRead si dispo
+import * as MsgSvc from "../services/messagesService"; // pour markConversationRead si la RPC existe
 
 function fmt(dt) {
   const d = typeof dt === "string" ? parseISO(dt) : new Date(dt);
@@ -26,7 +26,7 @@ export default function MessagesPage() {
   const isAdmin = (role || "").toLowerCase() === "admin";
 
   // ===== Conversations (calculées à partir des messages échangés)
-  const [convs, setConvs] = useState([]); // {otherId, name, photo, lastBody, lastAt, unread, email, badgeId, firstName}
+  const [convs, setConvs] = useState([]); // {otherId, name, photo, lastBody, lastAt, unread, email, badgeId, firstName, lastName}
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [filter, setFilter] = useState("");
   const [activeOtherId, setActiveOtherId] = useState(null);
@@ -89,14 +89,14 @@ export default function MessagesPage() {
         .eq("recipient_member_id", me.id);
       if (e1) throw e1;
 
-      // 2) J'AI ÉCRIT -> autre = destinataire
+      // 2) J'AI ÉCRIT -> autre = destinataire (on filtre par user.id pour être robuste)
       const { data: sent, error: e2 } = await supabase
         .from("messages")
         .select(`
-          id, subject, body, created_at, author_member_id,
+          id, subject, body, created_at, author_member_id, author_user_id,
           recipients:message_recipients (recipient_member_id)
         `)
-        .eq("author_member_id", me.id);
+        .eq("author_user_id", user.id);
       if (e2) throw e2;
 
       const map = new Map();
@@ -218,10 +218,10 @@ export default function MessagesPage() {
       const { data: sent, error: eOut } = await supabase
         .from("messages")
         .select(`
-          id, subject, body, created_at, author_member_id,
+          id, subject, body, created_at, author_member_id, author_user_id,
           recipients:message_recipients (recipient_member_id)
         `)
-        .eq("author_member_id", me.id);
+        .eq("author_user_id", user.id);
       if (eOut) throw eOut;
 
       const outboundFiltered = [];
@@ -247,6 +247,7 @@ export default function MessagesPage() {
 
       setThread(all);
 
+      // Marquer la conv comme lue (si RPC dispo)
       try {
         if (typeof MsgSvc.markConversationRead === "function") {
           await MsgSvc.markConversationRead(otherId);
@@ -255,7 +256,7 @@ export default function MessagesPage() {
           );
         }
       } catch {
-        /* noop si RPC absente */
+        /* noop si la RPC n'est pas installée */
       }
 
       scrollToEnd();
@@ -403,7 +404,7 @@ export default function MessagesPage() {
             .insert({
               subject,
               body,
-              author_user_id: user?.id || null, // pour passer la policy INSERT
+              author_user_id: user?.id || null,   // important pour que l'auteur voie ses messages
               author_member_id: me.id,
               is_broadcast: false,
             })
@@ -590,7 +591,7 @@ export default function MessagesPage() {
                   className="px-2 py-2 rounded-lg text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
                   title={allChecked ? "Tout désélectionner" : "Tout sélectionner (filtré)"}
                 >
-                  {allChecked ? "Tout -": "Tout +"}
+                  {allChecked ? "Tout -" : "Tout +"}
                 </button>
               </div>
             )}
@@ -598,7 +599,7 @@ export default function MessagesPage() {
 
           {/* Liste */}
           {!selectMode ? (
-            <div className={`max-h-[70vh] overflow-y-auto p-3 space-y-2 ${isBroadcast ? "opacity-50 pointer-events-none select-none" : ""}`}>
+            <div className={`max-h=[70vh] lg:max-h-[70vh] overflow-y-auto p-3 space-y-2 ${isBroadcast ? "opacity-50 pointer-events-none select-none" : ""}`}>
               {loadingConvs && (
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   Chargement…

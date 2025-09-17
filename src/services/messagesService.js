@@ -9,15 +9,18 @@
 // - markRead(receiptId)
 // - sendMessage({ subject, body, recipientMemberIds, authorMemberId, isBroadcast, excludeAuthor })
 // - subscribeInbox(memberId, onChange)
-// - (optionnel) listSentByCurrentAdmin({limit, offset})
+// - listSentByCurrentAdmin({limit, offset})
+// - fetchAdminMemberIds()
+// - listThreadWithMember(memberId)
+// - listMyThread(myMemberId)
+// - sendToMember({ toMemberId, subject, body, authorMemberId })
+// - sendToAdmins({ subject, body, authorMemberId })
+// - sendBroadcast({ subject, body, excludeAuthor })
+// - markAllRead(), markConversationRead(otherMemberId)
 
 import { supabase } from "../supabaseClient";
 
-/**
- * Récupère l'id du membre lié à un user_id (auth.uid)
- * @param {string} userId - UUID de l'utilisateur Supabase
- * @returns {Promise<number|null>} member.id ou null si introuvable
- */
+/** Récupère l'id du membre lié à un user_id (auth.uid) */
 export async function getMemberIdByUserId(userId) {
   if (!userId) return null;
   const { data, error } = await supabase
@@ -29,12 +32,7 @@ export async function getMemberIdByUserId(userId) {
   return data?.id ?? null;
 }
 
-/**
- * Liste la boîte de réception d'un membre
- * @param {number} memberId - id (bigint) de public.members
- * @param {{limit?: number, offset?: number}} opts
- * @returns {Promise<Array>}
- */
+/** Liste la boîte de réception d'un membre */
 export async function listInbox(memberId, { limit = 50, offset = 0 } = {}) {
   if (!memberId) return [];
   const { data, error } = await supabase
@@ -63,11 +61,7 @@ export async function listInbox(memberId, { limit = 50, offset = 0 } = {}) {
   return data || [];
 }
 
-/**
- * Compte les messages non lus d'un membre
- * @param {number} memberId
- * @returns {Promise<number>}
- */
+/** Compte les messages non lus d'un membre */
 export async function countUnread(memberId) {
   if (!memberId) return 0;
   const { count, error } = await supabase
@@ -79,11 +73,7 @@ export async function countUnread(memberId) {
   return count || 0;
 }
 
-/**
- * Marque un message (ligne recipient) comme lu
- * @param {number} receiptId - id (bigserial) de public.message_recipients
- * @returns {Promise<void>}
- */
+/** Marque un message (ligne recipient) comme lu */
 export async function markRead(receiptId) {
   if (!receiptId) return;
   const { error } = await supabase
@@ -94,18 +84,9 @@ export async function markRead(receiptId) {
 }
 
 /**
- * Envoie un message (admin uniquement via RLS)
- * - Un message est créé dans `messages`
- * - Une ligne par destinataire est créée dans `message_recipients`
- *
- * @param {Object} params
- * @param {string} params.subject
- * @param {string} params.body
- * @param {number[]} [params.recipientMemberIds=[]] - ids members (ignorée si isBroadcast=true)
- * @param {number|null} [params.authorMemberId=null] - id member de l'auteur (optionnel)
- * @param {boolean} [params.isBroadcast=false] - diffusion globale (tous les membres)
- * @param {boolean} [params.excludeAuthor=true] - exclure l'auteur des destinataires
- * @returns {Promise<Object>} message créé
+ * Envoie un message
+ * - Crée 1 ligne dans `messages`
+ * - Crée N lignes dans `message_recipients`
  */
 export async function sendMessage({
   subject,
@@ -119,32 +100,41 @@ export async function sendMessage({
     throw new Error("Sujet et message requis.");
   }
 
-  // Récupère l'user actuel pour author_user_id
+  // User courant (pour author_user_id)
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr) throw userErr;
   const user = userData?.user;
   if (!user) throw new Error("Utilisateur non authentifié.");
 
-  // 1) Créer le message
+  // ✅ Toujours essayer d'avoir author_member_id (fallback si non fourni)
+  let authorMemberIdFinal = authorMemberId ?? null;
+  if (!authorMemberIdFinal) {
+    try {
+      authorMemberIdFinal = await getMemberIdByUserId(user.id);
+    } catch {
+      /* no-op */
+    }
+  }
+
+  // 1) Créer le message (renseigner user + member pour robustesse)
   const { data: message, error: msgErr } = await supabase
     .from("messages")
     .insert({
       subject: subject.trim(),
       body: body.trim(),
       is_broadcast: Boolean(isBroadcast),
-      author_user_id: user.id,
-      author_member_id: authorMemberId ?? null,
+      author_user_id: user.id,                // ✅
+      author_member_id: authorMemberIdFinal,  // ✅ (peut rester null si introuvable)
     })
     .select("*")
     .single();
-
   if (msgErr) throw msgErr;
 
   // 2) Construire la liste des destinataires
   let targets = recipientMemberIds;
 
   if (isBroadcast) {
-    // Tous les membres (remplace par une vue active_members si tu en crées une)
+    // Tous les membres (tu peux remplacer par une vue active_members si besoin)
     const { data: allMembers, error: mErr } = await supabase
       .from("members")
       .select("id");
@@ -161,9 +151,9 @@ export async function sendMessage({
     )
   );
 
-  // Option : exclure l'auteur
-  if (excludeAuthor && authorMemberId) {
-    targets = targets.filter((id) => id !== authorMemberId);
+  // Exclure l'auteur si demandé
+  if (excludeAuthor && authorMemberIdFinal) {
+    targets = targets.filter((id) => id !== authorMemberIdFinal);
   }
 
   if (targets.length === 0) return message;
@@ -184,12 +174,8 @@ export async function sendMessage({
 }
 
 /**
- * Abonnement Realtime aux nouveaux messages (INSERT) et aux lectures (UPDATE) pour un membre
- * Appelle onChange('insert' | 'update', payload) à chaque event (recalcule ensuite le badge).
- *
- * @param {number} memberId
- * @param {(kind: 'insert'|'update', payload: any) => void} onChange
- * @returns {{ unsubscribe: () => void }}
+ * Abonnement Realtime aux nouveaux messages (INSERT) et lectures (UPDATE)
+ * onChange('insert'|'update', payload)
  */
 export function subscribeInbox(memberId, onChange) {
   if (!memberId) return { unsubscribe: () => {} };
@@ -256,7 +242,7 @@ export async function fetchAdminMemberIds() {
   return (data || []).map((r) => r.id);
 }
 
-/** Fil admin<->membre (toutes directions) */
+/** Fil admin<->membre (toutes directions) — utile côté Admin */
 export async function listThreadWithMember(memberId) {
   if (!memberId) return [];
 
@@ -285,7 +271,7 @@ export async function listThreadWithMember(memberId) {
   if (outErr) throw outErr;
 
   const A = (inbound || []).map((r) => ({
-    kind: "inbound",          // admin -> membre
+    kind: "inbound", // admin -> membre (du point de vue du membre)
     id: `in_${r.id}`,
     message_id: r.message_id,
     created_at: r.messages?.created_at || r.created_at,
@@ -295,7 +281,7 @@ export async function listThreadWithMember(memberId) {
   }));
 
   const B = (outbound || []).map((m) => ({
-    kind: "outbound",         // membre -> admin
+    kind: "outbound", // membre -> admin
     id: `out_${m.id}`,
     message_id: m.id,
     created_at: m.created_at,
@@ -310,9 +296,66 @@ export async function listThreadWithMember(memberId) {
   return all;
 }
 
-/** Fil "mes messages" (moi <-> admins) pour un membre connecté */
+/**
+ * Fil "mes messages" (moi <-> admins) pour un membre connecté
+ * ✅ Robuste : on lit ce que *j’ai envoyé* via author_user_id = user.id
+ */
 export async function listMyThread(myMemberId) {
-  return listThreadWithMember(myMemberId);
+  if (!myMemberId) return [];
+
+  // Reçus (admins -> moi)
+  const { data: inbound, error: e1 } = await supabase
+    .from("message_recipients")
+    .select(`
+      id, read_at, created_at,
+      messages:message_id (id, subject, body, created_at, author_member_id, author_user_id)
+    `)
+    .eq("recipient_member_id", myMemberId);
+  if (e1) throw e1;
+
+  // Envoyés (moi -> admins), clé = author_user_id
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: sent, error: e2 } = await supabase
+    .from("messages")
+    .select(`
+      id, subject, body, created_at, author_member_id, author_user_id,
+      recipients:message_recipients (recipient_member_id)
+    `)
+    .eq("author_user_id", user?.id || "");
+  if (e2) throw e2;
+
+  const inboundMapped = (inbound || []).map((r) => ({
+    id: `in_${r.id}`,
+    message_id: r.messages?.id,
+    subject: r.messages?.subject,
+    body: r.messages?.body,
+    created_at: r.messages?.created_at || r.created_at,
+    author_member_id: r.messages?.author_member_id,
+    direction: "in",
+  }));
+
+  const outboundMapped = [];
+  (sent || []).forEach((m) => {
+    (m.recipients || []).forEach((rcpt) => {
+      outboundMapped.push({
+        id: `out_${m.id}_${rcpt.recipient_member_id}`,
+        message_id: m.id,
+        subject: m.subject,
+        body: m.body,
+        created_at: m.created_at,
+        author_member_id: m.author_member_id, // peut être null sur anciens messages
+        direction: "out",
+      });
+    });
+  });
+
+  const all = [...inboundMapped, ...outboundMapped].sort(
+    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+  );
+  return all;
 }
 
 /** Envoi direct à 1 membre (admin -> membre) */
@@ -338,7 +381,7 @@ export async function sendToAdmins({ subject, body, authorMemberId }) {
   });
 }
 
-// ✅ Envoi diffusion globale (admin -> tous les membres)
+/** Diffusion globale (RPC SQL: send_broadcast_message) */
 export async function sendBroadcast({ subject, body, excludeAuthor = true }) {
   const { data, error } = await supabase.rpc("send_broadcast_message", {
     p_subject: subject,
@@ -346,17 +389,17 @@ export async function sendBroadcast({ subject, body, excludeAuthor = true }) {
     p_exclude_author: excludeAuthor,
   });
   if (error) throw error;
-  return data; // retourne message_id (uuid)
+  return data; // message_id
 }
 
-// ✅ Marquer TOUS mes messages comme lus (RPC mark_all_read)
+/** (option) Tout marquer lu — nécessite la RPC mark_all_read */
 export async function markAllRead() {
   const { data, error } = await supabase.rpc("mark_all_read");
   if (error) throw error;
   return data || 0;
 }
 
-// ✅ Marquer une conversation (avec otherMemberId) comme lue (RPC mark_conversation_read)
+/** (option) Marquer une conversation comme lue — nécessite la RPC mark_conversation_read */
 export async function markConversationRead(otherMemberId) {
   const { data, error } = await supabase.rpc("mark_conversation_read", {
     p_other_member_id: otherMemberId,
