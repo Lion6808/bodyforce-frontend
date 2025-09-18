@@ -423,3 +423,59 @@ export async function markConversationRead(otherMemberId) {
   if (error) throw error;
   return data || 0;
 }
+
+// src/services/messagesService.js
+import { supabase } from "../supabaseClient";
+
+// Liste pour un ADMIN : on renvoie tous les membres + une entrée "Équipe BodyForce"
+export async function listAdminConversations(adminMemberId) {
+  const { data: members, error } = await supabase
+    .from("members")
+    .select("id, firstName, name, photo")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error("listAdminConversations error:", error);
+    return [];
+  }
+
+  const rows = (members || [])
+    .filter((m) => m.id !== adminMemberId)
+    .map((m) => ({
+      otherId: m.id,
+      otherFirstName: m.firstName || "",
+      otherName: m.name || "",
+      photo: m.photo || null,
+      lastMessagePreview: "",
+      lastMessageDate: null,
+      unread: 0,
+    }));
+
+  // Ajouter le fil staff (ADMIN_SENTINEL = -1)
+  rows.unshift({
+    otherId: -1,
+    otherFirstName: "Équipe",
+    otherName: "BodyForce",
+    photo: null,
+    lastMessagePreview: "",
+    lastMessageDate: null,
+    unread: 0,
+  });
+
+  return rows;
+}
+
+// Liste pour un MEMBRE : au minimum un fil avec l’équipe (staff)
+export async function listMemberConversations(memberId) {
+  return [
+    {
+      otherId: -1,
+      otherFirstName: "Équipe",
+      otherName: "BodyForce",
+      photo: null,
+      lastMessagePreview: "",
+      lastMessageDate: null,
+      unread: 0,
+    },
+  ];
+}
