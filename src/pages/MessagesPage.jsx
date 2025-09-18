@@ -1,5 +1,11 @@
-// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec scroll corrigé
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec corrections complètes
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO, isToday, isYesterday } from "date-fns";
@@ -371,8 +377,10 @@ export default function MessagesPage() {
     activeOtherIdRef.current = activeOtherId;
   }, [activeOtherId]);
 
-  // Vérifier les présences (membres "en ligne" = présence dans les 5 dernières minutes)
-  const checkMemberPresence = async () => {
+  // ========= FONCTIONS AVEC useCallback POUR ÉVITER LES RE-RENDERS ==========
+
+  // Vérifier les présences avec useCallback
+  const checkMemberPresence = useCallback(async () => {
     try {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
@@ -397,14 +405,17 @@ export default function MessagesPage() {
     } catch (error) {
       console.error("Erreur vérification présences:", error);
     }
-  };
+  }, []);
 
-  const isMemberOnline = (memberId) => {
-    if (memberId === ADMIN_SENTINEL) return true;
-    return onlineMembers.has(memberId);
-  };
+  const isMemberOnline = useCallback(
+    (memberId) => {
+      if (memberId === ADMIN_SENTINEL) return true;
+      return onlineMembers.has(memberId);
+    },
+    [onlineMembers]
+  );
 
-  // ========= Services & Fetchers =========
+  // ========= Services & Fetchers avec useCallback =========
   const {
     sendToAdmins,
     sendBroadcast,
@@ -414,7 +425,7 @@ export default function MessagesPage() {
     markConversationRead,
   } = MsgSvc;
 
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     if (!me?.id) return;
     setLoading(true);
     try {
@@ -430,55 +441,58 @@ export default function MessagesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [me?.id, isAdmin]);
 
-  const fetchThread = async (otherId) => {
-    if (!me?.id) return;
-    setLoadingThread(true);
-    try {
-      let data = [];
-      if (isAdmin) {
-        if (otherId !== ADMIN_SENTINEL) {
-          data = await listThreadWithMember(otherId);
-        }
-      } else {
-        data = await listMyThread(me.id);
-      }
-      setThread(data || []);
-
-      // Marquer comme lu
+  const fetchThread = useCallback(
+    async (otherId) => {
+      if (!me?.id) return;
+      setLoadingThread(true);
       try {
-        if (
-          typeof markConversationRead === "function" &&
-          isAdmin &&
-          otherId !== ADMIN_SENTINEL
-        ) {
-          await markConversationRead(otherId);
-          setConvs((prev) =>
-            prev.map((c) => (c.otherId === otherId ? { ...c, unread: 0 } : c))
-          );
+        let data = [];
+        if (isAdmin) {
+          if (otherId !== ADMIN_SENTINEL) {
+            data = await listThreadWithMember(otherId);
+          }
+        } else {
+          data = await listMyThread(me.id);
         }
-      } catch {
-        /* noop */
-      }
-    } catch (error) {
-      console.error("Erreur fetchThread:", error);
-    } finally {
-      setLoadingThread(false);
-    }
-  };
+        setThread(data || []);
 
-  const scrollToEnd = () => {
+        // Marquer comme lu
+        try {
+          if (
+            typeof markConversationRead === "function" &&
+            isAdmin &&
+            otherId !== ADMIN_SENTINEL
+          ) {
+            await markConversationRead(otherId);
+            setConvs((prev) =>
+              prev.map((c) => (c.otherId === otherId ? { ...c, unread: 0 } : c))
+            );
+          }
+        } catch {
+          /* noop */
+        }
+      } catch (error) {
+        console.error("Erreur fetchThread:", error);
+      } finally {
+        setLoadingThread(false);
+      }
+    },
+    [me?.id, isAdmin, listThreadWithMember, listMyThread, markConversationRead]
+  );
+
+  const scrollToEnd = useCallback(() => {
     setTimeout(() => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop =
           messagesContainerRef.current.scrollHeight;
       }
     }, 100);
-  };
+  }, []);
 
-  // ========= Envoi =========
-  const onSend = async () => {
+  // ========= Envoi avec useCallback =========
+  const onSend = useCallback(async () => {
     if (sending) return;
     if (!body.trim()) return;
     if ((isBroadcast || showBroadcastModal) && !subject.trim()) return;
@@ -536,23 +550,43 @@ export default function MessagesPage() {
     } finally {
       setSending(false);
     }
-  };
+  }, [
+    sending,
+    body,
+    isBroadcast,
+    showBroadcastModal,
+    subject,
+    me?.id,
+    isAdmin,
+    sendBroadcast,
+    excludeAuthor,
+    selectMode,
+    selectedIds,
+    activeOtherId,
+    sendToAdmins,
+    fetchConversations,
+    fetchThread,
+    scrollToEnd,
+  ]);
 
-  // ========= Sélection multiple =========
-  const toggleMemberSelection = (memberId) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(memberId)) newSelected.delete(memberId);
-    else newSelected.add(memberId);
-    setSelectedIds(newSelected);
-  };
+  // ========= Sélection multiple avec useCallback =========
+  const toggleMemberSelection = useCallback(
+    (memberId) => {
+      const newSelected = new Set(selectedIds);
+      if (newSelected.has(memberId)) newSelected.delete(memberId);
+      else newSelected.add(memberId);
+      setSelectedIds(newSelected);
+    },
+    [selectedIds]
+  );
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
     setSelectMode(false);
     setShowMemberSelector(false);
-  };
+  }, []);
 
-  // ========= Conversations filtrées =========
+  // ========= Conversations filtrées avec useMemo =========
   const filteredConversations = useMemo(() => {
     if (!searchTerm.trim()) return convs;
     const term = searchTerm.toLowerCase();
@@ -564,40 +598,90 @@ export default function MessagesPage() {
     });
   }, [convs, searchTerm]);
 
-  // ========= Realtime =========
+  // ========= Realtime avec cleanup approprié =========
   useEffect(() => {
     if (!me?.id) return;
 
-    const sub = subscribeInbox(me.id, () => {
-      fetchConversations();
-      const current = activeOtherIdRef.current;
-      if (current != null) fetchThread(current);
+    let mounted = true;
+    const sub = subscribeInbox(me.id, async () => {
+      if (!mounted) return; // Éviter les updates sur composant démonté
+      try {
+        await fetchConversations();
+        const current = activeOtherIdRef.current;
+        if (current != null && mounted) {
+          await fetchThread(current);
+        }
+      } catch (error) {
+        if (mounted) {
+          console.error("Erreur callback realtime:", error);
+        }
+      }
     });
 
     return () => {
+      mounted = false;
       try {
         sub?.unsubscribe?.();
-      } catch {}
+      } catch (error) {
+        console.error("Erreur cleanup subscription:", error);
+      }
     };
-  }, [me?.id]);
+  }, [me?.id, fetchConversations, fetchThread]);
 
-  // ========= Effets =========
+  // ========= Effets avec dépendances correctes =========
   useEffect(() => {
+    let mounted = true;
+
     if (me?.id) {
-      fetchConversations();
-      checkMemberPresence();
-      const presenceInterval = setInterval(checkMemberPresence, 2 * 60 * 1000);
-      return () => clearInterval(presenceInterval);
+      const initData = async () => {
+        if (!mounted) return;
+        try {
+          await fetchConversations();
+          await checkMemberPresence();
+        } catch (error) {
+          if (mounted) {
+            console.error("Erreur initialisation:", error);
+          }
+        }
+      };
+
+      initData();
+
+      const presenceInterval = setInterval(() => {
+        if (mounted) {
+          checkMemberPresence();
+        }
+      }, 2 * 60 * 1000);
+
+      return () => {
+        mounted = false;
+        clearInterval(presenceInterval);
+      };
     }
-  }, [me?.id, isAdmin]);
+  }, [me?.id, fetchConversations, checkMemberPresence]);
 
   useEffect(() => {
-    if (activeOtherId != null) fetchThread(activeOtherId);
-  }, [activeOtherId]);
+    let mounted = true;
 
-  useEffect(() => scrollToEnd(), [thread]);
+    if (activeOtherId != null) {
+      const loadThread = async () => {
+        if (mounted) {
+          await fetchThread(activeOtherId);
+        }
+      };
+      loadThread();
+    }
 
-  // Détection mobile
+    return () => {
+      mounted = false;
+    };
+  }, [activeOtherId, fetchThread]);
+
+  useEffect(() => {
+    scrollToEnd();
+  }, [thread, scrollToEnd]);
+
+  // Détection mobile avec useCallback
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -1296,7 +1380,7 @@ export default function MessagesPage() {
         )}
       </div>
 
-      {/* Modales (identiques à avant) */}
+      {/* Modales - Diffusion */}
       {showBroadcastModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
@@ -1363,6 +1447,7 @@ export default function MessagesPage() {
         </div>
       )}
 
+      {/* Modale - Sélecteur de membres */}
       {showMemberSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl">
