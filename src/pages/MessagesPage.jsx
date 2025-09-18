@@ -1,14 +1,8 @@
-// 📄 src/pages/MessagesPage.jsx — Interface modernisée type Messenger avec Supabase
+// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec vraies données Supabase
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
-import {
-  format,
-  parseISO,
-  isToday,
-  isYesterday,
-  formatDistanceToNow,
-} from "date-fns";
+import { format, parseISO, isToday, isYesterday } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Send,
@@ -28,72 +22,11 @@ import {
   Plus,
   Image,
   Paperclip,
-  Smile,
   ArrowLeft,
 } from "lucide-react";
 
 // Services existants
 import * as MsgSvc from "../services/messagesService";
-
-// --- Shims/fallbacks si certaines méthodes ne sont pas exportées par messagesService ---
-const listAdminConversations_FALLBACK = async (adminMemberId) => {
-  try {
-    const { data: members, error } = await supabase
-      .from("members")
-      .select("id, firstName, name, photo")
-      .order("name", { ascending: true });
-    if (error) throw error;
-
-    const rows = (members || [])
-      .filter((m) => m.id !== adminMemberId)
-      .map((m) => ({
-        otherId: m.id,
-        otherFirstName: m.firstName || "",
-        otherName: m.name || "",
-        photo: m.photo || null,
-        lastMessagePreview: "",
-        lastMessageDate: null,
-        unread: 0,
-      }));
-
-    rows.unshift({
-      otherId: -1,
-      otherFirstName: "Équipe",
-      otherName: "BodyForce",
-      photo: null,
-      lastMessagePreview: "",
-      lastMessageDate: null,
-      unread: 0,
-    });
-
-    return rows;
-  } catch (e) {
-    console.error("FALLBACK listAdminConversations error:", e);
-    return [];
-  }
-};
-
-const listMemberConversations_FALLBACK = async () => [
-  {
-    otherId: -1,
-    otherFirstName: "Équipe",
-    otherName: "BodyForce",
-    photo: null,
-    lastMessagePreview: "",
-    lastMessageDate: null,
-    unread: 0,
-  },
-];
-
-const listAdminConversationsSafe = async (adminMemberId) =>
-  typeof MsgSvc.listAdminConversations === "function"
-    ? MsgSvc.listAdminConversations(adminMemberId)
-    : listAdminConversations_FALLBACK(adminMemberId);
-
-const listMemberConversationsSafe = async (memberId) =>
-  typeof MsgSvc.listMemberConversations === "function"
-    ? MsgSvc.listMemberConversations(memberId)
-    : listMemberConversations_FALLBACK(memberId);
 
 const ADMIN_SENTINEL = -1;
 
@@ -131,7 +64,9 @@ const Avatar = ({
 
   const initials = isStaff
     ? "BF"
-    : `${member?.firstName?.[0] || "?"}${member?.name?.[0] || "?"}`;
+    : `${member?.firstName?.[0] || member?.otherFirstName?.[0] || "?"}${
+        member?.name?.[0] || member?.otherName?.[0] || "?"
+      }`;
 
   const bgColor = isStaff
     ? "bg-gradient-to-br from-blue-600 to-purple-600"
@@ -196,6 +131,163 @@ const OnlineIndicator = ({ isOnline }) => (
     }`}
   />
 );
+
+// Fonctions améliorées pour récupérer les vraies conversations avec derniers messages
+const getEnhancedAdminConversations = async (adminMemberId) => {
+  try {
+    // 1. Récupérer tous les membres sauf l'admin
+    const { data: members, error: membersError } = await supabase
+      .from("members")
+      .select("id, firstName, name, photo")
+      .neq("id", adminMemberId)
+      .order("name", { ascending: true });
+
+    if (membersError) throw membersError;
+
+    const conversations = [];
+
+    // 2. Pour chaque membre, récupérer le dernier message et compter les non-lus
+    for (const member of members || []) {
+      // Dernier message reçu par ce membre
+      const { data: lastReceived } = await supabase
+        .from("message_recipients")
+        .select(
+          `
+          created_at,
+          messages:message_id (subject, body, created_at, author_member_id)
+        `
+        )
+        .eq("recipient_member_id", member.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      // Dernier message envoyé par ce membre
+      const { data: lastSent } = await supabase
+        .from("messages")
+        .select("subject, body, created_at, author_member_id")
+        .eq("author_member_id", member.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      // Prendre le plus récent des deux
+      let lastMessage = null;
+      let lastMessageDate = null;
+
+      if (lastReceived?.messages && lastSent) {
+        const receivedDate = new Date(lastReceived.messages.created_at);
+        const sentDate = new Date(lastSent.created_at);
+        lastMessage =
+          receivedDate > sentDate ? lastReceived.messages : lastSent;
+        lastMessageDate = receivedDate > sentDate ? receivedDate : sentDate;
+      } else if (lastReceived?.messages) {
+        lastMessage = lastReceived.messages;
+        lastMessageDate = new Date(lastReceived.messages.created_at);
+      } else if (lastSent) {
+        lastMessage = lastSent;
+        lastMessageDate = new Date(lastSent.created_at);
+      }
+
+      // Compter les messages non lus pour ce membre
+      const { count: unreadCount } = await supabase
+        .from("message_recipients")
+        .select("*", { count: "exact", head: true })
+        .eq("recipient_member_id", member.id)
+        .is("read_at", null);
+
+      conversations.push({
+        otherId: member.id,
+        otherFirstName: member.firstName || "",
+        otherName: member.name || "",
+        photo: member.photo || null,
+        lastMessagePreview: lastMessage
+          ? lastMessage.body?.substring(0, 100) +
+            (lastMessage.body?.length > 100 ? "..." : "")
+          : "",
+        lastMessageDate: lastMessageDate?.toISOString() || null,
+        unread: unreadCount || 0,
+      });
+    }
+
+    // Trier par dernière activité
+    conversations.sort((a, b) => {
+      if (!a.lastMessageDate && !b.lastMessageDate) return 0;
+      if (!a.lastMessageDate) return 1;
+      if (!b.lastMessageDate) return -1;
+      return new Date(b.lastMessageDate) - new Date(a.lastMessageDate);
+    });
+
+    // Ajouter le fil staff en premier
+    conversations.unshift({
+      otherId: ADMIN_SENTINEL,
+      otherFirstName: "Équipe",
+      otherName: "BodyForce",
+      photo: null,
+      lastMessagePreview: "Messages de l'équipe",
+      lastMessageDate: null,
+      unread: 0,
+    });
+
+    return conversations;
+  } catch (error) {
+    console.error("Erreur getEnhancedAdminConversations:", error);
+    return [];
+  }
+};
+
+const getEnhancedMemberConversations = async (memberId) => {
+  try {
+    // Pour un membre, récupérer le fil avec l'équipe
+    const { data: lastMessage } = await supabase
+      .from("message_recipients")
+      .select(
+        `
+        created_at,
+        messages:message_id (subject, body, created_at)
+      `
+      )
+      .eq("recipient_member_id", memberId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    // Compter les non-lus
+    const { count: unreadCount } = await supabase
+      .from("message_recipients")
+      .select("*", { count: "exact", head: true })
+      .eq("recipient_member_id", memberId)
+      .is("read_at", null);
+
+    return [
+      {
+        otherId: ADMIN_SENTINEL,
+        otherFirstName: "Équipe",
+        otherName: "BodyForce",
+        photo: null,
+        lastMessagePreview: lastMessage?.messages
+          ? lastMessage.messages.body?.substring(0, 100) +
+            (lastMessage.messages.body?.length > 100 ? "..." : "")
+          : "Contactez l'équipe BodyForce",
+        lastMessageDate: lastMessage?.messages?.created_at || null,
+        unread: unreadCount || 0,
+      },
+    ];
+  } catch (error) {
+    console.error("Erreur getEnhancedMemberConversations:", error);
+    return [
+      {
+        otherId: ADMIN_SENTINEL,
+        otherFirstName: "Équipe",
+        otherName: "BodyForce",
+        photo: null,
+        lastMessagePreview: "Contactez l'équipe BodyForce",
+        lastMessageDate: null,
+        unread: 0,
+      },
+    ];
+  }
+};
 
 // Composant principal
 export default function MessagesPage() {
@@ -283,10 +375,10 @@ export default function MessagesPage() {
     setLoading(true);
     try {
       if (isAdmin) {
-        const adminData = await listAdminConversationsSafe(me.id);
+        const adminData = await getEnhancedAdminConversations(me.id);
         setConvs(adminData || []);
       } else {
-        const memberData = await listMemberConversationsSafe(me.id);
+        const memberData = await getEnhancedMemberConversations(me.id);
         setConvs(memberData || []);
       }
     } catch (error) {
@@ -475,7 +567,9 @@ export default function MessagesPage() {
       <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Chargement...</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Chargement des conversations...
+          </p>
         </div>
       </div>
     );
@@ -583,44 +677,45 @@ export default function MessagesPage() {
                         )}
                         {!showAvatar && !isOwn && <div className="w-8" />}
 
-                        <div
-                          className={`rounded-2xl px-4 py-2 max-w-full ${
-                            isOwn
-                              ? "bg-blue-500 text-white rounded-br-md"
-                              : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md"
-                          }`}
-                        >
-                          {msg.subject &&
-                            msg.subject !== "Message" &&
-                            msg.subject !== "Message au staff" && (
-                              <div
-                                className={`text-sm font-medium mb-1 ${
-                                  isOwn
-                                    ? "text-blue-100"
-                                    : "text-gray-600 dark:text-gray-400"
-                                }`}
-                              >
-                                {msg.subject}
-                              </div>
-                            )}
+                        <div className="flex flex-col">
                           <div
-                            className={`text-sm ${
+                            className={`rounded-2xl px-4 py-2 max-w-full ${
                               isOwn
-                                ? "text-white"
-                                : "text-gray-900 dark:text-gray-100"
+                                ? "bg-blue-500 text-white rounded-br-md"
+                                : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md"
                             }`}
                           >
-                            {msg.body}
+                            {msg.subject &&
+                              msg.subject !== "Message" &&
+                              msg.subject !== "Message au staff" && (
+                                <div
+                                  className={`text-sm font-medium mb-1 ${
+                                    isOwn
+                                      ? "text-blue-100"
+                                      : "text-gray-600 dark:text-gray-400"
+                                  }`}
+                                >
+                                  {msg.subject}
+                                </div>
+                              )}
+                            <div
+                              className={`text-sm break-words ${
+                                isOwn
+                                  ? "text-white"
+                                  : "text-gray-900 dark:text-gray-100"
+                              }`}
+                            >
+                              {msg.body}
+                            </div>
+                          </div>
+                          <div
+                            className={`text-xs text-gray-500 mt-1 px-2 ${
+                              isOwn ? "text-right" : "text-left"
+                            }`}
+                          >
+                            {formatChatTime(msg.createdAt)}
                           </div>
                         </div>
-                      </div>
-
-                      <div
-                        className={`text-xs text-gray-500 mt-1 ${
-                          isOwn ? "text-right mr-2" : "text-left ml-2"
-                        }`}
-                      >
-                        {formatChatTime(msg.createdAt)}
                       </div>
                     </div>
                   );
@@ -760,10 +855,10 @@ export default function MessagesPage() {
   // ===== Desktop View =====
   return (
     <div className="h-full flex bg-white dark:bg-gray-900">
-      {/* Sidebar - 30% de l'écran */}
-      <div className="w-1/3 max-w-sm min-w-[320px] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      {/* Sidebar - Largeur fixe optimale */}
+      <div className="w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               Messages
@@ -863,7 +958,7 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Zone principale - 70% de l'écran */}
+      {/* Zone principale - Reste de l'écran */}
       <div className="flex-1 flex flex-col">
         {activeOtherId === null ? (
           // Écran d'accueil
@@ -1024,7 +1119,7 @@ export default function MessagesPage() {
                                   isOwn
                                     ? "text-white"
                                     : "text-gray-900 dark:text-gray-100"
-                                } leading-relaxed`}
+                                } leading-relaxed whitespace-pre-wrap`}
                               >
                                 {msg.body}
                               </div>
@@ -1157,7 +1252,7 @@ export default function MessagesPage() {
         )}
       </div>
 
-      {/* Modales */}
+      {/* Modales - Diffusion */}
       {showBroadcastModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
@@ -1224,6 +1319,7 @@ export default function MessagesPage() {
         </div>
       )}
 
+      {/* Modale - Sélecteur de membres */}
       {showMemberSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl">
