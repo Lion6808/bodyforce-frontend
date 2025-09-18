@@ -18,12 +18,12 @@
 // - sendBroadcast({ subject, body, excludeAuthor })
 // - markAllRead(), markConversationRead(otherMemberId)
 
-import { supabase } from "../supabaseClient";
+import { supabase as sb } from "../supabaseClient"; // ✅ un seul import, aliasé
 
 /** Récupère l'id du membre lié à un user_id (auth.uid) */
 export async function getMemberIdByUserId(userId) {
   if (!userId) return null;
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("members")
     .select("id")
     .eq("user_id", userId)
@@ -35,7 +35,7 @@ export async function getMemberIdByUserId(userId) {
 /** Liste la boîte de réception d'un membre */
 export async function listInbox(memberId, { limit = 50, offset = 0 } = {}) {
   if (!memberId) return [];
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("message_recipients")
     .select(
       `
@@ -58,13 +58,25 @@ export async function listInbox(memberId, { limit = 50, offset = 0 } = {}) {
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
-  return data || [];
+
+  // Optionnel: mapper en camelCase si tu l'utilises côté UI
+  return (data || []).map((r) => ({
+    id: r.id,
+    messageId: r.message_id,
+    readAt: r.read_at,
+    createdAt: r.messages?.created_at || r.created_at,
+    subject: r.messages?.subject,
+    body: r.messages?.body,
+    isBroadcast: r.messages?.is_broadcast,
+    authorUserId: r.messages?.author_user_id,
+    authorMemberId: r.messages?.author_member_id,
+  }));
 }
 
 /** Compte les messages non lus d'un membre */
 export async function countUnread(memberId) {
   if (!memberId) return 0;
-  const { count, error } = await supabase
+  const { count, error } = await sb
     .from("message_recipients")
     .select("id", { count: "exact", head: true })
     .eq("recipient_member_id", memberId)
@@ -76,7 +88,7 @@ export async function countUnread(memberId) {
 /** Marque un message (ligne recipient) comme lu */
 export async function markRead(receiptId) {
   if (!receiptId) return;
-  const { error } = await supabase
+  const { error } = await sb
     .from("message_recipients")
     .update({ read_at: new Date().toISOString() })
     .eq("id", receiptId);
@@ -101,7 +113,7 @@ export async function sendMessage({
   }
 
   // User courant (pour author_user_id)
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await sb.auth.getUser();
   if (userErr) throw userErr;
   const user = userData?.user;
   if (!user) throw new Error("Utilisateur non authentifié.");
@@ -117,14 +129,14 @@ export async function sendMessage({
   }
 
   // 1) Créer le message (renseigner user + member pour robustesse)
-  const { data: message, error: msgErr } = await supabase
+  const { data: message, error: msgErr } = await sb
     .from("messages")
     .insert({
       subject: subject.trim(),
       body: body.trim(),
       is_broadcast: Boolean(isBroadcast),
-      author_user_id: user.id,                // ✅
-      author_member_id: authorMemberIdFinal,  // ✅ (peut rester null si introuvable)
+      author_user_id: user.id, // ✅
+      author_member_id: authorMemberIdFinal, // ✅ (peut rester null)
     })
     .select("*")
     .single();
@@ -134,8 +146,8 @@ export async function sendMessage({
   let targets = recipientMemberIds;
 
   if (isBroadcast) {
-    // Tous les membres (tu peux remplacer par une vue active_members si besoin)
-    const { data: allMembers, error: mErr } = await supabase
+    // Tous les membres (remplace par une vue active_members si besoin)
+    const { data: allMembers, error: mErr } = await sb
       .from("members")
       .select("id");
     if (mErr) throw mErr;
@@ -166,7 +178,7 @@ export async function sendMessage({
       message_id: message.id,
       recipient_member_id: rid,
     }));
-    const { error: recErr } = await supabase.from("message_recipients").insert(rows);
+    const { error: recErr } = await sb.from("message_recipients").insert(rows);
     if (recErr) throw recErr;
   }
 
@@ -180,7 +192,7 @@ export async function sendMessage({
 export function subscribeInbox(memberId, onChange) {
   if (!memberId) return { unsubscribe: () => {} };
 
-  const channel = supabase
+  const channel = sb
     .channel(`inbox_${memberId}`)
     .on(
       "postgres_changes",
@@ -207,7 +219,7 @@ export function subscribeInbox(memberId, onChange) {
   return {
     unsubscribe: () => {
       try {
-        supabase.removeChannel(channel);
+        sb.removeChannel(channel);
       } catch {
         /* no-op */
       }
@@ -217,30 +229,40 @@ export function subscribeInbox(memberId, onChange) {
 
 /* ===== Optionnel : liste des messages envoyés par l'admin courant ===== */
 export async function listSentByCurrentAdmin({ limit = 50, offset = 0 } = {}) {
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  const { data: userData, error: userErr } = await sb.auth.getUser();
   if (userErr) throw userErr;
   const user = userData?.user;
   if (!user) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("messages")
-    .select("id, subject, body, created_at, is_broadcast, author_member_id")
+    .select("id, subject, body, created_at, is_broadcast, author_member_id, author_user_id")
     .eq("author_user_id", user.id)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
-  return data || [];
+
+  // Mapper camelCase
+  return (data || []).map((m) => ({
+    id: m.id,
+    subject: m.subject,
+    body: m.body,
+    createdAt: m.created_at,
+    isBroadcast: m.is_broadcast,
+    authorMemberId: m.author_member_id,
+    authorUserId: m.author_user_id,
+  }));
 }
 
 /* ========= Threads (historique style chat) ========= */
 
-/** IDs des membres admins (via la vue admin_members) */
+/** IDs des membres admins (via la table user_roles + members) */
 export async function fetchAdminMemberIds() {
   // 1) user_ids des admins (is_disabled NULL ou false)
-  const { data: roles, error: e1 } = await supabase
+  const { data: roles, error: e1 } = await sb
     .from("user_roles")
-    .select("user_id")
+    .select("user_id, is_disabled")
     .eq("role", "admin")
     .or("is_disabled.is.null,is_disabled.eq.false");
   if (e1) throw e1;
@@ -248,7 +270,7 @@ export async function fetchAdminMemberIds() {
   if (adminUserIds.length === 0) return [];
 
   // 2) members.id des admins
-  const { data: members, error: e2 } = await supabase
+  const { data: members, error: e2 } = await sb
     .from("members")
     .select("id")
     .in("user_id", adminUserIds);
@@ -257,13 +279,12 @@ export async function fetchAdminMemberIds() {
   return (members || []).map((m) => m.id);
 }
 
-
 /** Fil admin<->membre (toutes directions) — utile côté Admin */
 export async function listThreadWithMember(memberId) {
   if (!memberId) return [];
 
   // Messages reçus par ce membre (admin -> membre)
-  const { data: inbound, error: inErr } = await supabase
+  const { data: inbound, error: inErr } = await sb
     .from("message_recipients")
     .select(`
       id,
@@ -271,7 +292,7 @@ export async function listThreadWithMember(memberId) {
       created_at,
       read_at,
       messages:message_id (
-        id, subject, body, created_at, author_member_id, is_broadcast
+        id, subject, body, created_at, author_member_id, author_user_id, is_broadcast
       )
     `)
     .eq("recipient_member_id", memberId)
@@ -279,9 +300,9 @@ export async function listThreadWithMember(memberId) {
   if (inErr) throw inErr;
 
   // Messages envoyés par ce membre (membre -> admins)
-  const { data: outbound, error: outErr } = await supabase
+  const { data: outbound, error: outErr } = await sb
     .from("messages")
-    .select("id, subject, body, created_at, author_member_id, is_broadcast")
+    .select("id, subject, body, created_at, author_member_id, author_user_id, is_broadcast")
     .eq("author_member_id", memberId)
     .order("created_at", { ascending: true });
   if (outErr) throw outErr;
@@ -289,25 +310,29 @@ export async function listThreadWithMember(memberId) {
   const A = (inbound || []).map((r) => ({
     kind: "inbound", // admin -> membre (du point de vue du membre)
     id: `in_${r.id}`,
-    message_id: r.message_id,
-    created_at: r.messages?.created_at || r.created_at,
+    messageId: r.message_id,
+    createdAt: r.messages?.created_at || r.created_at,
     subject: r.messages?.subject,
     body: r.messages?.body,
-    author_member_id: r.messages?.author_member_id,
+    authorMemberId: r.messages?.author_member_id,
+    authorUserId: r.messages?.author_user_id,
+    isBroadcast: r.messages?.is_broadcast,
   }));
 
   const B = (outbound || []).map((m) => ({
     kind: "outbound", // membre -> admin
     id: `out_${m.id}`,
-    message_id: m.id,
-    created_at: m.created_at,
+    messageId: m.id,
+    createdAt: m.created_at,
     subject: m.subject,
     body: m.body,
-    author_member_id: m.author_member_id,
+    authorMemberId: m.author_member_id,
+    authorUserId: m.author_user_id,
+    isBroadcast: m.is_broadcast,
   }));
 
   const all = [...A, ...B].sort(
-    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
   );
   return all;
 }
@@ -320,11 +345,11 @@ export async function listMyThread(myMemberId) {
   if (!myMemberId) return [];
 
   // Reçus (admins -> moi)
-  const { data: inbound, error: e1 } = await supabase
+  const { data: inbound, error: e1 } = await sb
     .from("message_recipients")
     .select(`
       id, read_at, created_at,
-      messages:message_id (id, subject, body, created_at, author_member_id, author_user_id)
+      messages:message_id (id, subject, body, created_at, author_member_id, author_user_id, is_broadcast)
     `)
     .eq("recipient_member_id", myMemberId);
   if (e1) throw e1;
@@ -332,12 +357,12 @@ export async function listMyThread(myMemberId) {
   // Envoyés (moi -> admins), clé = author_user_id
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await sb.auth.getUser();
 
-  const { data: sent, error: e2 } = await supabase
+  const { data: sent, error: e2 } = await sb
     .from("messages")
     .select(`
-      id, subject, body, created_at, author_member_id, author_user_id,
+      id, subject, body, created_at, author_member_id, author_user_id, is_broadcast,
       recipients:message_recipients (recipient_member_id)
     `)
     .eq("author_user_id", user?.id || "");
@@ -345,11 +370,13 @@ export async function listMyThread(myMemberId) {
 
   const inboundMapped = (inbound || []).map((r) => ({
     id: `in_${r.id}`,
-    message_id: r.messages?.id,
+    messageId: r.messages?.id,
     subject: r.messages?.subject,
     body: r.messages?.body,
-    created_at: r.messages?.created_at || r.created_at,
-    author_member_id: r.messages?.author_member_id,
+    createdAt: r.messages?.created_at || r.created_at,
+    authorMemberId: r.messages?.author_member_id,
+    authorUserId: r.messages?.author_user_id,
+    isBroadcast: r.messages?.is_broadcast,
     direction: "in",
   }));
 
@@ -358,18 +385,20 @@ export async function listMyThread(myMemberId) {
     (m.recipients || []).forEach((rcpt) => {
       outboundMapped.push({
         id: `out_${m.id}_${rcpt.recipient_member_id}`,
-        message_id: m.id,
+        messageId: m.id,
         subject: m.subject,
         body: m.body,
-        created_at: m.created_at,
-        author_member_id: m.author_member_id, // peut être null sur anciens messages
+        createdAt: m.created_at,
+        authorMemberId: m.author_member_id, // peut être null sur anciens messages
+        authorUserId: m.author_user_id,
+        isBroadcast: m.is_broadcast,
         direction: "out",
       });
     });
   });
 
   const all = [...inboundMapped, ...outboundMapped].sort(
-    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
   );
   return all;
 }
@@ -399,7 +428,7 @@ export async function sendToAdmins({ subject, body, authorMemberId }) {
 
 /** Diffusion globale (RPC SQL: send_broadcast_message) */
 export async function sendBroadcast({ subject, body, excludeAuthor = true }) {
-  const { data, error } = await supabase.rpc("send_broadcast_message", {
+  const { data, error } = await sb.rpc("send_broadcast_message", {
     p_subject: subject,
     p_body: body,
     p_exclude_author: excludeAuthor,
@@ -410,26 +439,28 @@ export async function sendBroadcast({ subject, body, excludeAuthor = true }) {
 
 /** (option) Tout marquer lu — nécessite la RPC mark_all_read */
 export async function markAllRead() {
-  const { data, error } = await supabase.rpc("mark_all_read");
+  const { data, error } = await sb.rpc("mark_all_read");
   if (error) throw error;
   return data || 0;
 }
 
 /** (option) Marquer une conversation comme lue — nécessite la RPC mark_conversation_read */
 export async function markConversationRead(otherMemberId) {
-  const { data, error } = await supabase.rpc("mark_conversation_read", {
+  const { data, error } = await sb.rpc("mark_conversation_read", {
     p_other_member_id: otherMemberId,
   });
   if (error) throw error;
   return data || 0;
 }
 
-// src/services/messagesService.js
-import { supabase } from "../supabaseClient";
+/* ===== Conversations pour l’affichage de la liste (compatibilité MessagesPage.jsx) ===== */
 
-// Liste pour un ADMIN : on renvoie tous les membres + une entrée "Équipe BodyForce"
+/**
+ * Liste pour un ADMIN : on renvoie tous les membres + une entrée "Équipe BodyForce"
+ * Renvoie: [{ otherId, otherFirstName, otherName, photo, lastMessagePreview, lastMessageDate, unread }]
+ */
 export async function listAdminConversations(adminMemberId) {
-  const { data: members, error } = await supabase
+  const { data: members, error } = await sb
     .from("members")
     .select("id, firstName, name, photo")
     .order("name", { ascending: true });
@@ -465,7 +496,9 @@ export async function listAdminConversations(adminMemberId) {
   return rows;
 }
 
-// Liste pour un MEMBRE : au minimum un fil avec l’équipe (staff)
+/**
+ * Liste pour un MEMBRE : au minimum un fil avec l’équipe (staff)
+ */
 export async function listMemberConversations(memberId) {
   return [
     {
