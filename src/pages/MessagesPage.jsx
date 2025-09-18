@@ -1,8 +1,15 @@
-// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec vraies données
+// 📄 src/pages/MessagesPage.jsx — Interface modernisée type Messenger avec Supabase
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
-import { format, parseISO } from "date-fns";
+import {
+  format,
+  parseISO,
+  isToday,
+  isYesterday,
+  formatDistanceToNow,
+} from "date-fns";
+import { fr } from "date-fns/locale";
 import {
   Send,
   Search,
@@ -17,6 +24,12 @@ import {
   Settings,
   Phone,
   Video,
+  MoreVertical,
+  Plus,
+  Image,
+  Paperclip,
+  Smile,
+  ArrowLeft,
 } from "lucide-react";
 
 // Services existants
@@ -84,8 +97,13 @@ const listMemberConversationsSafe = async (memberId) =>
 
 const ADMIN_SENTINEL = -1;
 
-// Avatar Component
-const Avatar = ({ member, size = "md", showOnline = false }) => {
+// Avatar Component amélioré
+const Avatar = ({
+  member,
+  size = "md",
+  showOnline = false,
+  className = "",
+}) => {
   const sizes = {
     sm: "w-8 h-8 text-xs",
     md: "w-10 h-10 text-sm",
@@ -93,24 +111,19 @@ const Avatar = ({ member, size = "md", showOnline = false }) => {
     xl: "w-16 h-16 text-lg",
   };
 
-  // ✅ supporte objet "member" (id) ou "conversation" (otherId)
   const id = member?.id ?? member?.otherId ?? null;
   const isStaff = id === ADMIN_SENTINEL || !id;
 
   if (member?.photo && !isStaff) {
     return (
-      <div className="relative">
+      <div className={`relative ${className}`}>
         <img
           src={member.photo}
           alt="Avatar"
-          className={`${sizes[size]} rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm`}
+          className={`${sizes[size]} rounded-full object-cover ring-2 ring-white dark:ring-gray-800 shadow-sm`}
         />
         {showOnline && (
-          <div
-            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
-              showOnline ? "bg-green-500" : "bg-gray-400"
-            }`}
-          />
+          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-gray-800" />
         )}
       </div>
     );
@@ -122,41 +135,69 @@ const Avatar = ({ member, size = "md", showOnline = false }) => {
 
   const bgColor = isStaff
     ? "bg-gradient-to-br from-blue-600 to-purple-600"
-    : "bg-gradient-to-br from-blue-500 to-purple-500";
+    : "bg-gradient-to-br from-slate-500 to-slate-600";
 
   return (
-    <div className="relative">
+    <div className={`relative ${className}`}>
       <div
-        className={`${sizes[size]} ${bgColor} rounded-full flex items-center justify-center text-white font-bold shadow-sm border-2 border-white dark:border-gray-700`}
+        className={`${sizes[size]} ${bgColor} rounded-full flex items-center justify-center text-white font-semibold ring-2 ring-white dark:ring-gray-800 shadow-sm`}
       >
         {initials}
       </div>
       {showOnline && (
-        <div
-          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
-            showOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"
-          }`}
-        />
+        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-gray-800 animate-pulse" />
       )}
     </div>
   );
 };
 
-// Formatage intelligent du temps
-const formatTime = (dateString) => {
+// Formatage intelligent du temps style Messenger
+const formatMessageTime = (dateString) => {
   if (!dateString) return "";
   try {
     const date = parseISO(dateString);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-    if (diffInHours < 24) return format(date, "HH:mm");
-    if (diffInHours < 24 * 7) return format(date, "EEE");
-    return format(date, "dd/MM");
+    if (isToday(date)) {
+      return format(date, "HH:mm", { locale: fr });
+    }
+    if (isYesterday(date)) {
+      return "Hier";
+    }
+    const daysAgo = Math.floor((new Date() - date) / (1000 * 60 * 60 * 24));
+    if (daysAgo < 7) {
+      return format(date, "EEEE", { locale: fr });
+    }
+    return format(date, "dd/MM", { locale: fr });
   } catch {
     return "";
   }
 };
 
+const formatChatTime = (dateString) => {
+  if (!dateString) return "";
+  try {
+    const date = parseISO(dateString);
+    if (isToday(date)) {
+      return format(date, "HH:mm", { locale: fr });
+    }
+    if (isYesterday(date)) {
+      return `Hier ${format(date, "HH:mm", { locale: fr })}`;
+    }
+    return format(date, "dd/MM/yyyy HH:mm", { locale: fr });
+  } catch {
+    return "";
+  }
+};
+
+// Badge de statut en ligne
+const OnlineIndicator = ({ isOnline }) => (
+  <div
+    className={`w-2 h-2 rounded-full ${
+      isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"
+    }`}
+  />
+);
+
+// Composant principal
 export default function MessagesPage() {
   const { user, role, userMemberData: me } = useAuth();
   const isAdmin = (role || "").toLowerCase() === "admin";
@@ -187,7 +228,9 @@ export default function MessagesPage() {
   const [onlineMembers, setOnlineMembers] = useState(new Set());
 
   const endRef = useRef();
-  const activeOtherIdRef = useRef(null); // ✅ pour le callback realtime
+  const messagesContainerRef = useRef();
+  const activeOtherIdRef = useRef(null);
+
   useEffect(() => {
     activeOtherIdRef.current = activeOtherId;
   }, [activeOtherId]);
@@ -260,7 +303,6 @@ export default function MessagesPage() {
       let data = [];
       if (isAdmin) {
         if (otherId !== ADMIN_SENTINEL) {
-          // ✅ on veut le fil du membre cliqué
           data = await listThreadWithMember(otherId);
         }
       } else {
@@ -291,10 +333,12 @@ export default function MessagesPage() {
   };
 
   const scrollToEnd = () => {
-    setTimeout(
-      () => endRef.current?.scrollIntoView({ behavior: "smooth" }),
-      100
-    );
+    setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop =
+          messagesContainerRef.current.scrollHeight;
+      }
+    }, 100);
   };
 
   // ========= Envoi =========
@@ -388,7 +432,6 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!me?.id) return;
 
-    // ✅ un seul abonnement, proprement nettoyé
     const sub = subscribeInbox(me.id, () => {
       fetchConversations();
       const current = activeOtherIdRef.current;
@@ -397,10 +440,9 @@ export default function MessagesPage() {
 
     return () => {
       try {
-        sub?.unsubscribe?.(); // <-- nettoyage correct
+        sub?.unsubscribe?.();
       } catch {}
     };
-    // ⚠️ dépend SEULEMENT de me.id pour éviter la recréation infinie
   }, [me?.id]);
 
   // ========= Effets =========
@@ -419,30 +461,40 @@ export default function MessagesPage() {
 
   useEffect(() => scrollToEnd(), [thread]);
 
+  // Détection mobile
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   if (loading) {
     return (
-      <div className="h-96 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Chargement...</p>
+        </div>
       </div>
     );
   }
 
   // ========= Render Mobile =========
-  const isMobile = window.innerWidth < 768;
-
   if (isMobile) {
     if (showMobileChat && activeOtherId !== null) {
       const activeConv = convs.find((c) => c.otherId === activeOtherId);
 
       return (
-        <div className="h-full bg-gray-50 dark:bg-gray-900 flex flex-col">
+        <div className="h-full bg-white dark:bg-gray-900 flex flex-col">
           {/* Header Mobile */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 flex items-center gap-3 shadow-lg">
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 shadow-sm">
             <button
               onClick={() => setShowMobileChat(false)}
-              className="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
 
             <Avatar
@@ -455,143 +507,181 @@ export default function MessagesPage() {
               showOnline={isMemberOnline(activeConv?.otherId)}
             />
 
-            <div className="flex-1">
-              <h3 className="text-white font-bold">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                 {activeConv?.otherId === ADMIN_SENTINEL
                   ? "Équipe BodyForce"
                   : `${activeConv?.otherFirstName || ""} ${
                       activeConv?.otherName || ""
                     }`}
               </h3>
-              <p className="text-blue-100 text-sm">
-                {isMemberOnline(activeConv?.otherId)
-                  ? "En ligne"
-                  : "Hors ligne"}
-              </p>
+              <div className="flex items-center gap-1">
+                <OnlineIndicator
+                  isOnline={isMemberOnline(activeConv?.otherId)}
+                />
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {isMemberOnline(activeConv?.otherId)
+                    ? "En ligne"
+                    : "Hors ligne"}
+                </span>
+              </div>
             </div>
 
-            <div className="flex gap-2">
-              <button className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full">
-                <Phone className="w-5 h-5" />
+            <div className="flex gap-1">
+              <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                <Phone className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
-              <button className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full">
-                <Video className="w-5 h-5" />
+              <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                <Video className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 py-2"
+          >
             {loadingThread ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
               </div>
             ) : thread.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>Aucun message dans cette conversation</p>
+              <div className="text-center py-12">
+                <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                <p className="text-gray-500">Aucun message</p>
               </div>
             ) : (
-              thread.map((msg, idx) => {
-                const isOwn = msg.authorUserId === user?.id;
-                return (
-                  <div
-                    key={idx}
-                    className={`flex ${
-                      isOwn ? "justify-end" : "justify-start"
-                    }`}
-                  >
+              <div className="space-y-3">
+                {thread.map((msg, idx) => {
+                  const isOwn = msg.authorUserId === user?.id;
+                  const showAvatar =
+                    !isOwn &&
+                    (idx === 0 ||
+                      thread[idx - 1]?.authorUserId !== msg.authorUserId);
+
+                  return (
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
-                        isOwn
-                          ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
-                          : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600"
+                      key={idx}
+                      className={`flex ${
+                        isOwn ? "justify-end" : "justify-start"
                       }`}
                     >
-                      {msg.subject &&
-                        msg.subject !== "Message" &&
-                        msg.subject !== "Message au staff" && (
+                      <div
+                        className={`flex ${
+                          isOwn ? "flex-row-reverse" : "flex-row"
+                        } items-end gap-2 max-w-[85%]`}
+                      >
+                        {showAvatar && !isOwn && (
+                          <Avatar
+                            member={{
+                              firstName: msg.authorFirstName,
+                              name: msg.authorName,
+                            }}
+                            size="sm"
+                          />
+                        )}
+                        {!showAvatar && !isOwn && <div className="w-8" />}
+
+                        <div
+                          className={`rounded-2xl px-4 py-2 max-w-full ${
+                            isOwn
+                              ? "bg-blue-500 text-white rounded-br-md"
+                              : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md"
+                          }`}
+                        >
+                          {msg.subject &&
+                            msg.subject !== "Message" &&
+                            msg.subject !== "Message au staff" && (
+                              <div
+                                className={`text-sm font-medium mb-1 ${
+                                  isOwn
+                                    ? "text-blue-100"
+                                    : "text-gray-600 dark:text-gray-400"
+                                }`}
+                              >
+                                {msg.subject}
+                              </div>
+                            )}
                           <div
-                            className={`text-sm font-semibold mb-1 ${
+                            className={`text-sm ${
                               isOwn
-                                ? "text-blue-100"
-                                : "text-gray-600 dark:text-gray-400"
+                                ? "text-white"
+                                : "text-gray-900 dark:text-gray-100"
                             }`}
                           >
-                            {msg.subject}
+                            {msg.body}
                           </div>
-                        )}
-                      <div className="whitespace-pre-wrap">{msg.body}</div>
+                        </div>
+                      </div>
+
                       <div
-                        className={`text-xs mt-1 flex items-center gap-1 ${
-                          isOwn
-                            ? "text-blue-100 justify-end"
-                            : "text-gray-500 dark:text-gray-400"
+                        className={`text-xs text-gray-500 mt-1 ${
+                          isOwn ? "text-right mr-2" : "text-left ml-2"
                         }`}
                       >
-                        <Clock className="w-3 h-3" />
-                        {formatTime(msg.createdAt)}
-                        {isOwn && <CheckCheck className="w-3 h-3" />}
+                        {formatChatTime(msg.createdAt)}
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+                <div ref={endRef} />
+              </div>
             )}
-            <div ref={endRef} />
           </div>
 
           {/* Input Mobile */}
-          <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600">
-            {!selectMode && (
-              <div className="flex items-end gap-3">
-                <div className="flex-1">
-                  <textarea
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    placeholder="Tapez votre message..."
-                    className="w-full max-h-24 p-3 border border-gray-300 dark:border-gray-600 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    rows={1}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        onSend();
-                      }
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={onSend}
-                  disabled={sending || !body.trim()}
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-3 rounded-full hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+          <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-end gap-3">
+              <div className="flex-1 relative">
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Message..."
+                  className="w-full max-h-20 px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                  rows={1}
+                  style={{ minHeight: "48px" }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      onSend();
+                    }
+                  }}
+                />
               </div>
-            )}
+              <button
+                onClick={onSend}
+                disabled={sending || !body.trim()}
+                className="w-12 h-12 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 rounded-full flex items-center justify-center transition-colors"
+              >
+                <Send className="w-5 h-5 text-white" />
+              </button>
+            </div>
           </div>
         </div>
       );
     }
 
-    // Liste des conversations mobile
+    // Liste mobile
     return (
-      <div className="h-full bg-gray-50 dark:bg-gray-900 flex flex-col">
-        {/* Header Mobile */}
-        <div className="p-4 bg-gradient-to-r from-blue-600 to-purple-600">
+      <div className="h-full bg-white dark:bg-gray-900 flex flex-col">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-white">Messages</h2>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              Messages
+            </h1>
             {isAdmin && (
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowBroadcastModal(true)}
-                  className="bg-white bg-opacity-20 text-white p-2 rounded-full hover:bg-opacity-30 transition-colors"
+                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 >
                   <Radio className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setShowMemberSelector(true)}
-                  className="bg-white bg-opacity-20 text-white p-2 rounded-full hover:bg-opacity-30 transition-colors"
+                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 >
                   <UserPlus className="w-5 h-5" />
                 </button>
@@ -604,72 +694,64 @@ export default function MessagesPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Rechercher une conversation..."
+              placeholder="Rechercher..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white bg-opacity-20 text-white placeholder-blue-200 rounded-xl border border-white border-opacity-20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+              className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
             />
           </div>
         </div>
 
         {/* Conversations */}
         <div className="flex-1 overflow-y-auto">
-          {filteredConversations.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>Aucune conversation</p>
-            </div>
-          ) : (
-            filteredConversations.map((conv) => (
-              <div
-                key={conv.otherId}
-                onClick={() => {
-                  setActiveOtherId(conv.otherId);
-                  setShowMobileChat(true);
-                }}
-                className="p-4 border-b border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar
-                    member={
-                      conv.otherId === ADMIN_SENTINEL
-                        ? { id: ADMIN_SENTINEL }
-                        : conv
-                    }
-                    size="md"
-                    showOnline={isMemberOnline(conv.otherId)}
-                  />
+          {filteredConversations.map((conv) => (
+            <div
+              key={conv.otherId}
+              onClick={() => {
+                setActiveOtherId(conv.otherId);
+                setShowMobileChat(true);
+              }}
+              className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Avatar
+                  member={
+                    conv.otherId === ADMIN_SENTINEL
+                      ? { id: ADMIN_SENTINEL }
+                      : conv
+                  }
+                  size="md"
+                  showOnline={isMemberOnline(conv.otherId)}
+                />
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                        {conv.otherId === ADMIN_SENTINEL
-                          ? "Équipe BodyForce"
-                          : `${conv.otherFirstName || ""} ${
-                              conv.otherName || ""
-                            }`}
-                      </h4>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
-                        {formatTime(conv.lastMessageDate)}
-                      </span>
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                      {conv.otherId === ADMIN_SENTINEL
+                        ? "Équipe BodyForce"
+                        : `${conv.otherFirstName || ""} ${
+                            conv.otherName || ""
+                          }`}
+                    </h4>
+                    <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                      {formatMessageTime(conv.lastMessageDate)}
+                    </span>
+                  </div>
 
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {conv.lastMessagePreview || "Aucun message"}
-                      </p>
-
-                      {conv.unread > 0 && (
-                        <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
-                          {conv.unread > 99 ? "99+" : conv.unread}
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                      {conv.lastMessagePreview || "Aucun message"}
+                    </p>
+                    {conv.unread > 0 && (
+                      <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium ml-2 flex-shrink-0">
+                        {conv.unread}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            ))
-          )}
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -677,25 +759,27 @@ export default function MessagesPage() {
 
   // ===== Desktop View =====
   return (
-    <div className="flex h-full bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
-      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-lg">
+    <div className="h-full flex bg-white dark:bg-gray-900">
+      {/* Sidebar - 30% de l'écran */}
+      <div className="w-1/3 max-w-sm min-w-[320px] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-white">Messages</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              Messages
+            </h2>
             {isAdmin && (
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <button
                   onClick={() => setShowBroadcastModal(true)}
-                  className="bg-white bg-opacity-20 text-white p-2 rounded-lg hover:bg-opacity-30 transition-colors"
+                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                   title="Diffusion générale"
                 >
                   <Radio className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setShowMemberSelector(true)}
-                  className="bg-white bg-opacity-20 text-white p-2 rounded-lg hover:bg-opacity-30 transition-colors"
+                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                   title="Nouveau groupe"
                 >
                   <UserPlus className="w-5 h-5" />
@@ -712,7 +796,7 @@ export default function MessagesPage() {
               placeholder="Rechercher..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white bg-opacity-20 text-white placeholder-blue-200 rounded-lg border border-white border-opacity-20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+              className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
             />
           </div>
         </div>
@@ -720,18 +804,18 @@ export default function MessagesPage() {
         {/* Liste des conversations */}
         <div className="flex-1 overflow-y-auto">
           {filteredConversations.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Aucune conversation</p>
+            <div className="text-center py-12">
+              <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p className="text-sm text-gray-500">Aucune conversation</p>
             </div>
           ) : (
             filteredConversations.map((conv) => (
               <div
                 key={conv.otherId}
                 onClick={() => setActiveOtherId(conv.otherId)}
-                className={`p-4 border-b border-gray-200 dark:border-gray-600 cursor-pointer transition-colors ${
+                className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${
                   activeOtherId === conv.otherId
-                    ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-r-4 border-blue-500"
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-r-4 border-blue-500"
                     : "hover:bg-gray-50 dark:hover:bg-gray-700"
                 }`}
               >
@@ -747,7 +831,7 @@ export default function MessagesPage() {
                   />
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1">
+                    <div className="flex justify-between items-baseline mb-1">
                       <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                         {conv.otherId === ADMIN_SENTINEL
                           ? "Équipe BodyForce"
@@ -755,8 +839,8 @@ export default function MessagesPage() {
                               conv.otherName || ""
                             }`}
                       </h4>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
-                        {formatTime(conv.lastMessageDate)}
+                      <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
+                        {formatMessageTime(conv.lastMessageDate)}
                       </span>
                     </div>
 
@@ -766,9 +850,9 @@ export default function MessagesPage() {
                       </p>
 
                       {conv.unread > 0 && (
-                        <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse ml-2 flex-shrink-0">
+                        <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium ml-2 flex-shrink-0">
                           {conv.unread > 99 ? "99+" : conv.unread}
-                        </span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -779,19 +863,19 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Zone principale */}
+      {/* Zone principale - 70% de l'écran */}
       <div className="flex-1 flex flex-col">
         {activeOtherId === null ? (
           // Écran d'accueil
-          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900">
-            <div className="text-center">
-              <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                <MessageCircle className="w-12 h-12 text-white" />
+          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div className="text-center max-w-md">
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <MessageCircle className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">
-                Bienvenue dans la messagerie BodyForce
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                Messagerie BodyForce
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 max-w-md">
+              <p className="text-gray-600 dark:text-gray-400">
                 {isAdmin
                   ? "Sélectionnez une conversation pour commencer à échanger avec un membre"
                   : "Contactez l'équipe BodyForce pour toute question ou information"}
@@ -802,9 +886,9 @@ export default function MessagesPage() {
           // Zone de chat active
           <>
             {/* Header du chat */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600 p-4">
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <Avatar
                     member={
                       activeOtherId === ADMIN_SENTINEL
@@ -818,7 +902,7 @@ export default function MessagesPage() {
                   />
 
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                       {activeOtherId === ADMIN_SENTINEL
                         ? "Équipe BodyForce"
                         : (() => {
@@ -830,18 +914,16 @@ export default function MessagesPage() {
                             }`;
                           })()}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          isMemberOnline(activeOtherId)
-                            ? "bg-green-500 animate-pulse"
-                            : "bg-gray-400"
-                        }`}
-                      ></div>
-                      {isMemberOnline(activeOtherId)
-                        ? "En ligne"
-                        : "Hors ligne"}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <OnlineIndicator
+                        isOnline={isMemberOnline(activeOtherId)}
+                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {isMemberOnline(activeOtherId)
+                          ? "En ligne"
+                          : "Hors ligne"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -853,88 +935,130 @@ export default function MessagesPage() {
                     <Video className="w-5 h-5" />
                   </button>
                   <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                    <Settings className="w-5 h-5" />
+                    <MoreVertical className="w-5 h-5" />
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Zone des messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-4"
+            >
               {loadingThread ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
               ) : thread.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">
-                    Aucun message dans cette conversation
+                <div className="text-center py-16">
+                  <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                  <p className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
+                    Aucun message
                   </p>
-                  <p className="text-sm">
-                    Commencez la conversation en envoyant un message ci-dessous
+                  <p className="text-sm text-gray-500 dark:text-gray-500">
+                    Commencez la conversation en envoyant un message
                   </p>
                 </div>
               ) : (
-                thread.map((msg, idx) => {
-                  const isOwn = msg.authorUserId === user?.id;
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex ${
-                        isOwn ? "justify-end" : "justify-start"
-                      }`}
-                    >
+                <div className="space-y-4">
+                  {thread.map((msg, idx) => {
+                    const isOwn = msg.authorUserId === user?.id;
+                    const showAvatar =
+                      !isOwn &&
+                      (idx === 0 ||
+                        thread[idx - 1]?.authorUserId !== msg.authorUserId);
+                    const showTime =
+                      idx === thread.length - 1 ||
+                      (idx < thread.length - 1 &&
+                        new Date(thread[idx + 1]?.createdAt) -
+                          new Date(msg.createdAt) >
+                          300000); // 5 minutes
+
+                    return (
                       <div
-                        className={`max-w-lg px-4 py-3 rounded-2xl ${
-                          isOwn
-                            ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
-                            : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 shadow-sm"
+                        key={idx}
+                        className={`flex ${
+                          isOwn ? "justify-end" : "justify-start"
                         }`}
                       >
-                        {msg.subject &&
-                          msg.subject !== "Message" &&
-                          msg.subject !== "Message au staff" && (
+                        <div
+                          className={`flex ${
+                            isOwn ? "flex-row-reverse" : "flex-row"
+                          } items-end gap-3 max-w-[70%]`}
+                        >
+                          {showAvatar && !isOwn && (
+                            <Avatar
+                              member={{
+                                firstName: msg.authorFirstName,
+                                name: msg.authorName,
+                              }}
+                              size="sm"
+                            />
+                          )}
+                          {!showAvatar && !isOwn && <div className="w-8" />}
+
+                          <div className="space-y-1">
                             <div
-                              className={`text-sm font-semibold mb-2 pb-2 border-b ${
+                              className={`rounded-2xl px-4 py-3 max-w-full break-words ${
                                 isOwn
-                                  ? "text-blue-100 border-blue-300 border-opacity-30"
-                                  : "text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
+                                  ? "bg-blue-500 text-white rounded-br-md"
+                                  : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md shadow-sm"
                               }`}
                             >
-                              {msg.subject}
+                              {msg.subject &&
+                                msg.subject !== "Message" &&
+                                msg.subject !== "Message au staff" && (
+                                  <div
+                                    className={`text-sm font-medium mb-2 pb-2 border-b ${
+                                      isOwn
+                                        ? "text-blue-100 border-blue-400 border-opacity-30"
+                                        : "text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
+                                    }`}
+                                  >
+                                    {msg.subject}
+                                  </div>
+                                )}
+                              <div
+                                className={`${
+                                  isOwn
+                                    ? "text-white"
+                                    : "text-gray-900 dark:text-gray-100"
+                                } leading-relaxed`}
+                              >
+                                {msg.body}
+                              </div>
                             </div>
-                          )}
-                        <div className="whitespace-pre-wrap leading-relaxed">
-                          {msg.body}
-                        </div>
-                        <div
-                          className={`text-xs mt-2 flex items-center gap-1 ${
-                            isOwn
-                              ? "text-blue-100 justify-end"
-                              : "text-gray-500 dark:text-gray-400"
-                          }`}
-                        >
-                          <Clock className="w-3 h-3" />
-                          {formatTime(msg.createdAt)}
-                          {isOwn && <CheckCheck className="w-3 h-3" />}
+
+                            {showTime && (
+                              <div
+                                className={`text-xs text-gray-500 px-1 ${
+                                  isOwn ? "text-right" : "text-left"
+                                }`}
+                              >
+                                {formatChatTime(msg.createdAt)}
+                                {isOwn && (
+                                  <CheckCheck className="w-3 h-3 inline ml-1" />
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                  <div ref={endRef} />
+                </div>
               )}
-              <div ref={endRef} />
             </div>
 
             {/* Zone d'envoi */}
-            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 p-4">
+            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
               {selectMode && (
-                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                      Mode groupe actif - {selectedIds.size} membre(s)
-                      sélectionné(s)
+                      Mode groupe - {selectedIds.size} membre(s) sélectionné(s)
                     </span>
                     <button
                       onClick={clearSelection}
@@ -970,13 +1094,22 @@ export default function MessagesPage() {
                     placeholder="Sujet du message (requis pour diffusion)"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   />
                 </div>
               )}
 
-              <div className="flex items-end gap-3">
-                <div className="flex-1">
+              <div className="flex items-end gap-4">
+                <div className="flex gap-2">
+                  <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <Paperclip className="w-5 h-5" />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <Image className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 relative">
                   <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
@@ -987,9 +1120,9 @@ export default function MessagesPage() {
                         ? "Message de diffusion..."
                         : "Tapez votre message..."
                     }
-                    className="w-full max-h-32 p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full max-h-32 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     rows={1}
-                    style={{ height: "auto" }}
+                    style={{ minHeight: "48px" }}
                     onInput={(e) => {
                       e.target.style.height = "auto";
                       e.target.style.height = e.target.scrollHeight + "px";
@@ -1002,6 +1135,7 @@ export default function MessagesPage() {
                     }}
                   />
                 </div>
+
                 <button
                   onClick={onSend}
                   disabled={
@@ -1009,12 +1143,12 @@ export default function MessagesPage() {
                     !body.trim() ||
                     ((isBroadcast || showBroadcastModal) && !subject.trim())
                   }
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-3 rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+                  className="w-12 h-12 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 shadow-lg"
                 >
                   {sending ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                   ) : (
-                    <Send className="w-5 h-5" />
+                    <Send className="w-5 h-5 text-white" />
                   )}
                 </button>
               </div>
@@ -1046,7 +1180,7 @@ export default function MessagesPage() {
                 placeholder="Sujet (requis)"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
 
               <textarea
@@ -1054,7 +1188,7 @@ export default function MessagesPage() {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={4}
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
 
               <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
@@ -1080,7 +1214,7 @@ export default function MessagesPage() {
                     onSend();
                   }}
                   disabled={!subject.trim() || !body.trim() || sending}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {sending ? "Envoi..." : "Diffuser"}
                 </button>
@@ -1134,7 +1268,10 @@ export default function MessagesPage() {
                         <div className="font-medium text-gray-900 dark:text-gray-100">
                           {conv.otherFirstName} {conv.otherName}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                          <OnlineIndicator
+                            isOnline={isMemberOnline(conv.otherId)}
+                          />
                           {isMemberOnline(conv.otherId)
                             ? "En ligne"
                             : "Hors ligne"}
@@ -1161,7 +1298,7 @@ export default function MessagesPage() {
                     setActiveOtherId(null);
                   }}
                   disabled={selectedIds.size === 0}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   Créer le groupe ({selectedIds.size})
                 </button>
