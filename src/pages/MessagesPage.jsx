@@ -1,4 +1,4 @@
-// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec vraies données 
+// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec vraies données
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -23,19 +23,14 @@ import {
 import * as MsgSvc from "../services/messagesService";
 
 // --- Shims/fallbacks si certaines méthodes ne sont pas exportées par messagesService ---
-
-// Conversations admin : si MsgSvc.listAdminConversations n'existe pas, on liste tous les membres
-// (design intact ; on mettra les aperçus/compteurs à 0 pour ne pas bloquer l'UI).
 const listAdminConversations_FALLBACK = async (adminMemberId) => {
   try {
     const { data: members, error } = await supabase
       .from("members")
       .select("id, firstName, name, photo")
       .order("name", { ascending: true });
-
     if (error) throw error;
 
-    // On exclut l'éventuel profil du staff s'il est mappé comme member
     const rows = (members || [])
       .filter((m) => m.id !== adminMemberId)
       .map((m) => ({
@@ -48,9 +43,8 @@ const listAdminConversations_FALLBACK = async (adminMemberId) => {
         unread: 0,
       }));
 
-    // On ajoute le fil "Équipe BodyForce" tout en haut
     rows.unshift({
-      otherId: -1, // ADMIN_SENTINEL
+      otherId: -1,
       otherFirstName: "Équipe",
       otherName: "BodyForce",
       photo: null,
@@ -66,36 +60,27 @@ const listAdminConversations_FALLBACK = async (adminMemberId) => {
   }
 };
 
-// Conversations membre : si MsgSvc.listMemberConversations n'existe pas,
-// on retourne au minimum la conversation avec l'Équipe BodyForce.
-const listMemberConversations_FALLBACK = async (_memberId) => {
-  return [
-    {
-      otherId: -1, // ADMIN_SENTINEL
-      otherFirstName: "Équipe",
-      otherName: "BodyForce",
-      photo: null,
-      lastMessagePreview: "",
-      lastMessageDate: null,
-      unread: 0,
-    },
-  ];
-};
+const listMemberConversations_FALLBACK = async () => [
+  {
+    otherId: -1,
+    otherFirstName: "Équipe",
+    otherName: "BodyForce",
+    photo: null,
+    lastMessagePreview: "",
+    lastMessageDate: null,
+    unread: 0,
+  },
+];
 
-// Helpers pour choisir la version "service" si dispo, sinon fallback
-const listAdminConversationsSafe = async (adminMemberId) => {
-  if (typeof MsgSvc.listAdminConversations === "function") {
-    return await MsgSvc.listAdminConversations(adminMemberId);
-  }
-  return await listAdminConversations_FALLBACK(adminMemberId);
-};
+const listAdminConversationsSafe = async (adminMemberId) =>
+  typeof MsgSvc.listAdminConversations === "function"
+    ? MsgSvc.listAdminConversations(adminMemberId)
+    : listAdminConversations_FALLBACK(adminMemberId);
 
-const listMemberConversationsSafe = async (memberId) => {
-  if (typeof MsgSvc.listMemberConversations === "function") {
-    return await MsgSvc.listMemberConversations(memberId);
-  }
-  return await listMemberConversations_FALLBACK(memberId);
-};
+const listMemberConversationsSafe = async (memberId) =>
+  typeof MsgSvc.listMemberConversations === "function"
+    ? MsgSvc.listMemberConversations(memberId)
+    : listMemberConversations_FALLBACK(memberId);
 
 const ADMIN_SENTINEL = -1;
 
@@ -105,7 +90,7 @@ const Avatar = ({ member, size = "md", showOnline = false }) => {
     sm: "w-8 h-8 text-xs",
     md: "w-10 h-10 text-sm",
     lg: "w-12 h-12 text-base",
-    xl: "w-16 h-16 text-lg"
+    xl: "w-16 h-16 text-lg",
   };
 
   // ✅ supporte objet "member" (id) ou "conversation" (otherId)
@@ -131,7 +116,6 @@ const Avatar = ({ member, size = "md", showOnline = false }) => {
     );
   }
 
-  // Avatar par défaut avec initiales
   const initials = isStaff
     ? "BF"
     : `${member?.firstName?.[0] || "?"}${member?.name?.[0] || "?"}`;
@@ -165,14 +149,9 @@ const formatTime = (dateString) => {
     const date = parseISO(dateString);
     const now = new Date();
     const diffInHours = (now - date) / (1000 * 60 * 60);
-
-    if (diffInHours < 24) {
-      return format(date, "HH:mm");
-    } else if (diffInHours < 24 * 7) {
-      return format(date, "EEE");
-    } else {
-      return format(date, "dd/MM");
-    }
+    if (diffInHours < 24) return format(date, "HH:mm");
+    if (diffInHours < 24 * 7) return format(date, "EEE");
+    return format(date, "dd/MM");
   } catch {
     return "";
   }
@@ -208,6 +187,10 @@ export default function MessagesPage() {
   const [onlineMembers, setOnlineMembers] = useState(new Set());
 
   const endRef = useRef();
+  const activeOtherIdRef = useRef(null); // ✅ pour le callback realtime
+  useEffect(() => {
+    activeOtherIdRef.current = activeOtherId;
+  }, [activeOtherId]);
 
   // Vérifier les présences (membres "en ligne" = présence dans les 5 dernières minutes)
   const checkMemberPresence = async () => {
@@ -220,17 +203,16 @@ export default function MessagesPage() {
         .gte("timestamp", fiveMinutesAgo.toISOString());
 
       if (recentPresences) {
-        // Mapper badgeId vers member.id
         const { data: members } = await supabase
           .from("members")
           .select("id, badgeId")
-          .in("badgeId", recentPresences.map((p) => p.badgeId));
+          .in(
+            "badgeId",
+            recentPresences.map((p) => p.badgeId)
+          );
 
         const onlineSet = new Set();
-        members?.forEach((member) => {
-          onlineSet.add(member.id);
-        });
-
+        members?.forEach((member) => onlineSet.add(member.id));
         setOnlineMembers(onlineSet);
       }
     } catch (error) {
@@ -239,7 +221,7 @@ export default function MessagesPage() {
   };
 
   const isMemberOnline = (memberId) => {
-    if (memberId === ADMIN_SENTINEL) return true; // Staff toujours "en ligne"
+    if (memberId === ADMIN_SENTINEL) return true;
     return onlineMembers.has(memberId);
   };
 
@@ -258,11 +240,9 @@ export default function MessagesPage() {
     setLoading(true);
     try {
       if (isAdmin) {
-        // ➜ utilise la version service si dispo, sinon fallback local
         const adminData = await listAdminConversationsSafe(me.id);
         setConvs(adminData || []);
       } else {
-        // ➜ utilise la version service si dispo, sinon fallback local
         const memberData = await listMemberConversationsSafe(me.id);
         setConvs(memberData || []);
       }
@@ -280,7 +260,7 @@ export default function MessagesPage() {
       let data = [];
       if (isAdmin) {
         if (otherId !== ADMIN_SENTINEL) {
-          // ✅ CORRECTION: on veut le fil du membre cliqué, pas celui de l'admin
+          // ✅ on veut le fil du membre cliqué
           data = await listThreadWithMember(otherId);
         }
       } else {
@@ -290,7 +270,11 @@ export default function MessagesPage() {
 
       // Marquer comme lu
       try {
-        if (typeof markConversationRead === "function" && isAdmin && otherId !== ADMIN_SENTINEL) {
+        if (
+          typeof markConversationRead === "function" &&
+          isAdmin &&
+          otherId !== ADMIN_SENTINEL
+        ) {
           await markConversationRead(otherId);
           setConvs((prev) =>
             prev.map((c) => (c.otherId === otherId ? { ...c, unread: 0 } : c))
@@ -307,17 +291,17 @@ export default function MessagesPage() {
   };
 
   const scrollToEnd = () => {
-    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    setTimeout(
+      () => endRef.current?.scrollIntoView({ behavior: "smooth" }),
+      100
+    );
   };
 
   // ========= Envoi =========
   const onSend = async () => {
     if (sending) return;
-
-    // ✅ Validation
-    if (!body.trim()) return; // Message requis
-    if ((isBroadcast || showBroadcastModal) && !subject.trim()) return; // Sujet requis pour diffusion
-
+    if (!body.trim()) return;
+    if ((isBroadcast || showBroadcastModal) && !subject.trim()) return;
     if (!me?.id) return;
 
     setSending(true);
@@ -329,7 +313,6 @@ export default function MessagesPage() {
         } else if (selectMode) {
           const recips = Array.from(selectedIds);
           if (recips.length === 0) return;
-
           const { error } = await supabase.rpc("send_message", {
             p_author_member_id: me.id,
             p_subject: subject.trim() || "Message",
@@ -378,11 +361,8 @@ export default function MessagesPage() {
   // ========= Sélection multiple =========
   const toggleMemberSelection = (memberId) => {
     const newSelected = new Set(selectedIds);
-    if (newSelected.has(memberId)) {
-      newSelected.delete(memberId);
-    } else {
-      newSelected.add(memberId);
-    }
+    if (newSelected.has(memberId)) newSelected.delete(memberId);
+    else newSelected.add(memberId);
     setSelectedIds(newSelected);
   };
 
@@ -395,10 +375,11 @@ export default function MessagesPage() {
   // ========= Conversations filtrées =========
   const filteredConversations = useMemo(() => {
     if (!searchTerm.trim()) return convs;
-
+    const term = searchTerm.toLowerCase();
     return convs.filter((conv) => {
-      const name = `${conv.otherFirstName || ""} ${conv.otherName || ""}`.toLowerCase();
-      const term = searchTerm.toLowerCase();
+      const name = `${conv.otherFirstName || ""} ${
+        conv.otherName || ""
+      }`.toLowerCase();
       return name.includes(term);
     });
   }, [convs, searchTerm]);
@@ -407,32 +388,33 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!me?.id) return;
 
-    const unsubscribe = subscribeInbox(me.id, () => {
+    // ✅ un seul abonnement, proprement nettoyé
+    const sub = subscribeInbox(me.id, () => {
       fetchConversations();
-      if (activeOtherId != null) {
-        fetchThread(activeOtherId);
-      }
+      const current = activeOtherIdRef.current;
+      if (current != null) fetchThread(current);
     });
 
-    return unsubscribe;
-  }, [me?.id, activeOtherId]);
+    return () => {
+      try {
+        sub?.unsubscribe?.(); // <-- nettoyage correct
+      } catch {}
+    };
+    // ⚠️ dépend SEULEMENT de me.id pour éviter la recréation infinie
+  }, [me?.id]);
 
   // ========= Effets =========
   useEffect(() => {
     if (me?.id) {
       fetchConversations();
       checkMemberPresence();
-
-      // Vérifier les présences toutes les 2 minutes
       const presenceInterval = setInterval(checkMemberPresence, 2 * 60 * 1000);
       return () => clearInterval(presenceInterval);
     }
   }, [me?.id, isAdmin]);
 
   useEffect(() => {
-    if (activeOtherId != null) {
-      fetchThread(activeOtherId);
-    }
+    if (activeOtherId != null) fetchThread(activeOtherId);
   }, [activeOtherId]);
 
   useEffect(() => scrollToEnd(), [thread]);
@@ -464,7 +446,11 @@ export default function MessagesPage() {
             </button>
 
             <Avatar
-              member={activeConv?.otherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : activeConv}
+              member={
+                activeConv?.otherId === ADMIN_SENTINEL
+                  ? { id: ADMIN_SENTINEL }
+                  : activeConv
+              }
               size="md"
               showOnline={isMemberOnline(activeConv?.otherId)}
             />
@@ -473,10 +459,14 @@ export default function MessagesPage() {
               <h3 className="text-white font-bold">
                 {activeConv?.otherId === ADMIN_SENTINEL
                   ? "Équipe BodyForce"
-                  : `${activeConv?.otherFirstName || ""} ${activeConv?.otherName || ""}`}
+                  : `${activeConv?.otherFirstName || ""} ${
+                      activeConv?.otherName || ""
+                    }`}
               </h3>
               <p className="text-blue-100 text-sm">
-                {isMemberOnline(activeConv?.otherId) ? "En ligne" : "Hors ligne"}
+                {isMemberOnline(activeConv?.otherId)
+                  ? "En ligne"
+                  : "Hors ligne"}
               </p>
             </div>
 
@@ -504,9 +494,13 @@ export default function MessagesPage() {
             ) : (
               thread.map((msg, idx) => {
                 const isOwn = msg.authorUserId === user?.id;
-
                 return (
-                  <div key={idx} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                  <div
+                    key={idx}
+                    className={`flex ${
+                      isOwn ? "justify-end" : "justify-start"
+                    }`}
+                  >
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
                         isOwn
@@ -519,7 +513,9 @@ export default function MessagesPage() {
                         msg.subject !== "Message au staff" && (
                           <div
                             className={`text-sm font-semibold mb-1 ${
-                              isOwn ? "text-blue-100" : "text-gray-600 dark:text-gray-400"
+                              isOwn
+                                ? "text-blue-100"
+                                : "text-gray-600 dark:text-gray-400"
                             }`}
                           >
                             {msg.subject}
@@ -528,7 +524,9 @@ export default function MessagesPage() {
                       <div className="whitespace-pre-wrap">{msg.body}</div>
                       <div
                         className={`text-xs mt-1 flex items-center gap-1 ${
-                          isOwn ? "text-blue-100 justify-end" : "text-gray-500 dark:text-gray-400"
+                          isOwn
+                            ? "text-blue-100 justify-end"
+                            : "text-gray-500 dark:text-gray-400"
                         }`}
                       >
                         <Clock className="w-3 h-3" />
@@ -633,7 +631,11 @@ export default function MessagesPage() {
               >
                 <div className="flex items-center gap-3">
                   <Avatar
-                    member={conv.otherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : conv}
+                    member={
+                      conv.otherId === ADMIN_SENTINEL
+                        ? { id: ADMIN_SENTINEL }
+                        : conv
+                    }
                     size="md"
                     showOnline={isMemberOnline(conv.otherId)}
                   />
@@ -643,7 +645,9 @@ export default function MessagesPage() {
                       <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                         {conv.otherId === ADMIN_SENTINEL
                           ? "Équipe BodyForce"
-                          : `${conv.otherFirstName || ""} ${conv.otherName || ""}`}
+                          : `${conv.otherFirstName || ""} ${
+                              conv.otherName || ""
+                            }`}
                       </h4>
                       <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
                         {formatTime(conv.lastMessageDate)}
@@ -733,7 +737,11 @@ export default function MessagesPage() {
               >
                 <div className="flex items-center gap-3">
                   <Avatar
-                    member={conv.otherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : conv}
+                    member={
+                      conv.otherId === ADMIN_SENTINEL
+                        ? { id: ADMIN_SENTINEL }
+                        : conv
+                    }
                     size="md"
                     showOnline={isMemberOnline(conv.otherId)}
                   />
@@ -743,7 +751,9 @@ export default function MessagesPage() {
                       <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                         {conv.otherId === ADMIN_SENTINEL
                           ? "Équipe BodyForce"
-                          : `${conv.otherFirstName || ""} ${conv.otherName || ""}`}
+                          : `${conv.otherFirstName || ""} ${
+                              conv.otherName || ""
+                            }`}
                       </h4>
                       <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
                         {formatTime(conv.lastMessageDate)}
@@ -799,7 +809,9 @@ export default function MessagesPage() {
                     member={
                       activeOtherId === ADMIN_SENTINEL
                         ? { id: ADMIN_SENTINEL }
-                        : filteredConversations.find((c) => c.otherId === activeOtherId)
+                        : filteredConversations.find(
+                            (c) => c.otherId === activeOtherId
+                          )
                     }
                     size="lg"
                     showOnline={isMemberOnline(activeOtherId)}
@@ -810,17 +822,25 @@ export default function MessagesPage() {
                       {activeOtherId === ADMIN_SENTINEL
                         ? "Équipe BodyForce"
                         : (() => {
-                            const conv = filteredConversations.find((c) => c.otherId === activeOtherId);
-                            return `${conv?.otherFirstName || ""} ${conv?.otherName || ""}`;
+                            const conv = filteredConversations.find(
+                              (c) => c.otherId === activeOtherId
+                            );
+                            return `${conv?.otherFirstName || ""} ${
+                              conv?.otherName || ""
+                            }`;
                           })()}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                       <div
                         className={`w-2 h-2 rounded-full ${
-                          isMemberOnline(activeOtherId) ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                          isMemberOnline(activeOtherId)
+                            ? "bg-green-500 animate-pulse"
+                            : "bg-gray-400"
                         }`}
                       ></div>
-                      {isMemberOnline(activeOtherId) ? "En ligne" : "Hors ligne"}
+                      {isMemberOnline(activeOtherId)
+                        ? "En ligne"
+                        : "Hors ligne"}
                     </p>
                   </div>
                 </div>
@@ -848,15 +868,23 @@ export default function MessagesPage() {
               ) : thread.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">Aucun message dans cette conversation</p>
-                  <p className="text-sm">Commencez la conversation en envoyant un message ci-dessous</p>
+                  <p className="text-lg font-medium mb-2">
+                    Aucun message dans cette conversation
+                  </p>
+                  <p className="text-sm">
+                    Commencez la conversation en envoyant un message ci-dessous
+                  </p>
                 </div>
               ) : (
                 thread.map((msg, idx) => {
                   const isOwn = msg.authorUserId === user?.id;
-
                   return (
-                    <div key={idx} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                    <div
+                      key={idx}
+                      className={`flex ${
+                        isOwn ? "justify-end" : "justify-start"
+                      }`}
+                    >
                       <div
                         className={`max-w-lg px-4 py-3 rounded-2xl ${
                           isOwn
@@ -877,10 +905,14 @@ export default function MessagesPage() {
                               {msg.subject}
                             </div>
                           )}
-                        <div className="whitespace-pre-wrap leading-relaxed">{msg.body}</div>
+                        <div className="whitespace-pre-wrap leading-relaxed">
+                          {msg.body}
+                        </div>
                         <div
                           className={`text-xs mt-2 flex items-center gap-1 ${
-                            isOwn ? "text-blue-100 justify-end" : "text-gray-500 dark:text-gray-400"
+                            isOwn
+                              ? "text-blue-100 justify-end"
+                              : "text-gray-500 dark:text-gray-400"
                           }`}
                         >
                           <Clock className="w-3 h-3" />
@@ -901,7 +933,8 @@ export default function MessagesPage() {
                 <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                      Mode groupe actif - {selectedIds.size} membre(s) sélectionné(s)
+                      Mode groupe actif - {selectedIds.size} membre(s)
+                      sélectionné(s)
                     </span>
                     <button
                       onClick={clearSelection}
@@ -912,13 +945,17 @@ export default function MessagesPage() {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {Array.from(selectedIds).map((memberId) => {
-                      const member = filteredConversations.find((c) => c.otherId === memberId);
+                      const member = filteredConversations.find(
+                        (c) => c.otherId === memberId
+                      );
                       return (
                         <span
                           key={memberId}
                           className="bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs"
                         >
-                          {member ? `${member.otherFirstName} ${member.otherName}` : `Membre ${memberId}`}
+                          {member
+                            ? `${member.otherFirstName} ${member.otherName}`
+                            : `Membre ${memberId}`}
                         </span>
                       );
                     })}
@@ -967,7 +1004,11 @@ export default function MessagesPage() {
                 </div>
                 <button
                   onClick={onSend}
-                  disabled={sending || !body.trim() || ((isBroadcast || showBroadcastModal) && !subject.trim())}
+                  disabled={
+                    sending ||
+                    !body.trim() ||
+                    ((isBroadcast || showBroadcastModal) && !subject.trim())
+                  }
                   className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-3 rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95 shadow-lg"
                 >
                   {sending ? (
@@ -983,8 +1024,6 @@ export default function MessagesPage() {
       </div>
 
       {/* Modales */}
-
-      {/* Modal Diffusion */}
       {showBroadcastModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
@@ -1051,7 +1090,6 @@ export default function MessagesPage() {
         </div>
       )}
 
-      {/* Modal Sélection membres */}
       {showMemberSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl">
@@ -1087,13 +1125,19 @@ export default function MessagesPage() {
                         onChange={() => toggleMemberSelection(conv.otherId)}
                         className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
                       />
-                      <Avatar member={conv} size="sm" showOnline={isMemberOnline(conv.otherId)} />
+                      <Avatar
+                        member={conv}
+                        size="sm"
+                        showOnline={isMemberOnline(conv.otherId)}
+                      />
                       <div className="flex-1">
                         <div className="font-medium text-gray-900 dark:text-gray-100">
                           {conv.otherFirstName} {conv.otherName}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {isMemberOnline(conv.otherId) ? "En ligne" : "Hors ligne"}
+                          {isMemberOnline(conv.otherId)
+                            ? "En ligne"
+                            : "Hors ligne"}
                         </div>
                       </div>
                     </label>
