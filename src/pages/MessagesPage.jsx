@@ -1,4 +1,4 @@
-// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec vraies données Supabase
+// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec scroll corrigé
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -132,7 +132,7 @@ const OnlineIndicator = ({ isOnline }) => (
   />
 );
 
-// Fonctions améliorées pour récupérer les vraies conversations avec derniers messages
+// Fonctions optimisées pour éviter les boucles infinies
 const getEnhancedAdminConversations = async (adminMemberId) => {
   try {
     // 1. Récupérer tous les membres sauf l'admin
@@ -144,43 +144,78 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
 
     if (membersError) throw membersError;
 
-    const conversations = [];
+    if (!members || members.length === 0) {
+      return [
+        {
+          otherId: ADMIN_SENTINEL,
+          otherFirstName: "Équipe",
+          otherName: "BodyForce",
+          photo: null,
+          lastMessagePreview: "Messages de l'équipe",
+          lastMessageDate: null,
+          unread: 0,
+        },
+      ];
+    }
 
-    // 2. Pour chaque membre, récupérer le dernier message et compter les non-lus
-    for (const member of members || []) {
-      // Dernier message reçu par ce membre
-      const { data: lastReceived } = await supabase
-        .from("message_recipients")
-        .select(
-          `
-          created_at,
-          messages:message_id (subject, body, created_at, author_member_id)
+    // 2. Récupérer TOUS les derniers messages reçus en une seule requête
+    const memberIds = members.map((m) => m.id);
+    const { data: lastReceivedMessages } = await supabase
+      .from("message_recipients")
+      .select(
         `
-        )
-        .eq("recipient_member_id", member.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+        recipient_member_id,
+        created_at,
+        read_at,
+        messages:message_id (subject, body, created_at, author_member_id)
+      `
+      )
+      .in("recipient_member_id", memberIds)
+      .order("created_at", { ascending: false });
+
+    // 3. Récupérer TOUS les derniers messages envoyés en une seule requête
+    const { data: lastSentMessages } = await supabase
+      .from("messages")
+      .select("subject, body, created_at, author_member_id")
+      .in("author_member_id", memberIds)
+      .order("created_at", { ascending: false });
+
+    // 4. Compter TOUS les non-lus en une seule requête
+    const { data: unreadCounts } = await supabase
+      .from("message_recipients")
+      .select("recipient_member_id")
+      .in("recipient_member_id", memberIds)
+      .is("read_at", null);
+
+    // 5. Traiter les données côté client
+    const conversations = members.map((member) => {
+      // Dernier message reçu pour ce membre
+      const receivedForMember =
+        lastReceivedMessages?.filter(
+          (msg) => msg.recipient_member_id === member.id
+        ) || [];
+      const lastReceived = receivedForMember[0]; // Le plus récent
 
       // Dernier message envoyé par ce membre
-      const { data: lastSent } = await supabase
-        .from("messages")
-        .select("subject, body, created_at, author_member_id")
-        .eq("author_member_id", member.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      const sentByMember =
+        lastSentMessages?.filter((msg) => msg.author_member_id === member.id) ||
+        [];
+      const lastSent = sentByMember[0]; // Le plus récent
 
-      // Prendre le plus récent des deux
+      // Trouver le message le plus récent
       let lastMessage = null;
       let lastMessageDate = null;
 
       if (lastReceived?.messages && lastSent) {
         const receivedDate = new Date(lastReceived.messages.created_at);
         const sentDate = new Date(lastSent.created_at);
-        lastMessage =
-          receivedDate > sentDate ? lastReceived.messages : lastSent;
-        lastMessageDate = receivedDate > sentDate ? receivedDate : sentDate;
+        if (receivedDate > sentDate) {
+          lastMessage = lastReceived.messages;
+          lastMessageDate = receivedDate;
+        } else {
+          lastMessage = lastSent;
+          lastMessageDate = sentDate;
+        }
       } else if (lastReceived?.messages) {
         lastMessage = lastReceived.messages;
         lastMessageDate = new Date(lastReceived.messages.created_at);
@@ -189,14 +224,12 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
         lastMessageDate = new Date(lastSent.created_at);
       }
 
-      // Compter les messages non lus pour ce membre
-      const { count: unreadCount } = await supabase
-        .from("message_recipients")
-        .select("*", { count: "exact", head: true })
-        .eq("recipient_member_id", member.id)
-        .is("read_at", null);
+      // Compter les non-lus pour ce membre
+      const unreadForMember =
+        unreadCounts?.filter((u) => u.recipient_member_id === member.id)
+          .length || 0;
 
-      conversations.push({
+      return {
         otherId: member.id,
         otherFirstName: member.firstName || "",
         otherName: member.name || "",
@@ -206,9 +239,9 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
             (lastMessage.body?.length > 100 ? "..." : "")
           : "",
         lastMessageDate: lastMessageDate?.toISOString() || null,
-        unread: unreadCount || 0,
-      });
-    }
+        unread: unreadForMember,
+      };
+    });
 
     // Trier par dernière activité
     conversations.sort((a, b) => {
@@ -232,13 +265,24 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
     return conversations;
   } catch (error) {
     console.error("Erreur getEnhancedAdminConversations:", error);
-    return [];
+    // Retourner au moins l'équipe en cas d'erreur
+    return [
+      {
+        otherId: ADMIN_SENTINEL,
+        otherFirstName: "Équipe",
+        otherName: "BodyForce",
+        photo: null,
+        lastMessagePreview: "Messages de l'équipe",
+        lastMessageDate: null,
+        unread: 0,
+      },
+    ];
   }
 };
 
 const getEnhancedMemberConversations = async (memberId) => {
   try {
-    // Pour un membre, récupérer le fil avec l'équipe
+    // Pour un membre, une seule requête suffit
     const { data: lastMessage } = await supabase
       .from("message_recipients")
       .select(
@@ -250,7 +294,7 @@ const getEnhancedMemberConversations = async (memberId) => {
       .eq("recipient_member_id", memberId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle(); // Utiliser maybeSingle au lieu de single
 
     // Compter les non-lus
     const { count: unreadCount } = await supabase
@@ -581,9 +625,9 @@ export default function MessagesPage() {
       const activeConv = convs.find((c) => c.otherId === activeOtherId);
 
       return (
-        <div className="h-full bg-white dark:bg-gray-900 flex flex-col">
-          {/* Header Mobile */}
-          <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 shadow-sm">
+        <div className="h-screen bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+          {/* Header Mobile - FIXE */}
+          <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 shadow-sm">
             <button
               onClick={() => setShowMobileChat(false)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
@@ -631,7 +675,7 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          {/* Messages */}
+          {/* Messages - SCROLLABLE */}
           <div
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 py-2"
@@ -725,8 +769,8 @@ export default function MessagesPage() {
             )}
           </div>
 
-          {/* Input Mobile */}
-          <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+          {/* Input Mobile - FIXE */}
+          <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-end gap-3">
               <div className="flex-1 relative">
                 <textarea
@@ -759,9 +803,9 @@ export default function MessagesPage() {
 
     // Liste mobile
     return (
-      <div className="h-full bg-white dark:bg-gray-900 flex flex-col">
-        {/* Header */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="h-screen bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
+        {/* Header - FIXE */}
+        <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               Messages
@@ -797,7 +841,7 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        {/* Conversations */}
+        {/* Conversations - SCROLLABLE */}
         <div className="flex-1 overflow-y-auto">
           {filteredConversations.map((conv) => (
             <div
@@ -854,11 +898,11 @@ export default function MessagesPage() {
 
   // ===== Desktop View =====
   return (
-    <div className="h-full flex bg-white dark:bg-gray-900">
-      {/* Sidebar - Largeur fixe optimale */}
-      <div className="w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <div className="h-screen flex bg-white dark:bg-gray-900 overflow-hidden">
+      {/* Sidebar - Largeur fixe avec scroll interne */}
+      <div className="w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+        {/* Header Sidebar - FIXE */}
+        <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               Messages
@@ -896,7 +940,7 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        {/* Liste des conversations */}
+        {/* Liste des conversations - SCROLLABLE */}
         <div className="flex-1 overflow-y-auto">
           {filteredConversations.length === 0 ? (
             <div className="text-center py-12">
@@ -958,8 +1002,8 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* Zone principale - Reste de l'écran */}
-      <div className="flex-1 flex flex-col">
+      {/* Zone principale - Chat avec structure fixe */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {activeOtherId === null ? (
           // Écran d'accueil
           <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -980,8 +1024,8 @@ export default function MessagesPage() {
         ) : (
           // Zone de chat active
           <>
-            {/* Header du chat */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+            {/* Header du chat - FIXE */}
+            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <Avatar
@@ -1036,7 +1080,7 @@ export default function MessagesPage() {
               </div>
             </div>
 
-            {/* Zone des messages */}
+            {/* Zone des messages - SCROLLABLE */}
             <div
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-4"
@@ -1147,8 +1191,8 @@ export default function MessagesPage() {
               )}
             </div>
 
-            {/* Zone d'envoi */}
-            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+            {/* Zone d'envoi - FIXE */}
+            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
               {selectMode && (
                 <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between mb-2">
@@ -1252,7 +1296,7 @@ export default function MessagesPage() {
         )}
       </div>
 
-      {/* Modales - Diffusion */}
+      {/* Modales (identiques à avant) */}
       {showBroadcastModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
@@ -1319,7 +1363,6 @@ export default function MessagesPage() {
         </div>
       )}
 
-      {/* Modale - Sélecteur de membres */}
       {showMemberSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl">
