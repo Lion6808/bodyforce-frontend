@@ -413,7 +413,6 @@ export default function MessagesPage() {
     if (memberId === ADMIN_SENTINEL) return true; // Staff toujours "en ligne"
     return onlineMembers.has(memberId);
   };
-
   async function fetchAllMembers() {
     if (!isAdmin) return;
     setMembersLoading(true);
@@ -763,18 +762,14 @@ export default function MessagesPage() {
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              {activeConv && <Avatar user={activeConv} size="w-10 h-10" showOnline={isMemberOnline(activeConv.otherId)} />}
+              {activeConv && <Avatar user={activeConv} size="w-10 h-10" />}
               <div className="flex-1">
                 <h2 className="font-semibold text-gray-900 dark:text-gray-100">
                   {activeConv?.otherId === ADMIN_SENTINEL ? "Équipe BodyForce" : activeConv?.name}
                 </h2>
-                <p className="text-sm flex items-center">
-                  <div className={`w-2 h-2 rounded-full mr-2 ${
-                    isMemberOnline(activeConv?.otherId) 
-                      ? "bg-green-500 animate-pulse" 
-                      : "bg-gray-400"
-                  }`}></div>
-                  {isMemberOnline(activeConv?.otherId) ? "En ligne" : "Hors ligne"}
+                <p className="text-sm text-green-500 flex items-center">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                  En ligne
                 </p>
               </div>
               <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
