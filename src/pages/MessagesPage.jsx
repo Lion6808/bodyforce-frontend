@@ -1,4 +1,4 @@
-// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec vraies données
+// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec vraies données 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
