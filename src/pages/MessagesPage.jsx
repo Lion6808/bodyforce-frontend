@@ -87,9 +87,6 @@ export default function MessagesPage() {
   // ===== UI States
   const [showMemberSelector, setShowMemberSelector] = useState(false);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
-  
-  // ===== Présences en ligne
-  const [onlineMembers, setOnlineMembers] = useState(new Set());
 
   const filteredConvs = useMemo(() => {
     const q = (filter || "").toLowerCase();
@@ -370,49 +367,7 @@ export default function MessagesPage() {
     }
   }
 
-  // ========= Présences loader =========
-  async function checkMemberPresence() {
-    try {
-      // Considérer qu'un membre est en ligne s'il a eu une présence dans les 5 dernières minutes
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      
-      const { data: recentPresences, error } = await supabase
-        .from("presences")
-        .select("badgeId")
-        .gte("timestamp", fiveMinutesAgo.toISOString());
-      
-      if (error) {
-        console.error("Erreur lors de la vérification des présences:", error);
-        return;
-      }
-
-      // Récupérer les IDs des membres correspondant aux badges actifs
-      if (recentPresences && recentPresences.length > 0) {
-        const badgeIds = recentPresences.map(p => p.badgeId);
-        
-        const { data: onlineMembers, error: membersError } = await supabase
-          .from("members")
-          .select("id")
-          .in("badgeId", badgeIds);
-          
-        if (!membersError && onlineMembers) {
-          const onlineMemberIds = new Set(onlineMembers.map(m => m.id));
-          setOnlineMembers(onlineMemberIds);
-        }
-      } else {
-        setOnlineMembers(new Set());
-      }
-    } catch (error) {
-      console.error("Erreur lors de la vérification des présences:", error);
-      setOnlineMembers(new Set());
-    }
-  }
-
-  // Fonction helper pour vérifier si un membre est en ligne
-  const isMemberOnline = (memberId) => {
-    if (memberId === ADMIN_SENTINEL) return true; // Staff toujours "en ligne"
-    return onlineMembers.has(memberId);
-  };
+  // ========= Members list
   async function fetchAllMembers() {
     if (!isAdmin) return;
     setMembersLoading(true);
@@ -431,7 +386,6 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!user || !me?.id) return;
     fetchConversations();
-    checkMemberPresence(); // Charger les présences initiales
   }, [user, me?.id, isAdmin]);
 
   useEffect(() => {
@@ -499,14 +453,6 @@ export default function MessagesPage() {
     return () => supabase.removeChannel(ch);
   }, [me?.id, user?.id, activeOtherId, selectMode, isBroadcast]);
 
-  // Vérification périodique des présences (toutes les 2 minutes)
-  useEffect(() => {
-    if (!user || !me?.id) return;
-    
-    const interval = setInterval(checkMemberPresence, 2 * 60 * 1000); // 2 minutes
-    return () => clearInterval(interval);
-  }, [user, me?.id]);
-
   useEffect(() => {
     if (isAdmin && (selectMode || showMemberSelector)) fetchAllMembers();
   }, [isAdmin, selectMode, showMemberSelector]);
@@ -539,11 +485,7 @@ export default function MessagesPage() {
   // ========= Envoi =========
   const onSend = async () => {
     if (sending) return;
-    
-    // ✅ CORRECTION 1: Validation améliorée
-    if (!body.trim()) return; // Message requis
-    if ((isBroadcast || showBroadcastModal) && !subject.trim()) return; // Sujet requis seulement pour diffusion
-    
+    if (!subject.trim() || !body.trim()) return;
     if (!me?.id) return;
 
     setSending(true);
@@ -558,7 +500,7 @@ export default function MessagesPage() {
 
           const { error } = await supabase.rpc("send_message", {
             p_author_member_id: me.id,
-            p_subject: subject.trim() || "Message", // Sujet par défaut si vide
+            p_subject: subject.trim(),
             p_body: body.trim(),
             p_recipient_member_ids: recips,
             p_is_broadcast: false,
@@ -569,7 +511,7 @@ export default function MessagesPage() {
           if (!activeOtherId || activeOtherId === ADMIN_SENTINEL) return;
           const { error } = await supabase.rpc("send_message", {
             p_author_member_id: me.id,
-            p_subject: subject.trim() || "Message", // Sujet par défaut si vide
+            p_subject: subject.trim(),
             p_body: body.trim(),
             p_recipient_member_ids: [activeOtherId],
             p_is_broadcast: false,
@@ -577,11 +519,7 @@ export default function MessagesPage() {
           if (error) throw error;
         }
       } else {
-        await sendToAdmins({ 
-          subject: subject.trim() || "Message au staff", // Sujet par défaut
-          body: body.trim(), 
-          authorMemberId: me.id 
-        });
+        await sendToAdmins({ subject, body, authorMemberId: me.id });
         setActiveOtherId(ADMIN_SENTINEL);
       }
 
@@ -594,9 +532,6 @@ export default function MessagesPage() {
         await fetchThread(activeOtherId);
       }
       scrollToEnd();
-    } catch (error) {
-      console.error("Erreur lors de l'envoi:", error);
-      // Optionnel: afficher un toast d'erreur
     } finally {
       setSending(false);
     }
@@ -673,7 +608,7 @@ export default function MessagesPage() {
           : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
       }`}
     >
-      <Avatar user={c} showOnline={isMemberOnline(c.otherId)} />
+      <Avatar user={c} showOnline={true} />
       
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1">
@@ -985,18 +920,14 @@ export default function MessagesPage() {
                     const activeConv = convs.find(c => c.otherId === activeOtherId);
                     return (
                       <>
-                        {activeConv && <Avatar user={activeConv} size="w-12 h-12" showOnline={isMemberOnline(activeConv.otherId)} />}
+                        {activeConv && <Avatar user={activeConv} size="w-12 h-12" showOnline={true} />}
                         <div>
                           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                             {activeConv?.otherId === ADMIN_SENTINEL ? "Équipe BodyForce" : activeConv?.name}
                           </h2>
-                          <p className="text-sm flex items-center">
-                            <div className={`w-2 h-2 rounded-full mr-2 ${
-                              isMemberOnline(activeConv?.otherId) 
-                                ? "bg-green-500 animate-pulse" 
-                                : "bg-gray-400"
-                            }`}></div>
-                            {isMemberOnline(activeConv?.otherId) ? "En ligne" : "Hors ligne"}
+                          <p className="text-sm text-green-500 flex items-center">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                            En ligne
                           </p>
                         </div>
                       </>
