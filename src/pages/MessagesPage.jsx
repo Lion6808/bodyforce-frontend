@@ -3,11 +3,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO } from "date-fns";
-import { 
-  MessageCircle, 
-  Search, 
-  Send, 
-  MoreVertical, 
+import {
+  MessageCircle,
+  Search,
+  Send,
+  MoreVertical,
   Users,
   Check,
   CheckCheck,
@@ -44,7 +44,7 @@ function formatTime(dateString) {
   const date = new Date(dateString);
   const now = new Date();
   const diff = now - date;
-  
+
   if (diff < 86400000) { // Less than 24 hours
     return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   } else if (diff < 604800000) { // Less than a week
@@ -485,7 +485,8 @@ export default function MessagesPage() {
   // ========= Envoi =========
   const onSend = async () => {
     if (sending) return;
-    if (!subject.trim() || !body.trim()) return;
+    if (!body.trim()) return;
+    if ((isBroadcast || showBroadcastModal) && !subject.trim()) return;
     if (!me?.id) return;
 
     setSending(true);
@@ -554,11 +555,11 @@ export default function MessagesPage() {
   }
 
   // ===== Components =====
-  
+
   const Avatar = ({ user, size = "w-10 h-10", showOnline = false }) => {
     const sizeClasses = {
       "w-6 h-6": "text-xs",
-      "w-8 h-8": "text-xs", 
+      "w-8 h-8": "text-xs",
       "w-10 h-10": "text-sm",
       "w-12 h-12": "text-base",
     };
@@ -602,19 +603,17 @@ export default function MessagesPage() {
   const ConversationRow = ({ c, active, onClick }) => (
     <button
       onClick={onClick}
-      className={`w-full text-left px-4 py-4 transition-all duration-200 flex items-center gap-3 ${
-        active
+      className={`w-full text-left px-4 py-4 transition-all duration-200 flex items-center gap-3 ${active
           ? "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-r-4 border-blue-500"
           : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-      }`}
+        }`}
     >
       <Avatar user={c} showOnline={true} />
-      
+
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <div className={`font-semibold truncate ${
-            active ? "text-blue-700 dark:text-blue-300" : "text-gray-900 dark:text-gray-100"
-          }`}>
+          <div className={`font-semibold truncate ${active ? "text-blue-700 dark:text-blue-300" : "text-gray-900 dark:text-gray-100"
+            }`}>
             {c.otherId === ADMIN_SENTINEL ? "Équipe BodyForce" : c.name}
           </div>
           <div className="ml-auto text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
@@ -639,30 +638,27 @@ export default function MessagesPage() {
     return (
       <div className={`mb-4 flex ${mine ? "justify-end" : "justify-start"}`}>
         {!mine && (
-          <Avatar 
-            user={{ 
+          <Avatar
+            user={{
               firstName: otherName.split(" ")[0],
               lastName: otherName.split(" ")[1],
               isStaff: !iAmAdmin
-            }} 
-            size="w-8 h-8" 
+            }}
+            size="w-8 h-8"
           />
         )}
         <div className={`max-w-[75%] mx-3 ${mine ? "order-1" : "order-2"}`}>
-          <div className={`rounded-2xl px-4 py-3 shadow-sm ${
-            mine
+          <div className={`rounded-2xl px-4 py-3 shadow-sm ${mine
               ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white"
               : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600"
-          }`}>
-            <div className={`mb-1 text-xs ${
-              mine ? "text-blue-100" : "text-gray-500 dark:text-gray-400"
             }`}>
+            <div className={`mb-1 text-xs ${mine ? "text-blue-100" : "text-gray-500 dark:text-gray-400"
+              }`}>
               {label} · {formatTime(msg.created_at)}
             </div>
             {msg.subject && (
-              <div className={`text-sm font-semibold mb-2 ${
-                mine ? "text-blue-100" : "text-gray-800 dark:text-gray-100"
-              }`}>
+              <div className={`text-sm font-semibold mb-2 ${mine ? "text-blue-100" : "text-gray-800 dark:text-gray-100"
+                }`}>
                 {msg.subject}
               </div>
             )}
@@ -685,7 +681,7 @@ export default function MessagesPage() {
     // Mobile conversation view
     if (activeOtherId !== null) {
       const activeConv = convs.find(c => c.otherId === activeOtherId);
-      
+
       return (
         <div className="h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
           {/* Mobile Header */}
@@ -798,7 +794,7 @@ export default function MessagesPage() {
               </button>
             )}
           </div>
-          
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/60" />
             <input
@@ -853,9 +849,8 @@ export default function MessagesPage() {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setShowBroadcastModal(true)}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isBroadcast ? "bg-white/30" : "bg-white/10 hover:bg-white/20"
-                  }`}
+                  className={`p-2 rounded-lg transition-colors ${isBroadcast ? "bg-white/30" : "bg-white/10 hover:bg-white/20"
+                    }`}
                   title="Mode diffusion"
                 >
                   <Radio className="w-4 h-4" />
@@ -1065,7 +1060,7 @@ export default function MessagesPage() {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -1141,7 +1136,7 @@ export default function MessagesPage() {
                 </button>
               </div>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl">
                 <div className="flex items-center space-x-2 text-orange-700 dark:text-orange-300">
