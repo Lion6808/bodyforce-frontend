@@ -1,8 +1,9 @@
 // 📄 src/pages/MessagesPage.jsx — Conversations + Fil + Diffusion + Envoi à un groupe
 // ✅ Corrigé : 
 // - Annuaire destinataires basé sur `members`
-// - Envoi via RPC `send_message()`
-// - Inbox/Outbox via `v_inbox` et `v_outbox`
+// - Envoi via RPC `send_message()` (admin)
+// - Inbox via `v_inbox`; outbox admin lue depuis `messages` + `message_recipients`
+// - Membre → staff via `sendToAdmins` (comme avant)
 // - Envoi possible pour tous (admin & non-admin)
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -80,16 +81,26 @@ export default function MessagesPage() {
     if (!me?.id) return;
     setLoadingConvs(true);
     try {
-      // Lecture dans les vues v_inbox / v_outbox (RLS applique le filtrage)
-      const [inRes, outRes] = await Promise.all([
-        supabase.from("v_inbox").select("*").order("created_at", { ascending: false }),
-        supabase.from("v_outbox").select("*").order("created_at", { ascending: false }),
-      ]);
-      if (inRes.error) throw inRes.error;
-      if (outRes.error) throw outRes.error;
+      // Inbox via vue
+      const { data: inboxData, error: eIn } = await supabase
+        .from("v_inbox")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (eIn) throw eIn;
+      const inbox = inboxData || [];
 
-      const inbox = inRes.data || [];
-      const outbox = outRes.data || [];
+      // Outbox:
+      // - pour membre simple on peut garder v_outbox
+      // - pour ADMIN on relit la table messages + destinataires
+      let outbox = [];
+      if (!isAdmin) {
+        const { data: outboxData, error: eOut } = await supabase
+          .from("v_outbox")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (eOut) throw eOut;
+        outbox = outboxData || [];
+      }
 
       // ===== MODE MEMBRE : fil unique Équipe BodyForce
       if (!isAdmin) {
@@ -128,6 +139,7 @@ export default function MessagesPage() {
       // ===== MODE ADMIN : multi conversations
       const map = new Map();
 
+      // reçus: autre = auteur
       (inbox || []).forEach((m) => {
         const otherId = m.author_member_id;
         if (!otherId) return;
@@ -145,8 +157,18 @@ export default function MessagesPage() {
         map.set(otherId, prev);
       });
 
-      (outbox || []).forEach((m) => {
-        (m.recipients || []).forEach((rid) => {
+      // envoyés: autre = destinataire (depuis messages + message_recipients)
+      const { data: sent, error: e2 } = await supabase
+        .from("messages")
+        .select(`
+          id, subject, body, created_at, author_member_id, author_user_id,
+          message_recipients:message_recipients (recipient_member_id)
+        `)
+        .eq("author_user_id", user.id);
+      if (e2) throw e2;
+
+      (sent || []).forEach((m) => {
+        (m.message_recipients || []).forEach((rid) => {
           const otherId = rid.recipient_member_id;
           if (!otherId) return;
           const prev = map.get(otherId) || {
@@ -240,7 +262,7 @@ export default function MessagesPage() {
         return;
       }
 
-      // Admin / membre ↔ autreId classique
+      // Inbound: v_inbox (messages reçus par moi, auteur = autreId)
       const { data: inboxData, error: eIn } = await supabase
         .from("v_inbox")
         .select("*")
@@ -260,21 +282,25 @@ export default function MessagesPage() {
           author_member_id: m.author_member_id,
         }));
 
-      const { data: outboxData, error: eOut } = await supabase
-        .from("v_outbox")
-        .select("*")
+      // Outbound: lire messages + destinataires pour savoir si envoyé à otherId
+      const { data: sent2, error: eOut } = await supabase
+        .from("messages")
+        .select(`
+          id, subject, body, created_at, author_member_id, author_user_id,
+          message_recipients:message_recipients (recipient_member_id)
+        `)
         .eq("author_user_id", user.id)
         .order("created_at", { ascending: true });
       if (eOut) throw eOut;
 
       const outboundFiltered = [];
-      (outboxData || []).forEach((m) => {
-        (m.recipients || []).forEach((rcpt) => {
+      (sent2 || []).forEach((m) => {
+        (m.message_recipients || []).forEach((rcpt) => {
           if (rcpt.recipient_member_id === otherId) {
             outboundFiltered.push({
               kind: "out",
               id: `out_${m.id}_${otherId}`,
-              message_id: m.message_id,
+              message_id: m.id,
               subject: m.subject,
               body: m.body,
               created_at: m.created_at,
@@ -456,15 +482,8 @@ export default function MessagesPage() {
           if (error) throw error;
         }
       } else {
-        // Membre → staff (tous les admins) — géré côté RPC si vous la faites router aux admins
-        const { error } = await supabase.rpc("send_message", {
-          p_author_member_id: me.id,
-          p_subject: subject.trim(),
-          p_body: body.trim(),
-          p_recipient_member_ids: [], // côté DB : logiques d'aiguillage vers admins
-          p_is_broadcast: false,
-        });
-        if (error) throw error;
+        // ✅ Membre → staff (utiliser le service existant qui ajoute les destinataires admin)
+        await sendToAdmins({ subject, body, authorMemberId: me.id });
         setActiveOtherId(ADMIN_SENTINEL);
       }
 
