@@ -1,4 +1,4 @@
-// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec corrections complètes
+// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec système de heartbeat
 import React, {
   useEffect,
   useMemo,
@@ -366,7 +366,7 @@ export default function MessagesPage() {
   const [excludeAuthor, setExcludeAuthor] = useState(false);
   const [showMemberSelector, setShowMemberSelector] = useState(false);
 
-  // Présences
+  // Présences avec heartbeat
   const [onlineMembers, setOnlineMembers] = useState(new Set());
 
   const endRef = useRef();
@@ -377,45 +377,49 @@ export default function MessagesPage() {
     activeOtherIdRef.current = activeOtherId;
   }, [activeOtherId]);
 
-  // ========= FONCTIONS AVEC useCallback POUR ÉVITER LES RE-RENDERS ==========
+  // ========= SYSTÈME DE PRÉSENCE HEARTBEAT =========
 
-  // Vérifier les présences avec useCallback
+  // Heartbeat pour maintenir la présence
+  const updatePresence = useCallback(async () => {
+    if (!me?.id) return;
+    try {
+      await supabase
+        .from("members")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", me.id);
+    } catch (error) {
+      console.error("Erreur update présence:", error);
+    }
+  }, [me?.id]);
+
+  // Vérifier qui est en ligne (dernière activité < 3 minutes)
   const checkMemberPresence = useCallback(async () => {
     try {
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
 
-      const { data: recentPresences } = await supabase
-        .from("presences")
-        .select("badgeId")
-        .gte("timestamp", fiveMinutesAgo.toISOString());
+      const { data: onlineMembers } = await supabase
+        .from("members")
+        .select("id")
+        .gte("last_seen_at", threeMinutesAgo.toISOString());
 
-      if (recentPresences) {
-        const { data: members } = await supabase
-          .from("members")
-          .select("id, badgeId")
-          .in(
-            "badgeId",
-            recentPresences.map((p) => p.badgeId)
-          );
-
-        const onlineSet = new Set();
-        members?.forEach((member) => onlineSet.add(member.id));
-        setOnlineMembers(onlineSet);
-      }
+      const onlineSet = new Set(onlineMembers?.map((m) => m.id) || []);
+      setOnlineMembers(onlineSet);
     } catch (error) {
-      console.error("Erreur vérification présences:", error);
+      console.error("Erreur vérification présence:", error);
     }
   }, []);
 
   const isMemberOnline = useCallback(
     (memberId) => {
-      if (memberId === ADMIN_SENTINEL) return true;
+      if (memberId === ADMIN_SENTINEL) return true; // Staff toujours en ligne
       return onlineMembers.has(memberId);
     },
     [onlineMembers]
   );
 
-  // ========= Services & Fetchers avec useCallback =========
+  // ========= FONCTIONS AVEC useCallback POUR ÉVITER LES RE-RENDERS ==========
+
+  // Services & Fetchers avec useCallback
   const {
     sendToAdmins,
     sendBroadcast,
@@ -598,6 +602,67 @@ export default function MessagesPage() {
     });
   }, [convs, searchTerm]);
 
+  // ========= EFFETS POUR LE HEARTBEAT =========
+
+  // Heartbeat toutes les 90 secondes
+  useEffect(() => {
+    if (!me?.id) return;
+
+    const heartbeatInterval = setInterval(updatePresence, 90000); // 1.5 minutes
+    updatePresence(); // Premier appel immédiat
+
+    return () => clearInterval(heartbeatInterval);
+  }, [me?.id, updatePresence]);
+
+  // Vérifier les présences toutes les 2 minutes
+  useEffect(() => {
+    let mounted = true;
+
+    if (me?.id) {
+      const initPresence = async () => {
+        if (!mounted) return;
+        await checkMemberPresence();
+      };
+
+      initPresence();
+
+      const presenceInterval = setInterval(() => {
+        if (mounted) {
+          checkMemberPresence();
+        }
+      }, 2 * 60 * 1000);
+
+      return () => {
+        mounted = false;
+        clearInterval(presenceInterval);
+      };
+    }
+  }, [me?.id, checkMemberPresence]);
+
+  // Heartbeat au focus/blur de la fenêtre
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && me?.id) {
+        updatePresence();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      if (me?.id) {
+        // Marquer comme hors ligne à la fermeture
+        updatePresence();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [me?.id, updatePresence]);
+
   // ========= Realtime avec cleanup approprié =========
   useEffect(() => {
     if (!me?.id) return;
@@ -637,7 +702,6 @@ export default function MessagesPage() {
         if (!mounted) return;
         try {
           await fetchConversations();
-          await checkMemberPresence();
         } catch (error) {
           if (mounted) {
             console.error("Erreur initialisation:", error);
@@ -646,19 +710,12 @@ export default function MessagesPage() {
       };
 
       initData();
-
-      const presenceInterval = setInterval(() => {
-        if (mounted) {
-          checkMemberPresence();
-        }
-      }, 2 * 60 * 1000);
-
-      return () => {
-        mounted = false;
-        clearInterval(presenceInterval);
-      };
     }
-  }, [me?.id, fetchConversations, checkMemberPresence]);
+
+    return () => {
+      mounted = false;
+    };
+  }, [me?.id, fetchConversations]);
 
   useEffect(() => {
     let mounted = true;
