@@ -1,324 +1,205 @@
-// 📄 src/pages/MessagesPage.jsx — Conversations + Fil + Diffusion + Envoi à un groupe
-// ✅ Corrigé : 
-// - Annuaire destinataires basé sur `members`
-// - Envoi via RPC `send_message()` (admin)
-// - Inbox via `v_inbox`; outbox admin lue depuis `messages` + `message_recipients`
-// - Membre → staff via `sendToAdmins` (comme avant)
-// - Envoi possible pour tous (admin & non-admin)
-
+// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec vraies données
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO } from "date-fns";
-
 import {
-  sendToAdmins,
-  sendToMember,
-  sendBroadcast, // RPC diffusion globale (gardé pour compatibilité)
-  listMyThread,  // clé pour le fil membre↔staff
-} from "../services/messagesService";
+  Send,
+  Search,
+  Users,
+  Radio,
+  UserPlus,
+  MessageCircle,
+  Clock,
+  CheckCheck,
+  X,
+  ChevronLeft,
+  Settings,
+  Phone,
+  Video,
+} from "lucide-react";
+
+// Services existants
 import * as MsgSvc from "../services/messagesService";
 
-const ADMIN_SENTINEL = -1; // ID virtuel pour la conversation “Équipe BodyForce” côté membre
+const ADMIN_SENTINEL = -1;
 
-function fmt(dt) {
-  const d = typeof dt === "string" ? parseISO(dt) : new Date(dt);
-  return format(d, "dd/MM/yyyy HH:mm");
-}
-function initials(firstName, name) {
-  const a = (firstName || "").trim().charAt(0);
-  const b = (name || "").trim().charAt(0);
-  return ((a + b) || "?").toUpperCase();
-}
+// Avatar Component
+const Avatar = ({ member, size = "md", showOnline = false }) => {
+  const sizes = {
+    sm: "w-8 h-8 text-xs",
+    md: "w-10 h-10 text-sm", 
+    lg: "w-12 h-12 text-base",
+    xl: "w-16 h-16 text-lg"
+  };
+
+  const isStaff = member?.id === ADMIN_SENTINEL || !member?.id;
+  
+  if (member?.photo && !isStaff) {
+    return (
+      <div className="relative">
+        <img
+          src={member.photo}
+          alt="Avatar"
+          className={`${sizes[size]} rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm`}
+        />
+        {showOnline && (
+          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
+            showOnline ? 'bg-green-500' : 'bg-gray-400'
+          }`}></div>
+        )}
+      </div>
+    );
+  }
+  
+  // Avatar par défaut avec initiales
+  const initials = isStaff 
+    ? "BF" 
+    : `${member?.firstName?.[0] || '?'}${member?.name?.[0] || '?'}`;
+    
+  const bgColor = isStaff 
+    ? "bg-gradient-to-br from-blue-600 to-purple-600" 
+    : "bg-gradient-to-br from-blue-500 to-purple-500";
+
+  return (
+    <div className="relative">
+      <div className={`${sizes[size]} ${bgColor} rounded-full flex items-center justify-center text-white font-bold shadow-sm border-2 border-white dark:border-gray-700`}>
+        {initials}
+      </div>
+      {showOnline && (
+        <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${
+          showOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+        }`}></div>
+      )}
+    </div>
+  );
+};
+
+// Formatage intelligent du temps
+const formatTime = (dateString) => {
+  if (!dateString) return "";
+  
+  try {
+    const date = parseISO(dateString);
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return format(date, "HH:mm");
+    } else if (diffInHours < 24 * 7) {
+      return format(date, "EEE");  
+    } else {
+      return format(date, "dd/MM");
+    }
+  } catch {
+    return "";
+  }
+};
 
 export default function MessagesPage() {
   const { user, role, userMemberData: me } = useAuth();
   const isAdmin = (role || "").toLowerCase() === "admin";
 
-  // ===== Conversations
-  const [convs, setConvs] = useState([]); // {otherId, name, photo, lastBody, lastAt, unread}
-  const [loadingConvs, setLoadingConvs] = useState(true);
-  const [filter, setFilter] = useState("");
-  const [activeOtherId, setActiveOtherId] = useState(null);
-
-  // ===== Fil
+  // États principaux
+  const [convs, setConvs] = useState([]);
   const [thread, setThread] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [loadingThread, setLoadingThread] = useState(false);
-  const endRef = useRef(null);
-
-  // ===== Composer
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
 
-  // ===== Modes admin
+  // UI states
+  const [activeOtherId, setActiveOtherId] = useState(null);
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showMobileChat, setShowMobileChat] = useState(false);
+
+  // Admin states
   const [isBroadcast, setIsBroadcast] = useState(false);
-  const [excludeAuthor, setExcludeAuthor] = useState(true);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
-  const [membersAll, setMembersAll] = useState([]);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [selFilter, setSelFilter] = useState("");
-  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [excludeAuthor, setExcludeAuthor] = useState(false);
+  const [showMemberSelector, setShowMemberSelector] = useState(false);
 
-  const filteredConvs = useMemo(() => {
-    const q = (filter || "").toLowerCase();
-    return (convs || []).filter((c) =>
-      [c.name, c.lastBody].join(" ").toLowerCase().includes(q)
-    );
-  }, [convs, filter]);
+  // Présences
+  const [onlineMembers, setOnlineMembers] = useState(new Set());
 
-  const filteredMembersAll = useMemo(() => {
-    const q = (selFilter || "").toLowerCase();
-    return (membersAll || []).filter((m) =>
-      [m.firstName, m.name, m.email, m.badgeId].join(" ").toLowerCase().includes(q)
-    );
-  }, [membersAll, selFilter]);
+  const endRef = useRef();
 
-  const scrollToEnd = () => endRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Vérifier les présences (membres "en ligne" = présence dans les 5 dernières minutes)
+  const checkMemberPresence = async () => {
+    try {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      
+      const { data: recentPresences } = await supabase
+        .from("presences")
+        .select("badgeId")
+        .gte("timestamp", fiveMinutesAgo.toISOString());
 
-  // ========= Conversations builder =========
-  async function fetchConversations() {
+      if (recentPresences) {
+        // Mapper badgeId vers member.id
+        const { data: members } = await supabase
+          .from("members")
+          .select("id, badgeId")
+          .in("badgeId", recentPresences.map(p => p.badgeId));
+
+        const onlineSet = new Set();
+        members?.forEach(member => {
+          onlineSet.add(member.id);
+        });
+        
+        setOnlineMembers(onlineSet);
+      }
+    } catch (error) {
+      console.error("Erreur vérification présences:", error);
+    }
+  };
+
+  const isMemberOnline = (memberId) => {
+    if (memberId === ADMIN_SENTINEL) return true; // Staff toujours "en ligne"
+    return onlineMembers.has(memberId);
+  };
+
+  // ========= Services & Fetchers =========
+  const { sendToAdmins, sendBroadcast, listMyThread, listThreadWithMember, subscribeInbox, markConversationRead } = MsgSvc;
+
+  const fetchConversations = async () => {
     if (!me?.id) return;
-    setLoadingConvs(true);
+    setLoading(true);
     try {
-      // Inbox via vue
-      const { data: inboxData, error: eIn } = await supabase
-        .from("v_inbox")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (eIn) throw eIn;
-      const inbox = inboxData || [];
-
-      // Outbox:
-      // - pour membre simple on peut garder v_outbox
-      // - pour ADMIN on relit la table messages + destinataires
-      let outbox = [];
-      if (!isAdmin) {
-        const { data: outboxData, error: eOut } = await supabase
-          .from("v_outbox")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (eOut) throw eOut;
-        outbox = outboxData || [];
+      if (isAdmin) {
+        const adminData = await MsgSvc.listAdminConversations(me.id);
+        setConvs(adminData || []);
+      } else {
+        const memberData = await MsgSvc.listMemberConversations(me.id);
+        setConvs(memberData || []);
       }
-
-      // ===== MODE MEMBRE : fil unique Équipe BodyForce
-      if (!isAdmin) {
-        let conv = {
-          otherId: ADMIN_SENTINEL,
-          name: "Équipe BodyForce",
-          photo: "",
-          lastBody: "",
-          lastAt: null,
-          unread: 0,
-        };
-
-        (inbox || []).forEach((m) => {
-          if (!conv.lastAt || new Date(m.created_at) > new Date(conv.lastAt)) {
-            conv.lastAt = m.created_at;
-            conv.lastBody = m.body || m.subject || "";
-          }
-          if (!m.read_at) conv.unread += 1;
-        });
-
-        (outbox || []).forEach((m) => {
-          if (!conv.lastAt || new Date(m.created_at) > new Date(conv.lastAt)) {
-            conv.lastAt = m.created_at;
-            conv.lastBody = m.body || m.subject || "";
-          }
-        });
-
-        const list = conv.lastAt ? [conv] : [];
-        setConvs(list);
-        if (!activeOtherId) {
-          setActiveOtherId(list[0]?.otherId ?? ADMIN_SENTINEL);
-        }
-        return;
-      }
-
-      // ===== MODE ADMIN : multi conversations
-      const map = new Map();
-
-      // reçus: autre = auteur
-      (inbox || []).forEach((m) => {
-        const otherId = m.author_member_id;
-        if (!otherId) return;
-        const prev = map.get(otherId) || {
-          otherId,
-          lastAt: "1970-01-01T00:00:00.000Z",
-          lastBody: "",
-          unread: 0,
-        };
-        if (!prev.lastAt || new Date(m.created_at) > new Date(prev.lastAt)) {
-          prev.lastAt = m.created_at;
-          prev.lastBody = m.body || m.subject || "";
-        }
-        if (!m.read_at) prev.unread += 1;
-        map.set(otherId, prev);
-      });
-
-      // envoyés: autre = destinataire (depuis messages + message_recipients)
-      const { data: sent, error: e2 } = await supabase
-        .from("messages")
-        .select(`
-          id, subject, body, created_at, author_member_id, author_user_id,
-          message_recipients:message_recipients (recipient_member_id)
-        `)
-        .eq("author_user_id", user.id);
-      if (e2) throw e2;
-
-      (sent || []).forEach((m) => {
-        (m.message_recipients || []).forEach((rid) => {
-          const otherId = rid.recipient_member_id;
-          if (!otherId) return;
-          const prev = map.get(otherId) || {
-            otherId,
-            lastAt: "1970-01-01T00:00:00.000Z",
-            lastBody: "",
-            unread: 0,
-          };
-          if (!prev.lastAt || new Date(m.created_at) > new Date(prev.lastAt)) {
-            prev.lastAt = m.created_at;
-            prev.lastBody = m.body || m.subject || "";
-          }
-          map.set(otherId, prev);
-        });
-      });
-
-      const items = Array.from(map.values());
-      if (items.length === 0) {
-        setConvs([]);
-        return;
-      }
-
-      const otherIds = items.map((x) => x.otherId);
-      const { data: others, error: e3 } = await supabase
-        .from("members")
-        .select("id, firstName, name, email, photo, badgeId")
-        .in("id", otherIds);
-      if (e3) throw e3;
-
-      const byId = {};
-      (others || []).forEach((m) => (byId[m.id] = m));
-
-      const withMeta = items
-        .map((it) => {
-          const m = byId[it.otherId] || {};
-          const name =
-            `${m.firstName || ""} ${m.name || ""}`.trim() ||
-            m.email ||
-            `#${it.otherId}`;
-          return {
-            ...it,
-            name,
-            email: m.email || "",
-            badgeId: m.badgeId || "",
-            photo: m.photo || "",
-            firstName: m.firstName || "",
-            lastName: m.name || "",
-          };
-        })
-        .sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
-
-      setConvs(withMeta);
-      if (!activeOtherId) {
-        setActiveOtherId(withMeta[0]?.otherId ?? null);
-      }
+    } catch (error) {
+      console.error("Erreur fetchConversations:", error);
     } finally {
-      setLoadingConvs(false);
+      setLoading(false);
     }
-  }
+  };
 
-  // ========= Thread loader =========
-  async function fetchThread(otherId) {
-    if (!me?.id || otherId == null) {
-      setThread([]);
-      return;
-    }
+  const fetchThread = async (otherId) => {
+    if (!me?.id) return;
     setLoadingThread(true);
-
     try {
-      if (!isAdmin && otherId === ADMIN_SENTINEL) {
-        // Fil unique membre ↔ staff
-        const all = await listMyThread(me.id);
-        const mapped = (all || []).map((m) => ({
-          kind: m.direction === "out" ? "out" : "in",
-          id: m.id,
-          message_id: m.message_id,
-          subject: m.subject,
-          body: m.body,
-          created_at: m.created_at,
-          author_member_id: m.direction === "out" ? me.id : m.author_member_id,
-        }));
-        setThread(
-          mapped.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-        );
-        setConvs((prev) =>
-          prev.map((c) =>
-            c.otherId === ADMIN_SENTINEL ? { ...c, unread: 0 } : c
-          )
-        );
-        scrollToEnd();
-        return;
+      let data = [];
+      if (isAdmin) {
+        if (otherId !== ADMIN_SENTINEL) {
+          data = await listThreadWithMember(me.id, otherId);
+        }
+      } else {
+        data = await listMyThread(me.id);
       }
+      setThread(data || []);
 
-      // Inbound: v_inbox (messages reçus par moi, auteur = autreId)
-      const { data: inboxData, error: eIn } = await supabase
-        .from("v_inbox")
-        .select("*")
-        .eq("recipient_member_id", me.id)
-        .order("created_at", { ascending: true });
-      if (eIn) throw eIn;
-
-      const inboundFiltered = (inboxData || [])
-        .filter((m) => m.author_member_id === otherId)
-        .map((m) => ({
-          kind: "in",
-          id: `in_${m.message_id}`,
-          message_id: m.message_id,
-          subject: m.subject,
-          body: m.body,
-          created_at: m.created_at,
-          author_member_id: m.author_member_id,
-        }));
-
-      // Outbound: lire messages + destinataires pour savoir si envoyé à otherId
-      const { data: sent2, error: eOut } = await supabase
-        .from("messages")
-        .select(`
-          id, subject, body, created_at, author_member_id, author_user_id,
-          message_recipients:message_recipients (recipient_member_id)
-        `)
-        .eq("author_user_id", user.id)
-        .order("created_at", { ascending: true });
-      if (eOut) throw eOut;
-
-      const outboundFiltered = [];
-      (sent2 || []).forEach((m) => {
-        (m.message_recipients || []).forEach((rcpt) => {
-          if (rcpt.recipient_member_id === otherId) {
-            outboundFiltered.push({
-              kind: "out",
-              id: `out_${m.id}_${otherId}`,
-              message_id: m.id,
-              subject: m.subject,
-              body: m.body,
-              created_at: m.created_at,
-              author_member_id: m.author_member_id,
-            });
-          }
-        });
-      });
-
-      const all = [...inboundFiltered, ...outboundFiltered].sort(
-        (a, b) => new Date(a.created_at) - new Date(b.created_at)
-      );
-      setThread(all);
-
-      // Marquer comme lu si RPC dispo (admin)
+      // Marquer comme lu
       try {
-        if (typeof MsgSvc.markConversationRead === "function" && isAdmin) {
-          await MsgSvc.markConversationRead(otherId);
+        if (typeof markConversationRead === "function" && isAdmin) {
+          await markConversationRead(otherId);
           setConvs((prev) =>
             prev.map((c) => (c.otherId === otherId ? { ...c, unread: 0 } : c))
           );
@@ -326,144 +207,40 @@ export default function MessagesPage() {
       } catch {
         /* noop */
       }
-
-      scrollToEnd();
+    } catch (error) {
+      console.error("Erreur fetchThread:", error);
     } finally {
       setLoadingThread(false);
     }
-  }
-
-  // ========= Members list (sélection admin)
-  async function fetchAllMembers() {
-    if (!isAdmin) return;
-    setMembersLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("members")
-        .select("id, firstName, name, email, badgeId, photo")
-        .order("name", { ascending: true });
-      if (!error) setMembersAll(data || []);
-    } finally {
-      setMembersLoading(false);
-    }
-  }
-
-  // ========= Effects =========
-  useEffect(() => {
-    if (!user || !me?.id) return;
-    fetchConversations();
-  }, [user, me?.id, isAdmin]); // eslint-disable-line
-
-  useEffect(() => {
-    if (activeOtherId == null || selectMode || isBroadcast) return;
-    fetchThread(activeOtherId);
-  }, [activeOtherId, selectMode, isBroadcast]); // eslint-disable-line
-
-  // ✅ Realtime Inbox
-  useEffect(() => {
-    if (!me?.id) return;
-    const ch = supabase
-      .channel(`msg_inbox_${me.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "message_recipients",
-          filter: `recipient_member_id=eq.${me.id}`,
-        },
-        async () => {
-          await fetchConversations();
-          if (activeOtherId != null && !selectMode && !isBroadcast) {
-            await fetchThread(activeOtherId);
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "message_recipients",
-          filter: `recipient_member_id=eq.${me.id}`,
-        },
-        async () => {
-          await fetchConversations();
-        }
-      )
-      .subscribe();
-    return () => supabase.removeChannel(ch);
-  }, [me?.id, activeOtherId, selectMode, isBroadcast]); // eslint-disable-line
-
-  // ✅ Realtime Outbox
-  useEffect(() => {
-    if (!me?.id) return;
-    const ch = supabase
-      .channel(`msg_out_${me.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `author_user_id=eq.${user?.id || "00000000-0000-0000-0000-000000000000"}`,
-        },
-        async () => {
-          await fetchConversations();
-          if (activeOtherId != null && !selectMode && !isBroadcast) {
-            await fetchThread(activeOtherId);
-          }
-        }
-      )
-      .subscribe();
-    return () => supabase.removeChannel(ch);
-  }, [me?.id, user?.id, activeOtherId, selectMode, isBroadcast]); // eslint-disable-line
-
-  // Charger la liste complète quand admin passe en mode sélection
-  useEffect(() => {
-    if (isAdmin && selectMode) fetchAllMembers();
-  }, [isAdmin, selectMode]);
-
-  // ========= Sélection (admin)
-  const toggleSelect = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   };
-  const allChecked =
-    filteredMembersAll.length > 0 &&
-    filteredMembersAll.every((m) => selectedIds.has(m.id));
-  const toggleAll = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allChecked) filteredMembersAll.forEach((m) => next.delete(m.id));
-      else filteredMembersAll.forEach((m) => next.add(m.id));
-      return next;
-    });
-  };
-  const clearSelection = () => setSelectedIds(new Set());
 
-  // ========= Envoi
+  const scrollToEnd = () => {
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  };
+
+  // ========= Envoi =========
   const onSend = async () => {
     if (sending) return;
-    if (!subject.trim() || !body.trim()) return;
+    
+    // ✅ CORRECTION : Validation améliorée
+    if (!body.trim()) return; // Message requis
+    if ((isBroadcast || showBroadcastModal) && !subject.trim()) return; // Sujet requis seulement pour diffusion
+    
     if (!me?.id) return;
 
     setSending(true);
     try {
       if (isAdmin) {
-        if (isBroadcast) {
+        if (isBroadcast || showBroadcastModal) {
           await sendBroadcast({ subject, body, excludeAuthor });
+          setShowBroadcastModal(false);
         } else if (selectMode) {
           const recips = Array.from(selectedIds);
           if (recips.length === 0) return;
 
           const { error } = await supabase.rpc("send_message", {
             p_author_member_id: me.id,
-            p_subject: subject.trim(),
+            p_subject: subject.trim() || "Message", // Sujet par défaut
             p_body: body.trim(),
             p_recipient_member_ids: recips,
             p_is_broadcast: false,
@@ -474,7 +251,7 @@ export default function MessagesPage() {
           if (!activeOtherId || activeOtherId === ADMIN_SENTINEL) return;
           const { error } = await supabase.rpc("send_message", {
             p_author_member_id: me.id,
-            p_subject: subject.trim(),
+            p_subject: subject.trim() || "Message", // Sujet par défaut
             p_body: body.trim(),
             p_recipient_member_ids: [activeOtherId],
             p_is_broadcast: false,
@@ -482,397 +259,752 @@ export default function MessagesPage() {
           if (error) throw error;
         }
       } else {
-        // ✅ Membre → staff (utiliser le service existant qui ajoute les destinataires admin)
-        await sendToAdmins({ subject, body, authorMemberId: me.id });
+        await sendToAdmins({ 
+          subject: subject.trim() || "Message au staff", // Sujet par défaut
+          body: body.trim(), 
+          authorMemberId: me.id 
+        });
         setActiveOtherId(ADMIN_SENTINEL);
       }
 
       setSubject("");
       setBody("");
+      setIsBroadcast(false);
 
       await fetchConversations();
       if (activeOtherId != null && !selectMode && !isBroadcast) {
         await fetchThread(activeOtherId);
       }
       scrollToEnd();
+    } catch (error) {
+      console.error("Erreur lors de l'envoi:", error);
     } finally {
       setSending(false);
     }
   };
 
-  if (!user || !me?.id) {
+  // ========= Sélection multiple =========
+  const toggleMemberSelection = (memberId) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(memberId)) {
+      newSelected.delete(memberId);
+    } else {
+      newSelected.add(memberId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setShowMemberSelector(false);
+  };
+
+  // ========= Conversations filtrées =========
+  const filteredConversations = useMemo(() => {
+    if (!searchTerm.trim()) return convs;
+    
+    return convs.filter(conv => {
+      const name = `${conv.otherFirstName || ""} ${conv.otherName || ""}`.toLowerCase();
+      const term = searchTerm.toLowerCase();
+      return name.includes(term);
+    });
+  }, [convs, searchTerm]);
+
+  // ========= Realtime =========
+  useEffect(() => {
+    if (!me?.id) return;
+
+    const unsubscribe = subscribeInbox(me.id, () => {
+      fetchConversations();
+      if (activeOtherId != null) {
+        fetchThread(activeOtherId);
+      }
+    });
+
+    return unsubscribe;
+  }, [me?.id, activeOtherId]);
+
+  // ========= Effets =========
+  useEffect(() => {
+    if (me?.id) {
+      fetchConversations();
+      checkMemberPresence();
+      
+      // Vérifier les présences toutes les 2 minutes
+      const presenceInterval = setInterval(checkMemberPresence, 2 * 60 * 1000);
+      return () => clearInterval(presenceInterval);
+    }
+  }, [me?.id, isAdmin]);
+
+  useEffect(() => {
+    if (activeOtherId != null) {
+      fetchThread(activeOtherId);
+    }
+  }, [activeOtherId]);
+
+  useEffect(() => scrollToEnd(), [thread]);
+
+  if (loading) {
     return (
-      <div className="p-6 text-gray-600 dark:text-gray-300">
-        Connectez-vous pour accéder aux messages.
+      <div className="h-96 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  // ========= UI =========
+  // ========= Render Mobile =========
+  const isMobile = window.innerWidth < 768;
 
-  const ConversationRow = ({ c, active, onClick }) => (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-3 py-3 rounded-xl transition flex items-center gap-3 ${
-        active
-          ? "bg-blue-50 dark:bg-blue-900/30"
-          : "hover:bg-gray-50 dark:hover:bg-gray-700/40"
-      }`}
-    >
-      {c.otherId === ADMIN_SENTINEL ? (
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-sm font-semibold">
-          BF
-        </div>
-      ) : c.photo ? (
-        <img
-          src={c.photo}
-          alt={c.name}
-          className="w-10 h-10 rounded-full object-cover border border-white dark:border-gray-700 shadow"
-          loading="lazy"
-        />
-      ) : (
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-sm font-semibold">
-          {initials(c.firstName, c.lastName) || c.name?.slice(0, 2)?.toUpperCase()}
-        </div>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
-            {c.otherId === ADMIN_SENTINEL ? "Équipe BodyForce" : c.name}
-          </div>
-          <div className="ml-auto text-[11px] text-gray-500 dark:text-gray-400">
-            {c.lastAt ? format(new Date(c.lastAt), "dd/MM HH:mm") : ""}
-          </div>
-        </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-          {c.lastBody || "\u00A0"}
-        </div>
-      </div>
-
-      {c.unread > 0 && (
-        <span className="ml-2 inline-flex items-center justify-center text-[11px] min-w-[18px] h-[18px] px-1.5 rounded-full bg-blue-600 text-white">
-          {c.unread > 99 ? "99+" : c.unread}
-        </span>
-      )}
-    </button>
-  );
-
-  const Bubble = ({ msg, meId, otherName, iAmAdmin }) => {
-    const mine = msg.author_member_id === meId;
-    const label = mine ? "Moi" : iAmAdmin ? `Membre · ${otherName}` : `Admin · ${otherName}`;
-    return (
-      <div className={`mb-3 flex ${mine ? "justify-end" : "justify-start"}`}>
-        <div
-          className={`max-w-[80%] rounded-2xl px-3 py-2 shadow ${
-            mine
-              ? "bg-blue-600 text-white"
-              : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          }`}
-        >
-          <div
-            className={`mb-1 text-[11px] ${
-              mine ? "text-white/80" : "text-gray-600 dark:text-gray-300"
-            }`}
-          >
-            {label} · {fmt(msg.created_at)}
-          </div>
-          {msg.subject && (
-            <div
-              className={`text-xs font-semibold ${
-                mine ? "text-white" : "text-gray-800 dark:text-gray-100"
-              } mb-1`}
+  if (isMobile) {
+    if (showMobileChat && activeOtherId !== null) {
+      const activeConv = convs.find(c => c.otherId === activeOtherId);
+      
+      return (
+        <div className="h-full bg-gray-50 dark:bg-gray-900 flex flex-col">
+          {/* Header Mobile */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 flex items-center gap-3 shadow-lg">
+            <button
+              onClick={() => setShowMobileChat(false)}
+              className="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded"
             >
-              {msg.subject}
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            
+            <Avatar 
+              member={activeConv?.otherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : activeConv}
+              size="md"
+              showOnline={isMemberOnline(activeConv?.otherId)}
+            />
+            
+            <div className="flex-1">
+              <h3 className="text-white font-bold">
+                {activeConv?.otherId === ADMIN_SENTINEL 
+                  ? "Équipe BodyForce" 
+                  : `${activeConv?.otherFirstName || ""} ${activeConv?.otherName || ""}`}
+              </h3>
+              <p className="text-blue-100 text-sm">
+                {isMemberOnline(activeConv?.otherId) ? "En ligne" : "Hors ligne"}
+              </p>
             </div>
-          )}
-          <div className="whitespace-pre-wrap text-sm">{msg.body}</div>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-      {/* ====== Colonne Conversations / Sélection ====== */}
-      <div className="lg:col-span-1">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <div className="font-semibold">
-              {selectMode ? "Sélection de membres" : "Conversations"}
+            
+            <div className="flex gap-2">
+              <button className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full">
+                <Phone className="w-5 h-5" />
+              </button>
+              <button className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full">
+                <Video className="w-5 h-5" />
+              </button>
             </div>
-            {isAdmin && (
-              <div className="flex items-center gap-3">
-                <label className="text-xs flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    className="accent-blue-600"
-                    checked={isBroadcast}
-                    onChange={(e) => {
-                      setIsBroadcast(e.target.checked);
-                      if (e.target.checked) setSelectMode(false);
-                    }}
-                  />
-                  <span>Diffusion</span>
-                </label>
-                <label className="text-xs flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    className="accent-blue-600"
-                    checked={selectMode}
-                    onChange={(e) => {
-                      setSelectMode(e.target.checked);
-                      if (e.target.checked) setIsBroadcast(false);
-                    }}
-                  />
-                  <span>Sélection</span>
-                </label>
-              </div>
-            )}
           </div>
 
-          {/* Barre de recherche */}
-          <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-            {!selectMode ? (
-              <input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={`Rechercher…`}
-                disabled={isBroadcast}
-              />
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {loadingThread ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            ) : thread.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Aucun message dans cette conversation</p>
+              </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  value={selFilter}
-                  onChange={(e) => setSelFilter(e.target.value)}
-                  className="flex-1 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Rechercher un membre…"
-                />
-                <button
-                  onClick={() => {
-                    const allChecked =
-                      filteredMembersAll.length > 0 &&
-                      filteredMembersAll.every((m) => selectedIds.has(m.id));
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev);
-                      if (allChecked) {
-                        filteredMembersAll.forEach((m) => next.delete(m.id));
-                      } else {
-                        filteredMembersAll.forEach((m) => next.add(m.id));
-                      }
-                      return next;
-                    });
-                  }}
-                  className="px-2 py-2 rounded-lg text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-                >
-                  Toggle
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Liste */}
-          {!selectMode ? (
-            <div className={`max-h-[70vh] overflow-y-auto p-3 space-y-2 ${isBroadcast ? "opacity-50 pointer-events-none select-none" : ""}`}>
-              {loadingConvs && (
-                <div className="text-sm text-gray-500 dark:text-gray-400">Chargement…</div>
-              )}
-              {!loadingConvs && filteredConvs.length === 0 && (
-                <div className="text-sm text-gray-500 dark:text-gray-400">Aucune conversation</div>
-              )}
-              {filteredConvs.map((c) => (
-                <ConversationRow
-                  key={c.otherId}
-                  c={c}
-                  active={activeOtherId === c.otherId}
-                  onClick={() => {
-                    setIsBroadcast(false);
-                    setSelectMode(false);
-                    setActiveOtherId(c.otherId);
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="max-h-[70vh] overflow-y-auto p-3 space-y-2">
-              {membersLoading && (
-                <div className="text-sm text-gray-500 dark:text-gray-400">Chargement…</div>
-              )}
-              {!membersLoading && filteredMembersAll.length === 0 && (
-                <div className="text-sm text-gray-500 dark:text-gray-400">Aucun membre</div>
-              )}
-              {!membersLoading &&
-                filteredMembersAll.map((m) => {
-                  const name = `${m.firstName || ""} ${m.name || ""}`.trim() || m.email || `#${m.id}`;
-                  const checked = selectedIds.has(m.id);
-                  return (
-                    <label
-                      key={m.id}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer ${
-                        checked ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-gray-700/40"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="accent-blue-600"
-                        checked={checked}
-                        onChange={() => toggleSelect(m.id)}
-                      />
-                      {m.photo ? (
-                        <img
-                          src={m.photo}
-                          alt={name}
-                          className="w-8 h-8 rounded-full object-cover border border-white dark:border-gray-700"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-[11px] font-semibold">
-                          {initials(m.firstName, m.name)}
+              thread.map((msg, idx) => {
+                const isOwn = msg.authorUserId === user?.id;
+                
+                return (
+                  <div key={idx} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+                      isOwn 
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' 
+                        : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                    }`}>
+                      {msg.subject && msg.subject !== "Message" && msg.subject !== "Message au staff" && (
+                        <div className={`text-sm font-semibold mb-1 ${isOwn ? 'text-blue-100' : 'text-gray-600 dark:text-gray-400'}`}>
+                          {msg.subject}
                         </div>
                       )}
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {name}
-                        </div>
-                        <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                          {m.email || m.badgeId}
-                        </div>
+                      <div className="whitespace-pre-wrap">{msg.body}</div>
+                      <div className={`text-xs mt-1 flex items-center gap-1 ${
+                        isOwn ? 'text-blue-100 justify-end' : 'text-gray-500 dark:text-gray-400'
+                      }`}>
+                        <Clock className="w-3 h-3" />
+                        {formatTime(msg.createdAt)}
+                        {isOwn && <CheckCheck className="w-3 h-3" />}
                       </div>
-                    </label>
-                  );
-                })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ====== Colonne Fil ====== */}
-      <div className="lg:col-span-2">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex flex-col h-[78vh]">
-          {/* En-tête */}
-          <div className="px-1 pb-3 border-b border-gray-200 dark:border-gray-700 mb-3 flex items-center justify-between">
-            <div className="font-semibold">
-              {isBroadcast
-                ? "Diffusion globale"
-                : selectMode
-                ? `Envoi à ${selectedIds.size} membre(s)`
-                : activeOtherId === ADMIN_SENTINEL
-                ? "Équipe BodyForce"
-                : "Conversation"}
-            </div>
-            {!isBroadcast && !selectMode && (
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {thread.length} message{thread.length > 1 ? "s" : ""}
-              </div>
-            )}
-          </div>
-
-          {/* Fil */}
-          <div className="flex-1 overflow-y-auto px-1">
-            {isBroadcast ? (
-              <div className="mb-3 text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2">
-                Mode <b>Diffusion</b> — le message sera envoyé à <b>tous les membres</b>.
-              </div>
-            ) : selectMode ? (
-              <div className="mb-3 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-                Mode <b>Groupe</b> — sélectionnez un ou plusieurs membres dans la colonne de gauche.
-              </div>
-            ) : loadingThread ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">Chargement du fil…</div>
-            ) : thread.length === 0 ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">Aucun message dans cette conversation.</div>
-            ) : (
-              thread.map((m) => {
-                const otherName =
-                  activeOtherId === ADMIN_SENTINEL ? "Équipe BodyForce" : "";
-                return (
-                  <Bubble
-                    key={m.id}
-                    msg={m}
-                    meId={me.id}
-                    otherName={otherName}
-                    iAmAdmin={isAdmin}
-                  />
+                    </div>
+                  </div>
                 );
               })
             )}
             <div ref={endRef} />
           </div>
 
-          {/* Composer */}
-          <div className="mt-3 grid grid-cols-1 gap-2">
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={
-                isAdmin
-                  ? isBroadcast
-                    ? "Sujet (diffusion globale)"
-                    : selectMode
-                    ? "Sujet (groupe)"
-                    : "Sujet"
-                  : "Sujet (visible par le staff)"
-              }
-            />
-            <textarea
-              rows={3}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={
-                isAdmin
-                  ? isBroadcast
-                    ? "Votre message à tous les membres…"
-                    : selectMode
-                    ? "Votre message au groupe sélectionné…"
-                    : "Votre message au membre…"
-                  : "Votre message au staff…"
-              }
-            />
-            <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-              {isAdmin && isBroadcast && (
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="accent-blue-600"
-                    checked={excludeAuthor}
-                    onChange={(e) => setExcludeAuthor(e.target.checked)}
+          {/* Input Mobile */}
+          <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600">
+            {!selectMode && (
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="Tapez votre message..."
+                    className="w-full max-h-24 p-3 border border-gray-300 dark:border-gray-600 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    rows={1}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        onSend();
+                      }
+                    }}
                   />
-                  <span>Ne pas m’envoyer une copie</span>
-                </label>
-              )}
-              <div className="ml-auto flex items-center gap-2">
-                {isAdmin && selectMode && selectedIds.size > 0 && (
-                  <button
-                    onClick={clearSelection}
-                    className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  >
-                    Vider la sélection
-                  </button>
-                )}
+                </div>
                 <button
                   onClick={onSend}
-                  disabled={
-                    sending ||
-                    !subject.trim() ||
-                    !body.trim() ||
-                    (isAdmin &&
-                      !isBroadcast &&
-                      ((!selectMode && activeOtherId === null) ||
-                        (selectMode && selectedIds.size === 0)))
-                  }
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                  disabled={sending || !body.trim()}
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-3 rounded-full hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
                 >
-                  {sending ? "Envoi…" : "Envoyer"}
+                  <Send className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Liste des conversations mobile
+    return (
+      <div className="h-full bg-gray-50 dark:bg-gray-900 flex flex-col">
+        {/* Header Mobile */}
+        <div className="p-4 bg-gradient-to-r from-blue-600 to-purple-600">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">Messages</h2>
+            {isAdmin && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowBroadcastModal(true)}
+                  className="bg-white bg-opacity-20 text-white p-2 rounded-full hover:bg-opacity-30 transition-colors"
+                >
+                  <Radio className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setShowMemberSelector(true)}
+                  className="bg-white bg-opacity-20 text-white p-2 rounded-full hover:bg-opacity-30 transition-colors"
+                >
+                  <UserPlus className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* Recherche */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher une conversation..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white bg-opacity-20 text-white placeholder-blue-200 rounded-xl border border-white border-opacity-20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+            />
+          </div>
+        </div>
+
+        {/* Conversations */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredConversations.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>Aucune conversation</p>
+            </div>
+          ) : (
+            filteredConversations.map((conv) => (
+              <div
+                key={conv.otherId}
+                onClick={() => {
+                  setActiveOtherId(conv.otherId);
+                  setShowMobileChat(true);
+                }}
+                className="p-4 border-b border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar 
+                    member={conv.otherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : conv}
+                    size="md"
+                    showOnline={isMemberOnline(conv.otherId)}
+                  />
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        {conv.otherId === ADMIN_SENTINEL 
+                          ? "Équipe BodyForce" 
+                          : `${conv.otherFirstName || ""} ${conv.otherName || ""}`}
+                      </h4>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
+                        {formatTime(conv.lastMessageDate)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                        {conv.lastMessagePreview || "Aucun message"}
+                      </p>
+                      
+                      {conv.unread > 0 && (
+                        <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
+                          {conv.unread > 99 ? '99+' : conv.unread}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ===== Desktop View =====
+  return (
+    <div className="flex h-full bg-gray-50 dark:bg-gray-900">
+      {/* Sidebar */}
+      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-lg">
+        {/* Header */}
+        <div className="p-6 bg-gradient-to-r from-blue-600 to-purple-600">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">Messages</h2>
+            {isAdmin && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowBroadcastModal(true)}
+                  className="bg-white bg-opacity-20 text-white p-2 rounded-lg hover:bg-opacity-30 transition-colors"
+                  title="Diffusion générale"
+                >
+                  <Radio className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setShowMemberSelector(true)}
+                  className="bg-white bg-opacity-20 text-white p-2 rounded-lg hover:bg-opacity-30 transition-colors"
+                  title="Nouveau groupe"
+                >
+                  <UserPlus className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* Recherche */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white bg-opacity-20 text-white placeholder-blue-200 rounded-lg border border-white border-opacity-20 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+            />
+          </div>
+        </div>
+
+        {/* Liste des conversations */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredConversations.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Aucune conversation</p>
+            </div>
+          ) : (
+            filteredConversations.map((conv) => (
+              <div
+                key={conv.otherId}
+                onClick={() => setActiveOtherId(conv.otherId)}
+                className={`p-4 border-b border-gray-200 dark:border-gray-600 cursor-pointer transition-colors ${
+                  activeOtherId === conv.otherId
+                    ? 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-r-4 border-blue-500'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar 
+                    member={conv.otherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : conv}
+                    size="md"
+                    showOnline={isMemberOnline(conv.otherId)}
+                  />
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        {conv.otherId === ADMIN_SENTINEL 
+                          ? "Équipe BodyForce" 
+                          : `${conv.otherFirstName || ""} ${conv.otherName || ""}`}
+                      </h4>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
+                        {formatTime(conv.lastMessageDate)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                        {conv.lastMessagePreview || "Aucun message"}
+                      </p>
+                      
+                      {conv.unread > 0 && (
+                        <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse ml-2 flex-shrink-0">
+                          {conv.unread > 99 ? '99+' : conv.unread}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Zone principale */}
+      <div className="flex-1 flex flex-col">
+        {activeOtherId === null ? (
+          // Écran d'accueil
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900">
+            <div className="text-center">
+              <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <MessageCircle className="w-12 h-12 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+                Bienvenue dans la messagerie BodyForce
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 max-w-md">
+                {isAdmin 
+                  ? "Sélectionnez une conversation pour commencer à échanger avec un membre" 
+                  : "Contactez l'équipe BodyForce pour toute question ou information"}
+              </p>
+            </div>
+          </div>
+        ) : (
+          // Zone de chat active
+          <>
+            {/* Header du chat */}
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar 
+                    member={activeOtherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : filteredConversations.find(c => c.otherId === activeOtherId)}
+                    size="lg"
+                    showOnline={isMemberOnline(activeOtherId)}
+                  />
+                  
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                      {activeOtherId === ADMIN_SENTINEL 
+                        ? "Équipe BodyForce" 
+                        : (() => {
+                            const conv = filteredConversations.find(c => c.otherId === activeOtherId);
+                            return `${conv?.otherFirstName || ""} ${conv?.otherName || ""}`;
+                          })()}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        isMemberOnline(activeOtherId) ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                      }`}></div>
+                      {isMemberOnline(activeOtherId) ? "En ligne" : "Hors ligne"}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <Phone className="w-5 h-5" />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <Video className="w-5 h-5" />
+                  </button>
+                  <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <Settings className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Zone des messages */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {loadingThread ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : thread.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">Aucun message dans cette conversation</p>
+                  <p className="text-sm">Commencez la conversation en envoyant un message ci-dessous</p>
+                </div>
+              ) : (
+                thread.map((msg, idx) => {
+                  const isOwn = msg.authorUserId === user?.id;
+                  
+                  return (
+                    <div key={idx} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-lg px-4 py-3 rounded-2xl ${
+                        isOwn 
+                          ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' 
+                          : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600 shadow-sm'
+                      }`}>
+                        {msg.subject && msg.subject !== "Message" && msg.subject !== "Message au staff" && (
+                          <div className={`text-sm font-semibold mb-2 pb-2 border-b ${
+                            isOwn 
+                              ? 'text-blue-100 border-blue-300 border-opacity-30' 
+                              : 'text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600'
+                          }`}>
+                            {msg.subject}
+                          </div>
+                        )}
+                        <div className="whitespace-pre-wrap leading-relaxed">{msg.body}</div>
+                        <div className={`text-xs mt-2 flex items-center gap-1 ${
+                          isOwn ? 'text-blue-100 justify-end' : 'text-gray-500 dark:text-gray-400'
+                        }`}>
+                          <Clock className="w-3 h-3" />
+                          {formatTime(msg.createdAt)}
+                          {isOwn && <CheckCheck className="w-3 h-3" />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={endRef} />
+            </div>
+
+            {/* Zone d'envoi */}
+            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 p-4">
+              {selectMode && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Mode groupe actif - {selectedIds.size} membre(s) sélectionné(s)
+                    </span>
+                    <button
+                      onClick={clearSelection}
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from(selectedIds).map(memberId => {
+                      const member = filteredConversations.find(c => c.otherId === memberId);
+                      return (
+                        <span key={memberId} className="bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs">
+                          {member ? `${member.otherFirstName} ${member.otherName}` : `Membre ${memberId}`}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {(isBroadcast || showBroadcastModal) && (
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Sujet du message (requis pour diffusion)"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder={
+                      selectMode 
+                        ? "Message à envoyer au groupe..." 
+                        : isBroadcast || showBroadcastModal 
+                          ? "Message de diffusion..." 
+                          : "Tapez votre message..."
+                    }
+                    className="w-full max-h-32 p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    rows={1}
+                    style={{ height: 'auto' }}
+                    onInput={(e) => {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = e.target.scrollHeight + 'px';
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        onSend();
+                      }
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={onSend}
+                  disabled={sending || !body.trim() || ((isBroadcast || showBroadcastModal) && !subject.trim())}
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-3 rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+                >
+                  {sending ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Modales */}
+      
+      {/* Modal Diffusion */}
+      {showBroadcastModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Radio className="w-5 h-5 text-blue-500" />
+                Diffusion générale
+              </h3>
+              <button
+                onClick={() => setShowBroadcastModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Sujet (requis)"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              />
+              
+              <textarea
+                placeholder="Message de diffusion..."
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={4}
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              />
+              
+              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <input
+                  type="checkbox"
+                  checked={excludeAuthor}
+                  onChange={(e) => setExcludeAuthor(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                />
+                Ne pas m'envoyer ce message
+              </label>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowBroadcastModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => {
+                    setIsBroadcast(true);
+                    onSend();
+                  }}
+                  disabled={!subject.trim() || !body.trim() || sending}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {sending ? "Envoi..." : "Diffuser"}
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Modal Sélection membres */}
+      {showMemberSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg mx-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-blue-500" />
+                Nouveau groupe
+              </h3>
+              <button
+                onClick={() => setShowMemberSelector(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Sélectionnez les membres à qui envoyer un message
+              </p>
+              
+              <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-xl">
+                {filteredConversations.filter(c => c.otherId !== ADMIN_SENTINEL).map((conv) => (
+                  <label
+                    key={conv.otherId}
+                    className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(conv.otherId)}
+                      onChange={() => toggleMemberSelection(conv.otherId)}
+                      className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                    />
+                    <Avatar member={conv} size="sm" showOnline={isMemberOnline(conv.otherId)} />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 dark:text-gray-100">
+                        {conv.otherFirstName} {conv.otherName}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {isMemberOnline(conv.otherId) ? "En ligne" : "Hors ligne"}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowMemberSelector(false);
+                    clearSelection();
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectMode(true);
+                    setShowMemberSelector(false);
+                    setActiveOtherId(null);
+                  }}
+                  disabled={selectedIds.size === 0}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Créer le groupe ({selectedIds.size})
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-// ✅ FIN DU FICHIER
