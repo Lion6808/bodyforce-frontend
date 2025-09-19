@@ -182,9 +182,9 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const targetSize = 256;
+    canvas.width = targetSize;
+    canvas.height = targetSize;
 
     if (facingMode === "user") {
       context.save();
@@ -195,7 +195,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
     }
 
-    const imageData = canvas.toDataURL("image/jpeg", 0.9);
+    const imageData = canvas.toDataURL("image/jpeg", 0.6);
     setCapturedPhoto(imageData);
     cleanupStream();
   };
