@@ -17,7 +17,7 @@ import {
   TrendingUp,
   BarChart3,
 } from "lucide-react";
-import { supabase } from "../supabaseClient";
+import { createClient } from "@supabase/supabase-js";
 import {
   startOfWeek,
   endOfWeek,
@@ -27,6 +27,12 @@ import {
   endOfYear,
 } from "date-fns";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Supabase
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_KEY
+);
 
 // Tailwind helpers
 const cn = (...classes) => classes.filter(Boolean).join(" ");
@@ -209,7 +215,7 @@ function PlanningPage() {
         // Members (colonnes utiles only)
         const { data: membersData, error: membersError } = await supabase
           .from("members")
-          .select("id,name,firstName,badgeId,photo");
+          .select("id,name,firstName,badgeId,photo,avatarUrl");
         if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
         setMembers(Array.isArray(membersData) ? membersData : []);
 
@@ -510,8 +516,8 @@ function PlanningPage() {
           return (
             <div key={member.badgeId || idx} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
               <div className="flex items-center gap-3 mb-3">
-                {member.photo ? (
-                  <img src={member.photo} alt="avatar" className={tw.avatar} />
+                {member.avatarUrl || member.photo ? (
+                  <img src={member.avatarUrl || member.photo} alt="avatar" className={tw.avatar} />
                 ) : (
                   <div className={tw.avatarInitials}>
                     {member.firstName?.[0] || ""}
@@ -544,8 +550,8 @@ function PlanningPage() {
                           has
                             ? "bg-green-500 text-white shadow-sm hover:scale-105"
                             : isWeekend(day)
-                              ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                         )}
                       >
                         <div className="leading-none">{formatDate(day, "EEE dd").split(" ")[1]}</div>
@@ -615,9 +621,9 @@ function PlanningPage() {
                 style={{ gridTemplateColumns: `200px repeat(${allDays.length}, 80px)` }}
               >
                 <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
-                  {member.photo ? (
+                  {member.avatarUrl || member.photo ? (
                     <img
-                      src={member.photo}
+                      src={member.avatarUrl || member.photo}
                       alt={`${member.name} ${member.firstName}`}
                       className="w-8 h-8 object-cover rounded-full border border-blue-200 dark:border-blue-600"
                     />
@@ -644,13 +650,13 @@ function PlanningPage() {
                           ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                             : dayTimes.length > 1
-                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : isWeekend(day)
-                            ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
-                            : idx % 2 === 0
-                              ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
-                              : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                          : idx % 2 === 0
+                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {dayTimes.length > 0 ? dayTimes.length : ""}
@@ -892,8 +898,9 @@ function PlanningPage() {
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
-                }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
+                i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
+              }`}
             >
               {day}
             </div>
@@ -942,9 +949,11 @@ function PlanningPage() {
             return (
               <div
                 key={idx}
-                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                  } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""
-                  } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
+                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${
+                  today ? "ring-2 ring-blue-500 ring-inset" : ""
+                } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
@@ -953,10 +962,10 @@ function PlanningPage() {
                       !inMonth
                         ? "text-gray-400 dark:text-gray-500"
                         : today
-                          ? "text-blue-600 dark:text-blue-400"
-                          : weekend
-                            ? "text-blue-600 dark:text-blue-400"
-                            : "text-gray-900 dark:text-gray-100"
+                        ? "text-blue-600 dark:text-blue-400"
+                        : weekend
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-gray-900 dark:text-gray-100"
                     )}
                   >
                     {day.getDate()}
@@ -970,8 +979,8 @@ function PlanningPage() {
                           memberIds.length > 30
                             ? "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
                             : memberIds.length > 15
-                              ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                              : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                            ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                         )}
                       >
                         {memberIds.length > 99 ? "99+" : memberIds.length}
@@ -1024,8 +1033,8 @@ function PlanningPage() {
                             expanded
                               ? "bg-blue-500 text-white"
                               : memberIds.length > 30
-                                ? "bg-red-500 text-white animate-pulse"
-                                : "bg-orange-500 text-white"
+                              ? "bg-red-500 text-white animate-pulse"
+                              : "bg-orange-500 text-white"
                           )}
                           title={expanded ? "Réduire" : `Voir les ${memberIds.length} membres`}
                         >
