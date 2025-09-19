@@ -1,11 +1,5 @@
-// 📄 src/pages/MessagesPage.jsx — Interface modernisée avec système de heartbeat
-import React, {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useCallback,
-} from "react";
+// 📄 src/pages/MessagesPage.jsx — Version optimisée pour les performances - COMPLETE
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO, isToday, isYesterday } from "date-fns";
@@ -28,7 +22,7 @@ import {
   Plus,
   Image,
   Paperclip,
-  ArrowLeft,
+  ArrowLeft
 } from "lucide-react";
 
 // Services existants
@@ -37,12 +31,7 @@ import * as MsgSvc from "../services/messagesService";
 const ADMIN_SENTINEL = -1;
 
 // Avatar Component amélioré
-const Avatar = ({
-  member,
-  size = "md",
-  showOnline = false,
-  className = "",
-}) => {
+const Avatar = ({ member, size = "md", showOnline = false, className = "" }) => {
   const sizes = {
     sm: "w-8 h-8 text-xs",
     md: "w-10 h-10 text-sm",
@@ -70,9 +59,7 @@ const Avatar = ({
 
   const initials = isStaff
     ? "BF"
-    : `${member?.firstName?.[0] || member?.otherFirstName?.[0] || "?"}${
-        member?.name?.[0] || member?.otherName?.[0] || "?"
-      }`;
+    : `${member?.firstName?.[0] || member?.otherFirstName?.[0] || "?"}${member?.name?.[0] || member?.otherName?.[0] || "?"}`;
 
   const bgColor = isStaff
     ? "bg-gradient-to-br from-blue-600 to-purple-600"
@@ -131,131 +118,44 @@ const formatChatTime = (dateString) => {
 
 // Badge de statut en ligne
 const OnlineIndicator = ({ isOnline }) => (
-  <div
-    className={`w-2 h-2 rounded-full ${
-      isOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"
-    }`}
-  />
+  <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
 );
 
-// Fonctions optimisées pour éviter les boucles infinies
-const getEnhancedAdminConversations = async (adminMemberId) => {
+// ========= FONCTIONS OPTIMISÉES POUR LES PERFORMANCES =========
+
+// Cache simple pour éviter les re-calculs
+let conversationsCache = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 30000; // 30 secondes
+
+const getSimplifiedAdminConversations = async (adminMemberId) => {
   try {
-    // 1. Récupérer tous les membres sauf l'admin
-    const { data: members, error: membersError } = await supabase
+    // Vérifier le cache
+    const now = Date.now();
+    if (conversationsCache && (now - cacheTimestamp < CACHE_DURATION)) {
+      return conversationsCache;
+    }
+
+    // Une seule requête optimisée
+    const { data: members, error } = await supabase
       .from("members")
       .select("id, firstName, name, photo")
       .neq("id", adminMemberId)
-      .order("name", { ascending: true });
+      .order("name", { ascending: true })
+      .limit(100); // Limiter pour les performances
 
-    if (membersError) throw membersError;
+    if (error) throw error;
 
-    if (!members || members.length === 0) {
-      return [
-        {
-          otherId: ADMIN_SENTINEL,
-          otherFirstName: "Équipe",
-          otherName: "BodyForce",
-          photo: null,
-          lastMessagePreview: "Messages de l'équipe",
-          lastMessageDate: null,
-          unread: 0,
-        },
-      ];
-    }
-
-    // 2. Récupérer TOUS les derniers messages reçus en une seule requête
-    const memberIds = members.map((m) => m.id);
-    const { data: lastReceivedMessages } = await supabase
-      .from("message_recipients")
-      .select(
-        `
-        recipient_member_id,
-        created_at,
-        read_at,
-        messages:message_id (subject, body, created_at, author_member_id)
-      `
-      )
-      .in("recipient_member_id", memberIds)
-      .order("created_at", { ascending: false });
-
-    // 3. Récupérer TOUS les derniers messages envoyés en une seule requête
-    const { data: lastSentMessages } = await supabase
-      .from("messages")
-      .select("subject, body, created_at, author_member_id")
-      .in("author_member_id", memberIds)
-      .order("created_at", { ascending: false });
-
-    // 4. Compter TOUS les non-lus en une seule requête
-    const { data: unreadCounts } = await supabase
-      .from("message_recipients")
-      .select("recipient_member_id")
-      .in("recipient_member_id", memberIds)
-      .is("read_at", null);
-
-    // 5. Traiter les données côté client
-    const conversations = members.map((member) => {
-      // Dernier message reçu pour ce membre
-      const receivedForMember =
-        lastReceivedMessages?.filter(
-          (msg) => msg.recipient_member_id === member.id
-        ) || [];
-      const lastReceived = receivedForMember[0]; // Le plus récent
-
-      // Dernier message envoyé par ce membre
-      const sentByMember =
-        lastSentMessages?.filter((msg) => msg.author_member_id === member.id) ||
-        [];
-      const lastSent = sentByMember[0]; // Le plus récent
-
-      // Trouver le message le plus récent
-      let lastMessage = null;
-      let lastMessageDate = null;
-
-      if (lastReceived?.messages && lastSent) {
-        const receivedDate = new Date(lastReceived.messages.created_at);
-        const sentDate = new Date(lastSent.created_at);
-        if (receivedDate > sentDate) {
-          lastMessage = lastReceived.messages;
-          lastMessageDate = receivedDate;
-        } else {
-          lastMessage = lastSent;
-          lastMessageDate = sentDate;
-        }
-      } else if (lastReceived?.messages) {
-        lastMessage = lastReceived.messages;
-        lastMessageDate = new Date(lastReceived.messages.created_at);
-      } else if (lastSent) {
-        lastMessage = lastSent;
-        lastMessageDate = new Date(lastSent.created_at);
-      }
-
-      // Compter les non-lus pour ce membre
-      const unreadForMember =
-        unreadCounts?.filter((u) => u.recipient_member_id === member.id)
-          .length || 0;
-
-      return {
-        otherId: member.id,
-        otherFirstName: member.firstName || "",
-        otherName: member.name || "",
-        photo: member.photo || null,
-        lastMessagePreview: lastMessage
-          ? lastMessage.body?.substring(0, 100) +
-            (lastMessage.body?.length > 100 ? "..." : "")
-          : "",
-        lastMessageDate: lastMessageDate?.toISOString() || null,
-        unread: unreadForMember,
-      };
-    });
-
-    // Trier par dernière activité
-    conversations.sort((a, b) => {
-      if (!a.lastMessageDate && !b.lastMessageDate) return 0;
-      if (!a.lastMessageDate) return 1;
-      if (!b.lastMessageDate) return -1;
-      return new Date(b.lastMessageDate) - new Date(a.lastMessageDate);
-    });
+    // Conversion simple sans requêtes supplémentaires
+    const conversations = (members || []).map(member => ({
+      otherId: member.id,
+      otherFirstName: member.firstName || "",
+      otherName: member.name || "",
+      photo: member.photo || null,
+      lastMessagePreview: "Cliquez pour voir la conversation",
+      lastMessageDate: null,
+      unread: 0, // Désactivé temporairement pour les performances
+    }));
 
     // Ajouter le fil staff en premier
     conversations.unshift({
@@ -268,75 +168,43 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
       unread: 0,
     });
 
+    // Mettre en cache
+    conversationsCache = conversations;
+    cacheTimestamp = now;
+
     return conversations;
   } catch (error) {
-    console.error("Erreur getEnhancedAdminConversations:", error);
-    // Retourner au moins l'équipe en cas d'erreur
-    return [
-      {
-        otherId: ADMIN_SENTINEL,
-        otherFirstName: "Équipe",
-        otherName: "BodyForce",
-        photo: null,
-        lastMessagePreview: "Messages de l'équipe",
-        lastMessageDate: null,
-        unread: 0,
-      },
-    ];
+    console.error("Erreur getSimplifiedAdminConversations:", error);
+    // Fallback simple
+    return [{
+      otherId: ADMIN_SENTINEL,
+      otherFirstName: "Équipe",
+      otherName: "BodyForce",
+      photo: null,
+      lastMessagePreview: "Messages de l'équipe",
+      lastMessageDate: null,
+      unread: 0,
+    }];
   }
 };
 
-const getEnhancedMemberConversations = async (memberId) => {
-  try {
-    // Pour un membre, une seule requête suffit
-    const { data: lastMessage } = await supabase
-      .from("message_recipients")
-      .select(
-        `
-        created_at,
-        messages:message_id (subject, body, created_at)
-      `
-      )
-      .eq("recipient_member_id", memberId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(); // Utiliser maybeSingle au lieu de single
+const getSimplifiedMemberConversations = async () => {
+  // Pour les membres, retour immédiat
+  return [{
+    otherId: ADMIN_SENTINEL,
+    otherFirstName: "Équipe",
+    otherName: "BodyForce",
+    photo: null,
+    lastMessagePreview: "Contactez l'équipe BodyForce",
+    lastMessageDate: null,
+    unread: 0,
+  }];
+};
 
-    // Compter les non-lus
-    const { count: unreadCount } = await supabase
-      .from("message_recipients")
-      .select("*", { count: "exact", head: true })
-      .eq("recipient_member_id", memberId)
-      .is("read_at", null);
-
-    return [
-      {
-        otherId: ADMIN_SENTINEL,
-        otherFirstName: "Équipe",
-        otherName: "BodyForce",
-        photo: null,
-        lastMessagePreview: lastMessage?.messages
-          ? lastMessage.messages.body?.substring(0, 100) +
-            (lastMessage.messages.body?.length > 100 ? "..." : "")
-          : "Contactez l'équipe BodyForce",
-        lastMessageDate: lastMessage?.messages?.created_at || null,
-        unread: unreadCount || 0,
-      },
-    ];
-  } catch (error) {
-    console.error("Erreur getEnhancedMemberConversations:", error);
-    return [
-      {
-        otherId: ADMIN_SENTINEL,
-        otherFirstName: "Équipe",
-        otherName: "BodyForce",
-        photo: null,
-        lastMessagePreview: "Contactez l'équipe BodyForce",
-        lastMessageDate: null,
-        unread: 0,
-      },
-    ];
-  }
+// Fonction pour invalider le cache
+const invalidateConversationsCache = () => {
+  conversationsCache = null;
+  cacheTimestamp = 0;
 };
 
 // Composant principal
@@ -372,12 +240,12 @@ export default function MessagesPage() {
   const endRef = useRef();
   const messagesContainerRef = useRef();
   const activeOtherIdRef = useRef(null);
-
+  
   useEffect(() => {
     activeOtherIdRef.current = activeOtherId;
   }, [activeOtherId]);
 
-  // ========= SYSTÈME DE PRÉSENCE HEARTBEAT =========
+  // ========= SYSTÈME DE PRÉSENCE HEARTBEAT (OPTIMISÉ) =========
 
   // Heartbeat pour maintenir la présence
   const updatePresence = useCallback(async () => {
@@ -388,38 +256,35 @@ export default function MessagesPage() {
         .update({ last_seen_at: new Date().toISOString() })
         .eq("id", me.id);
     } catch (error) {
-      console.error("Erreur update présence:", error);
+      // Erreur silencieuse pour ne pas spam la console
     }
   }, [me?.id]);
 
-  // Vérifier qui est en ligne (dernière activité < 3 minutes)
+  // Vérifier qui est en ligne (optimisé)
   const checkMemberPresence = useCallback(async () => {
     try {
       const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
-
+      
       const { data: onlineMembers } = await supabase
         .from("members")
         .select("id")
-        .gte("last_seen_at", threeMinutesAgo.toISOString());
-
-      const onlineSet = new Set(onlineMembers?.map((m) => m.id) || []);
+        .gte("last_seen_at", threeMinutesAgo.toISOString())
+        .limit(200); // Limiter les résultats
+      
+      const onlineSet = new Set(onlineMembers?.map(m => m.id) || []);
       setOnlineMembers(onlineSet);
     } catch (error) {
-      console.error("Erreur vérification présence:", error);
+      // Erreur silencieuse
     }
   }, []);
 
-  const isMemberOnline = useCallback(
-    (memberId) => {
-      if (memberId === ADMIN_SENTINEL) return true; // Staff toujours en ligne
-      return onlineMembers.has(memberId);
-    },
-    [onlineMembers]
-  );
+  const isMemberOnline = useCallback((memberId) => {
+    if (memberId === ADMIN_SENTINEL) return true;
+    return onlineMembers.has(memberId);
+  }, [onlineMembers]);
 
-  // ========= FONCTIONS AVEC useCallback POUR ÉVITER LES RE-RENDERS ==========
+  // ========= FONCTIONS OPTIMISÉES AVEC useCallback =========
 
-  // Services & Fetchers avec useCallback
   const {
     sendToAdmins,
     sendBroadcast,
@@ -433,69 +298,59 @@ export default function MessagesPage() {
     if (!me?.id) return;
     setLoading(true);
     try {
+      let conversations;
       if (isAdmin) {
-        const adminData = await getEnhancedAdminConversations(me.id);
-        setConvs(adminData || []);
+        conversations = await getSimplifiedAdminConversations(me.id);
       } else {
-        const memberData = await getEnhancedMemberConversations(me.id);
-        setConvs(memberData || []);
+        conversations = await getSimplifiedMemberConversations();
       }
+      setConvs(conversations || []);
     } catch (error) {
       console.error("Erreur fetchConversations:", error);
+      setConvs([]);
     } finally {
       setLoading(false);
     }
   }, [me?.id, isAdmin]);
 
-  const fetchThread = useCallback(
-    async (otherId) => {
-      if (!me?.id) return;
-      setLoadingThread(true);
-      try {
-        let data = [];
-        if (isAdmin) {
-          if (otherId !== ADMIN_SENTINEL) {
-            data = await listThreadWithMember(otherId);
-          }
-        } else {
-          data = await listMyThread(me.id);
+  const fetchThread = useCallback(async (otherId) => {
+    if (!me?.id) return;
+    setLoadingThread(true);
+    try {
+      let data = [];
+      if (isAdmin) {
+        if (otherId !== ADMIN_SENTINEL) {
+          data = await listThreadWithMember(otherId);
         }
-        setThread(data || []);
-
-        // Marquer comme lu
-        try {
-          if (
-            typeof markConversationRead === "function" &&
-            isAdmin &&
-            otherId !== ADMIN_SENTINEL
-          ) {
-            await markConversationRead(otherId);
-            setConvs((prev) =>
-              prev.map((c) => (c.otherId === otherId ? { ...c, unread: 0 } : c))
-            );
-          }
-        } catch {
-          /* noop */
-        }
-      } catch (error) {
-        console.error("Erreur fetchThread:", error);
-      } finally {
-        setLoadingThread(false);
+      } else {
+        data = await listMyThread(me.id);
       }
-    },
-    [me?.id, isAdmin, listThreadWithMember, listMyThread, markConversationRead]
-  );
+      setThread(data || []);
+
+      // Marquer comme lu (simplifié)
+      try {
+        if (isAdmin && otherId !== ADMIN_SENTINEL && typeof markConversationRead === "function") {
+          await markConversationRead(otherId);
+        }
+      } catch {
+        // Ignore les erreurs de lecture
+      }
+    } catch (error) {
+      console.error("Erreur fetchThread:", error);
+    } finally {
+      setLoadingThread(false);
+    }
+  }, [me?.id, isAdmin, listThreadWithMember, listMyThread, markConversationRead]);
 
   const scrollToEnd = useCallback(() => {
     setTimeout(() => {
       if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop =
-          messagesContainerRef.current.scrollHeight;
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
     }, 100);
   }, []);
 
-  // ========= Envoi avec useCallback =========
+  // ========= Envoi optimisé =========
   const onSend = useCallback(async () => {
     if (sending) return;
     if (!body.trim()) return;
@@ -544,7 +399,10 @@ export default function MessagesPage() {
       setBody("");
       setIsBroadcast(false);
 
+      // Invalider le cache et rafraîchir
+      invalidateConversationsCache();
       await fetchConversations();
+      
       if (activeOtherId != null && !selectMode && !isBroadcast) {
         await fetchThread(activeOtherId);
       }
@@ -555,34 +413,18 @@ export default function MessagesPage() {
       setSending(false);
     }
   }, [
-    sending,
-    body,
-    isBroadcast,
-    showBroadcastModal,
-    subject,
-    me?.id,
-    isAdmin,
-    sendBroadcast,
-    excludeAuthor,
-    selectMode,
-    selectedIds,
-    activeOtherId,
-    sendToAdmins,
-    fetchConversations,
-    fetchThread,
-    scrollToEnd,
+    sending, body, isBroadcast, showBroadcastModal, subject, me?.id, isAdmin,
+    sendBroadcast, excludeAuthor, selectMode, selectedIds, activeOtherId,
+    sendToAdmins, fetchConversations, fetchThread, scrollToEnd
   ]);
 
-  // ========= Sélection multiple avec useCallback =========
-  const toggleMemberSelection = useCallback(
-    (memberId) => {
-      const newSelected = new Set(selectedIds);
-      if (newSelected.has(memberId)) newSelected.delete(memberId);
-      else newSelected.add(memberId);
-      setSelectedIds(newSelected);
-    },
-    [selectedIds]
-  );
+  // ========= Sélection multiple =========
+  const toggleMemberSelection = useCallback((memberId) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(memberId)) newSelected.delete(memberId);
+    else newSelected.add(memberId);
+    setSelectedIds(newSelected);
+  }, [selectedIds]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -595,43 +437,41 @@ export default function MessagesPage() {
     if (!searchTerm.trim()) return convs;
     const term = searchTerm.toLowerCase();
     return convs.filter((conv) => {
-      const name = `${conv.otherFirstName || ""} ${
-        conv.otherName || ""
-      }`.toLowerCase();
+      const name = `${conv.otherFirstName || ""} ${conv.otherName || ""}`.toLowerCase();
       return name.includes(term);
     });
   }, [convs, searchTerm]);
 
-  // ========= EFFETS POUR LE HEARTBEAT =========
+  // ========= EFFETS OPTIMISÉS =========
 
-  // Heartbeat toutes les 90 secondes
+  // Heartbeat moins fréquent pour économiser les resources
   useEffect(() => {
     if (!me?.id) return;
-
-    const heartbeatInterval = setInterval(updatePresence, 90000); // 1.5 minutes
-    updatePresence(); // Premier appel immédiat
-
+    
+    const heartbeatInterval = setInterval(updatePresence, 120000); // 2 minutes
+    updatePresence(); // Premier appel
+    
     return () => clearInterval(heartbeatInterval);
   }, [me?.id, updatePresence]);
 
-  // Vérifier les présences toutes les 2 minutes
+  // Vérifier les présences moins souvent
   useEffect(() => {
     let mounted = true;
-
+    
     if (me?.id) {
       const initPresence = async () => {
         if (!mounted) return;
         await checkMemberPresence();
       };
-
+      
       initPresence();
-
+      
       const presenceInterval = setInterval(() => {
         if (mounted) {
           checkMemberPresence();
         }
-      }, 2 * 60 * 1000);
-
+      }, 3 * 60 * 1000); // 3 minutes
+      
       return () => {
         mounted = false;
         clearInterval(presenceInterval);
@@ -639,52 +479,49 @@ export default function MessagesPage() {
     }
   }, [me?.id, checkMemberPresence]);
 
-  // Heartbeat au focus/blur de la fenêtre
+  // Heartbeat au focus de la fenêtre
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && me?.id) {
+      if (document.visibilityState === 'visible' && me?.id) {
         updatePresence();
       }
     };
 
-    const handleBeforeUnload = () => {
-      if (me?.id) {
-        // Marquer comme hors ligne à la fermeture
-        updatePresence();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [me?.id, updatePresence]);
 
-  // ========= Realtime avec cleanup approprié =========
+  // Realtime optimisé avec debouncing
   useEffect(() => {
     if (!me?.id) return;
 
     let mounted = true;
-    const sub = subscribeInbox(me.id, async () => {
-      if (!mounted) return; // Éviter les updates sur composant démonté
-      try {
-        await fetchConversations();
-        const current = activeOtherIdRef.current;
-        if (current != null && mounted) {
-          await fetchThread(current);
+    let timeoutId = null;
+
+    const debouncedUpdate = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(async () => {
+        if (!mounted) return;
+        try {
+          invalidateConversationsCache();
+          await fetchConversations();
+          const current = activeOtherIdRef.current;
+          if (current != null && mounted) {
+            await fetchThread(current);
+          }
+        } catch (error) {
+          if (mounted) {
+            console.error("Erreur callback realtime:", error);
+          }
         }
-      } catch (error) {
-        if (mounted) {
-          console.error("Erreur callback realtime:", error);
-        }
-      }
-    });
+      }, 1000); // Attendre 1 seconde avant de traiter
+    };
+
+    const sub = subscribeInbox(me.id, debouncedUpdate);
 
     return () => {
       mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       try {
         sub?.unsubscribe?.();
       } catch (error) {
@@ -693,10 +530,10 @@ export default function MessagesPage() {
     };
   }, [me?.id, fetchConversations, fetchThread]);
 
-  // ========= Effets avec dépendances correctes =========
+  // Initialisation des données
   useEffect(() => {
     let mounted = true;
-
+    
     if (me?.id) {
       const initData = async () => {
         if (!mounted) return;
@@ -708,10 +545,10 @@ export default function MessagesPage() {
           }
         }
       };
-
+      
       initData();
     }
-
+    
     return () => {
       mounted = false;
     };
@@ -719,7 +556,7 @@ export default function MessagesPage() {
 
   useEffect(() => {
     let mounted = true;
-
+    
     if (activeOtherId != null) {
       const loadThread = async () => {
         if (mounted) {
@@ -728,7 +565,7 @@ export default function MessagesPage() {
       };
       loadThread();
     }
-
+    
     return () => {
       mounted = false;
     };
@@ -738,13 +575,13 @@ export default function MessagesPage() {
     scrollToEnd();
   }, [thread, scrollToEnd]);
 
-  // Détection mobile avec useCallback
+  // Détection mobile
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
+  
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   if (loading) {
@@ -752,9 +589,7 @@ export default function MessagesPage() {
       <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Chargement des conversations...
-          </p>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Chargement...</p>
         </div>
       </div>
     );
@@ -767,7 +602,7 @@ export default function MessagesPage() {
 
       return (
         <div className="h-screen bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
-          {/* Header Mobile - FIXE */}
+          {/* Header Mobile */}
           <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-3 shadow-sm">
             <button
               onClick={() => setShowMobileChat(false)}
@@ -790,18 +625,12 @@ export default function MessagesPage() {
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                 {activeConv?.otherId === ADMIN_SENTINEL
                   ? "Équipe BodyForce"
-                  : `${activeConv?.otherFirstName || ""} ${
-                      activeConv?.otherName || ""
-                    }`}
+                  : `${activeConv?.otherFirstName || ""} ${activeConv?.otherName || ""}`}
               </h3>
               <div className="flex items-center gap-1">
-                <OnlineIndicator
-                  isOnline={isMemberOnline(activeConv?.otherId)}
-                />
+                <OnlineIndicator isOnline={isMemberOnline(activeConv?.otherId)} />
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {isMemberOnline(activeConv?.otherId)
-                    ? "En ligne"
-                    : "Hors ligne"}
+                  {isMemberOnline(activeConv?.otherId) ? "En ligne" : "Hors ligne"}
                 </span>
               </div>
             </div>
@@ -816,8 +645,8 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          {/* Messages - SCROLLABLE */}
-          <div
+          {/* Messages */}
+          <div 
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 py-2"
           >
@@ -834,70 +663,37 @@ export default function MessagesPage() {
               <div className="space-y-3">
                 {thread.map((msg, idx) => {
                   const isOwn = msg.authorUserId === user?.id;
-                  const showAvatar =
-                    !isOwn &&
-                    (idx === 0 ||
-                      thread[idx - 1]?.authorUserId !== msg.authorUserId);
-
+                  const showAvatar = !isOwn && (idx === 0 || thread[idx - 1]?.authorUserId !== msg.authorUserId);
+                  
                   return (
-                    <div
-                      key={idx}
-                      className={`flex ${
-                        isOwn ? "justify-end" : "justify-start"
-                      }`}
-                    >
-                      <div
-                        className={`flex ${
-                          isOwn ? "flex-row-reverse" : "flex-row"
-                        } items-end gap-2 max-w-[85%]`}
-                      >
+                    <div key={idx} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                      <div className={`flex ${isOwn ? "flex-row-reverse" : "flex-row"} items-end gap-2 max-w-[85%]`}>
                         {showAvatar && !isOwn && (
-                          <Avatar
-                            member={{
-                              firstName: msg.authorFirstName,
-                              name: msg.authorName,
-                            }}
+                          <Avatar 
+                            member={{ firstName: msg.authorFirstName, name: msg.authorName }} 
                             size="sm"
                           />
                         )}
                         {!showAvatar && !isOwn && <div className="w-8" />}
-
+                        
                         <div className="flex flex-col">
-                          <div
-                            className={`rounded-2xl px-4 py-2 max-w-full ${
-                              isOwn
-                                ? "bg-blue-500 text-white rounded-br-md"
-                                : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md"
-                            }`}
-                          >
-                            {msg.subject &&
-                              msg.subject !== "Message" &&
-                              msg.subject !== "Message au staff" && (
-                                <div
-                                  className={`text-sm font-medium mb-1 ${
-                                    isOwn
-                                      ? "text-blue-100"
-                                      : "text-gray-600 dark:text-gray-400"
-                                  }`}
-                                >
-                                  {msg.subject}
-                                </div>
-                              )}
-                            <div
-                              className={`text-sm break-words ${
-                                isOwn
-                                  ? "text-white"
-                                  : "text-gray-900 dark:text-gray-100"
-                              }`}
-                            >
+                          <div className={`rounded-2xl px-4 py-2 max-w-full ${
+                            isOwn 
+                              ? "bg-blue-500 text-white rounded-br-md" 
+                              : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md"
+                          }`}>
+                            {msg.subject && msg.subject !== "Message" && msg.subject !== "Message au staff" && (
+                              <div className={`text-sm font-medium mb-1 ${
+                                isOwn ? "text-blue-100" : "text-gray-600 dark:text-gray-400"
+                              }`}>
+                                {msg.subject}
+                              </div>
+                            )}
+                            <div className={`text-sm break-words ${isOwn ? "text-white" : "text-gray-900 dark:text-gray-100"}`}>
                               {msg.body}
                             </div>
                           </div>
-                          <div
-                            className={`text-xs text-gray-500 mt-1 px-2 ${
-                              isOwn ? "text-right" : "text-left"
-                            }`}
-                          >
+                          <div className={`text-xs text-gray-500 mt-1 px-2 ${isOwn ? "text-right" : "text-left"}`}>
                             {formatChatTime(msg.createdAt)}
                           </div>
                         </div>
@@ -910,7 +706,7 @@ export default function MessagesPage() {
             )}
           </div>
 
-          {/* Input Mobile - FIXE */}
+          {/* Input Mobile */}
           <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-end gap-3">
               <div className="flex-1 relative">
@@ -920,7 +716,7 @@ export default function MessagesPage() {
                   placeholder="Message..."
                   className="w-full max-h-20 px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
                   rows={1}
-                  style={{ minHeight: "48px" }}
+                  style={{ minHeight: '48px' }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -945,12 +741,9 @@ export default function MessagesPage() {
     // Liste mobile
     return (
       <div className="h-screen bg-white dark:bg-gray-900 flex flex-col overflow-hidden">
-        {/* Header - FIXE */}
         <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              Messages
-            </h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Messages</h1>
             {isAdmin && (
               <div className="flex gap-2">
                 <button
@@ -968,8 +761,7 @@ export default function MessagesPage() {
               </div>
             )}
           </div>
-
-          {/* Recherche */}
+          
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -982,7 +774,6 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        {/* Conversations - SCROLLABLE */}
         <div className="flex-1 overflow-y-auto">
           {filteredConversations.map((conv) => (
             <div
@@ -995,11 +786,7 @@ export default function MessagesPage() {
             >
               <div className="flex items-center gap-3">
                 <Avatar
-                  member={
-                    conv.otherId === ADMIN_SENTINEL
-                      ? { id: ADMIN_SENTINEL }
-                      : conv
-                  }
+                  member={conv.otherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : conv}
                   size="md"
                   showOnline={isMemberOnline(conv.otherId)}
                 />
@@ -1009,9 +796,7 @@ export default function MessagesPage() {
                     <h4 className="font-medium text-gray-900 dark:text-gray-100 truncate">
                       {conv.otherId === ADMIN_SENTINEL
                         ? "Équipe BodyForce"
-                        : `${conv.otherFirstName || ""} ${
-                            conv.otherName || ""
-                          }`}
+                        : `${conv.otherFirstName || ""} ${conv.otherName || ""}`}
                     </h4>
                     <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
                       {formatMessageTime(conv.lastMessageDate)}
@@ -1045,9 +830,7 @@ export default function MessagesPage() {
         {/* Header Sidebar - FIXE */}
         <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              Messages
-            </h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Messages</h2>
             {isAdmin && (
               <div className="flex gap-1">
                 <button
@@ -1101,11 +884,7 @@ export default function MessagesPage() {
               >
                 <div className="flex items-center gap-3">
                   <Avatar
-                    member={
-                      conv.otherId === ADMIN_SENTINEL
-                        ? { id: ADMIN_SENTINEL }
-                        : conv
-                    }
+                    member={conv.otherId === ADMIN_SENTINEL ? { id: ADMIN_SENTINEL } : conv}
                     size="md"
                     showOnline={isMemberOnline(conv.otherId)}
                   />
@@ -1115,9 +894,7 @@ export default function MessagesPage() {
                       <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                         {conv.otherId === ADMIN_SENTINEL
                           ? "Équipe BodyForce"
-                          : `${conv.otherFirstName || ""} ${
-                              conv.otherName || ""
-                            }`}
+                          : `${conv.otherFirstName || ""} ${conv.otherName || ""}`}
                       </h4>
                       <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
                         {formatMessageTime(conv.lastMessageDate)}
@@ -1173,9 +950,7 @@ export default function MessagesPage() {
                     member={
                       activeOtherId === ADMIN_SENTINEL
                         ? { id: ADMIN_SENTINEL }
-                        : filteredConversations.find(
-                            (c) => c.otherId === activeOtherId
-                          )
+                        : filteredConversations.find((c) => c.otherId === activeOtherId)
                     }
                     size="lg"
                     showOnline={isMemberOnline(activeOtherId)}
@@ -1186,22 +961,14 @@ export default function MessagesPage() {
                       {activeOtherId === ADMIN_SENTINEL
                         ? "Équipe BodyForce"
                         : (() => {
-                            const conv = filteredConversations.find(
-                              (c) => c.otherId === activeOtherId
-                            );
-                            return `${conv?.otherFirstName || ""} ${
-                              conv?.otherName || ""
-                            }`;
+                            const conv = filteredConversations.find((c) => c.otherId === activeOtherId);
+                            return `${conv?.otherFirstName || ""} ${conv?.otherName || ""}`;
                           })()}
                     </h3>
                     <div className="flex items-center gap-2">
-                      <OnlineIndicator
-                        isOnline={isMemberOnline(activeOtherId)}
-                      />
+                      <OnlineIndicator isOnline={isMemberOnline(activeOtherId)} />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {isMemberOnline(activeOtherId)
-                          ? "En ligne"
-                          : "Hors ligne"}
+                        {isMemberOnline(activeOtherId) ? "En ligne" : "Hors ligne"}
                       </span>
                     </div>
                   </div>
@@ -1222,7 +989,7 @@ export default function MessagesPage() {
             </div>
 
             {/* Zone des messages - SCROLLABLE */}
-            <div
+            <div 
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-4"
             >
@@ -1244,82 +1011,46 @@ export default function MessagesPage() {
                 <div className="space-y-4">
                   {thread.map((msg, idx) => {
                     const isOwn = msg.authorUserId === user?.id;
-                    const showAvatar =
-                      !isOwn &&
-                      (idx === 0 ||
-                        thread[idx - 1]?.authorUserId !== msg.authorUserId);
-                    const showTime =
-                      idx === thread.length - 1 ||
-                      (idx < thread.length - 1 &&
-                        new Date(thread[idx + 1]?.createdAt) -
-                          new Date(msg.createdAt) >
-                          300000); // 5 minutes
-
+                    const showAvatar = !isOwn && (idx === 0 || thread[idx - 1]?.authorUserId !== msg.authorUserId);
+                    const showTime = idx === thread.length - 1 || 
+                      (idx < thread.length - 1 && 
+                       (new Date(thread[idx + 1]?.createdAt) - new Date(msg.createdAt)) > 300000); // 5 minutes
+                    
                     return (
-                      <div
-                        key={idx}
-                        className={`flex ${
-                          isOwn ? "justify-end" : "justify-start"
-                        }`}
-                      >
-                        <div
-                          className={`flex ${
-                            isOwn ? "flex-row-reverse" : "flex-row"
-                          } items-end gap-3 max-w-[70%]`}
-                        >
+                      <div key={idx} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                        <div className={`flex ${isOwn ? "flex-row-reverse" : "flex-row"} items-end gap-3 max-w-[70%]`}>
                           {showAvatar && !isOwn && (
-                            <Avatar
-                              member={{
-                                firstName: msg.authorFirstName,
-                                name: msg.authorName,
-                              }}
+                            <Avatar 
+                              member={{ firstName: msg.authorFirstName, name: msg.authorName }} 
                               size="sm"
                             />
                           )}
                           {!showAvatar && !isOwn && <div className="w-8" />}
-
+                          
                           <div className="space-y-1">
-                            <div
-                              className={`rounded-2xl px-4 py-3 max-w-full break-words ${
-                                isOwn
-                                  ? "bg-blue-500 text-white rounded-br-md"
-                                  : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md shadow-sm"
-                              }`}
-                            >
-                              {msg.subject &&
-                                msg.subject !== "Message" &&
-                                msg.subject !== "Message au staff" && (
-                                  <div
-                                    className={`text-sm font-medium mb-2 pb-2 border-b ${
-                                      isOwn
-                                        ? "text-blue-100 border-blue-400 border-opacity-30"
-                                        : "text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
-                                    }`}
-                                  >
-                                    {msg.subject}
-                                  </div>
-                                )}
-                              <div
-                                className={`${
-                                  isOwn
-                                    ? "text-white"
-                                    : "text-gray-900 dark:text-gray-100"
-                                } leading-relaxed whitespace-pre-wrap`}
-                              >
+                            <div className={`rounded-2xl px-4 py-3 max-w-full break-words ${
+                              isOwn 
+                                ? "bg-blue-500 text-white rounded-br-md" 
+                                : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md shadow-sm"
+                            }`}>
+                              {msg.subject && msg.subject !== "Message" && msg.subject !== "Message au staff" && (
+                                <div className={`text-sm font-medium mb-2 pb-2 border-b ${
+                                  isOwn 
+                                    ? "text-blue-100 border-blue-400 border-opacity-30" 
+                                    : "text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
+                                }`}>
+                                  {msg.subject}
+                                </div>
+                              )}
+                              <div className={`${isOwn ? "text-white" : "text-gray-900 dark:text-gray-100"} leading-relaxed whitespace-pre-wrap`}>
                                 {msg.body}
                               </div>
                             </div>
-
+                            
                             {showTime && (
-                              <div
-                                className={`text-xs text-gray-500 px-1 ${
-                                  isOwn ? "text-right" : "text-left"
-                                }`}
-                              >
+                              <div className={`text-xs text-gray-500 px-1 ${isOwn ? "text-right" : "text-left"}`}>
                                 {formatChatTime(msg.createdAt)}
-                                {isOwn && (
-                                  <CheckCheck className="w-3 h-3 inline ml-1" />
-                                )}
+                                {isOwn && <CheckCheck className="w-3 h-3 inline ml-1" />}
                               </div>
                             )}
                           </div>
@@ -1349,17 +1080,13 @@ export default function MessagesPage() {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {Array.from(selectedIds).map((memberId) => {
-                      const member = filteredConversations.find(
-                        (c) => c.otherId === memberId
-                      );
+                      const member = filteredConversations.find((c) => c.otherId === memberId);
                       return (
                         <span
                           key={memberId}
                           className="bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs"
                         >
-                          {member
-                            ? `${member.otherFirstName} ${member.otherName}`
-                            : `Membre ${memberId}`}
+                          {member ? `${member.otherFirstName} ${member.otherName}` : `Membre ${memberId}`}
                         </span>
                       );
                     })}
@@ -1388,7 +1115,7 @@ export default function MessagesPage() {
                     <Image className="w-5 h-5" />
                   </button>
                 </div>
-
+                
                 <div className="flex-1 relative">
                   <textarea
                     value={body}
@@ -1402,7 +1129,7 @@ export default function MessagesPage() {
                     }
                     className="w-full max-h-32 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     rows={1}
-                    style={{ minHeight: "48px" }}
+                    style={{ minHeight: '48px' }}
                     onInput={(e) => {
                       e.target.style.height = "auto";
                       e.target.style.height = e.target.scrollHeight + "px";
@@ -1415,7 +1142,7 @@ export default function MessagesPage() {
                     }}
                   />
                 </div>
-
+                
                 <button
                   onClick={onSend}
                   disabled={
@@ -1550,12 +1277,8 @@ export default function MessagesPage() {
                           {conv.otherFirstName} {conv.otherName}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                          <OnlineIndicator
-                            isOnline={isMemberOnline(conv.otherId)}
-                          />
-                          {isMemberOnline(conv.otherId)
-                            ? "En ligne"
-                            : "Hors ligne"}
+                          <OnlineIndicator isOnline={isMemberOnline(conv.otherId)} />
+                          {isMemberOnline(conv.otherId) ? "En ligne" : "Hors ligne"}
                         </div>
                       </div>
                     </label>

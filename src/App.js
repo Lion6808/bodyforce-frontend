@@ -1002,10 +1002,6 @@ function EnhancedSidebar({
         ) : (
           <FaUserCircle className="text-xl text-blue-600 dark:text-blue-400 flex-shrink-0" />
         )}
-        {/* … après l'avatar … */}
-        <div className="ml-auto">
-          <NotificationBell />
-        </div>
 
         <div className="flex flex-col min-w-0">
           <span className="font-medium truncate">{user?.email}</span>
@@ -1014,6 +1010,11 @@ function EnhancedSidebar({
               Admin
             </span>
           )}
+        </div>
+
+        {/* … après l'avatar … */}
+        <div className="ml-auto">
+          <NotificationBell />
         </div>
       </div>
 
