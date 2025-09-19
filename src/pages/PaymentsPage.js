@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import {
   CreditCard,
@@ -23,7 +23,7 @@ import Avatar from "../components/Avatar";
 
 
 // ✅ Import supabase + helper URL public (pas de cache-busting)
-import { supabase, getPhotoUrl } from "../supabaseClient";
+import { supabase } from "../supabaseClient";
 // ✅ Import du composant MemberForm
 import MemberForm from "../components/MemberForm";
 
@@ -207,17 +207,17 @@ function PaymentsPage() {
   const getStatusColor = (status) => {
     const baseClasses = isDarkMode
       ? {
-          paid: "text-green-400 bg-green-900/30",
-          pending: "text-yellow-400 bg-yellow-900/30",
-          overdue: "text-red-400 bg-red-900/30",
-          no_payments: "text-gray-400 bg-gray-800/30",
-        }
+        paid: "text-green-400 bg-green-900/30",
+        pending: "text-yellow-400 bg-yellow-900/30",
+        overdue: "text-red-400 bg-red-900/30",
+        no_payments: "text-gray-400 bg-gray-800/30",
+      }
       : {
-          paid: "text-green-600 bg-green-100",
-          pending: "text-yellow-600 bg-yellow-100",
-          overdue: "text-red-600 bg-red-100",
-          no_payments: "text-gray-600 bg-gray-100",
-        };
+        paid: "text-green-600 bg-green-100",
+        pending: "text-yellow-600 bg-yellow-100",
+        overdue: "text-red-600 bg-red-100",
+        no_payments: "text-gray-600 bg-gray-100",
+      };
     return baseClasses[status] || baseClasses.no_payments;
   };
 
@@ -403,10 +403,10 @@ function PaymentsPage() {
           member.overallStatus === "paid"
             ? "Paye"
             : member.overallStatus === "pending"
-            ? "Attente"
-            : member.overallStatus === "overdue"
-            ? "Retard"
-            : "Aucun";
+              ? "Attente"
+              : member.overallStatus === "overdue"
+                ? "Retard"
+                : "Aucun";
         doc.text(statusText, 110, yPos);
 
         doc.text(`${member.progressPercentage.toFixed(0)}%`, 145, yPos);
@@ -486,9 +486,8 @@ function PaymentsPage() {
       {filteredMembers.map((member) => (
         <div
           key={member.id}
-          className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-lg shadow border overflow-hidden`}
+          className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-lg shadow border overflow-hidden`}
         >
           <div className="p-4">
             {/* En-tête */}
@@ -531,13 +530,12 @@ function PaymentsPage() {
                 </div>
                 <div className={`w-full ${isDarkMode ? "bg-gray-600" : "bg-gray-200"} rounded-full h-2`}>
                   <div
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      member.progressPercentage === 100
+                    className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
                         ? "bg-gradient-to-r from-green-400 to-green-600"
                         : member.progressPercentage > 50
-                        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                        : "bg-gradient-to-r from-red-400 to-red-600"
-                    }`}
+                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                          : "bg-gradient-to-r from-red-400 to-red-600"
+                      }`}
                     style={{ width: `${Math.min(member.progressPercentage, 100)}%` }}
                   />
                 </div>
@@ -574,9 +572,8 @@ function PaymentsPage() {
             <div className="mt-3 flex flex-col sm:flex-row gap-2">
               <button
                 onClick={() => setExpandedMember(expandedMember === member.id ? null : member.id)}
-                className={`flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border ${
-                  isDarkMode ? "border-blue-500 hover:bg-blue-900/20" : "border-blue-200 hover:bg-blue-50"
-                } rounded-lg transition-colors`}
+                className={`flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border ${isDarkMode ? "border-blue-500 hover:bg-blue-900/20" : "border-blue-200 hover:bg-blue-50"
+                  } rounded-lg transition-colors`}
               >
                 {expandedMember === member.id ? (
                   <>
@@ -593,9 +590,8 @@ function PaymentsPage() {
 
               <button
                 onClick={() => handleEditMember(member)}
-                className={`flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border ${
-                  isDarkMode ? "border-orange-500 hover:bg-orange-900/20" : "border-orange-200 hover:bg-orange-50"
-                } rounded-lg transition-colors`}
+                className={`flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border ${isDarkMode ? "border-orange-500 hover:bg-orange-900/20" : "border-orange-200 hover:bg-orange-50"
+                  } rounded-lg transition-colors`}
               >
                 <Edit className="w-4 h-4" />
                 Modifier
@@ -719,14 +715,12 @@ function PaymentsPage() {
 
   const renderConnectionError = () => (
     <div
-      className={`min-h-screen ${
-        isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"
-      } flex items-center justify-center p-4`}
+      className={`min-h-screen ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"
+        } flex items-center justify-center p-4`}
     >
       <div
-        className={`${
-          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-        } rounded-xl shadow-lg p-8 max-w-md w-full text-center border`}
+        className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+          } rounded-xl shadow-lg p-8 max-w-md w-full text-center border`}
       >
         <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
         <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-800"} mb-4`}>
@@ -761,9 +755,8 @@ function PaymentsPage() {
 
   const renderLoading = () => (
     <div
-      className={`min-h-screen ${
-        isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"
-      } flex items-center justify-center`}
+      className={`min-h-screen ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"
+        } flex items-center justify-center`}
     >
       <div className="text-center">
         <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -782,9 +775,8 @@ function PaymentsPage() {
 
   return (
     <div
-      className={`min-h-screen ${
-        isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"
-      } p-4 lg:p-6`}
+      className={`min-h-screen ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"
+        } p-4 lg:p-6`}
     >
       <div className="max-w-full mx-auto">
         {/* Header */}
@@ -803,11 +795,10 @@ function PaymentsPage() {
               <button
                 onClick={exportToCSV}
                 disabled={loading || filteredMembers.length === 0}
-                className={`flex items-center justify-center gap-2 px-4 py-2 ${
-                  isDarkMode
+                className={`flex items-center justify-center gap-2 px-4 py-2 ${isDarkMode
                     ? "bg-gray-800 border-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:text-gray-500 text-white"
                     : "bg-white border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                } border rounded-lg transition-colors text-sm font-medium`}
+                  } border rounded-lg transition-colors text-sm font-medium`}
               >
                 <Download className="w-4 h-4" />
                 Exporter CSV
@@ -835,9 +826,8 @@ function PaymentsPage() {
         {/* Widgets stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8">
           <div
-            className={`${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            } rounded-xl shadow-lg p-4 lg:p-6 border`}
+            className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              } rounded-xl shadow-lg p-4 lg:p-6 border`}
           >
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
@@ -858,9 +848,8 @@ function PaymentsPage() {
           </div>
 
           <div
-            className={`${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            } rounded-xl shadow-lg p-4 lg:p-6 border`}
+            className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              } rounded-xl shadow-lg p-4 lg:p-6 border`}
           >
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
@@ -880,9 +869,8 @@ function PaymentsPage() {
           </div>
 
           <div
-            className={`${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            } rounded-xl shadow-lg p-4 lg:p-6 border`}
+            className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              } rounded-xl shadow-lg p-4 lg:p-6 border`}
           >
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
@@ -901,9 +889,8 @@ function PaymentsPage() {
           </div>
 
           <div
-            className={`${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            } rounded-xl shadow-lg p-4 lg:p-6 border`}
+            className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              } rounded-xl shadow-lg p-4 lg:p-6 border`}
           >
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex-1">
@@ -925,9 +912,8 @@ function PaymentsPage() {
 
         {/* Progression globale */}
         <div
-          className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border`}
+          className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border`}
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
             <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
@@ -949,39 +935,35 @@ function PaymentsPage() {
 
         {/* Filtres */}
         <div
-          className={`${
-            isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-4 lg:p-6 mb-6 border`}
+          className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            } rounded-xl shadow-lg p-4 lg:p-6 mb-6 border`}
         >
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search
-                  className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${
-                    isDarkMode ? "text-gray-500" : "text-gray-400"
-                  } w-5 h-5`}
+                  className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? "text-gray-500" : "text-gray-400"
+                    } w-5 h-5`}
                 />
                 <input
                   type="text"
                   placeholder="Rechercher par nom, prénom ou badge..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border ${
-                    isDarkMode
+                  className={`w-full pl-10 pr-4 py-2 border ${isDarkMode
                       ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
                       : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  } rounded-lg`}
+                    } rounded-lg`}
                 />
               </div>
 
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className={`px-4 py-2 border ${
-                  isDarkMode
+                className={`px-4 py-2 border ${isDarkMode
                     ? "border-gray-600 bg-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
                     : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                } rounded-lg sm:w-48`}
+                  } rounded-lg sm:w-48`}
               >
                 <option value="all">Tous les statuts</option>
                 <option value="paid">Payé</option>
@@ -992,13 +974,12 @@ function PaymentsPage() {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${
-                  showFilters
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${showFilters
                     ? "bg-blue-100 text-blue-600"
                     : isDarkMode
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filtres</span>
@@ -1028,9 +1009,8 @@ function PaymentsPage() {
         {isMobile ? (
           // Vue mobile
           <div
-            className={`${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            } rounded-xl shadow-lg border`}
+            className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              } rounded-xl shadow-lg border`}
           >
             <div className={`px-4 py-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
               <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
@@ -1054,9 +1034,8 @@ function PaymentsPage() {
         ) : (
           // Vue desktop (tableau)
           <div
-            className={`${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            } rounded-xl shadow-lg overflow-hidden border`}
+            className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              } rounded-xl shadow-lg overflow-hidden border`}
           >
             <div className={`px-6 py-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
               <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
@@ -1069,44 +1048,38 @@ function PaymentsPage() {
                 <thead className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"}`}>
                   <tr>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
-                        isDarkMode ? "text-gray-300" : "text-gray-500"
-                      } uppercase tracking-wider`}
+                      className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                        } uppercase tracking-wider`}
                     >
                       Membre
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
-                        isDarkMode ? "text-gray-300" : "text-gray-500"
-                      } uppercase tracking-wider`}
+                      className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                        } uppercase tracking-wider`}
                     >
                       Statut
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
-                        isDarkMode ? "text-gray-300" : "text-gray-500"
-                      } uppercase tracking-wider`}
+                      className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                        } uppercase tracking-wider`}
                     >
                       Progression
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
-                        isDarkMode ? "text-gray-300" : "text-gray-500"
-                      } uppercase tracking-wider`}
+                      className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                        } uppercase tracking-wider`}
                     >
                       Montants
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
-                        isDarkMode ? "text-gray-300" : "text-gray-500"
-                      } uppercase tracking-wider`}
+                      className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                        } uppercase tracking-wider`}
                     >
                       Dernier Paiement
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
-                        isDarkMode ? "text-gray-300" : "text-gray-500"
-                      } uppercase tracking-wider`}
+                      className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"
+                        } uppercase tracking-wider`}
                     >
                       Actions
                     </th>
@@ -1161,13 +1134,12 @@ function PaymentsPage() {
                             </div>
                             <div className={`w-full ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded-full h-2`}>
                               <div
-                                className={`h-2 rounded-full transition-all duration-500 ${
-                                  member.progressPercentage === 100
+                                className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
                                     ? "bg-gradient-to-r from-green-400 to-green-600"
                                     : member.progressPercentage > 50
-                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                                    : "bg-gradient-to-r from-red-400 to-red-600"
-                                }`}
+                                      ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                                      : "bg-gradient-to-r from-red-400 to-red-600"
+                                  }`}
                                 style={{ width: `${Math.min(member.progressPercentage, 100)}%` }}
                               />
                             </div>
@@ -1237,9 +1209,8 @@ function PaymentsPage() {
                                   {member.payments.map((payment) => (
                                     <div
                                       key={payment.id}
-                                      className={`${
-                                        isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-                                      } rounded-lg p-4 border`}
+                                      className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+                                        } rounded-lg p-4 border`}
                                     >
                                       <div className="flex items-center justify-between">
                                         <div className="flex-1">
@@ -1375,9 +1346,8 @@ function PaymentsPage() {
         {/* Stats par méthode & paiements récents */}
         <div className="mt-6 lg:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           <div
-            className={`${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            } rounded-xl shadow-lg p-4 lg:p-6 border`}
+            className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              } rounded-xl shadow-lg p-4 lg:p-6 border`}
           >
             <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"} mb-4`}>
               Répartition par Méthode
@@ -1416,9 +1386,8 @@ function PaymentsPage() {
           </div>
 
           <div
-            className={`${
-              isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-            } rounded-xl shadow-lg p-4 lg:p-6 border`}
+            className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+              } rounded-xl shadow-lg p-4 lg:p-6 border`}
           >
             <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"} mb-4`}>Paiements Récents</h3>
             <div className="space-y-3">
