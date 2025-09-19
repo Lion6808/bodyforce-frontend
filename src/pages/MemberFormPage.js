@@ -1,4 +1,7 @@
-// MemberFormPage.js - Version Optimisée avec Compression Photos
+// 📄 MemberFormPage.js — COMPLET CORRIGÉ avec gestion des paiements et onglets réorganisés
+// 🎯 Onglets réorganisés : Profil | Documents | Abonnement | Présence | Messages
+// 🔒 Gestion complète des paiements alignée sur MemberForm
+// ✅ NOUVEAU : Retour intelligent avec repositionnement automatique
 
 import MemberMessagesTab from "../components/MemberMessagesTab";
 import React, { useEffect, useRef, useState } from "react";
@@ -34,7 +37,7 @@ import {
   FaEdit,
   FaPaperPlane,
   FaComments,
-  FaClipboardList,
+  FaClipboardList, // Pour l'onglet Présence
   FaSync,
   FaChartLine,
   FaChartBar,
@@ -43,7 +46,7 @@ import {
 } from "react-icons/fa";
 import { supabase, supabaseServices } from "../supabaseClient";
 
-// Fonctions utilitaires
+// 🔧 Fonctions utilitaires
 const formatDate = (date, fmt) => {
   const map = {
     "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
@@ -54,7 +57,6 @@ const formatDate = (date, fmt) => {
     "MMMM yyyy": { month: "long", year: "numeric" },
     "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
   };
-
   if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
   return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
 };
@@ -88,41 +90,7 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 
-// Fonction d'optimisation d'image
-const optimizeImage = (canvas, options = {}) => {
-  const {
-    maxWidth = 200,
-    maxHeight = 200,
-    quality = 0.85,
-    format = 'image/jpeg'
-  } = options;
-
-  const originalWidth = canvas.width;
-  const originalHeight = canvas.height;
-
-  let newWidth = originalWidth;
-  let newHeight = originalHeight;
-
-  if (originalWidth > maxWidth || originalHeight > maxHeight) {
-    const ratio = Math.min(maxWidth / originalWidth, maxHeight / originalHeight);
-    newWidth = Math.round(originalWidth * ratio);
-    newHeight = Math.round(originalHeight * ratio);
-  }
-
-  const optimizedCanvas = document.createElement('canvas');
-  const ctx = optimizedCanvas.getContext('2d');
-
-  optimizedCanvas.width = newWidth;
-  optimizedCanvas.height = newHeight;
-
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-
-  ctx.drawImage(canvas, 0, 0, originalWidth, originalHeight, 0, 0, newWidth, newHeight);
-
-  return optimizedCanvas.toDataURL(format, quality);
-};
-
+// ✅ COMPOSANT CAMÉRA
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -168,9 +136,8 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
         const constraints = {
           video: {
             facingMode: { ideal: facingMode },
-            width: { ideal: 640, max: 1280 },
-            height: { ideal: 480, max: 720 },
-            frameRate: { ideal: 15, max: 30 }
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
           },
           audio: false,
         };
@@ -214,7 +181,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext("2d");
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -228,19 +195,8 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
     }
 
-    const optimizedImageData = optimizeImage(canvas, {
-      maxWidth: 200,
-      maxHeight: 200,
-      quality: 0.85
-    });
-
-    const originalSize = canvas.toDataURL('image/jpeg', 0.9).length;
-    const optimizedSize = optimizedImageData.length;
-    const savings = Math.round((1 - optimizedSize / originalSize) * 100);
-
-    console.log(`📸 Photo optimisée: ${canvas.width}x${canvas.height} → 200x200 max (-${savings}%)`);
-
-    setCapturedPhoto(optimizedImageData);
+    const imageData = canvas.toDataURL("image/jpeg", 0.9);
+    setCapturedPhoto(imageData);
     cleanupStream();
   };
 
@@ -275,7 +231,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
             className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
               }`}
           >
-            📸 Prendre une photo (auto-optimisée)
+            📸 Prendre une photo
           </h3>
           <button
             onClick={onClose}
@@ -339,8 +295,8 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                     <button
                       onClick={switchCamera}
                       className={`p-3 rounded-full border-2 ${isDarkMode
-                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                        : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                          : "border-gray-300 text-gray-600 hover:bg-gray-100"
                         } transition-colors`}
                     >
                       <SwitchCamera className="w-6 h-6" />
@@ -356,8 +312,8 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   <button
                     onClick={onClose}
                     className={`p-3 rounded-full border-2 ${isDarkMode
-                      ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-100"
                       } transition-colors`}
                   >
                     <X className="w-6 h-6" />
@@ -391,6 +347,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   );
 }
 
+// ✅ COMPOSANTS UTILITAIRES
 function InputField({ label, icon: Icon, error, ...props }) {
   return (
     <div className="space-y-2">
@@ -402,8 +359,8 @@ function InputField({ label, icon: Icon, error, ...props }) {
         <input
           {...props}
           className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error
-            ? "border-red-300 bg-red-50 dark:bg-red-950"
-            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
             }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -423,8 +380,8 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
         <select
           {...props}
           className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error
-            ? "border-red-300 bg-red-50 dark:bg-red-950"
-            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
             }`}
         >
           {options.map((opt) => (
@@ -458,6 +415,7 @@ function StatusBadge({ isExpired, isStudent }) {
   );
 }
 
+// ✅ MODAL DE CONFIRMATION
 function ConfirmDialog({
   isOpen,
   onConfirm,
@@ -475,8 +433,8 @@ function ConfirmDialog({
           <div className="flex items-center gap-4 mb-4">
             <div
               className={`p-3 rounded-full ${type === "danger"
-                ? "bg-red-100 dark:bg-red-900/30"
-                : "bg-orange-100 dark:bg-orange-900/30"
+                  ? "bg-red-100 dark:bg-red-900/30"
+                  : "bg-orange-100 dark:bg-orange-900/30"
                 }`}
             >
               {type === "danger" ? (
@@ -504,8 +462,8 @@ function ConfirmDialog({
             <button
               onClick={onConfirm}
               className={`px-4 py-2 text-white rounded-lg transition-colors ${type === "danger"
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-orange-600 hover:bg-orange-700"
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-orange-600 hover:bg-orange-700"
                 }`}
             >
               {type === "danger" ? "Supprimer" : "Confirmer"}
@@ -517,6 +475,7 @@ function ConfirmDialog({
   );
 }
 
+// ✅ COMPOSANT PRINCIPAL
 function MemberFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -543,6 +502,7 @@ function MemberFormPage() {
 
   const [payments, setPayments] = useState([]);
 
+  // ✅ État pour gestion des paiements
   const [newPayment, setNewPayment] = useState({
     amount: "",
     method: "espèces",
@@ -559,12 +519,14 @@ function MemberFormPage() {
     success: null,
   });
 
+  // ✅ États pour les confirmations
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     type: "",
     item: null,
   });
 
+  // ✅ États pour les présences
   const [attendanceData, setAttendanceData] = useState({
     presences: [],
     loading: false,
@@ -580,6 +542,7 @@ function MemberFormPage() {
     showHourlyGraph: false,
   });
 
+  // ✅ Onglets avec compteurs
   const tabs = [
     { id: "profile", label: "Profil", icon: FaUser },
     {
@@ -667,8 +630,10 @@ function MemberFormPage() {
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
+  // ✅ NOUVELLE fonction handleBack modifiée pour le repositionnement
   const handleBack = (editedMemberId = null) => {
     if (returnPath) {
+      // Si on a modifié un membre, transmettre l'info pour le repositionnement
       if (editedMemberId) {
         navigate(returnPath, {
           state: {
@@ -684,6 +649,7 @@ function MemberFormPage() {
     }
   };
 
+  // ✅ NOUVELLE fonction handleSave modifiée pour le repositionnement
   const handleSave = async () => {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
@@ -691,6 +657,7 @@ function MemberFormPage() {
       let savedMemberId;
 
       if (member?.id) {
+        // Modification d'un membre existant
         await supabaseServices.updateMember(member.id, {
           ...form,
           files: JSON.stringify(form.files),
@@ -702,6 +669,7 @@ function MemberFormPage() {
           success: "Membre modifié avec succès !",
         });
       } else {
+        // Création d'un nouveau membre
         const newMember = await supabaseServices.createMember({
           ...form,
           files: JSON.stringify(form.files),
@@ -714,6 +682,7 @@ function MemberFormPage() {
         });
       }
 
+      // ✅ Retour avec l'ID du membre pour repositionnement
       setTimeout(() => handleBack(savedMemberId), 1500);
     } catch (error) {
       setUploadStatus({
@@ -724,6 +693,7 @@ function MemberFormPage() {
     }
   };
 
+  // ✅ FONCTIONS pour gestion des paiements
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
       .from("payments")
@@ -790,6 +760,7 @@ function MemberFormPage() {
     fetchPayments(member.id);
   };
 
+  // ✅ FONCTION DE FORMATAGE
   const formatPrice = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
       return "0,00 €";
@@ -839,88 +810,17 @@ function MemberFormPage() {
     e.target.value = "";
   };
 
-  const handlePhotoFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-
-          const optimizedData = optimizeImage(canvas, {
-            maxWidth: 200,
-            maxHeight: 200,
-            quality: 0.85
-          });
-
-          const originalSizeKB = Math.round(file.size / 1024);
-          const optimizedSizeKB = Math.round((optimizedData.length * 0.75) / 1024);
-          const savings = Math.round((1 - optimizedSizeKB / originalSizeKB) * 100);
-
-          setForm((prev) => ({ ...prev, photo: optimizedData }));
-          setUploadStatus({
-            loading: false,
-            error: null,
-            success: `Image optimisée: ${originalSizeKB} Ko → ${optimizedSizeKB} Ko (-${savings}%) !`,
-          });
-
-          setTimeout(
-            () => setUploadStatus({ loading: false, error: null, success: null }),
-            3000
-          );
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (e) =>
-        setForm((prev) => ({ ...prev, photo: e.target.result }));
-      reader.readAsDataURL(file);
-    }
-
-    e.target.value = "";
-  };
-
   const handleCameraCapture = (imageData) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-
-      const finalOptimizedData = optimizeImage(canvas, {
-        maxWidth: 200,
-        maxHeight: 200,
-        quality: 0.85
-      });
-
-      const sizeKB = Math.round((finalOptimizedData.length * 0.75) / 1024);
-
-      setForm((f) => ({ ...f, photo: finalOptimizedData }));
-      setUploadStatus({
-        loading: false,
-        error: null,
-        success: `Photo capturée et optimisée (≈${sizeKB} Ko) !`,
-      });
-
-      setTimeout(
-        () => setUploadStatus({ loading: false, error: null, success: null }),
-        3000
-      );
-    };
-    img.src = imageData;
+    setForm((f) => ({ ...f, photo: imageData }));
+    setUploadStatus({
+      loading: false,
+      error: null,
+      success: "Photo capturée avec succès !",
+    });
+    setTimeout(
+      () => setUploadStatus({ loading: false, error: null, success: null }),
+      3000
+    );
   };
 
   const captureDocument = async (imageData) => {
@@ -960,6 +860,7 @@ function MemberFormPage() {
     }
   };
 
+  // ✅ SUPPRESSION PHOTO AVEC CONFIRMATION
   const handleRemovePhoto = () => {
     setConfirmDialog({
       isOpen: true,
@@ -968,6 +869,7 @@ function MemberFormPage() {
     });
   };
 
+  // ✅ SUPPRESSION FICHIER AVEC CONFIRMATION
   const handleRemoveFile = (fileToRemove) => {
     setConfirmDialog({
       isOpen: true,
@@ -976,6 +878,7 @@ function MemberFormPage() {
     });
   };
 
+  // ✅ CONFIRMATION DE SUPPRESSION
   const handleConfirmDelete = async () => {
     const { type, item } = confirmDialog;
 
@@ -1028,6 +931,7 @@ function MemberFormPage() {
     setConfirmDialog({ isOpen: false, type: "", item: null });
   };
 
+  // ✅ FONCTIONS pour les présences
   const fetchMemberAttendance = async (memberId) => {
     if (!memberId) return;
 
@@ -1137,6 +1041,7 @@ function MemberFormPage() {
     };
   };
 
+  // ✅ ONGLET PROFIL
   const renderProfileTab = () => (
     <div className="space-y-8">
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -1207,8 +1112,8 @@ function MemberFormPage() {
               type="button"
               onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
               className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant
-                ? "bg-gradient-to-r from-blue-500 to-purple-600"
-                : "bg-gray-300 dark:bg-gray-600"
+                  ? "bg-gradient-to-r from-blue-500 to-purple-600"
+                  : "bg-gray-300 dark:bg-gray-600"
                 }`}
             >
               <span
@@ -1264,6 +1169,7 @@ function MemberFormPage() {
     </div>
   );
 
+  // ✅ ONGLET DOCUMENTS
   const renderDocumentsTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
@@ -1294,7 +1200,7 @@ function MemberFormPage() {
           className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <Camera className="w-4 h-4" />
-          Photographier un document
+          📄 Photographier un document
         </button>
       </div>
 
@@ -1362,6 +1268,7 @@ function MemberFormPage() {
     </div>
   );
 
+  // ✅ ONGLET ABONNEMENT
   const renderSubscriptionTab = () => {
     const totalPayments = payments.reduce((sum, payment) => {
       const amount = parseFloat(payment.amount) || 0;
@@ -1422,6 +1329,7 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Section ajout de paiement */}
         {member?.id && (
           <div className="mt-8 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-xl border border-green-200 dark:border-green-600">
             <h4 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -1495,8 +1403,8 @@ function MemberFormPage() {
                   />
                   <div
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${newPayment.is_paid
-                      ? "bg-green-500 border-green-500"
-                      : "border-gray-300 dark:border-gray-500"
+                        ? "bg-green-500 border-green-500"
+                        : "border-gray-300 dark:border-gray-500"
                       }`}
                   >
                     {newPayment.is_paid && (
@@ -1520,6 +1428,7 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Historique des paiements */}
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1553,14 +1462,14 @@ function MemberFormPage() {
                       <div className="flex items-center gap-3 mb-3">
                         <div
                           className={`p-2 rounded-lg ${pay.is_paid
-                            ? "bg-green-100 dark:bg-green-900"
-                            : "bg-orange-100 dark:bg-orange-900"
+                              ? "bg-green-100 dark:bg-green-900"
+                              : "bg-orange-100 dark:bg-orange-900"
                             }`}
                         >
                           <FaEuroSign
                             className={`w-4 h-4 ${pay.is_paid
-                              ? "text-green-600 dark:text-green-300"
-                              : "text-orange-600 dark:text-orange-300"
+                                ? "text-green-600 dark:text-green-300"
+                                : "text-orange-600 dark:text-orange-300"
                               }`}
                           />
                         </div>
@@ -1580,8 +1489,8 @@ function MemberFormPage() {
                             togglePaymentStatus(pay.id, !pay.is_paid)
                           }
                           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${pay.is_paid
-                            ? "bg-green-500 border-green-500"
-                            : "border-gray-300 dark:border-gray-500 hover:border-green-400"
+                              ? "bg-green-500 border-green-500"
+                              : "border-gray-300 dark:border-gray-500 hover:border-green-400"
                             }`}
                         >
                           {pay.is_paid && (
@@ -1590,8 +1499,8 @@ function MemberFormPage() {
                         </button>
                         <span
                           className={`text-sm font-medium ${pay.is_paid
-                            ? "text-green-600 dark:text-green-300"
-                            : "text-orange-600 dark:text-orange-300"
+                              ? "text-green-600 dark:text-green-300"
+                              : "text-orange-600 dark:text-orange-300"
                             }`}
                         >
                           {pay.is_paid ? "Encaissé" : "En attente"}
@@ -1613,7 +1522,7 @@ function MemberFormPage() {
                         )}
                         {pay.commentaire && (
                           <p className="italic text-gray-500 dark:text-gray-400">
-                            {pay.commentaire}
+                            💬 {pay.commentaire}
                           </p>
                         )}
                       </div>
@@ -1630,6 +1539,7 @@ function MemberFormPage() {
                 </div>
               ))}
 
+              {/* Résumé total */}
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1681,6 +1591,7 @@ function MemberFormPage() {
     );
   };
 
+  // ✅ ONGLET PRÉSENCES
   const renderAttendanceTab = () => {
     const { presences, loading, error, stats } = attendanceData;
 
@@ -1700,35 +1611,438 @@ function MemberFormPage() {
       );
     }
 
-    if (loading) {
-      return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-            <p className="text-gray-600 dark:text-gray-400">
-              Chargement des présences...
-            </p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="space-y-6">
+        {/* Filtres et actions */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <FaClipboardList className="w-5 h-5 text-blue-600 dark:text-blue-300" />
-            Suivi des présences
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Membre: {form.firstName} {form.name}{" "}
-            {form.badgeId ? `(Badge: ${form.badgeId})` : ""}
-          </p>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <FaClipboardList className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Suivi des présences
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Membre: {form.firstName} {form.name}{" "}
+                  {form.badgeId ? `(Badge: ${form.badgeId})` : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={attendanceFilters.startDate}
+                  onChange={(e) =>
+                    setAttendanceFilters((prev) => ({
+                      ...prev,
+                      startDate: e.target.value,
+                    }))
+                  }
+                  className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+                <input
+                  type="date"
+                  value={attendanceFilters.endDate}
+                  onChange={(e) =>
+                    setAttendanceFilters((prev) => ({
+                      ...prev,
+                      endDate: e.target.value,
+                    }))
+                  }
+                  className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+
+              <button
+                onClick={() => fetchMemberAttendance(member.id)}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
+              >
+                <FaSync
+                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                />
+                Actualiser
+              </button>
+            </div>
+          </div>
+
+          {/* Raccourcis temporels */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() =>
+                setAttendanceFilters((prev) => ({
+                  ...prev,
+                  startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                    .toISOString()
+                    .split("T")[0],
+                  endDate: new Date().toISOString().split("T")[0],
+                }))
+              }
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600 transition-colors"
+            >
+              7 derniers jours
+            </button>
+            <button
+              onClick={() =>
+                setAttendanceFilters((prev) => ({
+                  ...prev,
+                  startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+                    .toISOString()
+                    .split("T")[0],
+                  endDate: new Date().toISOString().split("T")[0],
+                }))
+              }
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600 transition-colors"
+            >
+              30 derniers jours
+            </button>
+            <button
+              onClick={() =>
+                setAttendanceFilters((prev) => ({
+                  ...prev,
+                  startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+                    .toISOString()
+                    .split("T")[0],
+                  endDate: new Date().toISOString().split("T")[0],
+                }))
+              }
+              className="px-3 py-1 text-xs bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600 transition-colors"
+            >
+              3 derniers mois
+            </button>
+          </div>
         </div>
+
+        {/* État de chargement */}
+        {loading && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+              <p className="text-gray-600 dark:text-gray-400">
+                Chargement des présences...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Gestion des erreurs */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
+            <div className="flex items-center gap-3">
+              <FaTimes className="w-5 h-5 text-red-500" />
+              <div>
+                <h4 className="font-medium text-red-800 dark:text-red-200">
+                  Erreur de chargement
+                </h4>
+                <p className="text-red-600 dark:text-red-300 text-sm mt-1">
+                  {error}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Statistiques principales */}
+        {!loading && !error && stats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-blue-500 rounded-lg">
+                  <FaClipboardList className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-400">
+                    Total visites
+                  </p>
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                    {stats.totalVisits}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 border border-green-200 dark:border-green-700">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-green-500 rounded-lg">
+                  <FaCalendarAlt className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-green-700 dark:text-green-400">
+                    Jours uniques
+                  </p>
+                  <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                    {stats.uniqueDays}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-6 border border-purple-200 dark:border-purple-700">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-purple-500 rounded-lg">
+                  <FaChartLine className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-purple-700 dark:text-purple-400">
+                    Moyenne/jour
+                  </p>
+                  <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                    {stats.avgVisitsPerDay}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-6 border border-orange-200 dark:border-orange-700">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-orange-500 rounded-lg">
+                  <FaClock className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-orange-700 dark:text-orange-400">
+                    Heure favorite
+                  </p>
+                  <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                    {stats.peakHour}h
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Graphiques et analyses */}
+        {!loading && !error && stats && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Distribution hebdomadaire */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <FaChartBar className="w-5 h-5 text-blue-600" />
+                Répartition par jour de la semaine
+              </h4>
+
+              <div className="space-y-3">
+                {[
+                  "Dimanche",
+                  "Lundi",
+                  "Mardi",
+                  "Mercredi",
+                  "Jeudi",
+                  "Vendredi",
+                  "Samedi",
+                ].map((day, index) => {
+                  const count = stats.weeklyDistribution[index];
+                  const maxCount = Math.max(...stats.weeklyDistribution);
+                  const percentage =
+                    maxCount > 0 ? (count / maxCount) * 100 : 0;
+
+                  return (
+                    <div key={day} className="flex items-center gap-3">
+                      <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {day.slice(0, 3)}
+                      </div>
+                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-6 relative overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${index === 0 || index === 6
+                              ? "bg-gradient-to-r from-blue-400 to-blue-600"
+                              : "bg-gradient-to-r from-green-400 to-green-600"
+                            }`}
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-800 dark:text-gray-200">
+                          {count} visite{count > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {stats.peakDay && (
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    <strong>Jour préféré:</strong> {stats.peakDay}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Distribution horaire */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <FaClock className="w-5 h-5 text-purple-600" />
+                Répartition par heure
+              </h4>
+
+              <div className="grid grid-cols-6 gap-1">
+                {stats.hourlyDistribution.map((count, hour) => {
+                  const maxCount = Math.max(...stats.hourlyDistribution);
+                  const height =
+                    maxCount > 0
+                      ? Math.max((count / maxCount) * 80, count > 0 ? 10 : 0)
+                      : 0;
+
+                  return (
+                    <div key={hour} className="flex flex-col items-center">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        {hour}h
+                      </div>
+                      <div
+                        className="w-full bg-gray-200 dark:bg-gray-700 rounded-t flex items-end"
+                        style={{ height: "80px" }}
+                      >
+                        {count > 0 && (
+                          <div
+                            className="w-full bg-gradient-to-t from-purple-500 to-purple-400 rounded-t flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
+                            style={{ height: `${height}px` }}
+                            title={`${hour}h: ${count} visite${count > 1 ? "s" : ""
+                              }`}
+                          >
+                            {count > 0 && height > 20 ? count : ""}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <p className="text-sm text-purple-700 dark:text-purple-300">
+                  <strong>Heure de pointe:</strong> {stats.peakHour}h00 (
+                  {stats.hourlyDistribution[stats.peakHour]} visite
+                  {stats.hourlyDistribution[stats.peakHour] > 1 ? "s" : ""})
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Historique détaillé des visites */}
+        {!loading && !error && stats && stats.dailyStats.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <FaCalendarAlt className="w-5 h-5 text-green-600" />
+                Historique des visites ({stats.dailyStats.length} jours)
+              </h4>
+
+              {stats.firstVisit && stats.lastVisit && (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Du {formatDate(stats.firstVisit, "dd/MM/yyyy")} au{" "}
+                  {formatDate(stats.lastVisit, "dd/MM/yyyy")}
+                </div>
+              )}
+            </div>
+
+            <div className="max-h-96 overflow-y-auto space-y-3">
+              {stats.dailyStats.map((day, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${isToday(day.date)
+                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
+                      : isWeekend(day.date)
+                        ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700"
+                        : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                    }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <div
+                        className={`text-lg font-bold ${isToday(day.date)
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-gray-900 dark:text-white"
+                          }`}
+                      >
+                        {day.date.getDate()}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatDate(day.date, "EEE dd/MM").split(" ")[0]}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {formatDate(day.date, "EEEE dd MMMM")}
+                        {isToday(day.date) && (
+                          <span className="ml-2 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded-full font-bold">
+                            Aujourd'hui
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {day.count} visite{day.count > 1 ? "s" : ""}
+                        {day.count > 1 && (
+                          <span className="text-orange-600 dark:text-orange-400 font-medium ml-1">
+                            (passages multiples)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-1">
+                      {day.hours.slice(0, 3).map((hour, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-1 bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs rounded border font-mono"
+                        >
+                          {hour}
+                        </span>
+                      ))}
+                      {day.hours.length > 3 && (
+                        <span className="px-2 py-1 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400 text-xs rounded">
+                          +{day.hours.length - 3}
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${day.count === 1
+                          ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                          : day.count <= 3
+                            ? "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
+                            : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
+                        }`}
+                    >
+                      {day.count}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Aucune donnée */}
+        {!loading && !error && (!stats || stats.totalVisits === 0) && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div className="text-center py-12">
+              <FaClipboardList className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Aucune présence trouvée
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
+                Aucune visite enregistrée pour cette période
+                {form.badgeId ? ` avec le badge ${form.badgeId}` : ""}
+              </p>
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+                💡 Les présences apparaîtront ici dès que le membre utilisera
+                son badge d'accès
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
 
+  // ✅ ONGLET MESSAGES
   const renderMessagesTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="text-center py-12">
@@ -1736,12 +2050,12 @@ function MemberFormPage() {
         <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
           Journal des messages
         </h3>
-        {member?.id && <MemberMessagesTab memberId={member.id} />}
+        <MemberMessagesTab memberId={currentMember?.id} />
         <p className="text-gray-500 dark:text-gray-400 mb-6">
           Cette fonctionnalité sera bientôt disponible
         </p>
         <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-sm text-green-700 dark:text-green-300">
-          Notes, communications, historique des échanges
+          💬 Notes, communications, historique des échanges
         </div>
       </div>
     </div>
@@ -1766,10 +2080,12 @@ function MemberFormPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      {/* Panel gauche - Photo + Infos principales */}
       <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+        {/* Header avec navigation */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <button
-            onClick={() => handleBack()}
+            onClick={() => handleBack()} // ✅ Sans ID = retour normal
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -1819,6 +2135,7 @@ function MemberFormPage() {
           </div>
         </div>
 
+        {/* Actions photo */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="space-y-3">
             <button
@@ -1836,13 +2153,22 @@ function MemberFormPage() {
               <input
                 type="file"
                 accept="image/*"
-                onChange={handlePhotoFileUpload}
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) =>
+                      setForm((prev) => ({ ...prev, photo: e.target.result }));
+                    reader.readAsDataURL(file);
+                  }
+                }}
                 className="hidden"
               />
             </label>
           </div>
         </div>
 
+        {/* Informations personnelles principales */}
         <div className="p-6 space-y-4 flex-1">
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wide">
             Détails personnels
@@ -1896,6 +2222,7 @@ function MemberFormPage() {
           </div>
         </div>
 
+        {/* Actions rapides */}
         <div className="p-6 border-t border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-4 gap-2">
             <button className="p-3 text-gray-600 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex flex-col items-center gap-1">
@@ -1918,7 +2245,9 @@ function MemberFormPage() {
         </div>
       </div>
 
+      {/* Panel droit - Contenu principal avec onglets */}
       <div className="flex-1 flex flex-col">
+        {/* Header avec titre et actions */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -1932,7 +2261,7 @@ function MemberFormPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => handleBack()}
+                onClick={() => handleBack()} // ✅ Sans ID = retour normal
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Annuler
@@ -1958,6 +2287,7 @@ function MemberFormPage() {
           </div>
         </div>
 
+        {/* Navigation par onglets */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {tabs.map((tab) => (
@@ -1965,8 +2295,8 @@ function MemberFormPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeTab === tab.id
-                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
                   }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -1981,6 +2311,7 @@ function MemberFormPage() {
           </nav>
         </div>
 
+        {/* Notifications de statut */}
         {uploadStatus.loading && (
           <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
             <div className="flex items-center">
@@ -2014,11 +2345,13 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Contenu principal des onglets */}
         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
           <div className="p-6">{renderCurrentTab()}</div>
         </div>
       </div>
 
+      {/* Modal caméra */}
       {showCamera && (
         <CameraModal
           key={showCamera}
@@ -2036,6 +2369,7 @@ function MemberFormPage() {
         />
       )}
 
+      {/* Modal de confirmation */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         onConfirm={handleConfirmDelete}
