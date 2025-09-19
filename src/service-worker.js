@@ -4,7 +4,7 @@
 // Ce SW combine :
 // 1) App Shell (fallback vers index.html hors-ligne)
 // 2) CacheFirst des images publiques Supabase
-// 3) StaleWhileRevalidate pour l’API REST Supabase
+// 3) StaleWhileRevalidate pour l'API REST Supabase
 // 4) CacheFirst des images locales
 // 5) Gestion classique : skipWaiting/clientsClaim + ping 'message'
 // ------------------------------------------------------------
@@ -28,6 +28,9 @@ if (workbox) {
   // ------------------------------------------------------------
   // 1) Precache manifest (injecté automatiquement par injectManifest)
   // ------------------------------------------------------------
+  // Nettoyage des anciens caches (remplace cleanupOutdatedCaches du config)
+  workbox.precaching.cleanupOutdatedCaches();
+  
   // eslint-disable-next-line no-restricted-globals
   workbox.precaching.precacheAndRoute(self.__WB_MANIFEST || [], {
     // On laisse passer les query params usuels sauf busting (géré côté runtime)
@@ -55,7 +58,7 @@ if (workbox) {
 
   // ------------------------------------------------------------
   // 3) IMAGES Supabase publiques  → CacheFirst (30 jours)
-  //    Exemple d’URL: https://<project>.supabase.co/storage/v1/object/public/photo/...
+  //    Exemple d'URL: https://<project>.supabase.co/storage/v1/object/public/photo/...
   // ------------------------------------------------------------
   workbox.routing.registerRoute(
     ({ url }) => url.origin.includes("supabase.co") && url.pathname.includes("/object/public/"),
@@ -91,7 +94,7 @@ if (workbox) {
   );
 
   // ------------------------------------------------------------
-  // 5) Images locales de l’app → CacheFirst (30 jours)
+  // 5) Images locales de l'app → CacheFirst (30 jours)
   // ------------------------------------------------------------
   workbox.routing.registerRoute(
     ({ request, url }) => request.destination === "image" && url.origin === self.location.origin,

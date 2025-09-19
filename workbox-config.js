@@ -8,6 +8,6 @@ module.exports = {
   // 👇 IMPORTANT : on pointe vers TON SW custom
   swSrc: "src/service-worker.js",
 
-  cleanupOutdatedCaches: true,
+  // cleanupOutdatedCaches: true, // ← SUPPRIMÉ (obsolète dans les nouvelles versions)
   maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
 };
