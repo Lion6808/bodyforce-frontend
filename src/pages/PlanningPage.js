@@ -1,9 +1,8 @@
-// 📄 PlanningPage_new.js — React — Date : 2025-08-12
+// 📄 PlanningPage_new.optimized.js — React — Date : 2025-09-19
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
-
 import {
   Calendar,
   Users,
@@ -28,6 +27,7 @@ import {
   endOfYear,
 } from "date-fns";
 
+// ───────────────────────────────────────────────────────────────────────────────
 // Supabase
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -37,7 +37,7 @@ const supabase = createClient(
 // Tailwind helpers
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
-const classes = {
+const tw = {
   pageContainer:
     "min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 p-4",
   maxWidthWrapper: "max-w-full mx-auto",
@@ -75,7 +75,6 @@ const formatDate = (date, fmt) => {
   if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
   return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
 };
-const parseTimestamp = (ts) => new Date(ts);
 
 const toDateString = (date) => {
   if (!date) return "";
@@ -128,6 +127,7 @@ const isToday = (d) => d.toDateString() === new Date().toDateString();
 function PlanningPage() {
   const [presences, setPresences] = useState([]);
   const [members, setMembers] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
@@ -138,8 +138,21 @@ function PlanningPage() {
   const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
 
-  const [filterBadge, setFilterBadge] = useState("");
+  // Filtres (avec debounce pour le nom & badge)
+  const [rawName, setRawName] = useState("");
+  const [rawBadge, setRawBadge] = useState("");
   const [filterName, setFilterName] = useState("");
+  const [filterBadge, setFilterBadge] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setFilterName(rawName), 250);
+    return () => clearTimeout(t);
+  }, [rawName]);
+  useEffect(() => {
+    const t = setTimeout(() => setFilterBadge(rawBadge), 250);
+    return () => clearTimeout(t);
+  }, [rawBadge]);
+
   const [showNightHours, setShowNightHours] = useState(false);
   const [viewMode, setViewMode] = useState("list");
   const [showFilters, setShowFilters] = useState(false);
@@ -150,64 +163,7 @@ function PlanningPage() {
   const [hoveredMember, setHoveredMember] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Chargement Supabase (membres + présences de la période)
-  const loadData = async (showRetryIndicator = false) => {
-    try {
-      if (showRetryIndicator) setIsRetrying(true);
-      setLoading(true);
-      setError("");
-
-      const { data: membersData, error: membersError } = await supabase.from("members").select("*");
-      if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
-      setMembers(Array.isArray(membersData) ? membersData : []);
-
-      let allPresences = [];
-      let from = 0;
-      const pageSize = 1000;
-      let done = false;
-
-      while (!done) {
-        const { data, error } = await supabase
-          .from("presences")
-          .select("*")
-          .gte("timestamp", startDate.toISOString())
-          .lte("timestamp", endDate.toISOString())
-          .order("timestamp", { ascending: false })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw new Error(`Erreur présences: ${error.message}`);
-        if (data?.length) {
-          allPresences = [...allPresences, ...data];
-          from += pageSize;
-        }
-        if (!data || data.length < pageSize) done = true;
-      }
-
-      setPresences(
-        allPresences.map((p) => ({
-          badgeId: p.badgeId,
-          timestamp: p.timestamp,
-          parsedDate: parseTimestamp(p.timestamp),
-        }))
-      );
-      setRetryCount(0);
-    } catch (err) {
-      setError(err.message || "Erreur de connexion à la base de données");
-    } finally {
-      setLoading(false);
-      setIsRetrying(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [startDate, endDate]);
-
-  const handleRetry = () => {
-    setRetryCount((v) => v + 1);
-    loadData(true);
-  };
-
+  // Responsive
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     onResize();
@@ -215,8 +171,8 @@ function PlanningPage() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ✅ Aligne la période sur les bornes naturelles
-  const updateDateRange = (value, base = new Date()) => {
+  // Période alignée
+  const updateDateRange = useCallback((value, base = new Date()) => {
     if (value === "week") {
       const start = startOfWeek(base, { weekStartsOn: 1 });
       const end = endOfWeek(base, { weekStartsOn: 1 });
@@ -233,57 +189,86 @@ function PlanningPage() {
       setStartDate(startOfDay(start));
       setEndDate(endOfDay(end));
     }
-  };
+  }, []);
 
-  // Navigation ‹ › qui s'aligne via updateDateRange
-  const navigatePeriod = (direction) => {
-    const amount = direction === "prev" ? -1 : 1;
-    let newStart;
-    if (period === "week") newStart = addWeeks(startDate, amount);
-    else if (period === "month") newStart = addMonths(startDate, amount);
-    else newStart = addYears(startDate, amount);
-    updateDateRange(period, newStart);
-  };
+  // Navigation ‹ ›
+  const navigatePeriod = useCallback(
+    (direction) => {
+      const amount = direction === "prev" ? -1 : 1;
+      let newStart;
+      if (period === "week") newStart = addWeeks(startDate, amount);
+      else if (period === "month") newStart = addMonths(startDate, amount);
+      else newStart = addYears(startDate, amount);
+      updateDateRange(period, newStart);
+    },
+    [period, startDate, updateDateRange]
+  );
 
-  const toLocalDate = (timestamp) => parseTimestamp(timestamp);
+  // Chargement Supabase (membres + présences)
+  const loadData = useCallback(
+    async (showRetryIndicator = false) => {
+      try {
+        if (showRetryIndicator) setIsRetrying(true);
+        setLoading(true);
+        setError("");
 
-  // Import Excel
-  const handleImportExcel = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
+        // Members (colonnes utiles only)
+        const { data: membersData, error: membersError } = await supabase
+          .from("members")
+          .select("id,name,firstName,badgeId,photo,avatarUrl");
+        if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
+        setMembers(Array.isArray(membersData) ? membersData : []);
 
-        let count = 0;
-        for (const row of rows) {
-          const badgeId = row["Qui"]?.toString();
-          const rawDate = row["Quand"];
-          if (!badgeId || !rawDate) continue;
+        // Presences (pagination + colonnes utiles)
+        const pageSize = 1000;
+        const cols = "badgeId,timestamp";
+        let all = [];
+        let from = 0;
+        let done = false;
 
-          // "12/03/25 08:17"
-          const m = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
-          if (!m) continue;
-          const [, dd, mm, yy, hh, min] = m;
-          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
-          const isoDate = localDate.toISOString();
+        while (!done) {
+          const { data, error } = await supabase
+            .from("presences")
+            .select(cols)
+            .gte("timestamp", startDate.toISOString())
+            .lte("timestamp", endDate.toISOString())
+            .order("timestamp", { ascending: false })
+            .range(from, from + pageSize - 1);
 
-          const { error } = await supabase.from("presences").insert([{ badgeId, timestamp: isoDate }]);
-          if (!error) count++;
+          if (error) throw new Error(`Erreur présences: ${error.message}`);
+          if (data?.length) {
+            // parse une fois ici
+            const mapped = data.map((p) => ({
+              badgeId: String(p.badgeId),
+              timestamp: p.timestamp,
+              parsedDate: new Date(p.timestamp),
+            }));
+            all = all.concat(mapped);
+            from += pageSize;
+          }
+          if (!data || data.length < pageSize) done = true;
         }
-        alert(`✅ Import terminé : ${count} présences insérées.`);
-        loadData();
-      };
-      reader.readAsArrayBuffer(file);
-    } catch (err) {
-      console.error("Erreur import Excel :", err);
-      alert("❌ Erreur lors de l'import.");
-    }
-  };
+
+        setPresences(all);
+        setRetryCount(0);
+      } catch (err) {
+        setError(err.message || "Erreur de connexion à la base de données");
+      } finally {
+        setLoading(false);
+        setIsRetrying(false);
+      }
+    },
+    [startDate, endDate]
+  );
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleRetry = useCallback(() => {
+    setRetryCount((v) => v + 1);
+    loadData(true);
+  }, [loadData]);
 
   // UI: états de chargement / erreur
   const renderConnectionError = () => (
@@ -295,7 +280,7 @@ function PlanningPage() {
         <button
           onClick={handleRetry}
           disabled={isRetrying}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
+          className={cn(tw.buttonPrimary, "w-full")}
         >
           {isRetrying ? (
             <>
@@ -333,37 +318,58 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Filtrage local
-  const filteredPresences = presences.filter((p) => {
-    const presenceDate = toLocalDate(p.timestamp);
-    return isWithinInterval(presenceDate, { start: startDate, end: endDate });
-  });
+  // ───────────────────────────────────────────────────────────────────────────
+  // Sélections mémoïsées (perf)
 
-  const groupedByMember = {};
-  filteredPresences.forEach((p) => {
-    const key = p.badgeId;
-    if (!groupedByMember[key]) groupedByMember[key] = [];
-    groupedByMember[key].push(toLocalDate(p.timestamp));
-  });
+  const allDays = useMemo(
+    () => eachDayOfInterval({ start: startDate, end: endDate }),
+    [startDate, endDate]
+  );
 
-  const allDays = eachDayOfInterval({ start: startDate, end: endDate });
-  const fullHours = Array.from({ length: 24 }, (_, i) => i);
+  const membersByBadge = useMemo(() => {
+    const m = new Map();
+    for (const x of members) m.set(String(x.badgeId), x);
+    return m;
+  }, [members]);
+
+  const filteredPresences = useMemo(() => {
+    return presences.filter((p) =>
+      isWithinInterval(p.parsedDate, { start: startDate, end: endDate })
+    );
+  }, [presences, startDate, endDate]);
+
+  const groupedByMember = useMemo(() => {
+    const g = {};
+    for (const p of filteredPresences) {
+      (g[p.badgeId] ||= []).push(p.parsedDate);
+    }
+    return g;
+  }, [filteredPresences]);
+
+  const getMemberInfo = useCallback(
+    (badgeId) => membersByBadge.get(String(badgeId)) || {},
+    [membersByBadge]
+  );
+
+  const visibleMembers = useMemo(() => {
+    return Object.keys(groupedByMember)
+      .map((badgeId) => getMemberInfo(badgeId))
+      .filter(
+        (m) =>
+          (!filterName ||
+            `${m.name ?? ""} ${m.firstName ?? ""}`.toLowerCase().includes(filterName.toLowerCase())) &&
+          (!filterBadge || String(m.badgeId ?? "").includes(filterBadge))
+      );
+  }, [groupedByMember, getMemberInfo, filterName, filterBadge]);
+
+  const fullHours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
   const hours = showNightHours ? fullHours : fullHours.slice(6);
 
-  const getMemberInfo = (badgeId) => members.find((m) => m.badgeId === badgeId) || {};
-
-  const visibleMembers = Object.keys(groupedByMember)
-    .map((badgeId) => getMemberInfo(badgeId))
-    .filter(
-      (m) =>
-        (!filterName || `${m.name} ${m.firstName}`.toLowerCase().includes(filterName.toLowerCase())) &&
-        (!filterBadge || m.badgeId?.includes(filterBadge))
-    );
-
-  // Stats
-  const stats = (() => {
+  // Stats (mémo)
+  const stats = useMemo(() => {
     const totalPresences = filteredPresences.length;
     const uniqueMembers = new Set(filteredPresences.map((p) => p.badgeId)).size;
+
     const daily = {};
     allDays.forEach((day) => {
       const k = toDateString(day);
@@ -378,12 +384,55 @@ function PlanningPage() {
       { day: "", members: 0, presences: 0 }
     );
     return { totalPresences, uniqueMembers, avgPresencesPerDay, avgMembersPerDay, busiestDay };
-  })();
+  }, [filteredPresences, allDays]);
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Import Excel
+  const handleImportExcel = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
+        let count = 0;
+        for (const row of rows) {
+          const badgeId = row["Qui"]?.toString();
+          const rawDate = row["Quand"];
+          if (!badgeId || !rawDate) continue;
+
+          // "12/03/25 08:17" (en local)
+          const m = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
+          if (!m) continue;
+          const [, dd, mm, yy, hh, min] = m;
+          const local = new Date(2000 + Number(yy), Number(mm) - 1, Number(dd), Number(hh), Number(min));
+          // Convertit en ISO sans décaler l'heure affichée locale (stockage standardisé)
+          const iso = new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
+
+          const { error } = await supabase.from("presences").insert([{ badgeId, timestamp: iso }]);
+          if (!error) count++;
+        }
+        alert(`✅ Import terminé : ${count} présences insérées.`);
+        loadData();
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      console.error("Erreur import Excel :", err);
+      alert("❌ Erreur lors de l'import.");
+    }
+  };
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Composants UI
 
   const StatsResume = () => (
-    <div className={cn(classes.card, "p-6 mb-6")}>
+    <div className={cn(tw.card, "p-6 mb-6")}>
       <div className="flex items-center gap-3 mb-6">
-        <div className={classes.iconContainer}>
+        <div className={tw.iconContainer}>
           <BarChart3 className="w-6 h-6 text-white" />
         </div>
         <div>
@@ -446,7 +495,7 @@ function PlanningPage() {
 
   // Vue Liste (pastilles journalières)
   const ListView = () => (
-    <div className={cn(classes.card, "overflow-hidden")}>
+    <div className={cn(tw.card, "overflow-hidden")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
           Planning des présences ({visibleMembers.length} membres)
@@ -467,10 +516,10 @@ function PlanningPage() {
           return (
             <div key={member.badgeId || idx} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
               <div className="flex items-center gap-3 mb-3">
-                {member.avatarUrl ? (
-                  <img src={member.avatarUrl} alt="avatar" className={classes.avatar} />
+                {member.avatarUrl || member.photo ? (
+                  <img src={member.avatarUrl || member.photo} alt="avatar" className={tw.avatar} />
                 ) : (
-                  <div className={classes.avatarInitials}>
+                  <div className={tw.avatarInitials}>
                     {member.firstName?.[0] || ""}
                     {member.name?.[0] || ""}
                   </div>
@@ -501,8 +550,8 @@ function PlanningPage() {
                           has
                             ? "bg-green-500 text-white shadow-sm hover:scale-105"
                             : isWeekend(day)
-                              ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                         )}
                       >
                         <div className="leading-none">{formatDate(day, "EEE dd").split(" ")[1]}</div>
@@ -537,7 +586,7 @@ function PlanningPage() {
 
   // Vue Compacte (tableau rapide)
   const CompactView = () => (
-    <div className={cn(classes.card, "overflow-hidden")}>
+    <div className={cn(tw.card, "overflow-hidden")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Vue compacte ({visibleMembers.length} membres)</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Aperçu rapide des présences par jour</p>
@@ -572,8 +621,12 @@ function PlanningPage() {
                 style={{ gridTemplateColumns: `200px repeat(${allDays.length}, 80px)` }}
               >
                 <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
-                  {member.avatarUrl ? (
-                    <img src={member.avatarUrl} alt={`${member.name} ${member.firstName}`} className="w-8 h-8 object-cover rounded-full border border-blue-200 dark:border-blue-600" />
+                  {member.avatarUrl || member.photo ? (
+                    <img
+                      src={member.avatarUrl || member.photo}
+                      alt={`${member.name} ${member.firstName}`}
+                      className="w-8 h-8 object-cover rounded-full border border-blue-200 dark:border-blue-600"
+                    />
                   ) : (
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
                       {member.firstName?.[0] || ""}
@@ -597,13 +650,13 @@ function PlanningPage() {
                           ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                             : dayTimes.length > 1
-                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : isWeekend(day)
-                            ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
-                            : idx % 2 === 0
-                              ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
-                              : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                          : idx % 2 === 0
+                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {dayTimes.length > 0 ? dayTimes.length : ""}
@@ -618,16 +671,17 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Mensuelle - Solution simple avec tooltip qui suit la souris
+  // ───────────────────────────────────────────────────────────────────────────
+  // Vue Mensuelle (avec tooltip global FIX)
+
   const MonthlyView = () => {
     const generateCalendarDays = () => {
       const y = startDate.getFullYear();
       const m = startDate.getMonth();
       const firstDay = new Date(y, m, 1);
       const startCalendar = new Date(firstDay);
-      // Commencer le lundi
-      const dow = firstDay.getDay(); // 0..6 (dim..sam)
-      const shift = dow === 0 ? -5 : 1 - dow; // place au lundi
+      const dow = firstDay.getDay(); // 0..6
+      const shift = dow === 0 ? -5 : 1 - dow; // lundi
       startCalendar.setDate(startCalendar.getDate() + shift);
 
       const days = [];
@@ -639,19 +693,18 @@ function PlanningPage() {
       return days;
     };
 
-    const calendarDays = generateCalendarDays();
+    const calendarDays = useMemo(generateCalendarDays, [startDate]);
 
     // Grouper par jour & par membre
-    const presencesByDayAndMember = (() => {
+    const presencesByDayAndMember = useMemo(() => {
       const grouped = {};
       filteredPresences.forEach((presence) => {
-        const date = parseTimestamp(presence.timestamp);
-        const key = toDateString(date);
+        const key = toDateString(presence.parsedDate);
         (grouped[key] ||= {});
-        (grouped[key][presence.badgeId] ||= []).push({ ...presence, parsedDate: date });
+        (grouped[key][presence.badgeId] ||= []).push(presence);
       });
       return grouped;
-    })();
+    }, [filteredPresences]);
 
     const toggleDayExpansion = (dayKey) => {
       const s = new Set(expandedDays);
@@ -659,35 +712,24 @@ function PlanningPage() {
       setExpandedDays(s);
     };
 
-    // Fonctions tooltip simplifiées
+    // Tooltip handlers
     const onAvatarEnter = (badgeId, dayKey, e) => {
-      const member = members.find((m) => m.badgeId === badgeId);
+      const member = membersByBadge.get(String(badgeId));
       const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
       setMousePos({ x: e.clientX, y: e.clientY });
       setHoveredMember({ member, presences: memberPresences, dayKey });
     };
-
     const onAvatarMove = (e) => {
-      if (hoveredMember) {  // ← AJOUTER cette condition
-        setMousePos({ x: e.clientX, y: e.clientY });
-      }
+      if (hoveredMember) setMousePos({ x: e.clientX, y: e.clientY });
     };
-
     const onAvatarLeave = () => {
-      // Délai pour éviter les clignotements quand on passe sur le tooltip
-      setTimeout(() => {
-        setHoveredMember(null);
-      }, 100);
+      setTimeout(() => setHoveredMember(null), 100);
     };
 
     const renderMemberAvatar = (badgeId, presenceCount, dayKey, dayIndex, memberIndex) => {
-      const member = members.find((m) => m.badgeId === badgeId);
+      const member = membersByBadge.get(String(badgeId));
       if (!member) return null;
 
-      // Récupérer les présences pour ce membre ce jour-là
-      const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
-      const multiple = memberPresences.length > 1;
-      // Z-index unique : jour * 100 + position du membre
       const uniqueZIndex = dayIndex * 100 + memberIndex + 10;
 
       return (
@@ -699,7 +741,6 @@ function PlanningPage() {
           onMouseMove={onAvatarMove}
           onMouseLeave={onAvatarLeave}
         >
-          {/* Avatar avec photo ou initiales */}
           {member.photo || member.avatarUrl ? (
             <img
               src={member.photo || member.avatarUrl}
@@ -713,18 +754,15 @@ function PlanningPage() {
             </div>
           )}
 
-          {/* Badge compteur pour passages multiples */}
           {presenceCount > 1 && (
             <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border border-white dark:border-gray-800 shadow-sm animate-pulse">
               {presenceCount > 99 ? "99+" : presenceCount}
             </div>
           )}
 
-          {/* TOOLTIP CSS complet */}
+          {/* Tooltip CSS de secours */}
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-[200]">
             <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
-
-              {/* En-tête avec photo et nom */}
               <div className="flex items-center gap-3 mb-3">
                 {member?.photo || member?.avatarUrl ? (
                   <img
@@ -734,7 +772,8 @@ function PlanningPage() {
                   />
                 ) : (
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                    {member?.firstName?.[0]}{member?.name?.[0]}
+                    {member?.firstName?.[0]}
+                    {member?.name?.[0]}
                   </div>
                 )}
                 <div>
@@ -742,61 +781,15 @@ function PlanningPage() {
                   <p className="text-blue-300 text-sm">Badge: {member?.badgeId}</p>
                 </div>
               </div>
-
-              {/* Informations du jour */}
               <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-400" />
                   <span className="text-sm">{formatDate(new Date(dayKey + "T00:00:00"), "EEEE dd MMMM")}</span>
                 </div>
-
-                {/* Cas standard : 1 passage */}
-                {!multiple ? (
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-green-400" />
-                    <span className="text-sm">Passage à {formatDate(memberPresences[0]?.parsedDate, "HH:mm")}</span>
-                  </div>
-                ) : (
-                  /* Cas exceptionnel : passages multiples */
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-orange-400" />
-                      <span className="text-sm font-semibold text-orange-300">⚠️ {memberPresences.length} passages (inhabituel)</span>
-                    </div>
-
-                    {/* Liste des heures pour les cas multiples */}
-                    <div className="mt-2">
-                      <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
-                      <div className="flex flex-wrap gap-1">
-                        {memberPresences.slice(0, 6).map((presence, i) => (
-                          <div key={i} className="bg-orange-600/30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500/30">
-                            {formatDate(presence.parsedDate, "HH:mm")}
-                          </div>
-                        ))}
-                        {memberPresences.length > 6 && (
-                          <div className="bg-gray-600/30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500/30">
-                            +{memberPresences.length - 6}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Badge de statut */}
-              <div className="flex justify-between items-center">
-                <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
-                  Présent(e)
-                </span>
-                {multiple && (
-                  <span className="text-xs text-orange-400 font-medium">Vérifier badge</span>
-                )}
-              </div>
-
-              {/* Flèche pointer vers l'avatar */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2">
-                <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-green-400" />
+                  <span className="text-sm">Passages: {presenceCount}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -812,12 +805,8 @@ function PlanningPage() {
 
       return (
         <div
-          className="fixed z-[9999] pointer-events-none"  // ← SOLUTION : z-index très élevé
-          style={{
-            left: mousePos.x + 15,
-            top: mousePos.y - 10,
-            transform: 'translateY(-50%)'
-          }}
+          className="fixed z-[9999] pointer-events-none"
+          style={{ left: mousePos.x + 15, top: mousePos.y - 10, transform: "translateY(-50%)" }}
         >
           <div className="relative bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
             <div className="flex items-center gap-3 mb-3">
@@ -909,8 +898,9 @@ function PlanningPage() {
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
-                }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
+                i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
+              }`}
             >
               {day}
             </div>
@@ -929,39 +919,41 @@ function PlanningPage() {
             const today = isToday(day);
             const expanded = expandedDays.has(dateKey);
 
-            let visibleMembers, hiddenMembersCount, showExpandButton;
+            let visible, hiddenCount, showBtn;
             if (memberIds.length <= 9) {
-              visibleMembers = memberIds;
-              hiddenMembersCount = 0;
-              showExpandButton = false;
+              visible = memberIds;
+              hiddenCount = 0;
+              showBtn = false;
             } else if (memberIds.length <= 20) {
               if (expanded) {
-                visibleMembers = memberIds;
-                hiddenMembersCount = 0;
-                showExpandButton = true;
+                visible = memberIds;
+                hiddenCount = 0;
+                showBtn = true;
               } else {
-                visibleMembers = memberIds.slice(0, 6);
-                hiddenMembersCount = memberIds.length - 6;
-                showExpandButton = true;
+                visible = memberIds.slice(0, 6);
+                hiddenCount = memberIds.length - 6;
+                showBtn = true;
               }
             } else {
               if (expanded) {
-                visibleMembers = memberIds.slice(0, 30);
-                hiddenMembersCount = Math.max(0, memberIds.length - 30);
-                showExpandButton = true;
+                visible = memberIds.slice(0, 30);
+                hiddenCount = Math.max(0, memberIds.length - 30);
+                showBtn = true;
               } else {
-                visibleMembers = memberIds.slice(0, 6);
-                hiddenMembersCount = memberIds.length - 6;
-                showExpandButton = true;
+                visible = memberIds.slice(0, 6);
+                hiddenCount = memberIds.length - 6;
+                showBtn = true;
               }
             }
 
             return (
               <div
                 key={idx}
-                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                  } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""
-                  } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
+                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${
+                  today ? "ring-2 ring-blue-500 ring-inset" : ""
+                } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
@@ -970,10 +962,10 @@ function PlanningPage() {
                       !inMonth
                         ? "text-gray-400 dark:text-gray-500"
                         : today
-                          ? "text-blue-600 dark:text-blue-400"
-                          : weekend
-                            ? "text-blue-600 dark:text-blue-400"
-                            : "text-gray-900 dark:text-gray-100"
+                        ? "text-blue-600 dark:text-blue-400"
+                        : weekend
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-gray-900 dark:text-gray-100"
                     )}
                   >
                     {day.getDate()}
@@ -987,8 +979,8 @@ function PlanningPage() {
                           memberIds.length > 30
                             ? "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
                             : memberIds.length > 15
-                              ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                              : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                            ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                         )}
                       >
                         {memberIds.length > 99 ? "99+" : memberIds.length}
@@ -1002,7 +994,7 @@ function PlanningPage() {
                   <div className="space-y-1">
                     {expanded && memberIds.length > 20 ? (
                       <div className="grid grid-cols-6 gap-0.5">
-                        {visibleMembers.map((badgeId, index) => (
+                        {visible.map((badgeId, index) => (
                           <div key={badgeId} className="flex justify-center">
                             {renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, index)}
                           </div>
@@ -1011,21 +1003,21 @@ function PlanningPage() {
                     ) : (
                       <>
                         <div className="flex justify-start gap-1 flex-wrap">
-                          {visibleMembers.slice(0, 3).map((badgeId, memberIndex) =>
-                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex)
+                          {visible.slice(0, 3).map((badgeId, i) =>
+                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, i)
                           )}
                         </div>
-                        {visibleMembers.length > 3 && (
+                        {visible.length > 3 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(3, 6).map((badgeId, memberIndex) =>
-                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex + 3)
+                            {visible.slice(3, 6).map((badgeId, i) =>
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, i + 3)
                             )}
                           </div>
                         )}
-                        {visibleMembers.length > 6 && (
+                        {visible.length > 6 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(6, 9).map((badgeId, memberIndex) =>
-                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex + 6)
+                            {visible.slice(6, 9).map((badgeId, i) =>
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, i + 6)
                             )}
                           </div>
                         )}
@@ -1033,7 +1025,7 @@ function PlanningPage() {
                     )}
 
                     <div className="flex justify-center gap-1 mt-1">
-                      {showExpandButton && (
+                      {showBtn && (
                         <button
                           onClick={() => toggleDayExpansion(dateKey)}
                           className={cn(
@@ -1041,12 +1033,12 @@ function PlanningPage() {
                             expanded
                               ? "bg-blue-500 text-white"
                               : memberIds.length > 30
-                                ? "bg-red-500 text-white animate-pulse"
-                                : "bg-orange-500 text-white"
+                              ? "bg-red-500 text-white animate-pulse"
+                              : "bg-orange-500 text-white"
                           )}
                           title={expanded ? "Réduire" : `Voir les ${memberIds.length} membres`}
                         >
-                          {expanded ? "−" : `+${Math.max(0, memberIds.length - visibleMembers.length)}`}
+                          {expanded ? "−" : `+${Math.max(0, memberIds.length - visible.length)}`}
                         </button>
                       )}
                     </div>
@@ -1090,36 +1082,37 @@ function PlanningPage() {
           </div>
         </div>
 
-        {/* Tooltip global */}
-        
+        {/* Tooltip global (FIX) */}
+        {renderTooltip()}
       </div>
     );
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Rendu principal
+
   return (
-    <div className={classes.pageContainer}>
-      <div className={classes.maxWidthWrapper}>
+    <div className={tw.pageContainer}>
+      <div className={tw.maxWidthWrapper}>
         {/* En-tête */}
-        <div className={classes.headerCard}>
+        <div className={tw.headerCard}>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className={classes.iconContainer}>
+              <div className={tw.iconContainer}>
                 <Calendar className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className={classes.title}>Planning des présences</h1>
-                <p className={classes.subtitle}>Suivi en temps réel des présences membres</p>
+                <h1 className={tw.title}>Planning des présences</h1>
+                <p className={tw.subtitle}>Suivi en temps réel des présences membres</p>
               </div>
             </div>
 
-            {/* Vues + filtre - ORDRE CORRIGÉ */}
+            {/* Vues + filtre */}
             <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
               <button
                 onClick={() => setViewMode("list")}
                 className={cn(
-                  classes.buttonSecondary,
+                  tw.buttonSecondary,
                   viewMode === "list"
                     ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
                     : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
@@ -1129,7 +1122,6 @@ function PlanningPage() {
                 <List className="w-5 h-5" />
               </button>
 
-              {/* VUE MENSUELLE EN DEUXIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => {
@@ -1140,7 +1132,7 @@ function PlanningPage() {
                     }
                   }}
                   className={cn(
-                    classes.buttonSecondary,
+                    tw.buttonSecondary,
                     viewMode === "monthly"
                       ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
@@ -1151,12 +1143,11 @@ function PlanningPage() {
                 </button>
               )}
 
-              {/* VUE COMPACTE EN TROISIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => setViewMode("compact")}
                   className={cn(
-                    classes.buttonSecondary,
+                    tw.buttonSecondary,
                     viewMode === "compact"
                       ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
@@ -1168,7 +1159,7 @@ function PlanningPage() {
               )}
 
               <button
-                onClick={() => setShowFilters(!showFilters)}
+                onClick={() => setShowFilters((v) => !v)}
                 className={cn(
                   "p-3 rounded-lg transition-all",
                   showFilters
@@ -1228,7 +1219,7 @@ function PlanningPage() {
               </div>
 
               <select
-                className={classes.select}
+                className={tw.select}
                 value={period}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -1265,7 +1256,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(today));
                   setEndDate(endOfDay(today));
                 }}
-                className={classes.presetButton}
+                className={tw.presetButton}
               >
                 Aujourd'hui
               </button>
@@ -1276,7 +1267,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(new Date(today.setDate(today.getDate() - 6))));
                   setEndDate(endOfDay(new Date()));
                 }}
-                className={classes.presetButton}
+                className={tw.presetButton}
               >
                 7 derniers jours
               </button>
@@ -1287,7 +1278,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(new Date(today.setDate(today.getDate() - 29))));
                   setEndDate(endOfDay(new Date()));
                 }}
-                className={classes.presetButton}
+                className={tw.presetButton}
               >
                 30 derniers jours
               </button>
@@ -1297,7 +1288,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 })));
                   setEndDate(endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 })));
                 }}
-                className={classes.presetButton}
+                className={tw.presetButton}
               >
                 Cette Semaine
               </button>
@@ -1307,7 +1298,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(startOfMonth(new Date())));
                   setEndDate(endOfDay(endOfMonth(new Date())));
                 }}
-                className={classes.presetButton}
+                className={tw.presetButton}
               >
                 Ce Mois
               </button>
@@ -1317,7 +1308,7 @@ function PlanningPage() {
                   setStartDate(startOfDay(startOfYear(new Date())));
                   setEndDate(endOfDay(endOfYear(new Date())));
                 }}
-                className={classes.presetButton}
+                className={tw.presetButton}
               >
                 Cette Année
               </button>
@@ -1327,16 +1318,16 @@ function PlanningPage() {
 
         {/* Filtres */}
         {showFilters && (
-          <div className={classes.card + " p-6 mb-6"}>
+          <div className={tw.card + " p-6 mb-6"}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rechercher par nom</label>
                 <input
                   type="text"
                   placeholder="Nom ou prénom..."
-                  value={filterName}
-                  onChange={(e) => setFilterName(e.target.value)}
-                  className={cn(classes.input, "w-full placeholder-gray-500 dark:placeholder-gray-400")}
+                  value={rawName}
+                  onChange={(e) => setRawName(e.target.value)}
+                  className={cn(tw.input, "w-full placeholder-gray-500 dark:placeholder-gray-400")}
                 />
               </div>
               <div>
@@ -1344,9 +1335,9 @@ function PlanningPage() {
                 <input
                   type="text"
                   placeholder="Numéro de badge..."
-                  value={filterBadge}
-                  onChange={(e) => setFilterBadge(e.target.value)}
-                  className={cn(classes.input, "w-full placeholder-gray-500 dark:placeholder-gray-400")}
+                  value={rawBadge}
+                  onChange={(e) => setRawBadge(e.target.value)}
+                  className={cn(tw.input, "w-full placeholder-gray-500 dark:placeholder-gray-400")}
                 />
               </div>
               <div className="flex items-end">
@@ -1354,14 +1345,14 @@ function PlanningPage() {
                   <input
                     type="checkbox"
                     checked={showNightHours}
-                    onChange={() => setShowNightHours(!showNightHours)}
+                    onChange={() => setShowNightHours((v) => !v)}
                     className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
                   />
                   <span className="text-gray-700 dark:text-gray-300">Afficher 00h - 06h</span>
                 </label>
               </div>
               <div className="flex items-end">
-                <button onClick={handleRetry} disabled={isRetrying} className={cn(classes.buttonPrimary, "w-full")}>
+                <button onClick={handleRetry} disabled={isRetrying} className={cn(tw.buttonPrimary, "w-full")}>
                   <RefreshCw className={cn("w-4 h-4", isRetrying && "animate-spin")} />
                   Actualiser
                 </button>
@@ -1385,7 +1376,10 @@ function PlanningPage() {
               <br />
               Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
             </p>
-            <button onClick={handleRetry} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
+            >
               <RefreshCw className="w-4 h-4" />
               Recharger les données
             </button>
