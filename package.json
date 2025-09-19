@@ -20,7 +20,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build && workbox generateSW workbox-config.js"
+    "build": "react-scripts build && workbox injectManifest workbox-config.js",
+    "serve": "npx serve -s build"
   },
   "browserslist": {
     "production": [
