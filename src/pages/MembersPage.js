@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabaseServices, getPhotoUrl } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
-import { format, isBefore, parseISO } from "date-fns";
+import { isBefore, parseISO } from "date-fns";
 import {
   FaEdit,
   FaTrash,
@@ -523,11 +523,6 @@ function MembersPage() {
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
-  };
-
-  const handleImageError = (memberId, e) => {
-    setImageErrors((prev) => new Set([...prev, memberId]));
-    e.target.style.display = "none";
   };
 
   // Calculer les statistiques
