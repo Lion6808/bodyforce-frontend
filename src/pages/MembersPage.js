@@ -14,6 +14,9 @@ import {
   FaExternalLinkAlt,
 } from "react-icons/fa";
 
+import Avatar from "../components/Avatar";
+
+
 // Normalise: minuscules + suppression des accents
 const normalize = (s = "") =>
   s
@@ -185,7 +188,6 @@ function MembersPage() {
   const [activeFilter, setActiveFilter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [imageErrors, setImageErrors] = useState(new Set());
 
   // ✅ États pour l'approche hybride
   const [selectedMember, setSelectedMember] = useState(null);
@@ -214,13 +216,13 @@ function MembersPage() {
       if ("scrollRestoration" in history) {
         history.scrollRestoration = "manual";
       }
-    } catch {}
+    } catch { }
     return () => {
       try {
         if ("scrollRestoration" in history) {
           history.scrollRestoration = prev || "auto";
         }
-      } catch {}
+      } catch { }
     };
   }, []);
 
@@ -235,7 +237,7 @@ function MembersPage() {
       if (typeof ctx.sortAsc === "boolean") setSortAsc(ctx.sortAsc);
       if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
       restoreRef.current = ctx;
-    } catch {}
+    } catch { }
   }, []);
 
   // ✅ Repositionnement quand un memberId est passé via location.state (optionnel)
@@ -574,128 +576,6 @@ function MembersPage() {
     }
   };
 
-  // Component for avatar with fallback + magnifier on hover
-  const MemberAvatar = ({ member }) => {
-    const [imageLoaded, setImageLoaded] = useState(false);
-    const [imageFailed, setImageFailed] = useState(imageErrors.has(member.id));
-
-    // --- Loupe ---
-    const [showLens, setShowLens] = useState(false);
-    const [lensPos, setLensPos] = useState({ x: 0, y: 0 });
-    const containerRef = useRef(null);
-
-    const lensSize = 160; // diamètre de la loupe en px
-    const zoom = 3.0; // facteur de zoom
-
-    // Désactiver la loupe sur tactile / mobile
-    const isTouch =
-      typeof window !== "undefined" &&
-      ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-
-    const shouldShowFallback = !member.photo || imageFailed;
-
-    // URL publique (mémoïsé) — pas de query param cache-busting
-    const photoUrl = useMemo(
-      () => (member?.photo ? getPhotoUrl(member.photo) : ""),
-      [member?.photo]
-    );
-
-    // Gestion du survol
-    const handleMouseEnter = () => {
-      if (!isTouch) setShowLens(true);
-    };
-    const handleMouseLeave = () => setShowLens(false);
-
-    const handleMouseMove = (e) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      setLensPos({ x, y });
-    };
-
-    if (shouldShowFallback) {
-      return (
-        <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-          <FaUser
-            className={`text-xl ${
-              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-            }`}
-          />
-        </div>
-      );
-    }
-
-    const avatarSize = 48; // = 12 * 4
-    const bgSize = `${avatarSize * zoom}px ${avatarSize * zoom}px`;
-    const bgPosX = -(lensPos.x * zoom - lensSize / 2);
-    const bgPosY = -(lensPos.y * zoom - lensSize / 2);
-
-    return (
-      <div
-        ref={containerRef}
-        className="relative w-12 h-12 transform-gpu group"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onMouseMove={handleMouseMove}
-        style={{ cursor: isTouch ? "default" : "zoom-in" }}
-      >
-        {/* Placeholder */}
-        <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
-            imageLoaded ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          <FaUser
-            className={`text-xl ${
-              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-            }`}
-          />
-        </div>
-
-        {/* Avatar */}
-        <div className="relative w-12 h-12 rounded-full shadow-[0_10px_24px_rgba(0,0,0,0.65)]">
-          <img
-            src={photoUrl}
-            alt="avatar"
-            loading="lazy"
-            width={48}
-            height={48}
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
-              imageLoaded ? "opacity-100" : "opacity-0"
-            }`}
-            onLoad={() => setImageLoaded(true)}
-            onError={() => {
-              setImageFailed(true);
-              setImageErrors((prev) => new Set([...prev, member.id]));
-            }}
-            draggable={false}
-            referrerPolicy="no-referrer"
-          />
-        </div>
-
-        {/* Loupe */}
-        {showLens && imageLoaded && photoUrl && (
-          <div
-            className="pointer-events-none absolute rounded-full ring-2 ring-white dark:ring-gray-800 shadow-xl"
-            style={{
-              width: `${lensSize}px`,
-              height: `${lensSize}px`,
-              left: `${lensPos.x - lensSize / 2}px`,
-              top: `${lensPos.y - lensSize / 2}px`,
-              backgroundImage: `url(${photoUrl})`,
-              backgroundRepeat: "no-repeat",
-              backgroundSize: bgSize,
-              backgroundPosition: `${bgPosX}px ${bgPosY}px`,
-              boxShadow: "0 14px 30px rgba(0,0,0,0.35), inset 0 0 20px rgba(0,0,0,0.25)",
-              backdropFilter: "blur(0.5px)",
-            }}
-          />
-        )}
-      </div>
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -869,12 +749,12 @@ function MembersPage() {
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                          try {
-                            return isBefore(parseISO(member.endDate), new Date());
-                          } catch (e) {
-                            return true;
-                          }
-                        })()
+                        try {
+                          return isBefore(parseISO(member.endDate), new Date());
+                        } catch (e) {
+                          return true;
+                        }
+                      })()
                       : true;
 
                     const hasFiles =
@@ -882,8 +762,8 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                        ? member.files !== "[]" && member.files !== ""
-                        : Object.keys(member.files).length > 0);
+                          ? member.files !== "[]" && member.files !== ""
+                          : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
@@ -904,8 +784,14 @@ function MembersPage() {
                         </td>
 
                         <td className="p-3">
-                          <MemberAvatar member={member} />
+                          <Avatar
+                            photo={member.photo}
+                            firstName={member.firstName}
+                            name={member.name}
+                            size={48}    // 12 * 4
+                          />
                         </td>
+
 
                         <td className="p-3">
                           <div
@@ -925,11 +811,10 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  member.gender === "Femme"
-                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                  }`}
                               >
                                 {member.gender}
                               </span>
@@ -958,9 +843,8 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${
-                                  isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
-                                }`}
+                                className={`text-xs ${isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
+                                  }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -1047,12 +931,12 @@ function MembersPage() {
             {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                    try {
-                      return isBefore(parseISO(member.endDate), new Date());
-                    } catch (e) {
-                      return true;
-                    }
-                  })()
+                  try {
+                    return isBefore(parseISO(member.endDate), new Date());
+                  } catch (e) {
+                    return true;
+                  }
+                })()
                 : true;
 
               const hasFiles =
@@ -1060,8 +944,8 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                  ? member.files !== "[]" && member.files !== ""
-                  : Object.keys(member.files).length > 0);
+                    ? member.files !== "[]" && member.files !== ""
+                    : Object.keys(member.files).length > 0);
 
               return (
                 <div
@@ -1081,7 +965,13 @@ function MembersPage() {
                         onChange={() => toggleSelect(member.id)}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
                       />
-                      <MemberAvatar member={member} />
+                      <Avatar
+                        photo={member.photo}
+                        firstName={member.firstName}
+                        name={member.name}
+                        size={48}
+                      />
+
                       <div className="flex-1">
                         <div
                           className="font-semibold text-gray-900 dark:text-white text-lg cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200"
@@ -1099,11 +989,10 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          member.gender === "Femme"
-                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                          }`}
                       >
                         {member.gender}
                       </span>
@@ -1148,9 +1037,8 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${
-                              isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
-                            }`}
+                            className={`text-xs ${isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
+                              }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1276,11 +1164,10 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
-        active
-          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-      }`}
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
+        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+        }`}
     >
       <div className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"}`}>
         {title}

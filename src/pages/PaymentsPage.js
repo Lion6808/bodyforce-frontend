@@ -19,6 +19,9 @@ import {
   Edit,
 } from "lucide-react";
 
+import Avatar from "../components/Avatar";
+
+
 // ✅ Import supabase + helper URL public (pas de cache-busting)
 import { supabase, getPhotoUrl } from "../supabaseClient";
 // ✅ Import du composant MemberForm
