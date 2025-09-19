@@ -1,4 +1,4 @@
-// 📄 src/pages/MessagesPage.jsx — Version optimisée pour les performances - COMPLETE
+// 📄 src/pages/MessagesPage.jsx — Version corrigée avec vraies fonctionnalités
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -25,12 +25,11 @@ import {
   ArrowLeft
 } from "lucide-react";
 
-// Services existants
 import * as MsgSvc from "../services/messagesService";
 
 const ADMIN_SENTINEL = -1;
 
-// Avatar Component amélioré
+// Avatar Component
 const Avatar = ({ member, size = "md", showOnline = false, className = "" }) => {
   const sizes = {
     sm: "w-8 h-8 text-xs",
@@ -79,21 +78,15 @@ const Avatar = ({ member, size = "md", showOnline = false, className = "" }) => 
   );
 };
 
-// Formatage intelligent du temps style Messenger
+// Formatage du temps
 const formatMessageTime = (dateString) => {
   if (!dateString) return "";
   try {
     const date = parseISO(dateString);
-    if (isToday(date)) {
-      return format(date, "HH:mm", { locale: fr });
-    }
-    if (isYesterday(date)) {
-      return "Hier";
-    }
+    if (isToday(date)) return format(date, "HH:mm", { locale: fr });
+    if (isYesterday(date)) return "Hier";
     const daysAgo = Math.floor((new Date() - date) / (1000 * 60 * 60 * 24));
-    if (daysAgo < 7) {
-      return format(date, "EEEE", { locale: fr });
-    }
+    if (daysAgo < 7) return format(date, "EEEE", { locale: fr });
     return format(date, "dd/MM", { locale: fr });
   } catch {
     return "";
@@ -104,58 +97,142 @@ const formatChatTime = (dateString) => {
   if (!dateString) return "";
   try {
     const date = parseISO(dateString);
-    if (isToday(date)) {
-      return format(date, "HH:mm", { locale: fr });
-    }
-    if (isYesterday(date)) {
-      return `Hier ${format(date, "HH:mm", { locale: fr })}`;
-    }
+    if (isToday(date)) return format(date, "HH:mm", { locale: fr });
+    if (isYesterday(date)) return `Hier ${format(date, "HH:mm", { locale: fr })}`;
     return format(date, "dd/MM/yyyy HH:mm", { locale: fr });
   } catch {
     return "";
   }
 };
 
-// Badge de statut en ligne
 const OnlineIndicator = ({ isOnline }) => (
   <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
 );
 
-// ========= FONCTIONS OPTIMISÉES POUR LES PERFORMANCES =========
+// ========= FONCTIONS AVEC VRAIES DONNÉES RESTAURÉES =========
 
-// Cache simple pour éviter les re-calculs
-let conversationsCache = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 30000; // 30 secondes
-
-const getSimplifiedAdminConversations = async (adminMemberId) => {
+const getEnhancedAdminConversations = async (adminMemberId) => {
   try {
-    // Vérifier le cache
-    const now = Date.now();
-    if (conversationsCache && (now - cacheTimestamp < CACHE_DURATION)) {
-      return conversationsCache;
+    console.log("🔍 Récupération conversations admin avec vraies données...");
+
+    // Étape 1: Récupérer tous les membres (sauf l'admin)
+    const { data: members, error: membersError } = await supabase
+      .from("members")
+      .select("id, firstName, name, photo, badgeId")
+      .neq("id", adminMemberId)
+      .order("name", { ascending: true });
+
+    if (membersError) {
+      console.error("❌ Erreur récupération membres:", membersError);
+      throw membersError;
     }
 
-    // Une seule requête optimisée
-    const { data: members, error } = await supabase
-      .from("members")
-      .select("id, firstName, name, photo")
-      .neq("id", adminMemberId)
-      .order("name", { ascending: true })
-      .limit(100); // Limiter pour les performances
+    console.log(`👥 ${members?.length || 0} membres récupérés`);
 
-    if (error) throw error;
+    if (!members || members.length === 0) {
+      return [{
+        otherId: ADMIN_SENTINEL,
+        otherFirstName: "Équipe",
+        otherName: "BodyForce",
+        photo: null,
+        lastMessagePreview: "Messages de l'équipe",
+        lastMessageDate: null,
+        unread: 0,
+      }];
+    }
 
-    // Conversion simple sans requêtes supplémentaires
-    const conversations = (members || []).map(member => ({
-      otherId: member.id,
-      otherFirstName: member.firstName || "",
-      otherName: member.name || "",
-      photo: member.photo || null,
-      lastMessagePreview: "Cliquez pour voir la conversation",
-      lastMessageDate: null,
-      unread: 0, // Désactivé temporairement pour les performances
-    }));
+    // Étape 2: Récupérer les derniers messages pour chaque membre
+    const memberIds = members.map(m => m.id);
+    const { data: lastMessages, error: lastMsgError } = await supabase
+      .from("messages")
+      .select(`
+        id,
+        author_member_id,
+        subject,
+        body,
+        created_at,
+        message_recipients!inner(recipient_member_id)
+      `)
+      .or(`author_member_id.eq.${adminMemberId},message_recipients.recipient_member_id.eq.${adminMemberId}`)
+      .or(`author_member_id.in.(${memberIds.join(',')}),message_recipients.recipient_member_id.in.(${memberIds.join(',')})`)
+      .order("created_at", { ascending: false });
+
+    if (lastMsgError) {
+      console.error("⚠️ Erreur derniers messages:", lastMsgError);
+    }
+
+    // Étape 3: Compter les messages non lus pour chaque conversation
+    const { data: unreadCounts, error: unreadError } = await supabase
+      .from("message_recipients")
+      .select(`
+        message_id,
+        recipient_member_id,
+        read_at,
+        messages!inner(author_member_id)
+      `)
+      .eq("recipient_member_id", adminMemberId)
+      .is("read_at", null);
+
+    if (unreadError) {
+      console.error("⚠️ Erreur comptage non lus:", unreadError);
+    }
+
+    // Créer des maps pour optimiser les lookups
+    const lastMessageMap = new Map();
+    const unreadMap = new Map();
+
+    // Traiter les derniers messages
+    if (lastMessages) {
+      lastMessages.forEach(msg => {
+        // Déterminer l'autre membre de la conversation
+        let otherMemberId;
+        if (msg.author_member_id === adminMemberId) {
+          // Message envoyé par l'admin, trouver le destinataire
+          const recipient = msg.message_recipients?.[0];
+          if (recipient) {
+            otherMemberId = recipient.recipient_member_id;
+          }
+        } else {
+          // Message reçu par l'admin
+          otherMemberId = msg.author_member_id;
+        }
+
+        if (otherMemberId && !lastMessageMap.has(otherMemberId)) {
+          lastMessageMap.set(otherMemberId, {
+            preview: msg.body?.substring(0, 100) || msg.subject || "Message",
+            date: msg.created_at,
+            subject: msg.subject
+          });
+        }
+      });
+    }
+
+    // Traiter les compteurs non lus
+    if (unreadCounts) {
+      unreadCounts.forEach(item => {
+        const authorId = item.messages?.author_member_id;
+        if (authorId) {
+          const currentCount = unreadMap.get(authorId) || 0;
+          unreadMap.set(authorId, currentCount + 1);
+        }
+      });
+    }
+
+    // Construire les conversations avec les vraies données
+    const conversations = members.map(member => {
+      const lastMsg = lastMessageMap.get(member.id);
+      const unreadCount = unreadMap.get(member.id) || 0;
+
+      return {
+        otherId: member.id,
+        otherFirstName: member.firstName || "",
+        otherName: member.name || "",
+        photo: member.photo || null,
+        lastMessagePreview: lastMsg?.preview || "Commencer une conversation",
+        lastMessageDate: lastMsg?.date || null,
+        unread: unreadCount,
+      };
+    });
 
     // Ajouter le fil staff en premier
     conversations.unshift({
@@ -168,43 +245,111 @@ const getSimplifiedAdminConversations = async (adminMemberId) => {
       unread: 0,
     });
 
-    // Mettre en cache
-    conversationsCache = conversations;
-    cacheTimestamp = now;
+    // Trier par dernière activité (conversations avec messages récents en premier)
+    conversations.sort((a, b) => {
+      // Staff toujours en premier
+      if (a.otherId === ADMIN_SENTINEL) return -1;
+      if (b.otherId === ADMIN_SENTINEL) return 1;
 
+      // Puis par non lus
+      if (a.unread !== b.unread) return b.unread - a.unread;
+
+      // Puis par date du dernier message
+      if (!a.lastMessageDate && !b.lastMessageDate) return 0;
+      if (!a.lastMessageDate) return 1;
+      if (!b.lastMessageDate) return -1;
+
+      return new Date(b.lastMessageDate) - new Date(a.lastMessageDate);
+    });
+
+    console.log(`✅ ${conversations.length} conversations construites`);
     return conversations;
+
   } catch (error) {
-    console.error("Erreur getSimplifiedAdminConversations:", error);
-    // Fallback simple
+    console.error("💥 Erreur getEnhancedAdminConversations:", error);
     return [{
       otherId: ADMIN_SENTINEL,
       otherFirstName: "Équipe",
       otherName: "BodyForce",
       photo: null,
-      lastMessagePreview: "Messages de l'équipe",
+      lastMessagePreview: "Erreur de chargement",
       lastMessageDate: null,
       unread: 0,
     }];
   }
 };
 
-const getSimplifiedMemberConversations = async () => {
-  // Pour les membres, retour immédiat
-  return [{
-    otherId: ADMIN_SENTINEL,
-    otherFirstName: "Équipe",
-    otherName: "BodyForce",
-    photo: null,
-    lastMessagePreview: "Contactez l'équipe BodyForce",
-    lastMessageDate: null,
-    unread: 0,
-  }];
-};
+const getEnhancedMemberConversations = async (memberId) => {
+  try {
+    console.log("🔍 Récupération conversations membre...");
 
-// Fonction pour invalider le cache
-const invalidateConversationsCache = () => {
-  conversationsCache = null;
-  cacheTimestamp = 0;
+    // Pour un membre standard, une seule conversation avec le staff
+    const { data: lastMessages, error } = await supabase
+      .from("messages")
+      .select(`
+        id,
+        subject,
+        body,
+        created_at,
+        author_member_id,
+        message_recipients!inner(recipient_member_id)
+      `)
+      .or(`author_member_id.eq.${memberId},message_recipients.recipient_member_id.eq.${memberId}`)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error("⚠️ Erreur messages membre:", error);
+    }
+
+    // Compter les non lus du staff
+    const { data: unreadFromStaff, error: unreadError } = await supabase
+      .from("message_recipients")
+      .select(`
+        message_id,
+        messages!inner(author_member_id)
+      `)
+      .eq("recipient_member_id", memberId)
+      .is("read_at", null)
+      .neq("messages.author_member_id", memberId);
+
+    if (unreadError) {
+      console.error("⚠️ Erreur unread membre:", unreadError);
+    }
+
+    let lastMessagePreview = "Contactez l'équipe BodyForce";
+    let lastMessageDate = null;
+
+    if (lastMessages && lastMessages.length > 0) {
+      const lastMsg = lastMessages[0];
+      lastMessagePreview = lastMsg.body?.substring(0, 100) || lastMsg.subject || "Message";
+      lastMessageDate = lastMsg.created_at;
+    }
+
+    const unreadCount = unreadFromStaff?.length || 0;
+
+    return [{
+      otherId: ADMIN_SENTINEL,
+      otherFirstName: "Équipe",
+      otherName: "BodyForce",
+      photo: null,
+      lastMessagePreview,
+      lastMessageDate,
+      unread: unreadCount,
+    }];
+
+  } catch (error) {
+    console.error("💥 Erreur getEnhancedMemberConversations:", error);
+    return [{
+      otherId: ADMIN_SENTINEL,
+      otherFirstName: "Équipe",
+      otherName: "BodyForce",
+      photo: null,
+      lastMessagePreview: "Contactez l'équipe BodyForce",
+      lastMessageDate: null,
+      unread: 0,
+    }];
+  }
 };
 
 // Composant principal
@@ -240,12 +385,12 @@ export default function MessagesPage() {
   const endRef = useRef();
   const messagesContainerRef = useRef();
   const activeOtherIdRef = useRef(null);
-  
+
   useEffect(() => {
     activeOtherIdRef.current = activeOtherId;
   }, [activeOtherId]);
 
-  // ========= SYSTÈME DE PRÉSENCE HEARTBEAT (OPTIMISÉ) =========
+  // ========= SYSTÈME DE PRÉSENCE HEARTBEAT (CORRIGÉ) =========
 
   // Heartbeat pour maintenir la présence
   const updatePresence = useCallback(async () => {
@@ -255,35 +400,42 @@ export default function MessagesPage() {
         .from("members")
         .update({ last_seen_at: new Date().toISOString() })
         .eq("id", me.id);
+
+      console.log("💓 Heartbeat envoyé pour membre", me.id);
     } catch (error) {
-      // Erreur silencieuse pour ne pas spam la console
+      console.error("❌ Erreur heartbeat:", error);
     }
   }, [me?.id]);
 
-  // Vérifier qui est en ligne (optimisé)
+  // Vérifier qui est en ligne (corrigé)
   const checkMemberPresence = useCallback(async () => {
     try {
       const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
-      
-      const { data: onlineMembers } = await supabase
+
+      const { data: onlineMembersData, error } = await supabase
         .from("members")
         .select("id")
-        .gte("last_seen_at", threeMinutesAgo.toISOString())
-        .limit(200); // Limiter les résultats
-      
-      const onlineSet = new Set(onlineMembers?.map(m => m.id) || []);
+        .gte("last_seen_at", threeMinutesAgo.toISOString());
+
+      if (error) {
+        console.error("❌ Erreur vérification présence:", error);
+        return;
+      }
+
+      const onlineSet = new Set(onlineMembersData?.map(m => m.id) || []);
+      console.log("👥 Membres en ligne:", onlineSet.size);
       setOnlineMembers(onlineSet);
     } catch (error) {
-      // Erreur silencieuse
+      console.error("💥 Erreur checkMemberPresence:", error);
     }
   }, []);
 
   const isMemberOnline = useCallback((memberId) => {
-    if (memberId === ADMIN_SENTINEL) return true;
+    if (memberId === ADMIN_SENTINEL) return true; // Staff toujours en ligne
     return onlineMembers.has(memberId);
   }, [onlineMembers]);
 
-  // ========= FONCTIONS OPTIMISÉES AVEC useCallback =========
+  // ========= FONCTIONS AVEC useCallback =========
 
   const {
     sendToAdmins,
@@ -300,13 +452,14 @@ export default function MessagesPage() {
     try {
       let conversations;
       if (isAdmin) {
-        conversations = await getSimplifiedAdminConversations(me.id);
+        conversations = await getEnhancedAdminConversations(me.id);
       } else {
-        conversations = await getSimplifiedMemberConversations();
+        conversations = await getEnhancedMemberConversations(me.id);
       }
+      console.log("✅ Conversations récupérées:", conversations.length);
       setConvs(conversations || []);
     } catch (error) {
-      console.error("Erreur fetchConversations:", error);
+      console.error("❌ Erreur fetchConversations:", error);
       setConvs([]);
     } finally {
       setLoading(false);
@@ -327,16 +480,16 @@ export default function MessagesPage() {
       }
       setThread(data || []);
 
-      // Marquer comme lu (simplifié)
+      // Marquer comme lu
       try {
         if (isAdmin && otherId !== ADMIN_SENTINEL && typeof markConversationRead === "function") {
           await markConversationRead(otherId);
         }
-      } catch {
-        // Ignore les erreurs de lecture
+      } catch (error) {
+        console.error("⚠️ Erreur marquage lu:", error);
       }
     } catch (error) {
-      console.error("Erreur fetchThread:", error);
+      console.error("❌ Erreur fetchThread:", error);
     } finally {
       setLoadingThread(false);
     }
@@ -399,16 +552,15 @@ export default function MessagesPage() {
       setBody("");
       setIsBroadcast(false);
 
-      // Invalider le cache et rafraîchir
-      invalidateConversationsCache();
+      // Rafraîchir les données
       await fetchConversations();
-      
+
       if (activeOtherId != null && !selectMode && !isBroadcast) {
         await fetchThread(activeOtherId);
       }
       scrollToEnd();
     } catch (error) {
-      console.error("Erreur lors de l'envoi:", error);
+      console.error("💥 Erreur lors de l'envoi:", error);
     } finally {
       setSending(false);
     }
@@ -442,36 +594,36 @@ export default function MessagesPage() {
     });
   }, [convs, searchTerm]);
 
-  // ========= EFFETS OPTIMISÉS =========
+  // ========= EFFETS =========
 
-  // Heartbeat moins fréquent pour économiser les resources
+  // Heartbeat toutes les 90 secondes
   useEffect(() => {
     if (!me?.id) return;
-    
-    const heartbeatInterval = setInterval(updatePresence, 120000); // 2 minutes
-    updatePresence(); // Premier appel
-    
+
+    const heartbeatInterval = setInterval(updatePresence, 90000);
+    updatePresence(); // Premier appel immédiat
+
     return () => clearInterval(heartbeatInterval);
   }, [me?.id, updatePresence]);
 
-  // Vérifier les présences moins souvent
+  // Vérifier les présences toutes les 2 minutes
   useEffect(() => {
     let mounted = true;
-    
+
     if (me?.id) {
       const initPresence = async () => {
         if (!mounted) return;
         await checkMemberPresence();
       };
-      
+
       initPresence();
-      
+
       const presenceInterval = setInterval(() => {
         if (mounted) {
           checkMemberPresence();
         }
-      }, 3 * 60 * 1000); // 3 minutes
-      
+      }, 2 * 60 * 1000);
+
       return () => {
         mounted = false;
         clearInterval(presenceInterval);
@@ -484,14 +636,15 @@ export default function MessagesPage() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && me?.id) {
         updatePresence();
+        checkMemberPresence();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [me?.id, updatePresence]);
+  }, [me?.id, updatePresence, checkMemberPresence]);
 
-  // Realtime optimisé avec debouncing
+  // Realtime avec debouncing réduit
   useEffect(() => {
     if (!me?.id) return;
 
@@ -503,7 +656,7 @@ export default function MessagesPage() {
       timeoutId = setTimeout(async () => {
         if (!mounted) return;
         try {
-          invalidateConversationsCache();
+          console.log("🔄 Mise à jour realtime...");
           await fetchConversations();
           const current = activeOtherIdRef.current;
           if (current != null && mounted) {
@@ -511,10 +664,10 @@ export default function MessagesPage() {
           }
         } catch (error) {
           if (mounted) {
-            console.error("Erreur callback realtime:", error);
+            console.error("❌ Erreur callback realtime:", error);
           }
         }
-      }, 1000); // Attendre 1 seconde avant de traiter
+      }, 500); // Réduit à 500ms
     };
 
     const sub = subscribeInbox(me.id, debouncedUpdate);
@@ -525,7 +678,7 @@ export default function MessagesPage() {
       try {
         sub?.unsubscribe?.();
       } catch (error) {
-        console.error("Erreur cleanup subscription:", error);
+        console.error("❌ Erreur cleanup subscription:", error);
       }
     };
   }, [me?.id, fetchConversations, fetchThread]);
@@ -533,7 +686,7 @@ export default function MessagesPage() {
   // Initialisation des données
   useEffect(() => {
     let mounted = true;
-    
+
     if (me?.id) {
       const initData = async () => {
         if (!mounted) return;
@@ -541,14 +694,14 @@ export default function MessagesPage() {
           await fetchConversations();
         } catch (error) {
           if (mounted) {
-            console.error("Erreur initialisation:", error);
+            console.error("❌ Erreur initialisation:", error);
           }
         }
       };
-      
+
       initData();
     }
-    
+
     return () => {
       mounted = false;
     };
@@ -556,7 +709,7 @@ export default function MessagesPage() {
 
   useEffect(() => {
     let mounted = true;
-    
+
     if (activeOtherId != null) {
       const loadThread = async () => {
         if (mounted) {
@@ -565,7 +718,7 @@ export default function MessagesPage() {
       };
       loadThread();
     }
-    
+
     return () => {
       mounted = false;
     };
@@ -577,7 +730,7 @@ export default function MessagesPage() {
 
   // Détection mobile
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
@@ -646,7 +799,7 @@ export default function MessagesPage() {
           </div>
 
           {/* Messages */}
-          <div 
+          <div
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-4 py-2"
           >
@@ -664,28 +817,26 @@ export default function MessagesPage() {
                 {thread.map((msg, idx) => {
                   const isOwn = msg.authorUserId === user?.id;
                   const showAvatar = !isOwn && (idx === 0 || thread[idx - 1]?.authorUserId !== msg.authorUserId);
-                  
+
                   return (
                     <div key={idx} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                       <div className={`flex ${isOwn ? "flex-row-reverse" : "flex-row"} items-end gap-2 max-w-[85%]`}>
                         {showAvatar && !isOwn && (
-                          <Avatar 
-                            member={{ firstName: msg.authorFirstName, name: msg.authorName }} 
+                          <Avatar
+                            member={{ firstName: msg.authorFirstName, name: msg.authorName }}
                             size="sm"
                           />
                         )}
                         {!showAvatar && !isOwn && <div className="w-8" />}
-                        
+
                         <div className="flex flex-col">
-                          <div className={`rounded-2xl px-4 py-2 max-w-full ${
-                            isOwn 
-                              ? "bg-blue-500 text-white rounded-br-md" 
+                          <div className={`rounded-2xl px-4 py-2 max-w-full ${isOwn
+                              ? "bg-blue-500 text-white rounded-br-md"
                               : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md"
-                          }`}>
+                            }`}>
                             {msg.subject && msg.subject !== "Message" && msg.subject !== "Message au staff" && (
-                              <div className={`text-sm font-medium mb-1 ${
-                                isOwn ? "text-blue-100" : "text-gray-600 dark:text-gray-400"
-                              }`}>
+                              <div className={`text-sm font-medium mb-1 ${isOwn ? "text-blue-100" : "text-gray-600 dark:text-gray-400"
+                                }`}>
                                 {msg.subject}
                               </div>
                             )}
@@ -761,7 +912,7 @@ export default function MessagesPage() {
               </div>
             )}
           </div>
-          
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -876,11 +1027,10 @@ export default function MessagesPage() {
               <div
                 key={conv.otherId}
                 onClick={() => setActiveOtherId(conv.otherId)}
-                className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${
-                  activeOtherId === conv.otherId
+                className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${activeOtherId === conv.otherId
                     ? "bg-blue-50 dark:bg-blue-900/20 border-r-4 border-blue-500"
                     : "hover:bg-gray-50 dark:hover:bg-gray-700"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <Avatar
@@ -961,9 +1111,9 @@ export default function MessagesPage() {
                       {activeOtherId === ADMIN_SENTINEL
                         ? "Équipe BodyForce"
                         : (() => {
-                            const conv = filteredConversations.find((c) => c.otherId === activeOtherId);
-                            return `${conv?.otherFirstName || ""} ${conv?.otherName || ""}`;
-                          })()}
+                          const conv = filteredConversations.find((c) => c.otherId === activeOtherId);
+                          return `${conv?.otherFirstName || ""} ${conv?.otherName || ""}`;
+                        })()}
                     </h3>
                     <div className="flex items-center gap-2">
                       <OnlineIndicator isOnline={isMemberOnline(activeOtherId)} />
@@ -989,7 +1139,7 @@ export default function MessagesPage() {
             </div>
 
             {/* Zone des messages - SCROLLABLE */}
-            <div 
+            <div
               ref={messagesContainerRef}
               className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 px-6 py-4"
             >
@@ -1012,33 +1162,31 @@ export default function MessagesPage() {
                   {thread.map((msg, idx) => {
                     const isOwn = msg.authorUserId === user?.id;
                     const showAvatar = !isOwn && (idx === 0 || thread[idx - 1]?.authorUserId !== msg.authorUserId);
-                    const showTime = idx === thread.length - 1 || 
-                      (idx < thread.length - 1 && 
-                       (new Date(thread[idx + 1]?.createdAt) - new Date(msg.createdAt)) > 300000); // 5 minutes
-                    
+                    const showTime = idx === thread.length - 1 ||
+                      (idx < thread.length - 1 &&
+                        (new Date(thread[idx + 1]?.createdAt) - new Date(msg.createdAt)) > 300000); // 5 minutes
+
                     return (
                       <div key={idx} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                         <div className={`flex ${isOwn ? "flex-row-reverse" : "flex-row"} items-end gap-3 max-w-[70%]`}>
                           {showAvatar && !isOwn && (
-                            <Avatar 
-                              member={{ firstName: msg.authorFirstName, name: msg.authorName }} 
+                            <Avatar
+                              member={{ firstName: msg.authorFirstName, name: msg.authorName }}
                               size="sm"
                             />
                           )}
                           {!showAvatar && !isOwn && <div className="w-8" />}
-                          
+
                           <div className="space-y-1">
-                            <div className={`rounded-2xl px-4 py-3 max-w-full break-words ${
-                              isOwn 
-                                ? "bg-blue-500 text-white rounded-br-md" 
+                            <div className={`rounded-2xl px-4 py-3 max-w-full break-words ${isOwn
+                                ? "bg-blue-500 text-white rounded-br-md"
                                 : "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md shadow-sm"
-                            }`}>
+                              }`}>
                               {msg.subject && msg.subject !== "Message" && msg.subject !== "Message au staff" && (
-                                <div className={`text-sm font-medium mb-2 pb-2 border-b ${
-                                  isOwn 
-                                    ? "text-blue-100 border-blue-400 border-opacity-30" 
+                                <div className={`text-sm font-medium mb-2 pb-2 border-b ${isOwn
+                                    ? "text-blue-100 border-blue-400 border-opacity-30"
                                     : "text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
-                                }`}>
+                                  }`}>
                                   {msg.subject}
                                 </div>
                               )}
@@ -1046,7 +1194,7 @@ export default function MessagesPage() {
                                 {msg.body}
                               </div>
                             </div>
-                            
+
                             {showTime && (
                               <div className={`text-xs text-gray-500 px-1 ${isOwn ? "text-right" : "text-left"}`}>
                                 {formatChatTime(msg.createdAt)}
@@ -1115,7 +1263,7 @@ export default function MessagesPage() {
                     <Image className="w-5 h-5" />
                   </button>
                 </div>
-                
+
                 <div className="flex-1 relative">
                   <textarea
                     value={body}
@@ -1124,8 +1272,8 @@ export default function MessagesPage() {
                       selectMode
                         ? "Message à envoyer au groupe..."
                         : isBroadcast || showBroadcastModal
-                        ? "Message de diffusion..."
-                        : "Tapez votre message..."
+                          ? "Message de diffusion..."
+                          : "Tapez votre message..."
                     }
                     className="w-full max-h-32 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     rows={1}
@@ -1142,7 +1290,7 @@ export default function MessagesPage() {
                     }}
                   />
                 </div>
-                
+
                 <button
                   onClick={onSend}
                   disabled={
