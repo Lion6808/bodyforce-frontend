@@ -17,7 +17,7 @@ import {
   TrendingUp,
   BarChart3,
 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../supabaseClient";
 import {
   startOfWeek,
   endOfWeek,
@@ -27,12 +27,6 @@ import {
   endOfYear,
 } from "date-fns";
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Supabase
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-);
 
 // Tailwind helpers
 const cn = (...classes) => classes.filter(Boolean).join(" ");
