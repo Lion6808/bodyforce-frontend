@@ -1,85 +1,129 @@
-// src/supabaseClient.js - Adapté à votre structure existante
-import { createClient } from '@supabase/supabase-js';
+// src/supabaseClient.js — version egress-friendly (URLs mémoïsées + uploads cache-control)
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://hpgcqrsxttflutdsasar.supabase.co';
-const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwZ2NxcnN4dHRmbHV0ZHNhc2FyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjEzMTYsImV4cCI6MjA2Nzk5NzMxNn0.7gecaEShO4oUStTcL9Xi-sJni9Pkb4d3mV5OVWxxiyM';
+import { createClient } from "@supabase/supabase-js";
+
+/* ------------------------------------------------------------------
+   1) Client Supabase
+------------------------------------------------------------------- */
+const supabaseUrl =
+  process.env.REACT_APP_SUPABASE_URL ||
+  "https://hpgcqrsxttflutdsasar.supabase.co";
+
+const supabaseKey =
+  process.env.REACT_APP_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwZ2NxcnN4dHRmbHV0ZHNhc2FyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjEzMTYsImV4cCI6MjA2Nzk5NzMxNn0.7gecaEShO4oUStTcL9Xi-sJni9Pkb4d3mV5OVWxxiyM";
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  }
+  auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
 });
 
+/* ------------------------------------------------------------------
+   2) Helpers: cache des publicUrl + uploads avec cacheControl
+------------------------------------------------------------------- */
+
+// Petit cache mémoire pour éviter de recalculer les publicUrl à chaque rendu
+const publicUrlCache = new Map(); // key: `${bucket}/${path}` -> url
+
+export const getPublicUrlCached = (bucket, path) => {
+  if (!bucket || !path) return "";
+  const key = `${bucket}/${path}`;
+  const cached = publicUrlCache.get(key);
+  if (cached) return cached;
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  const url = data?.publicUrl || "";
+  if (url) publicUrlCache.set(key, url);
+  return url;
+};
+
+// 👉 Utilisé par tes pages pour les avatars
+export const getPhotoUrl = (path) => getPublicUrlCached("photo", path);
+
+// Upload générique avec cache long (1 an) et upsert
+export const uploadWithCacheControl = async (bucket, path, file, opts = {}) => {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, { upsert: true, cacheControl: "31536000", ...opts });
+  if (error) throw error;
+  // Invalide le cache pour cette ressource
+  publicUrlCache.delete(`${bucket}/${path}`);
+  return data;
+};
+
+// Raccourci pour les photos
+export const uploadPhoto = (path, file, opts) =>
+  uploadWithCacheControl("photo", path, file, opts);
+
+/* ------------------------------------------------------------------
+   3) Services existants (inchangés fonctionnellement)
+------------------------------------------------------------------- */
 export const supabaseServices = {
   async getMembers() {
     const { data, error } = await supabase
-      .from('members')
-      .select('*')
-      .order('name', { ascending: true });
+      .from("members")
+      .select("*")
+      .order("name", { ascending: true });
 
     if (error) {
-      console.error('Erreur getMembers:', error);
+      console.error("Erreur getMembers:", error);
       throw error;
     }
 
-    return (data || []).map(member => ({
+    return (data || []).map((member) => ({
       ...member,
       files: member.files || [],
-      etudiant: !!member.etudiant
+      etudiant: !!member.etudiant,
     }));
   },
 
   async getMemberById(id) {
     const { data, error } = await supabase
-      .from('members')
-      .select('*')
-      .eq('id', id)
+      .from("members")
+      .select("*")
+      .eq("id", id)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') return null;
-      console.error('Erreur getMemberById:', error);
+      if (error.code === "PGRST116") return null;
+      console.error("Erreur getMemberById:", error);
       throw error;
     }
 
     return {
       ...data,
       files: data.files || [],
-      etudiant: !!data.etudiant
+      etudiant: !!data.etudiant,
     };
   },
 
   async getMemberByBadgeId(badgeId) {
     const { data, error } = await supabase
-      .from('members')
-      .select('*')
-      .eq('badgeId', badgeId)
+      .from("members")
+      .select("*")
+      .eq("badgeId", badgeId)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') return null;
-      console.error('Erreur getMemberByBadgeId:', error);
+      if (error.code === "PGRST116") return null;
+      console.error("Erreur getMemberByBadgeId:", error);
       throw error;
     }
 
     return {
       ...data,
       files: data.files || [],
-      etudiant: !!data.etudiant
+      etudiant: !!data.etudiant,
     };
   },
 
   async createMember(memberData) {
     const { data, error } = await supabase
-      .from('members')
+      .from("members")
       .insert([memberData])
       .select()
       .single();
 
     if (error) {
-      console.error('Erreur createMember:', error);
+      console.error("Erreur createMember:", error);
       throw error;
     }
 
@@ -88,14 +132,14 @@ export const supabaseServices = {
 
   async updateMember(id, memberData) {
     const { data, error } = await supabase
-      .from('members')
+      .from("members")
       .update(memberData)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
     if (error) {
-      console.error('Erreur updateMember:', error);
+      console.error("Erreur updateMember:", error);
       throw error;
     }
 
@@ -103,31 +147,27 @@ export const supabaseServices = {
   },
 
   async deleteMember(id) {
-    const { error } = await supabase
-      .from('members')
-      .delete()
-      .eq('id', id);
-
+    const { error } = await supabase.from("members").delete().eq("id", id);
     if (error) {
-      console.error('Erreur deleteMember:', error);
+      console.error("Erreur deleteMember:", error);
       throw error;
     }
   },
 
   async getPresences(startDate = null, endDate = null, badgeId = null) {
     let query = supabase
-      .from('presences')
-      .select('*')
-      .order('timestamp', { ascending: false });
+      .from("presences")
+      .select("*")
+      .order("timestamp", { ascending: false });
 
-    if (startDate) query = query.gte('timestamp', startDate.toISOString());
-    if (endDate) query = query.lte('timestamp', endDate.toISOString());
-    if (badgeId) query = query.eq('badgeId', badgeId);
+    if (startDate) query = query.gte("timestamp", startDate.toISOString());
+    if (endDate) query = query.lte("timestamp", endDate.toISOString());
+    if (badgeId) query = query.eq("badgeId", badgeId);
 
     const { data, error } = await query;
 
     if (error) {
-      console.error('Erreur getPresences:', error);
+      console.error("Erreur getPresences:", error);
       throw error;
     }
 
@@ -138,29 +178,29 @@ export const supabaseServices = {
     const presences = await this.getPresences(startDate, endDate);
     const members = await this.getMembers();
     const membersMap = {};
-    members.forEach(m => {
+    members.forEach((m) => {
       if (m.badgeId) membersMap[m.badgeId] = m;
     });
 
-    return presences.map(presence => ({
+    return presences.map((presence) => ({
       ...presence,
-      member: membersMap[presence.badgeId] || null
+      member: membersMap[presence.badgeId] || null,
     }));
   },
 
   async createPresence(badgeId, timestamp = new Date()) {
     const { data, error } = await supabase
-      .from('presences')
+      .from("presences")
       .insert([{ badgeId, timestamp: timestamp.toISOString() }])
       .select()
       .single();
 
     if (error) {
-      if (error.code === '23505') {
-        console.warn('Présence déjà enregistrée:', badgeId, timestamp);
+      if (error.code === "23505") {
+        console.warn("Présence déjà enregistrée:", badgeId, timestamp);
         return null;
       }
-      console.error('Erreur createPresence:', error);
+      console.error("Erreur createPresence:", error);
       throw error;
     }
 
@@ -168,41 +208,37 @@ export const supabaseServices = {
   },
 
   async deletePresence(id) {
-    const { error } = await supabase
-      .from('presences')
-      .delete()
-      .eq('id', id);
-
+    const { error } = await supabase.from("presences").delete().eq("id", id);
     if (error) {
-      console.error('Erreur deletePresence:', error);
+      console.error("Erreur deletePresence:", error);
       throw error;
     }
   },
 
   async deletePresencesByBadgeId(badgeId) {
     const { error } = await supabase
-      .from('presences')
+      .from("presences")
       .delete()
-      .eq('badgeId', badgeId);
+      .eq("badgeId", badgeId);
 
     if (error) {
-      console.error('Erreur deletePresencesByBadgeId:', error);
+      console.error("Erreur deletePresencesByBadgeId:", error);
       throw error;
     }
   },
 
   async getPayments(memberId = null) {
     let query = supabase
-      .from('payments')
+      .from("payments")
       .select(`*, member:members(id, name, firstName, badgeId)`)
-      .order('date_paiement', { ascending: false });
+      .order("date_paiement", { ascending: false });
 
-    if (memberId) query = query.eq('member_id', memberId);
+    if (memberId) query = query.eq("member_id", memberId);
 
     const { data, error } = await query;
 
     if (error) {
-      console.error('Erreur getPayments:', error);
+      console.error("Erreur getPayments:", error);
       throw error;
     }
 
@@ -211,13 +247,13 @@ export const supabaseServices = {
 
   async createPayment(paymentData) {
     const { data, error } = await supabase
-      .from('payments')
+      .from("payments")
       .insert([paymentData])
       .select(`*, member:members(id, name, firstName, badgeId)`)
       .single();
 
     if (error) {
-      console.error('Erreur createPayment:', error);
+      console.error("Erreur createPayment:", error);
       throw error;
     }
 
@@ -226,14 +262,14 @@ export const supabaseServices = {
 
   async updatePayment(id, paymentData) {
     const { data, error } = await supabase
-      .from('payments')
+      .from("payments")
       .update(paymentData)
-      .eq('id', id)
+      .eq("id", id)
       .select(`*, member:members(id, name, firstName, badgeId)`)
       .single();
 
     if (error) {
-      console.error('Erreur updatePayment:', error);
+      console.error("Erreur updatePayment:", error);
       throw error;
     }
 
@@ -241,13 +277,9 @@ export const supabaseServices = {
   },
 
   async deletePayment(id) {
-    const { error } = await supabase
-      .from('payments')
-      .delete()
-      .eq('id', id);
-
+    const { error } = await supabase.from("payments").delete().eq("id", id);
     if (error) {
-      console.error('Erreur deletePayment:', error);
+      console.error("Erreur deletePayment:", error);
       throw error;
     }
   },
@@ -256,43 +288,25 @@ export const supabaseServices = {
     return this.updatePayment(id, { is_paid: isPaid });
   },
 
+  // ✅ Upload fichiers (utilise cache long + renvoie l’URL via le cache)
   async uploadFile(bucket, path, file) {
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(path, file, { cacheControl: '3600', upsert: false });
-
-    if (error) {
-      console.error('Erreur uploadFile:', error);
-      throw error;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(data.path);
-
-    return {
-      path: data.path,
-      publicUrl: urlData.publicUrl
-    };
+    const uploaded = await uploadWithCacheControl(bucket, path, file);
+    const publicUrl = getPublicUrlCached(bucket, uploaded.path);
+    return { path: uploaded.path, publicUrl };
   },
 
   async deleteFile(bucket, path) {
-    const { error } = await supabase.storage
-      .from(bucket)
-      .remove([path]);
-
+    const { error } = await supabase.storage.from(bucket).remove([path]);
     if (error) {
-      console.error('Erreur deleteFile:', error);
+      console.error("Erreur deleteFile:", error);
       throw error;
     }
+    publicUrlCache.delete(`${bucket}/${path}`);
   },
 
+  // ✅ getPublicUrl passe par le cache
   getPublicUrl(bucket, path) {
-    const { data } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(path);
-
-    return data.publicUrl;
+    return getPublicUrlCached(bucket, path);
   },
 
   async getStatistics() {
@@ -304,9 +318,9 @@ export const supabaseServices = {
         let from = 0;
         let to = pageSize - 1;
         while (true) {
-          const { data, error, count } = await supabase
+          const { data, error } = await supabase
             .from(table)
-            .select('*', { count: 'exact' })
+            .select("*")
             .range(from, to);
           if (error) throw error;
           allData = [...allData, ...data];
@@ -318,9 +332,9 @@ export const supabaseServices = {
       };
 
       const [members, presences, payments] = await Promise.all([
-        fetchAll('members'),
-        fetchAll('presences'),
-        fetchAll('payments')
+        fetchAll("members"),
+        fetchAll("presences"),
+        fetchAll("payments"),
       ]);
 
       const today = new Date();
@@ -331,10 +345,10 @@ export const supabaseServices = {
         hommes: 0,
         femmes: 0,
         etudiants: 0,
-        membresExpirés: []
+        membresExpirés: [],
       };
 
-      members.forEach(member => {
+      members.forEach((member) => {
         if (member.endDate) {
           try {
             const endDate = new Date(member.endDate);
@@ -345,7 +359,7 @@ export const supabaseServices = {
                 id: member.id,
                 name: member.name,
                 firstName: member.firstName,
-                endDate: member.endDate
+                endDate: member.endDate,
               });
             }
           } catch (e) {
@@ -355,8 +369,8 @@ export const supabaseServices = {
           stats.expirés++;
         }
 
-        if (member.gender === 'Homme') stats.hommes++;
-        else if (member.gender === 'Femme') stats.femmes++;
+        if (member.gender === "Homme") stats.hommes++;
+        else if (member.gender === "Femme") stats.femmes++;
         if (member.etudiant) stats.etudiants++;
       });
 
@@ -366,40 +380,38 @@ export const supabaseServices = {
         presences,
         payments,
         totalPresences: presences.length,
-        totalPayments: payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-        unpaidPayments: payments.filter(p => !p.is_paid).length
+        totalPayments: payments.reduce(
+          (sum, p) => sum + parseFloat(p.amount || 0),
+          0
+        ),
+        unpaidPayments: payments.filter((p) => !p.is_paid).length,
       };
     } catch (error) {
-      console.error('Erreur getStatistics:', error);
+      console.error("Erreur getStatistics:", error);
       throw error;
     }
   },
 
   async testConnection() {
     try {
-      const { data, error } = await supabase
-        .from('members')
-        .select('id')
-        .limit(1);
-
+      const { error } = await supabase.from("members").select("id").limit(1);
       if (error) throw error;
-
-      console.log('✅ Connexion Supabase OK');
+      console.log("✅ Connexion Supabase OK");
       return true;
     } catch (error) {
-      console.error('❌ Erreur connexion Supabase:', error);
+      console.error("❌ Erreur connexion Supabase:", error);
       return false;
     }
   },
 
   async cleanDuplicatePresences() {
     try {
-      const { data, error } = await supabase.rpc('clean_duplicate_presences');
+      const { data, error } = await supabase.rpc("clean_duplicate_presences");
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Erreur cleanDuplicatePresences:', error);
+      console.error("Erreur cleanDuplicatePresences:", error);
       throw error;
     }
-  }
+  },
 };
