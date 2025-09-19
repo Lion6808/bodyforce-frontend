@@ -27,49 +27,6 @@ import { supabase, getPhotoUrl } from "../supabaseClient";
 // ✅ Import du composant MemberForm
 import MemberForm from "../components/MemberForm";
 
-// Avatar avec fallback initiales — gère base64/http/blob + URL Supabase
-function Avatar({ photo, firstName, name, size = 48 }) {
-  const url = useMemo(() => {
-    if (!photo) return "";
-    const p = String(photo);
-    // déjà une URL exploitable ? (data:, blob:, http(s):)
-    if (p.startsWith("data:") || p.startsWith("blob:") || /^https?:\/\//i.test(p)) {
-      return p;
-    }
-    // sinon on considère que c'est un chemin de fichier du bucket
-    return getPhotoUrl(p);
-  }, [photo]);
-
-  const [imgOk, setImgOk] = useState(Boolean(url));
-
-  if (!url || !imgOk) {
-    // fallback initiales
-    return (
-      <div
-        className="rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold shadow-xl drop-shadow-lg"
-        style={{ width: size, height: size, fontSize: Math.max(12, size / 3.2) }}
-      >
-        {(firstName?.[0] || "N") + (name?.[0] || "N")}
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={url}
-      alt="avatar"
-      loading="lazy"
-      width={size}
-      height={size}
-      className="rounded-full object-cover border-2 border-white dark:border-gray-800 shadow-xl drop-shadow-lg"
-      referrerPolicy="no-referrer"
-      draggable={false}
-      onError={() => setImgOk(false)} // si l’URL échoue → fallback initiales
-    />
-  );
-}
-
-
 // ✅ Suppression de la prop onEdit - gestion interne des états
 function PaymentsPage() {
   // ✅ Détection mobile
