@@ -1401,5 +1401,4 @@ function PlanningPage() {
     </div>
   );
 }
-
 export default PlanningPage;
