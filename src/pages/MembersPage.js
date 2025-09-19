@@ -1,8 +1,8 @@
 // ✅ MembersPage.js COMPLET avec conservation du contexte + repositionnement (par id simple)
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabaseServices } from "../supabaseClient";
+import { supabaseServices, getPhotoUrl } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 import { format, isBefore, parseISO } from "date-fns";
 import {
@@ -59,7 +59,10 @@ const parseSearch = (search) => {
   if (!raw) return [];
 
   // Split OR (insensible à la casse) — ex: "b* OR mar*" → deux clauses
-  const orClauses = raw.split(/\s+OR\s+/i).map((c) => c.trim()).filter(Boolean);
+  const orClauses = raw
+    .split(/\s+OR\s+/i)
+    .map((c) => c.trim())
+    .filter(Boolean);
 
   // Chaque clause est une liste (AND) de tokens séparés par espaces
   return orClauses.map((clause) =>
@@ -211,13 +214,13 @@ function MembersPage() {
       if ("scrollRestoration" in history) {
         history.scrollRestoration = "manual";
       }
-    } catch { }
+    } catch {}
     return () => {
       try {
         if ("scrollRestoration" in history) {
           history.scrollRestoration = prev || "auto";
         }
-      } catch { }
+      } catch {}
     };
   }, []);
 
@@ -232,7 +235,7 @@ function MembersPage() {
       if (typeof ctx.sortAsc === "boolean") setSortAsc(ctx.sortAsc);
       if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
       restoreRef.current = ctx;
-    } catch { }
+    } catch {}
   }, []);
 
   // ✅ Repositionnement quand un memberId est passé via location.state (optionnel)
@@ -340,7 +343,8 @@ function MembersPage() {
 
   // ✅ NOUVELLE FONCTION : Scroll vers un membre spécifique
   const scrollToMember = (memberId) => {
-    const memberElement = memberRefs.current[memberId] || document.querySelector(`[data-member-id="${CSS.escape(String(memberId))}"]`);
+    const memberElement =
+      memberRefs.current[memberId] || document.querySelector(`[data-member-id="${CSS.escape(String(memberId))}"]`);
     if (memberElement) {
       memberElement.scrollIntoView({ behavior: "smooth", block: "center" });
 
@@ -595,6 +599,12 @@ function MembersPage() {
 
     const shouldShowFallback = !member.photo || imageFailed;
 
+    // URL publique (mémoïsé) — pas de query param cache-busting
+    const photoUrl = useMemo(
+      () => (member?.photo ? getPhotoUrl(member.photo) : ""),
+      [member?.photo]
+    );
+
     // Gestion du survol
     const handleMouseEnter = () => {
       if (!isTouch) setShowLens(true);
@@ -613,8 +623,9 @@ function MembersPage() {
       return (
         <div className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
           <FaUser
-            className={`text-xl ${member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-              }`}
+            className={`text-xl ${
+              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+            }`}
           />
         </div>
       );
@@ -636,34 +647,40 @@ function MembersPage() {
       >
         {/* Placeholder */}
         <div
-          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${imageLoaded ? "opacity-0" : "opacity-100"
-            }`}
+          className={`absolute inset-0 rounded-full border border-gray-200 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-700 transition-opacity duration-300 ${
+            imageLoaded ? "opacity-0" : "opacity-100"
+          }`}
         >
           <FaUser
-            className={`text-xl ${member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
-              }`}
+            className={`text-xl ${
+              member.gender === "Femme" ? "text-pink-500 dark:text-pink-400" : "text-blue-500 dark:text-blue-400"
+            }`}
           />
         </div>
 
         {/* Avatar */}
         <div className="relative w-12 h-12 rounded-full shadow-[0_10px_24px_rgba(0,0,0,0.65)]">
           <img
-            src={member.photo}
+            src={photoUrl}
             alt="avatar"
-            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"
-              }`}
+            loading="lazy"
+            width={48}
+            height={48}
+            className={`w-full h-full object-cover rounded-full border border-gray-200 dark:border-gray-600 transition-opacity duration-300 ${
+              imageLoaded ? "opacity-100" : "opacity-0"
+            }`}
             onLoad={() => setImageLoaded(true)}
             onError={() => {
               setImageFailed(true);
               setImageErrors((prev) => new Set([...prev, member.id]));
             }}
-            loading="lazy"
             draggable={false}
+            referrerPolicy="no-referrer"
           />
         </div>
 
         {/* Loupe */}
-        {showLens && imageLoaded && (
+        {showLens && imageLoaded && photoUrl && (
           <div
             className="pointer-events-none absolute rounded-full ring-2 ring-white dark:ring-gray-800 shadow-xl"
             style={{
@@ -671,7 +688,7 @@ function MembersPage() {
               height: `${lensSize}px`,
               left: `${lensPos.x - lensSize / 2}px`,
               top: `${lensPos.y - lensSize / 2}px`,
-              backgroundImage: `url(${member.photo})`,
+              backgroundImage: `url(${photoUrl})`,
               backgroundRepeat: "no-repeat",
               backgroundSize: bgSize,
               backgroundPosition: `${bgPosX}px ${bgPosY}px`,
@@ -857,12 +874,12 @@ function MembersPage() {
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                        try {
-                          return isBefore(parseISO(member.endDate), new Date());
-                        } catch (e) {
-                          return true;
-                        }
-                      })()
+                          try {
+                            return isBefore(parseISO(member.endDate), new Date());
+                          } catch (e) {
+                            return true;
+                          }
+                        })()
                       : true;
 
                     const hasFiles =
@@ -870,8 +887,8 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                          ? member.files !== "[]" && member.files !== ""
-                          : Object.keys(member.files).length > 0);
+                        ? member.files !== "[]" && member.files !== ""
+                        : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
@@ -881,7 +898,6 @@ function MembersPage() {
                           if (el) memberRefs.current[member.id] = el;
                         }}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 hover:scale-[1.01] hover:shadow-xl hover:border-blue-300 transition-all duration-400 transform-gpu member-row"
-
                       >
                         <td className="p-3">
                           <input
@@ -914,10 +930,11 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  member.gender === "Femme"
                                     ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
                                     : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                  }`}
+                                }`}
                               >
                                 {member.gender}
                               </span>
@@ -946,8 +963,9 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
-                                  }`}
+                                className={`text-xs ${
+                                  isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
+                                }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -1034,12 +1052,12 @@ function MembersPage() {
             {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                  try {
-                    return isBefore(parseISO(member.endDate), new Date());
-                  } catch (e) {
-                    return true;
-                  }
-                })()
+                    try {
+                      return isBefore(parseISO(member.endDate), new Date());
+                    } catch (e) {
+                      return true;
+                    }
+                  })()
                 : true;
 
               const hasFiles =
@@ -1047,8 +1065,8 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                    ? member.files !== "[]" && member.files !== ""
-                    : Object.keys(member.files).length > 0);
+                  ? member.files !== "[]" && member.files !== ""
+                  : Object.keys(member.files).length > 0);
 
               return (
                 <div
@@ -1086,10 +1104,11 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          member.gender === "Femme"
                             ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
                             : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                          }`}
+                        }`}
                       >
                         {member.gender}
                       </span>
@@ -1134,8 +1153,9 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
-                              }`}
+                            className={`text-xs ${
+                              isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
+                            }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1261,10 +1281,11 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
+        active
           ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
           : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-        }`}
+      }`}
     >
       <div className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"}`}>
         {title}
