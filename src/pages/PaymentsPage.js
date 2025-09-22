@@ -494,7 +494,14 @@ function PaymentsPage() {
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center space-x-3 flex-1 min-w-0">
                 <div className="flex-shrink-0">
-                  <Avatar photo={member.photo} firstName={member.firstName} name={member.name} size={48} />
+                  <Avatar
+                    key={`avatar-${member.id}-${member.photo || ""}`}
+                    photo={getPhotoUrl(member.photo)}
+                    firstName={member.firstName}
+                    name={member.name}
+                    size={48}
+                  />
+
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"} truncate`}>
@@ -531,10 +538,10 @@ function PaymentsPage() {
                 <div className={`w-full ${isDarkMode ? "bg-gray-600" : "bg-gray-200"} rounded-full h-2`}>
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
-                        ? "bg-gradient-to-r from-green-400 to-green-600"
-                        : member.progressPercentage > 50
-                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                          : "bg-gradient-to-r from-red-400 to-red-600"
+                      ? "bg-gradient-to-r from-green-400 to-green-600"
+                      : member.progressPercentage > 50
+                        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                        : "bg-gradient-to-r from-red-400 to-red-600"
                       }`}
                     style={{ width: `${Math.min(member.progressPercentage, 100)}%` }}
                   />
@@ -796,8 +803,8 @@ function PaymentsPage() {
                 onClick={exportToCSV}
                 disabled={loading || filteredMembers.length === 0}
                 className={`flex items-center justify-center gap-2 px-4 py-2 ${isDarkMode
-                    ? "bg-gray-800 border-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:text-gray-500 text-white"
-                    : "bg-white border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                  ? "bg-gray-800 border-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:text-gray-500 text-white"
+                  : "bg-white border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
                   } border rounded-lg transition-colors text-sm font-medium`}
               >
                 <Download className="w-4 h-4" />
@@ -951,8 +958,8 @@ function PaymentsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full pl-10 pr-4 py-2 border ${isDarkMode
-                      ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
-                      : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
+                    : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     } rounded-lg`}
                 />
               </div>
@@ -961,8 +968,8 @@ function PaymentsPage() {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className={`px-4 py-2 border ${isDarkMode
-                    ? "border-gray-600 bg-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
-                    : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  ? "border-gray-600 bg-gray-700 text-white focus:ring-blue-500 focus:border-blue-500"
+                  : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   } rounded-lg sm:w-48`}
               >
                 <option value="all">Tous les statuts</option>
@@ -975,10 +982,10 @@ function PaymentsPage() {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${showFilters
-                    ? "bg-blue-100 text-blue-600"
-                    : isDarkMode
-                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-blue-100 text-blue-600"
+                  : isDarkMode
+                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
               >
                 <Filter className="w-4 h-4" />
@@ -1094,11 +1101,13 @@ function PaymentsPage() {
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
                               <Avatar
-                                photo={member.photo}
+                                key={`avatar-m-${member.id}-${member.photo || ""}`}
+                                photo={getPhotoUrl(member.photo)}
                                 firstName={member.firstName}
                                 name={member.name}
                                 size={40}
                               />
+
                             </div>
                             <div className="ml-4">
                               <div className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>
@@ -1135,10 +1144,10 @@ function PaymentsPage() {
                             <div className={`w-full ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded-full h-2`}>
                               <div
                                 className={`h-2 rounded-full transition-all duration-500 ${member.progressPercentage === 100
-                                    ? "bg-gradient-to-r from-green-400 to-green-600"
-                                    : member.progressPercentage > 50
-                                      ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                                      : "bg-gradient-to-r from-red-400 to-red-600"
+                                  ? "bg-gradient-to-r from-green-400 to-green-600"
+                                  : member.progressPercentage > 50
+                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                                    : "bg-gradient-to-r from-red-400 to-red-600"
                                   }`}
                                 style={{ width: `${Math.min(member.progressPercentage, 100)}%` }}
                               />
