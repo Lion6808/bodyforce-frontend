@@ -1,8 +1,7 @@
-// 📁 StatisticsPage.js — BODYFORCE
-// 🎨 Adaptation : Ajout du support du mode sombre uniquement (`dark:`)
-// 🔹 Partie 1 — Importations, états et récupération des données
+// 📁 StatisticsPage.js — BODYFORCE (optimisé)
+// 🎨 Mode sombre (classes `dark:`), calculs mémoïsés, matching presences->members O(1)
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabaseServices } from "../supabaseClient";
 import {
   FaUser, FaClock, FaUsers, FaStar, FaExclamationTriangle,
@@ -14,28 +13,23 @@ import {
   ResponsiveContainer, CartesianGrid,
   LineChart, Line, PieChart, Pie, Cell,
   Area, AreaChart
-} from 'recharts';
+} from "recharts";
 
-const COLORS = ['#3182ce', '#38a169', '#e53e3e', '#d69e2e', '#805ad5', '#dd6b20'];
+const COLORS = ["#3182ce", "#38a169", "#e53e3e", "#d69e2e", "#805ad5", "#dd6b20"];
 
 export default function StatisticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Données brutes
   const [stats, setStats] = useState(null);
   const [members, setMembers] = useState([]);
   const [presences, setPresences] = useState([]);
   const [payments, setPayments] = useState([]);
 
-  // Données calculées
-  const [topMembers, setTopMembers] = useState([]);
-  const [topHours, setTopHours] = useState([]);
-  const [dailyStats, setDailyStats] = useState([]);
-  const [monthlyStats, setMonthlyStats] = useState([]);
-  const [genderStats, setGenderStats] = useState([]);
-  const [paymentStats, setPaymentStats] = useState([]);
-
   useEffect(() => {
     fetchAllData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAllData = async () => {
@@ -43,131 +37,151 @@ export default function StatisticsPage() {
       setLoading(true);
       setError(null);
       const data = await supabaseServices.getStatistics();
-      setStats(data.stats);
-      setMembers(data.members);
-      setPresences(data.presences);
-      setPayments(data.payments);
-      console.log(`✅ Statistiques chargées: ${data.members.length} membres, ${data.presences.length} présences`);
+      setStats(data?.stats || {});
+      setMembers(Array.isArray(data?.members) ? data.members : []);
+      setPresences(Array.isArray(data?.presences) ? data.presences : []);
+      setPayments(Array.isArray(data?.payments) ? data.payments : []);
+      console.log(
+        `✅ Statistiques chargées: ${data?.members?.length || 0} membres, ${data?.presences?.length || 0} présences`
+      );
     } catch (err) {
       console.error("❌ Erreur chargement statistiques:", err);
-      setError(err.message || "Erreur lors du chargement des données");
+      setError(err?.message || "Erreur lors du chargement des données");
     } finally {
       setLoading(false);
     }
   };
 
-  const calculatedStats = useMemo(() => {
-    const memberCount = {};
-    const hourCount = {};
-    const dailyCount = {};
-    const monthlyCount = {};
+  // ========= Calculs dérivés (mémoïsés) =========
+  const {
+    topMembers,
+    topHours,
+    dailyStats,
+    monthlyStats,
+    genderStats,
+    paymentStats,
+    revenueTotal,
+  } = useMemo(() => {
+    // Map pour lookups O(1) par badgeId
+    const membersByBadge = new Map();
+    for (const m of members) {
+      if (m?.badgeId != null) membersByBadge.set(m.badgeId, m);
+    }
 
-    presences.forEach(p => {
-      if (!p.timestamp || !p.badgeId) return;
-      const date = new Date(p.timestamp);
-      if (isNaN(date.getTime())) return;
+    const memberCount = new Map(); // badgeId -> {member, count}
+    const hourCount = new Map();   // hour -> count
+    const dailyCount = new Map();  // "dd/mm/yyyy" -> count
+    const monthlyCount = new Map();// "mmm yyyy" -> count
 
-      const member = members.find(m => m.badgeId === p.badgeId);
-      if (!member) return;
+    for (const p of presences) {
+      const ts = p?.timestamp ? new Date(p.timestamp) : null;
+      if (!ts || Number.isNaN(ts.getTime())) continue;
+      const member = membersByBadge.get(p.badgeId);
+      if (!member) continue;
 
-      if (!memberCount[member.badgeId]) {
-        memberCount[member.badgeId] = { ...member, count: 0 };
-      }
-      memberCount[member.badgeId].count += 1;
+      // Compteur membre
+      const existing = memberCount.get(member.badgeId) || { ...member, count: 0 };
+      existing.count += 1;
+      memberCount.set(member.badgeId, existing);
 
-      const hour = date.getHours();
-      hourCount[hour] = (hourCount[hour] || 0) + 1;
+      // Heures
+      const h = ts.getHours();
+      hourCount.set(h, (hourCount.get(h) || 0) + 1);
 
-      const dayKey = date.toLocaleDateString('fr-FR');
-      dailyCount[dayKey] = (dailyCount[dayKey] || 0) + 1;
+      // Jours (fr-FR)
+      const dayKey = ts.toLocaleDateString("fr-FR");
+      dailyCount.set(dayKey, (dailyCount.get(dayKey) || 0) + 1);
 
-      const monthKey = date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
-      monthlyCount[monthKey] = (monthlyCount[monthKey] || 0) + 1;
-    });
+      // Mois (fr-FR short)
+      const monthKey = ts.toLocaleDateString("fr-FR", { year: "numeric", month: "short" });
+      monthlyCount.set(monthKey, (monthlyCount.get(monthKey) || 0) + 1);
+    }
 
-    const topMembers = Object.values(memberCount)
+    // Top 10 membres
+    const topMembersArr = Array.from(memberCount.values())
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    const topHours = Object.entries(hourCount)
-      .map(([hour, count]) => ({
-        hour: `${hour}h-${(parseInt(hour) + 1)}h`,
-        hourNum: parseInt(hour),
-        count
+    // Heures triées 0..23
+    const topHoursArr = Array.from(hourCount.entries())
+      .map(([hourNum, count]) => ({
+        hour: `${hourNum}h-${(hourNum + 1)}h`,
+        hourNum,
+        count,
       }))
       .sort((a, b) => a.hourNum - b.hourNum);
 
+    // 7 derniers jours (chronologique)
     const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      return date.toLocaleDateString('fr-FR');
-    }).reverse();
-
-    const dailyStats = last7Days.map(day => ({
-      date: day,
-      count: dailyCount[day] || 0
-    }));
-
-    const last6Months = Array.from({ length: 6 }, (_, i) => {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
-    }).reverse();
-
-    const monthlyStats = last6Months.map(month => ({
-      month,
-      count: monthlyCount[month] || 0
-    }));
-
-    const genderCount = { 'Homme': 0, 'Femme': 0, 'Autre': 0 };
-    members.forEach(m => {
-      if (m.gender === 'Homme') genderCount['Homme']++;
-      else if (m.gender === 'Femme') genderCount['Femme']++;
-      else genderCount['Autre']++;
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i)); // il y a 6..0 jours
+      return d.toLocaleDateString("fr-FR");
     });
 
-    const genderStats = [
-      { name: 'Hommes', value: genderCount['Homme'], color: '#3182ce' },
-      { name: 'Femmes', value: genderCount['Femme'], color: '#e53e3e' },
-      { name: 'Autre', value: genderCount['Autre'], color: '#d69e2e' }
-    ].filter(item => item.value > 0);
+    const dailyStatsArr = last7Days.map((k) => ({
+      date: k,
+      count: dailyCount.get(k) || 0,
+    }));
 
-    const paidAmount = payments
-      .filter(p => p.is_paid)
-      .reduce((sum, p) => {
-        const amount = parseFloat(p.amount);
-        return sum + (isNaN(amount) ? 0 : amount);
-      }, 0);
-    const unpaidAmount = payments
-      .filter(p => !p.is_paid)
-      .reduce((sum, p) => {
-        const amount = parseFloat(p.amount);
-        return sum + (isNaN(amount) ? 0 : amount);
-      }, 0);
+    // 6 derniers mois (chronologique)
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - (5 - i));
+      return d.toLocaleDateString("fr-FR", { year: "numeric", month: "short" });
+    });
 
-    const paymentStats = [
-      { name: 'Payé', value: paidAmount, color: '#38a169' },
-      { name: 'En attente', value: unpaidAmount, color: '#e53e3e' }
+    const monthlyStatsArr = last6Months.map((k) => ({
+      month: k,
+      count: monthlyCount.get(k) || 0,
+    }));
+
+    // Genres
+    const g = { Homme: 0, Femme: 0, Autre: 0 };
+    for (const m of members) {
+      if (m?.gender === "Homme") g.Homme += 1;
+      else if (m?.gender === "Femme") g.Femme += 1;
+      else g.Autre += 1;
+    }
+    const genderStatsArr = [
+      { name: "Hommes", value: g.Homme, color: "#3182ce" },
+      { name: "Femmes", value: g.Femme, color: "#e53e3e" },
+      { name: "Autre", value: g.Autre, color: "#d69e2e" },
+    ].filter((x) => x.value > 0);
+
+    // Paiements
+    let paidAmount = 0;
+    let unpaidAmount = 0;
+    for (const p of payments) {
+      const val = Number(p?.amount) || 0;
+      if (p?.is_paid) paidAmount += val;
+      else unpaidAmount += val;
+    }
+    const paymentStatsArr = [
+      { name: "Payé", value: paidAmount, color: "#38a169" },
+      { name: "En attente", value: unpaidAmount, color: "#e53e3e" },
     ];
+    const revenueTotalVal = paidAmount + unpaidAmount;
 
-    return { topMembers, topHours, dailyStats, monthlyStats, genderStats, paymentStats };
+    return {
+      topMembers: topMembersArr,
+      topHours: topHoursArr,
+      dailyStats: dailyStatsArr,
+      monthlyStats: monthlyStatsArr,
+      genderStats: genderStatsArr,
+      paymentStats: paymentStatsArr,
+      revenueTotal: revenueTotalVal,
+    };
   }, [members, presences, payments]);
 
-  useEffect(() => {
-    setTopMembers(calculatedStats.topMembers);
-    setTopHours(calculatedStats.topHours);
-    setDailyStats(calculatedStats.dailyStats);
-    setMonthlyStats(calculatedStats.monthlyStats);
-    setGenderStats(calculatedStats.genderStats);
-    setPaymentStats(calculatedStats.paymentStats);
-  }, [calculatedStats]);
-
+  // ========= Rendu =========
   if (loading) {
     return (
       <div className="p-4">
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <span className="ml-4 text-lg text-gray-600 dark:text-gray-300">Chargement des statistiques...</span>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+          <span className="ml-4 text-lg text-gray-600 dark:text-gray-300">
+            Chargement des statistiques...
+          </span>
         </div>
       </div>
     );
@@ -198,15 +212,18 @@ export default function StatisticsPage() {
         </h2>
         <button
           onClick={fetchAllData}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-60"
           disabled={loading}
+          aria-label="Actualiser les statistiques"
         >
-          {loading && <div className="animate-spin h-5 w-5 border-2 border-white rounded-full"></div>}
+          {loading && (
+            <div className="animate-spin h-5 w-5 border-2 border-white rounded-full" />
+          )}
           Actualiser
         </button>
       </div>
 
-      {/* 🔹 Partie 3 — Cartes de statistiques principales */}
+      {/* 🔹 Cartes principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={<FaUsers className="text-blue-500 text-3xl" />}
@@ -234,7 +251,7 @@ export default function StatisticsPage() {
         />
       </div>
 
-      {/* 🔹 Partie 4 — Cartes secondaires */}
+      {/* 🔹 Cartes secondaires */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={<FaGraduationCap className="text-yellow-500 text-3xl" />}
@@ -246,25 +263,24 @@ export default function StatisticsPage() {
           icon={<FaMars className="text-blue-600 text-3xl" />}
           label="Hommes"
           value={stats?.hommes || 0}
-          subtitle={`${stats?.total ? ((stats.hommes / stats.total * 100).toFixed(0)) : 0}%`}
+          subtitle={`${stats?.total ? ((stats.hommes / stats.total) * 100).toFixed(0) : 0}%`}
         />
         <StatCard
           icon={<FaVenus className="text-pink-500 text-3xl" />}
           label="Femmes"
           value={stats?.femmes || 0}
-          subtitle={`${stats?.total ? ((stats.femmes / stats.total * 100).toFixed(0)) : 0}%`}
+          subtitle={`${stats?.total ? ((stats.femmes / stats.total) * 100).toFixed(0) : 0}%`}
         />
         <StatCard
           icon={<FaEuroSign className="text-green-600 text-3xl" />}
           label="Revenus"
-          value={`${paymentStats.reduce((sum, p) => sum + p.value, 0).toFixed(0)}€`}
+          value={`${(revenueTotal || 0).toFixed(0)}€`}
           subtitle="total des paiements"
         />
       </div>
 
-      {/* 🔹 Partie 5 — Graphiques : Présences par jour et Répartition par genre */}
+      {/* 🔹 Graphiques : Présences / Genre */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Évolution des présences (7 derniers jours) */}
         <Section title="Présences - 7 derniers jours" icon={<FaCalendarAlt />}>
           {dailyStats.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -272,7 +288,16 @@ export default function StatisticsPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+                  wrapperStyle={{ zIndex: 40 }}
+                  contentStyle={{
+                    backgroundColor: "#111827",
+                    border: "1px solid #374151",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    color: "#e5e7eb",
+                  }}
+                />
                 <Area
                   type="monotone"
                   dataKey="count"
@@ -287,7 +312,6 @@ export default function StatisticsPage() {
           )}
         </Section>
 
-        {/* Répartition par genre */}
         <Section title="Répartition par genre" icon={<FaUsers />}>
           {genderStats.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -302,7 +326,6 @@ export default function StatisticsPage() {
                   label={({ name, value, percent }) =>
                     `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
                   }
-                  labelLine={true}
                 >
                   {genderStats.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -311,14 +334,13 @@ export default function StatisticsPage() {
                 <Tooltip
                   wrapperStyle={{ zIndex: 50 }}
                   contentStyle={{
-                    backgroundColor: "#1f2937", // gris foncé (bg-gray-800)
-                    border: "1px solid #374151", // gris (border-gray-700)
+                    backgroundColor: "#111827",
+                    border: "1px solid #374151",
                     borderRadius: 8,
                     padding: "8px 10px",
+                    color: "#e5e7eb",
                   }}
-                  labelStyle={{ color: "#2b91c0ff" }} // gris clair (text-gray-200)
-                  itemStyle={{ color: "#2a6885ff" }} // blanc (text-gray-50)
-                  cursor={{ fill: "rgba(59,130,246,0.1)" }} // effet hover bleu léger
+                  cursor={{ fill: "rgba(59,130,246,0.08)" }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -328,9 +350,8 @@ export default function StatisticsPage() {
         </Section>
       </div>
 
-      {/* 🔹 Partie 6 — Graphiques : Fréquentation par heure & Évolution mensuelle */}
+      {/* 🔹 Graphiques : Fréquentation / Mensuel */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Fréquentation par heure */}
         <Section title="Fréquentation par heure" icon={<FaClock />}>
           {topHours.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -338,7 +359,16 @@ export default function StatisticsPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="hour" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+                  wrapperStyle={{ zIndex: 40 }}
+                  contentStyle={{
+                    backgroundColor: "#111827",
+                    border: "1px solid #374151",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    color: "#e5e7eb",
+                  }}
+                />
                 <Bar dataKey="count" fill="#3182ce" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -347,7 +377,6 @@ export default function StatisticsPage() {
           )}
         </Section>
 
-        {/* Évolution mensuelle */}
         <Section title="Évolution mensuelle" icon={<FaChartBar />}>
           {monthlyStats.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -355,13 +384,22 @@ export default function StatisticsPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+                  wrapperStyle={{ zIndex: 40 }}
+                  contentStyle={{
+                    backgroundColor: "#111827",
+                    border: "1px solid #374151",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    color: "#e5e7eb",
+                  }}
+                />
                 <Line
                   type="monotone"
                   dataKey="count"
                   stroke="#3182ce"
                   strokeWidth={3}
-                  dot={{ fill: '#3182ce', strokeWidth: 2, r: 4 }}
+                  dot={{ fill: "#3182ce", strokeWidth: 2, r: 4 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -371,15 +409,14 @@ export default function StatisticsPage() {
         </Section>
       </div>
 
-      {/* 🔹 Partie 7 — Listes détaillées : Top 10 membres & Abonnements expirés */}
+      {/* 🔹 Listes détaillées */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top 10 membres */}
         <Section title="Top 10 membres les plus présents" icon={<FaStar />}>
           {topMembers.length > 0 ? (
             <div className="space-y-2">
               {topMembers.map((member, index) => (
                 <div
-                  key={member.id}
+                  key={member.id ?? member.badgeId ?? index}
                   className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -410,17 +447,16 @@ export default function StatisticsPage() {
           )}
         </Section>
 
-        {/* Abonnements expirés */}
         <Section
           title="Abonnements expirés"
           icon={<FaExclamationTriangle className="text-red-600" />}
-          urgent={stats?.membresExpirés?.length > 0}
+          urgent={Boolean(stats?.membresExpirés?.length)}
         >
           {stats?.membresExpirés?.length > 0 ? (
             <div className="space-y-2">
-              {stats.membresExpirés.slice(0, 10).map((member) => (
+              {stats.membresExpirés.slice(0, 10).map((member, i) => (
                 <div
-                  key={member.id}
+                  key={member.id ?? i}
                   className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-100/20 rounded border-l-4 border-red-400"
                 >
                   <div>
@@ -436,7 +472,7 @@ export default function StatisticsPage() {
                       Expiré le
                     </div>
                     <div className="text-sm text-red-600 dark:text-red-300">
-                      {new Date(member.endDate).toLocaleDateString('fr-FR')}
+                      {member?.endDate ? new Date(member.endDate).toLocaleDateString("fr-FR") : "—"}
                     </div>
                   </div>
                 </div>
@@ -459,15 +495,21 @@ export default function StatisticsPage() {
   );
 }
 
-// 🔹 Partie 8 — Composants StatCard, Section et NoDataMessage
+// ========= UI helpers =========
 function StatCard({ icon, label, value, subtitle, className = "" }) {
   return (
-    <div className={`bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 hover:shadow-xl transition-shadow ${className}`}>
+    <div
+      className={`bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 hover:shadow-xl transition-shadow ${className}`}
+    >
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</div>
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+            {label}
+          </div>
           <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
-          {subtitle && <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</div>}
+          {subtitle && (
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</div>
+          )}
         </div>
         <div className="flex-shrink-0 ml-4">{icon}</div>
       </div>
@@ -479,14 +521,16 @@ function Section({ title, icon, children, urgent = false }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
       <div
-        className={`px-6 py-4 border-b ${urgent
-          ? 'bg-red-50 border-red-200 dark:bg-red-100/10 dark:border-red-400/40'
-          : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700'
-          }`}
+        className={`px-6 py-4 border-b ${
+          urgent
+            ? "bg-red-50 border-red-200 dark:bg-red-100/10 dark:border-red-400/40"
+            : "bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700"
+        }`}
       >
         <h3
-          className={`text-lg font-semibold flex items-center gap-2 ${urgent ? 'text-red-800 dark:text-red-400' : 'text-gray-800 dark:text-white'
-            }`}
+          className={`text-lg font-semibold flex items-center gap-2 ${
+            urgent ? "text-red-800 dark:text-red-400" : "text-gray-800 dark:text-white"
+          }`}
         >
           {icon} {title}
         </h3>
