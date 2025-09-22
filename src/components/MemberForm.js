@@ -1225,7 +1225,7 @@ function MemberForm({ member, onSave, onCancel }) {
               {form.photo ? (
                 <img src={form.photo} alt="Avatar" className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover" />
               ) : (
-                <FaUser className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                <FaUser className="w-6 h-6 sm:w-8 h-8 text-white" />
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -1403,4 +1403,6 @@ Résumé corrections clé :
 - Remplacement de SwitchCamera ➜ RefreshCcw (lucide-react) + utilisation pour le bouton de bascule.
 - Blindage montants/dates côté Paiements (Number(...) avant toFixed, date nullable).
 - Caméra : cycle de vie unique, cleanup strict, bascule avant/arrière stable, reprise fluide.
+- Photo membre conservée en data URL (aucune concat aux URLs Supabase) — évite les GET 400.
+- Documents scannés/uploadés vers bucket "documents" uniquement.
 */
