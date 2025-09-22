@@ -57,22 +57,30 @@ function HomePage() {
     const memberCols = ["member_id", "memberId"];
     const dateCols = ["date_paiement", "payment_date", "due_date", "date", "created_at"];
 
+    // Colonnes utiles uniquement (pas de select("*"))
+    const SELECT_PAYMENT_COLS =
+      "id, member_id, memberId, amount, is_paid, label, libelle, created_at, date_paiement, payment_date, due_date, date";
+
     for (const mcol of memberCols) {
       try {
-        // Vérifie d'abord que la colonne membre existe (pas de tri)
-        let { data, error } = await supabase.from("payments").select("*").eq(mcol, memberId);
+        // 1) Liste brute limitée aux colonnes utiles
+        let { data, error } = await supabase
+          .from("payments")
+          .select(SELECT_PAYMENT_COLS)
+          .eq(mcol, memberId);
+
         if (error) continue;
 
-        // Puis essaie d'ordonner par une colonne de date existante (desc)
+        // 2) Essaye d'ordonner par une colonne de date existante (desc)
         for (const dcol of dateCols) {
           const { data: ordered, error: orderErr } = await supabase
             .from("payments")
-            .select("*")
+            .select(SELECT_PAYMENT_COLS)
             .eq(mcol, memberId)
             .order(dcol, { ascending: false });
           if (!orderErr && ordered) return ordered;
         }
-        // Si aucune colonne date ne passe, on renvoie la liste brute
+        // 3) Fallback : retourne la liste brute
         return data || [];
       } catch {
         // essaie l'autre variante mcol
@@ -107,7 +115,7 @@ function HomePage() {
 
         const { data: presencesData, error } = await supabase
           .from("presences")
-          .select("*")
+          .select("id,badgeId,timestamp") // ⬅️ colonnes utiles uniquement
           .gte("timestamp", start.toISOString())
           .lte("timestamp", end.toISOString())
           .order("timestamp", { ascending: false })
@@ -170,7 +178,17 @@ function HomePage() {
           // --- STATS GLOBALES (ne bloque pas le reste si erreur)
           try {
             const { stats: calculatedStats } = await supabaseServices.getStatistics();
-            setStats(calculatedStats || { total: 0, actifs: 0, expirés: 0, hommes: 0, femmes: 0, etudiants: 0, membresExpirés: [] });
+            setStats(
+              calculatedStats || {
+                total: 0,
+                actifs: 0,
+                expirés: 0,
+                hommes: 0,
+                femmes: 0,
+                etudiants: 0,
+                membresExpirés: [],
+              }
+            );
           } catch (statsError) {
             console.error("Could not fetch statistics:", statsError?.message);
           }
@@ -213,7 +231,8 @@ function HomePage() {
     };
 
     fetchData();
-  }, [role, user, isAdmin, memberCtx?.id, supabase]);
+    // ⚠️ ne pas mettre `supabase` dans les deps (réf. stable, inutile ici)
+  }, [role, user, isAdmin, memberCtx?.id]);
 
   // ===== Helpers
   const isLateOrToday = (ts) => {
@@ -317,15 +336,17 @@ function HomePage() {
         <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-blue-500/10 dark:from-indigo-400/10 dark:via-emerald-400/10 dark:to-blue-400/10" />
           <div className="relative p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
-            {/* Avatar large */}
+            {/* Avatar large (LCP optimisé) */}
             <div className="relative">
               {memberPhoto ? (
                 <img
-                  key={memberPhoto}
                   src={memberPhoto}
                   alt={memberDisplayName}
+                  width="160"
+                  height="160"
                   className="w-32 h-32 md:w-40 md:h-40 rounded-2xl object-cover shadow-xl ring-4 ring-white dark:ring-gray-700"
-                  loading="lazy"
+                  decoding="async"
+                  fetchPriority="high"
                 />
               ) : (
                 <div className="w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-700">
@@ -396,10 +417,10 @@ function HomePage() {
                   p.date_paiement || p.payment_date || p.due_date || p.date || p.created_at;
                 let dateStr = "";
                 try {
-                    if (dateRaw) {
-                      const d = typeof dateRaw === "string" ? parseISO(dateRaw) : new Date(dateRaw);
-                      dateStr = format(d, "dd/MM/yyyy");
-                    }
+                  if (dateRaw) {
+                    const d = typeof dateRaw === "string" ? parseISO(dateRaw) : new Date(dateRaw);
+                    dateStr = format(d, "dd/MM/yyyy");
+                  }
                 } catch {
                   // ignore parse error; leave empty
                 }
@@ -552,7 +573,8 @@ function HomePage() {
                     {attendance7d.map((d, idx) => {
                       const maxValue = Math.max(...attendance7d.map((d) => d.count));
                       const adjustedMax = maxValue > 0 ? maxValue : 10;
-                      const heightInPixels = maxValue > 0 ? Math.max((d.count / adjustedMax) * 180, d.count > 0 ? 12 : 4) : 4;
+                      const heightInPixels =
+                        maxValue > 0 ? Math.max((d.count / adjustedMax) * 180, d.count > 0 ? 12 : 4) : 4;
                       const isTodayLabel = format(d.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
                       const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6;
 
@@ -708,10 +730,15 @@ function HomePage() {
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         {m?.photo ? (
                           <img
-                            src={m.photo}
+                            src={m.photo /* idéalement: URL miniature */}
                             alt={displayName}
+                            width="40"
+                            height="40"
                             className="w-10 h-10 rounded-full object-cover shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200"
                             loading="lazy"
+                            decoding="async"
+                            referrerPolicy="no-referrer"
+                            sizes="40px"
                           />
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200">
@@ -724,8 +751,7 @@ function HomePage() {
                             {displayName}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {m?.badgeId && `Badge ${m.badgeId} • `}
-                            {timeAgo}
+                            {m?.badgeId && `Badge ${m.badgeId} • `}{timeAgo}
                           </div>
                         </div>
                       </div>
