@@ -1,8 +1,8 @@
-// ✅ MembersPage.js COMPLET avec conservation du contexte + repositionnement (par id simple)
+// ✅ MembersPage.js — complet (contexte conservé + repositionnement + Avatar correct)
 
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabaseServices, getPhotoUrl } from "../supabaseClient";
+import { supabaseServices } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 import { isBefore, parseISO } from "date-fns";
 import {
@@ -14,16 +14,6 @@ import {
 } from "react-icons/fa";
 
 import Avatar from "../components/Avatar";
-
-// Convertit un path Supabase Storage en URL publique, et laisse passer les data:URL/https:
-const resolvePhoto = (val) => {
-  if (!val) return null;
-  try {
-    return typeof getPhotoUrl === "function" ? getPhotoUrl(val) : val;
-  } catch {
-    return val;
-  }
-};
 
 // Normalise: minuscules + suppression des accents
 const normalize = (s = "") =>
@@ -183,11 +173,11 @@ function MembersPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ (gardé, au cas où)
+  // (gardé, au cas où)
   const returnedFromEdit = location.state?.returnedFromEdit;
   const editedMemberIdFromState = location.state?.memberId;
 
-  // ✅ États existants
+  // États
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -197,16 +187,16 @@ function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ✅ États pour l'approche hybride
+  // États pour l'approche hybride
   const [selectedMember, setSelectedMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ Refs
+  // Refs
   const memberRefs = useRef({});
   const restoreRef = useRef(null);
 
-  // ✅ Détection de la taille d'écran
+  // Détection de la taille d'écran
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
@@ -216,7 +206,7 @@ function MembersPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ Forcer la restauration manuelle du scroll pour éviter l'auto du navigateur
+  // Forcer restauration manuelle du scroll
   useEffect(() => {
     const { history } = window;
     const prev = history.scrollRestoration;
@@ -224,17 +214,17 @@ function MembersPage() {
       if ("scrollRestoration" in history) {
         history.scrollRestoration = "manual";
       }
-    } catch { }
+    } catch {}
     return () => {
       try {
         if ("scrollRestoration" in history) {
           history.scrollRestoration = prev || "auto";
         }
-      } catch { }
+      } catch {}
     };
   }, []);
 
-  // ✅ Lecture du contexte sauvegardé (filtres/tri/selection—facultatif)
+  // Lecture du contexte sauvegardé
   useEffect(() => {
     const raw = sessionStorage.getItem("membersPageCtx");
     if (!raw) return;
@@ -245,10 +235,10 @@ function MembersPage() {
       if (typeof ctx.sortAsc === "boolean") setSortAsc(ctx.sortAsc);
       if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
       restoreRef.current = ctx;
-    } catch { }
+    } catch {}
   }, []);
 
-  // ✅ Repositionnement quand un memberId est passé via location.state (optionnel)
+  // Repositionnement quand un memberId est passé via location.state
   useEffect(() => {
     if (!editedMemberIdFromState) return;
     if (loading || filteredMembers.length === 0) return;
@@ -261,7 +251,7 @@ function MembersPage() {
     return () => clearTimeout(t);
   }, [editedMemberIdFromState, loading, filteredMembers, location.pathname]);
 
-  // ✅ Repositionnement simple par id mémorisé (le cœur de la solution)
+  // Repositionnement simple par id mémorisé
   useEffect(() => {
     if (loading || filteredMembers.length === 0) return;
 
@@ -306,7 +296,7 @@ function MembersPage() {
     requestAnimationFrame(tryScroll);
   }, [loading, filteredMembers]);
 
-  // ✅ Repositionnement après restauration de scrollY (si tu veux garder)
+  // Repositionnement après restauration de scrollY
   useEffect(() => {
     const ctx = restoreRef.current;
     if (!ctx) return;
@@ -325,7 +315,6 @@ function MembersPage() {
     const tryRestore = () => {
       attempts += 1;
 
-      // Si on a un membre ciblé et sa ligne est prête, on scrolle dessus (mais membersLastId est prioritaire)
       if (ctx.editedMemberId && memberRefs.current[ctx.editedMemberId]) {
         scrollToMember(ctx.editedMemberId);
         cleanup();
@@ -351,14 +340,13 @@ function MembersPage() {
     setTimeout(tryRestore, 40);
   }, [loading, filteredMembers]);
 
-  // ✅ NOUVELLE FONCTION : Scroll vers un membre spécifique
+  // Scroll vers un membre spécifique
   const scrollToMember = (memberId) => {
     const memberElement =
       memberRefs.current[memberId] || document.querySelector(`[data-member-id="${CSS.escape(String(memberId))}"]`);
     if (memberElement) {
       memberElement.scrollIntoView({ behavior: "smooth", block: "center" });
 
-      // Effet visuel
       memberElement.style.transition = "all 0.3s ease";
       memberElement.style.transform = "scale(1.02)";
       memberElement.style.boxShadow = "0 8px 25px rgba(59, 130, 246, 0.3)";
@@ -371,7 +359,7 @@ function MembersPage() {
     }
   };
 
-  // ✅ Sauvegarde du contexte (facultatif, tu l’avais déjà)
+  // Sauvegarde du contexte
   const saveMembersPageContext = (extra = {}) => {
     const scrollEl = document.scrollingElement || document.documentElement;
     const ctx = {
@@ -386,21 +374,20 @@ function MembersPage() {
     sessionStorage.setItem("membersPageCtx", JSON.stringify(ctx));
   };
 
-  // ✅ HANDLER HYBRIDE pour l'édition — mémorise juste l'id
+  // Edit — hybride (mobile modal / desktop navigation)
   const handleEditMember = (member) => {
     if (isMobile) {
       setSelectedMember(member);
       setShowForm(true);
     } else {
-      sessionStorage.setItem("membersLastId", String(member.id)); // <— clé simple
-      saveMembersPageContext({ editedMemberId: member.id }); // (optionnel)
+      sessionStorage.setItem("membersLastId", String(member.id));
+      saveMembersPageContext({ editedMemberId: member.id });
       navigate("/members/edit", {
         state: { member, returnPath: "/members", memberId: member.id },
       });
     }
   };
 
-  // ✅ HANDLER HYBRIDE pour l'ajout — nettoie l'id mémorisé
   const handleAddMember = () => {
     if (isMobile) {
       setSelectedMember(null);
@@ -414,7 +401,6 @@ function MembersPage() {
     }
   };
 
-  // ✅ HANDLER pour fermer le modal (mobile uniquement)
   const handleCloseForm = () => {
     setShowForm(false);
     setSelectedMember(null);
@@ -440,11 +426,11 @@ function MembersPage() {
   }, []);
 
   useEffect(() => {
-    // --- Nouveau filtrage avancé avec jokers/conditions ---
+    // Filtrage avancé avec jokers/conditions
     const compiledClauses = parseSearch(search);
     let result = members.filter((m) => matchesSearch(m, compiledClauses));
 
-    // Appliquer les filtres
+    // Filtres
     if (activeFilter === "Homme") {
       result = result.filter((m) => m.gender === "Homme");
     } else if (activeFilter === "Femme") {
@@ -535,7 +521,7 @@ function MembersPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
-  // Calculer les statistiques
+  // Statistiques
   const total = filteredMembers.length;
   const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
   const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
@@ -757,12 +743,12 @@ function MembersPage() {
                   {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                        try {
-                          return isBefore(parseISO(member.endDate), new Date());
-                        } catch (e) {
-                          return true;
-                        }
-                      })()
+                          try {
+                            return isBefore(parseISO(member.endDate), new Date());
+                          } catch (e) {
+                            return true;
+                          }
+                        })()
                       : true;
 
                     const hasFiles =
@@ -770,8 +756,8 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                          ? member.files !== "[]" && member.files !== ""
-                          : Object.keys(member.files).length > 0);
+                        ? member.files !== "[]" && member.files !== ""
+                        : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
@@ -792,14 +778,7 @@ function MembersPage() {
                         </td>
 
                         <td className="p-3">
-                          <Avatar
-                            key={`avatar-${member.id}-${member.photo || ""}`}
-                            photo={resolvePhoto(member.photo)}
-                            firstName={member.firstName}
-                            name={member.name}
-                            size={48}
-                          />
-
+                          <Avatar member={member} size="w-12 h-12" />
                         </td>
 
                         <td className="p-3">
@@ -820,10 +799,11 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                  }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  member.gender === "Femme"
+                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                }`}
                               >
                                 {member.gender}
                               </span>
@@ -852,8 +832,9 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
-                                  }`}
+                                className={`text-xs ${
+                                  isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"
+                                }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -940,12 +921,12 @@ function MembersPage() {
             {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                  try {
-                    return isBefore(parseISO(member.endDate), new Date());
-                  } catch (e) {
-                    return true;
-                  }
-                })()
+                    try {
+                      return isBefore(parseISO(member.endDate), new Date());
+                    } catch (e) {
+                      return true;
+                    }
+                  })()
                 : true;
 
               const hasFiles =
@@ -953,8 +934,8 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                    ? member.files !== "[]" && member.files !== ""
-                    : Object.keys(member.files).length > 0);
+                  ? member.files !== "[]" && member.files !== ""
+                  : Object.keys(member.files).length > 0);
 
               return (
                 <div
@@ -974,14 +955,7 @@ function MembersPage() {
                         onChange={() => toggleSelect(member.id)}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
                       />
-                      <Avatar
-                        key={`avatar-m-${member.id}-${member.photo || ""}`}
-                        photo={resolvePhoto(member.photo)}
-                        firstName={member.firstName}
-                        name={member.name}
-                        size={48}
-                      />
-
+                      <Avatar member={member} size="w-12 h-12" />
 
                       <div className="flex-1">
                         <div
@@ -1000,10 +974,11 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
-                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                          }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          member.gender === "Femme"
+                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                        }`}
                       >
                         {member.gender}
                       </span>
@@ -1048,8 +1023,9 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
-                              }`}
+                            className={`text-xs ${
+                              isExpired ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-600 dark:text-gray-400"
+                            }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1124,7 +1100,7 @@ function MembersPage() {
         </div>
       )}
 
-      {/* ✅ MODAL CONDITIONNEL - Affiché uniquement en mobile */}
+      {/* Modal — mobile seulement */}
       {showForm && isMobile && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
           <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
@@ -1152,7 +1128,7 @@ function MembersPage() {
 
                   await fetchMembers();
 
-                  // ✅ Repositionnement après sauvegarde mobile
+                  // Repositionnement après sauvegarde mobile
                   if (memberId) {
                     setTimeout(() => scrollToMember(memberId), 200);
                   }
@@ -1175,10 +1151,11 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
-        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-        }`}
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
+        active
+          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+      }`}
     >
       <div className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"}`}>
         {title}
