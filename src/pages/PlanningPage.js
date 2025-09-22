@@ -61,6 +61,10 @@ const classes = {
     "w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm",
 };
 
+// 👉 Ajout: Avatar central + getPhotoUrl (pour URL mémoïsée + lazy)
+import Avatar from "../components/Avatar";
+import { getPhotoUrl } from "../supabaseClient";
+
 // Dates utils
 const formatDate = (date, fmt) => {
   const map = {
@@ -467,8 +471,8 @@ function PlanningPage() {
           return (
             <div key={member.badgeId || idx} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
               <div className="flex items-center gap-3 mb-3">
-                {member.avatarUrl ? (
-                  <img src={member.avatarUrl} alt="avatar" className={classes.avatar} />
+                {member.avatarUrl || member.photo ? (
+                  <Avatar member={member} size="w-10 h-10" className="border border-blue-200 dark:border-blue-600" />
                 ) : (
                   <div className={classes.avatarInitials}>
                     {member.firstName?.[0] || ""}
@@ -501,8 +505,8 @@ function PlanningPage() {
                           has
                             ? "bg-green-500 text-white shadow-sm hover:scale-105"
                             : isWeekend(day)
-                              ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                         )}
                       >
                         <div className="leading-none">{formatDate(day, "EEE dd").split(" ")[1]}</div>
@@ -572,8 +576,12 @@ function PlanningPage() {
                 style={{ gridTemplateColumns: `200px repeat(${allDays.length}, 80px)` }}
               >
                 <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
-                  {member.avatarUrl ? (
-                    <img src={member.avatarUrl} alt={`${member.name} ${member.firstName}`} className="w-8 h-8 object-cover rounded-full border border-blue-200 dark:border-blue-600" />
+                  {member.avatarUrl || member.photo ? (
+                    <Avatar
+                      member={member}
+                      size="w-8 h-8"
+                      className="border border-blue-200 dark:border-blue-600"
+                    />
                   ) : (
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
                       {member.firstName?.[0] || ""}
@@ -597,13 +605,13 @@ function PlanningPage() {
                           ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                             : dayTimes.length > 1
-                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : isWeekend(day)
-                            ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
-                            : idx % 2 === 0
-                              ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
-                              : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                          : idx % 2 === 0
+                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {dayTimes.length > 0 ? dayTimes.length : ""}
@@ -668,13 +676,12 @@ function PlanningPage() {
     };
 
     const onAvatarMove = (e) => {
-      if (hoveredMember) {  // ← AJOUTER cette condition
+      if (hoveredMember) {
         setMousePos({ x: e.clientX, y: e.clientY });
       }
     };
 
     const onAvatarLeave = () => {
-      // Délai pour éviter les clignotements quand on passe sur le tooltip
       setTimeout(() => {
         setHoveredMember(null);
       }, 100);
@@ -684,9 +691,6 @@ function PlanningPage() {
       const member = members.find((m) => m.badgeId === badgeId);
       if (!member) return null;
 
-      // Récupérer les présences pour ce membre ce jour-là
-      const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
-      const multiple = memberPresences.length > 1;
       // Z-index unique : jour * 100 + position du membre
       const uniqueZIndex = dayIndex * 100 + memberIndex + 10;
 
@@ -701,10 +705,10 @@ function PlanningPage() {
         >
           {/* Avatar avec photo ou initiales */}
           {member.photo || member.avatarUrl ? (
-            <img
-              src={member.photo || member.avatarUrl}
-              alt={`${member.firstName} ${member.name}`}
-              className="w-8 h-8 object-cover rounded-full border-2 border-white dark:border-gray-800 shadow-xl drop-shadow-lg hover:shadow-2xl hover:drop-shadow-xl transform hover:scale-110 transition-all duration-300"
+            <Avatar
+              member={member}
+              size="w-8 h-8"
+              className="border-2 border-white dark:border-gray-800 shadow-xl drop-shadow-lg hover:shadow-2xl hover:drop-shadow-xl transform hover:scale-110 transition-all duration-300"
             />
           ) : (
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 border-white dark:border-gray-800 shadow-xl drop-shadow-lg hover:shadow-2xl hover:drop-shadow-xl transform hover:scale-110 transition-all duration-300">
@@ -723,18 +727,14 @@ function PlanningPage() {
           {/* TOOLTIP CSS complet */}
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-[200]">
             <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
-
               {/* En-tête avec photo et nom */}
               <div className="flex items-center gap-3 mb-3">
                 {member?.photo || member?.avatarUrl ? (
-                  <img
-                    src={member?.photo || member?.avatarUrl}
-                    alt="avatar"
-                    className="w-12 h-12 object-cover rounded-full border-2 border-blue-400 shadow-lg"
-                  />
+                  <Avatar member={member} size="w-12 h-12" className="border-2 border-blue-400 shadow-lg" />
                 ) : (
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                    {member?.firstName?.[0]}{member?.name?.[0]}
+                    {member?.firstName?.[0]}
+                    {member?.name?.[0]}
                   </div>
                 )}
                 <div>
@@ -751,37 +751,43 @@ function PlanningPage() {
                 </div>
 
                 {/* Cas standard : 1 passage */}
-                {!multiple ? (
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-green-400" />
-                    <span className="text-sm">Passage à {formatDate(memberPresences[0]?.parsedDate, "HH:mm")}</span>
-                  </div>
-                ) : (
-                  /* Cas exceptionnel : passages multiples */
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-orange-400" />
-                      <span className="text-sm font-semibold text-orange-300">⚠️ {memberPresences.length} passages (inhabituel)</span>
-                    </div>
-
-                    {/* Liste des heures pour les cas multiples */}
-                    <div className="mt-2">
-                      <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
-                      <div className="flex flex-wrap gap-1">
-                        {memberPresences.slice(0, 6).map((presence, i) => (
-                          <div key={i} className="bg-orange-600/30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500/30">
-                            {formatDate(presence.parsedDate, "HH:mm")}
-                          </div>
-                        ))}
-                        {memberPresences.length > 6 && (
-                          <div className="bg-gray-600/30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500/30">
-                            +{memberPresences.length - 6}
-                          </div>
-                        )}
+                {(() => {
+                  const presences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
+                  const multiple = presences.length > 1;
+                  if (!multiple) {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-green-400" />
+                        <span className="text-sm">Passage à {formatDate(presences[0]?.parsedDate, "HH:mm")}</span>
                       </div>
-                    </div>
-                  </>
-                )}
+                    );
+                  }
+                  return (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-orange-400" />
+                        <span className="text-sm font-semibold text-orange-300">⚠️ {presences.length} passages (inhabituel)</span>
+                      </div>
+
+                      {/* Liste des heures pour les cas multiples */}
+                      <div className="mt-2">
+                        <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
+                        <div className="flex flex-wrap gap-1">
+                          {presences.slice(0, 6).map((presence, i) => (
+                            <div key={i} className="bg-orange-600/30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500/30">
+                              {formatDate(presence.parsedDate, "HH:mm")}
+                            </div>
+                          ))}
+                          {presences.length > 6 && (
+                            <div className="bg-gray-600/30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500/30">
+                              +{presences.length - 6}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Badge de statut */}
@@ -789,12 +795,12 @@ function PlanningPage() {
                 <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
                   Présent(e)
                 </span>
-                {multiple && (
+                {presenceCount > 1 && (
                   <span className="text-xs text-orange-400 font-medium">Vérifier badge</span>
                 )}
               </div>
 
-              {/* Flèche pointer vers l'avatar */}
+              {/* Flèche pointer */}
               <div className="absolute top-full left-1/2 -translate-x-1/2">
                 <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
               </div>
@@ -812,21 +818,17 @@ function PlanningPage() {
 
       return (
         <div
-          className="fixed z-[9999] pointer-events-none"  // ← SOLUTION : z-index très élevé
+          className="fixed z-[9999] pointer-events-none"
           style={{
             left: mousePos.x + 15,
             top: mousePos.y - 10,
-            transform: 'translateY(-50%)'
+            transform: "translateY(-50%)",
           }}
         >
           <div className="relative bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
             <div className="flex items-center gap-3 mb-3">
               {member?.photo || member?.avatarUrl ? (
-                <img
-                  src={member?.photo || member?.avatarUrl}
-                  alt={`${member?.firstName} ${member?.name}`}
-                  className="w-12 h-12 object-cover rounded-full border-2 border-blue-400"
-                />
+                <Avatar member={member} size="w-12 h-12" className="border-2 border-blue-400" />
               ) : (
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                   {member?.firstName?.[0] || ""}
@@ -834,7 +836,9 @@ function PlanningPage() {
                 </div>
               )}
               <div>
-                <h4 className="font-bold text-lg">{member?.name} {member?.firstName}</h4>
+                <h4 className="font-bold text-lg">
+                  {member?.name} {member?.firstName}
+                </h4>
                 <p className="text-blue-300 text-sm">Badge: {member?.badgeId}</p>
               </div>
             </div>
@@ -909,8 +913,9 @@ function PlanningPage() {
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
-                }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
+                i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
+              }`}
             >
               {day}
             </div>
@@ -959,9 +964,13 @@ function PlanningPage() {
             return (
               <div
                 key={idx}
-                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                  } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""
-                  } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                className={`${
+                  expanded ? "min-h-[200px]" : "min-h-[140px]"
+                } border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
+                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${
+                  today ? "ring-2 ring-blue-500 ring-inset" : ""
+                } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
@@ -970,10 +979,10 @@ function PlanningPage() {
                       !inMonth
                         ? "text-gray-400 dark:text-gray-500"
                         : today
-                          ? "text-blue-600 dark:text-blue-400"
-                          : weekend
-                            ? "text-blue-600 dark:text-blue-400"
-                            : "text-gray-900 dark:text-gray-100"
+                        ? "text-blue-600 dark:text-blue-400"
+                        : weekend
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-gray-900 dark:text-gray-100"
                     )}
                   >
                     {day.getDate()}
@@ -987,8 +996,8 @@ function PlanningPage() {
                           memberIds.length > 30
                             ? "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
                             : memberIds.length > 15
-                              ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                              : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                            ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                         )}
                       >
                         {memberIds.length > 99 ? "99+" : memberIds.length}
@@ -1012,20 +1021,20 @@ function PlanningPage() {
                       <>
                         <div className="flex justify-start gap-1 flex-wrap">
                           {visibleMembers.slice(0, 3).map((badgeId, memberIndex) =>
-                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex)
+                            renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, memberIndex)
                           )}
                         </div>
                         {visibleMembers.length > 3 && (
                           <div className="flex justify-start gap-1 flex-wrap">
                             {visibleMembers.slice(3, 6).map((badgeId, memberIndex) =>
-                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex + 3)
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, memberIndex + 3)
                             )}
                           </div>
                         )}
                         {visibleMembers.length > 6 && (
                           <div className="flex justify-start gap-1 flex-wrap">
                             {visibleMembers.slice(6, 9).map((badgeId, memberIndex) =>
-                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx,memberIndex + 6)
+                              renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, memberIndex + 6)
                             )}
                           </div>
                         )}
@@ -1041,8 +1050,8 @@ function PlanningPage() {
                             expanded
                               ? "bg-blue-500 text-white"
                               : memberIds.length > 30
-                                ? "bg-red-500 text-white animate-pulse"
-                                : "bg-orange-500 text-white"
+                              ? "bg-red-500 text-white animate-pulse"
+                              : "bg-orange-500 text-white"
                           )}
                           title={expanded ? "Réduire" : `Voir les ${memberIds.length} membres`}
                         >
@@ -1091,7 +1100,7 @@ function PlanningPage() {
         </div>
 
         {/* Tooltip global */}
-        
+        {/* (optionnel) renderTooltip() si tu veux la version "suiveuse" au lieu du tooltip CSS */}
       </div>
     );
   };
@@ -1385,7 +1394,10 @@ function PlanningPage() {
               <br />
               Essayez d'ajuster la période ou utilisez les raccourcis ci-dessus.
             </p>
-            <button onClick={handleRetry} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
+            >
               <RefreshCw className="w-4 h-4" />
               Recharger les données
             </button>
@@ -1401,4 +1413,5 @@ function PlanningPage() {
     </div>
   );
 }
+
 export default PlanningPage;
