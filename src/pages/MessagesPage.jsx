@@ -1,9 +1,6 @@
-// 📄 src/pages/MessagesPage.jsx — Version corrigée (Avatar lazy + URL mémoïsée) — 2025-09-22
-// ✅ Modifs minimales : import getPhotoUrl + <img src={getPhotoUrl(...)} loading="lazy" />
-// ⚠️ Logique, style et structure conservés à l’identique — hors ces deux ajustements
-
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { supabase, getPhotoUrl } from "../supabaseClient";
+// 📄 src/pages/MessagesPage.jsx — Version corrigée avec vraies fonctionnalités
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO, isToday, isYesterday } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -21,8 +18,12 @@ import {
   Settings,
   Phone,
   Video,
+  MoreVertical,
+  Plus,
+  Image,
+  Paperclip,
+  ArrowLeft
 } from "lucide-react";
-
 
 import * as MsgSvc from "../services/messagesService";
 
