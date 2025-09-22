@@ -8,7 +8,7 @@ import {
   RotateCcw,
   Check,
   X,
-  SwitchCamera,
+  RefreshCcw, // ⬅️ remplacement de SwitchCamera
   Upload,
   User,
 } from "lucide-react";
@@ -54,68 +54,44 @@ function sanitizeFileName(name) {
 
 // ✅ COMPOSANT CAMÉRA ENTIÈREMENT CORRIGÉ ET STABILISÉ
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
-  // -------------------------------------------------------------------
-  // 🔹 PARTIE 1 : LOGIQUE DU COMPOSANT (Hooks et Fonctions)
-  // -------------------------------------------------------------------
-
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // On commence en chargement
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [availableCameras, setAvailableCameras] = useState([]);
   const [facingMode, setFacingMode] = useState("user"); // 'user' = avant, 'environment' = arrière
 
-  // ✅ CORRECTION : La fonction de nettoyage est la seule source de vérité pour arrêter le flux.
-  // Elle est maintenant synchrone et plus simple.
   const cleanupStream = () => {
     if (videoRef.current && videoRef.current.srcObject) {
-      console.log("🧹 Nettoyage du stream...");
       const currentStream = videoRef.current.srcObject;
-      currentStream.getTracks().forEach((track) => {
-        console.log(`⏹️ Arrêt du track: ${track.label}`);
-        track.stop();
-      });
+      currentStream.getTracks().forEach((track) => track.stop());
       videoRef.current.srcObject = null;
       setStream(null);
-      console.log("✅ Nettoyage terminé.");
     }
   };
 
-  // ✅ CORRECTION : Le useEffect principal gère TOUT le cycle de vie de la caméra.
-  // Il se déclenche à l'ouverture/fermeture du modal et au changement de caméra (facingMode).
   useEffect(() => {
-    // Si le modal n'est pas ouvert, on ne fait rien et on s'assure que tout est nettoyé.
     if (!isOpen) {
       cleanupStream();
       return;
     }
-
-    let isMounted = true; // Pour éviter les mises à jour sur un composant démonté
+    let isMounted = true;
 
     const initializeCamera = async () => {
-      // On nettoie TOUJOURS un éventuel stream précédent avant d'en démarrer un nouveau.
-      // C'est la correction clé pour l'erreur "caméra déjà utilisée".
       cleanupStream();
-
       if (!isMounted) return;
 
       setIsLoading(true);
       setError(null);
-      setCapturedPhoto(null); // Réinitialise la photo si on change de caméra
+      setCapturedPhoto(null);
 
       try {
-        // 1. Détecter les caméras disponibles (résout le problème du bouton qui n'apparaît pas)
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(
-          (device) => device.kind === "videoinput"
-        );
-        if (isMounted) {
-          setAvailableCameras(videoDevices);
-        }
+        const videoDevices = devices.filter((d) => d.kind === "videoinput");
+        if (isMounted) setAvailableCameras(videoDevices);
 
-        // 2. Définir les contraintes pour la caméra souhaitée
         const constraints = {
           video: {
             facingMode: { ideal: facingMode },
@@ -125,57 +101,39 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           audio: false,
         };
 
-        // 3. Demander le nouveau flux vidéo
-        console.log(
-          `📹 Tentative de démarrage de la caméra en mode: ${facingMode}`
-        );
         const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-        // 4. Si la requête réussit, l'afficher dans l'élément vidéo
         if (isMounted && videoRef.current) {
           videoRef.current.srcObject = newStream;
           await videoRef.current.play();
           setStream(newStream);
-          console.log("✅ Caméra démarrée avec succès.");
         }
       } catch (err) {
-        console.error("❌ Erreur accès caméra :", err);
-        let errorMessage = "Impossible d'accéder à la caméra.";
+        let msg = "Impossible d'accéder à la caméra.";
         if (err.name === "NotReadableError") {
-          errorMessage =
-            "La caméra est déjà utilisée. Essayez de fermer les autres applications ou onglets qui pourraient l'utiliser.";
+          msg =
+            "La caméra est déjà utilisée. Fermez les autres applis/onglets qui pourraient l'utiliser.";
         } else if (err.name === "NotAllowedError") {
-          errorMessage =
-            "L'accès à la caméra a été refusé. Veuillez l'autoriser dans les paramètres de votre navigateur.";
+          msg =
+            "Accès caméra refusé. Autorisez l'accès dans les réglages du navigateur.";
         } else if (err.name === "NotFoundError") {
-            errorMessage = `Aucune caméra en mode '${facingMode}' n'a été trouvée sur cet appareil.`;
+          msg = `Aucune caméra en mode '${facingMode}' n'a été trouvée.`;
         }
-        if (isMounted) {
-          setError(errorMessage);
-        }
+        if (isMounted) setError(msg);
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     };
 
     initializeCamera();
-
-    // La fonction de nettoyage de useEffect s'assure que le stream est arrêté
-    // lorsque le composant est démonté ou que les dépendances (isOpen, facingMode) changent.
     return () => {
       isMounted = false;
       cleanupStream();
     };
-  }, [isOpen, facingMode]); // La magie est ici : ce hook réagit à tout changement pertinent.
+  }, [isOpen, facingMode]);
 
-  // ✅ CORRECTION : La fonction pour basculer la caméra ne fait que changer l'état.
-  // Le `useEffect` se chargera du reste de la logique (nettoyer, redémarrer).
   const switchCamera = () => {
     if (availableCameras.length > 1 && !isLoading) {
-      console.log("🔄 Basculement de la caméra...");
-      setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
+      setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
     }
   };
 
@@ -186,10 +144,9 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
 
-    // Gère l'effet miroir pour la caméra selfie
     if (facingMode === "user") {
       context.save();
       context.scale(-1, 1);
@@ -201,45 +158,32 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
     const imageData = canvas.toDataURL("image/jpeg", 0.9);
     setCapturedPhoto(imageData);
-    
-    // ✅ CORRECTION : On arrête le stream après la capture pour libérer la caméra.
-    cleanupStream();
+    cleanupStream(); // libère la caméra après capture
   };
 
   const confirmPhoto = () => {
     if (capturedPhoto) {
       onCapture(capturedPhoto);
-      onClose(); // Le `useEffect` gérera le nettoyage final
+      onClose();
     }
   };
 
-  // ✅ CORRECTION : Reprendre une photo réinitialise simplement l'état de la photo capturée.
-  // Le `useEffect` redémarrera la caméra car `capturedPhoto` n'est plus vrai.
-  // Pour forcer le redémarrage, on relance le cycle en changeant `facingMode` et en y revenant.
   const retakePhoto = () => {
     setCapturedPhoto(null);
-    // Le `useEffect` a déjà nettoyé le stream lors de la capture.
-    // Il faut le relancer. On force le redémarrage.
     setIsLoading(true);
-    // On force le `useEffect` à se ré-exécuter pour relancer la caméra.
-    // C'est une petite astuce pour garder une logique déclarative.
     const currentMode = facingMode;
-    setFacingMode(''); // état intermédiaire invalide pour forcer le changement
+    setFacingMode("");
     setTimeout(() => setFacingMode(currentMode), 0);
   };
 
   const getCurrentCameraLabel = () => {
     if (isLoading) return "Détection...";
-    const currentDevice = availableCameras.find(
-      (device) => stream?.getVideoTracks()[0]?.getSettings().deviceId === device.deviceId
-    );
+    const track = stream?.getVideoTracks?.()[0];
+    const deviceId = track?.getSettings?.().deviceId;
+    const currentDevice = availableCameras.find((d) => d.deviceId === deviceId);
     if (currentDevice?.label) return currentDevice.label;
     return facingMode === "user" ? "Caméra avant" : "Caméra arrière";
   };
-  
-  // -------------------------------------------------------------------
-  // 🔹 PARTIE 2 : AFFICHAGE DU COMPOSANT (JSX)
-  // -------------------------------------------------------------------
 
   if (!isOpen) return null;
 
@@ -256,19 +200,11 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
             isDarkMode ? "border-gray-700" : "border-gray-200"
           } flex items-center justify-between`}
         >
-          <h3
-            className={`text-lg font-semibold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
+          <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
             📸 Prendre une photo
           </h3>
           <div className="flex items-center gap-2">
-            <span
-              className={`text-sm ${
-                isDarkMode ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
+            <span className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
               {getCurrentCameraLabel()}
             </span>
             <button
@@ -289,7 +225,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
               <p className="font-medium mb-2">❌ Erreur caméra</p>
               <p className="text-sm">{error}</p>
               <button
-                onClick={() => setFacingMode(fm => fm === 'user' ? 'environment' : 'user')} // Tente de basculer
+                onClick={() => setFacingMode((fm) => (fm === "user" ? "environment" : "user"))}
                 className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
               >
                 Essayer une autre caméra
@@ -297,50 +233,41 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
             </div>
           )}
 
-          {/* Zone de prévisualisation */}
           {!error && (
             <div className="relative bg-black rounded-xl overflow-hidden max-w-md w-full aspect-[4/3]">
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                   <div className="text-white text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2" />
                     <p>Démarrage de la caméra...</p>
                   </div>
                 </div>
               )}
 
-              {/* Vidéo en temps réel */}
               {!capturedPhoto && (
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-                  style={{
-                    transform: facingMode === "user" ? "scaleX(-1)" : "none",
-                  }}
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${
+                    isLoading ? "opacity-0" : "opacity-100"
+                  }`}
+                  style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
                 />
               )}
 
-              {/* Photo capturée */}
               {capturedPhoto && (
-                <img
-                  src={capturedPhoto}
-                  alt="Photo capturée"
-                  className="w-full h-full object-cover"
-                />
+                <img src={capturedPhoto} alt="Photo capturée" className="w-full h-full object-cover" />
               )}
 
               <canvas ref={canvasRef} className="hidden" />
             </div>
           )}
 
-          {/* Contrôles */}
           {!error && (
             <div className="mt-6 flex items-center gap-4 h-16">
               {!isLoading && !capturedPhoto ? (
-                // Contrôles pour la capture
                 <>
                   {availableCameras.length > 1 && (
                     <button
@@ -351,12 +278,10 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                           : "border-gray-300 text-gray-600 hover:bg-gray-100"
                       } transition-colors flex items-center justify-center`}
                       title={`Basculer vers ${
-                        facingMode === "user"
-                          ? "caméra arrière"
-                          : "caméra avant"
+                        facingMode === "user" ? "caméra arrière" : "caméra avant"
                       }`}
                     >
-                      <SwitchCamera className="w-6 h-6" />
+                      <RefreshCcw className="w-6 h-6" />
                     </button>
                   )}
 
@@ -382,7 +307,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
               ) : null}
 
               {capturedPhoto && (
-                // Contrôles après capture
                 <>
                   <button
                     onClick={retakePhoto}
@@ -408,8 +332,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     </div>
   );
 }
-
-// ... Le reste du fichier MemberForm reste INCHANGÉ ...
 
 // ✅ Composants utilitaires
 function InputField({ label, icon: Icon, error, ...props }) {
@@ -506,6 +428,7 @@ function StatusBadge({ isExpired, isStudent }) {
     </div>
   );
 }
+
 // 🔹 Partie 8 - Fonction MemberForm principale avec nouveaux états
 
 function MemberForm({ member, onSave, onCancel }) {
@@ -537,18 +460,15 @@ function MemberForm({ member, onSave, onCancel }) {
     is_paid: false,
   });
 
-  // ✅ NOUVEAUX ÉTATS pour la caméra moderne
-  const [showCamera, setShowCamera] = useState(null);
+  const [showCamera, setShowCamera] = useState(null); // "photo" | "document" | null
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // ✅ États existants conservés (pour compatibilité)
   const [uploadStatus, setUploadStatus] = useState({
     loading: false,
     error: null,
     success: null,
   });
 
-  // États pour la gestion du swipe
   const containerRef = useRef(null);
   const startXRef = useRef(0);
   const isDraggingRef = useRef(false);
@@ -559,41 +479,26 @@ function MemberForm({ member, onSave, onCancel }) {
     { id: "identity", label: "Identité", icon: FaUser },
     { id: "contact", label: "Contact", icon: FaHome },
     { id: "subscription", label: "Abonnement", icon: FaCreditCard },
-    {
-      id: "documents",
-      label: "Documents",
-      icon: FaFileAlt,
-      count: form.files.length,
-    },
-    {
-      id: "payments",
-      label: "Paiements",
-      icon: FaEuroSign,
-      count: payments.length,
-    },
+    { id: "documents", label: "Documents", icon: FaFileAlt, count: form.files.length },
+    { id: "payments", label: "Paiements", icon: FaEuroSign, count: payments.length },
   ];
 
   const currentTabIndex = tabs.findIndex((tab) => tab.id === activeTab);
 
-  // ✅ NOUVEAU useEffect pour détecter le dark mode
+  // Détection dark mode
   useEffect(() => {
     const checkDarkMode = () => {
       setIsDarkMode(document.documentElement.classList.contains("dark"));
     };
-
     checkDarkMode();
     const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
   }, []);
 
+  // Init form avec member
   useEffect(() => {
     if (member && !form.name && !form.firstName) {
-      // ✅ Ne se déclenche QUE si le form est vide (nouveau membre)
       setForm({
         ...member,
         files: Array.isArray(member.files)
@@ -603,78 +508,52 @@ function MemberForm({ member, onSave, onCancel }) {
           : [],
         etudiant: !!member.etudiant,
       });
-
-      if (member.id) {
-        fetchPayments(member.id);
-      }
+      if (member.id) fetchPayments(member.id);
     }
-  }, [member?.id, form.name, form.firstName]);
+  }, [member?.id, form.name, form.firstName]); // volontairement minimal
 
-  // Gestion des événements tactiles pour le swipe - Version simplifiée
+  // Swipe handlers (mobile)
   const handleTouchStart = (e) => {
     if (isTransitioning) return;
-
-    const touch = e.touches[0];
-    containerRef.current.startX = touch.clientX;
-    containerRef.current.startY = touch.clientY;
+    const t = e.touches[0];
+    containerRef.current.startX = t.clientX;
+    containerRef.current.startY = t.clientY;
     containerRef.current.hasMoved = false;
     containerRef.current.isSwipeHorizontal = null;
   };
 
   const handleTouchMove = (e) => {
     if (isTransitioning) return;
+    const t = e.touches[0];
+    const dx = t.clientX - containerRef.current.startX;
+    const dy = t.clientY - containerRef.current.startY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
 
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - containerRef.current.startX;
-    const deltaY = touch.clientY - containerRef.current.startY;
-
-    const absX = Math.abs(deltaX);
-    const absY = Math.abs(deltaY);
-
-    // Déterminer le type de mouvement une seule fois
-    if (
-      containerRef.current.isSwipeHorizontal === null &&
-      (absX > 10 || absY > 10)
-    ) {
+    if (containerRef.current.isSwipeHorizontal === null && (absX > 10 || absY > 10)) {
       containerRef.current.isSwipeHorizontal = absX > absY;
       containerRef.current.hasMoved = true;
     }
 
-    // Si c'est un swipe horizontal
     if (containerRef.current.isSwipeHorizontal && absX > 15) {
       e.preventDefault();
       e.stopPropagation();
-
-      // Calculer le feedback visuel
-      let clampedDelta = deltaX;
-
-      // Limiter aux bornes
-      if (currentTabIndex === 0 && deltaX > 0) {
-        clampedDelta = Math.min(deltaX * 0.3, 50); // Résistance au début
-      } else if (currentTabIndex === tabs.length - 1 && deltaX < 0) {
-        clampedDelta = Math.max(deltaX * 0.3, -50); // Résistance à la fin
-      } else {
-        clampedDelta = Math.max(-150, Math.min(150, deltaX)); // Mouvement libre
-      }
-
-      setTranslateX(clampedDelta);
+      let clamped = dx;
+      if (currentTabIndex === 0 && dx > 0) clamped = Math.min(dx * 0.3, 50);
+      else if (currentTabIndex === tabs.length - 1 && dx < 0) clamped = Math.max(dx * 0.3, -50);
+      else clamped = Math.max(-150, Math.min(150, dx));
+      setTranslateX(clamped);
       isDraggingRef.current = true;
     }
   };
 
   const handleTouchEnd = () => {
-    if (
-      !containerRef.current.hasMoved ||
-      !containerRef.current.isSwipeHorizontal
-    ) {
-      // Animation de retour douce
+    if (!containerRef.current.hasMoved || !containerRef.current.isSwipeHorizontal) {
       setTranslateX(0);
       isDraggingRef.current = false;
       return;
     }
-
-    const threshold = 60; // Seuil pour changer d'onglet
-
+    const threshold = 60;
     if (Math.abs(translateX) > threshold) {
       if (translateX > 0 && currentTabIndex > 0) {
         setTranslateX(window.innerWidth);
@@ -688,13 +567,12 @@ function MemberForm({ member, onSave, onCancel }) {
     } else {
       setTranslateX(0);
     }
-
     isDraggingRef.current = false;
     containerRef.current.hasMoved = false;
     containerRef.current.isSwipeHorizontal = null;
   };
 
-  const handleMouseDown = (e) => {
+  const handleMouseDown = () => {
     return;
   };
 
@@ -715,6 +593,7 @@ function MemberForm({ member, onSave, onCancel }) {
       }, 150);
     }
   };
+
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
       .from("payments")
@@ -726,13 +605,11 @@ function MemberForm({ member, onSave, onCancel }) {
       console.error("Erreur chargement paiements :", error.message);
       return;
     }
-
-    setPayments(data);
+    setPayments(data || []);
   };
 
   const handleAddPayment = async () => {
     if (!member?.id || !newPayment.amount) return;
-
     const { error } = await supabase.from("payments").insert([
       {
         member_id: member.id,
@@ -743,12 +620,10 @@ function MemberForm({ member, onSave, onCancel }) {
         is_paid: newPayment.is_paid || false,
       },
     ]);
-
     if (error) {
       console.error("Erreur ajout paiement :", error.message);
       return;
     }
-
     setNewPayment({
       amount: "",
       method: "espèces",
@@ -756,7 +631,6 @@ function MemberForm({ member, onSave, onCancel }) {
       commentaire: "",
       is_paid: false,
     });
-
     fetchPayments(member.id);
   };
 
@@ -770,19 +644,11 @@ function MemberForm({ member, onSave, onCancel }) {
   };
 
   const togglePaymentStatus = async (paymentId, newStatus) => {
-    const { error } = await supabase
-      .from("payments")
-      .update({ is_paid: newStatus })
-      .eq("id", paymentId);
-
+    const { error } = await supabase.from("payments").update({ is_paid: newStatus }).eq("id", paymentId);
     if (error) {
-      console.error(
-        "Erreur mise à jour du statut de paiement :",
-        error.message
-      );
+      console.error("Erreur mise à jour du statut de paiement :", error.message);
       return;
     }
-
     fetchPayments(member.id);
   };
 
@@ -814,9 +680,7 @@ function MemberForm({ member, onSave, onCancel }) {
   };
 
   const age = form.birthdate
-    ? Math.floor(
-        (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
-      )
+    ? Math.floor((new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000))
     : null;
 
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
@@ -825,6 +689,7 @@ function MemberForm({ member, onSave, onCancel }) {
     e.preventDefault();
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
+
   const handleFileUpload = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
@@ -832,76 +697,46 @@ function MemberForm({ member, onSave, onCancel }) {
     setUploadStatus({ loading: true, error: null, success: null });
 
     try {
-      const newFiles = []; // ✅ Collecter tous les nouveaux fichiers
-
+      const newFiles = [];
       for (const file of files) {
         const safeName = sanitizeFileName(file.name);
         const filePath = `certificats/${Date.now()}_${safeName}`;
 
-        const { error } = await supabase.storage
-          .from("documents")
-          .upload(filePath, file);
+        const { error } = await supabase.storage.from("documents").upload(filePath, file);
+        if (error) throw new Error(`Erreur lors du téléversement : ${error.message}`);
 
-        if (error) {
-          throw new Error(`Erreur lors du téléversement : ${error.message}`);
-        }
-
-        const { data } = supabase.storage
-          .from("documents")
-          .getPublicUrl(filePath);
-
-        // ✅ Ajouter à la liste des nouveaux fichiers
+        const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
         newFiles.push({ name: safeName, url: data.publicUrl });
       }
 
-      // ✅ AJOUT : Mettre à jour le state local avec TOUS les fichiers
       const updatedFiles = [...form.files, ...newFiles];
-      setForm((f) => ({
-        ...f,
-        files: updatedFiles,
-      }));
+      setForm((f) => ({ ...f, files: updatedFiles }));
 
       setUploadStatus({
         loading: false,
         error: null,
         success: `${newFiles.length} fichier(s) ajouté(s) ! Cliquez "Enregistrer" pour sauvegarder.`,
       });
-
-      setTimeout(
-        () => setUploadStatus({ loading: false, error: null, success: null }),
-        3000
-      );
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       console.error("Erreur lors du téléversement :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
-
-    // ✅ AJOUT : Réinitialiser l'input file
     e.target.value = "";
   };
 
-  // ✅ FONCTION MODIFIÉE - Capture photo avec nouveau modal
   const handleCameraCapture = (imageData) => {
-    console.log(
-      "📸 Photo capturée depuis le nouveau modal:",
-      imageData.slice(0, 50) + "..."
-    );
     setForm((f) => ({ ...f, photo: imageData }));
     setUploadStatus({
       loading: false,
       error: null,
       success: "Photo capturée avec succès !",
     });
-    setTimeout(
-      () => setUploadStatus({ loading: false, error: null, success: null }),
-      3000
-    );
+    setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
   };
 
-  // ✅ FONCTION NOUVELLE - Capture document avec nouveau modal
   const captureDocument = async (imageData) => {
     setUploadStatus({ loading: true, error: null, success: null });
-
     try {
       const response = await fetch(imageData);
       const blob = await response.blob();
@@ -909,39 +744,20 @@ function MemberForm({ member, onSave, onCancel }) {
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(filePath, blob);
+      const { error: uploadError } = await supabase.storage.from("documents").upload(filePath, blob);
+      if (uploadError) throw new Error(`Erreur lors du téléversement du document : ${uploadError.message}`);
 
-      if (uploadError) {
-        throw new Error(
-          `Erreur lors du téléversement du document : ${uploadError.message}`
-        );
-      }
-
-      const { data } = supabase.storage
-        .from("documents")
-        .getPublicUrl(filePath);
-
-      // ✅ AJOUT : Créer le nouveau fichier et mettre à jour le state local
+      const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
       const newFile = { name: fileName, url: data.publicUrl };
       const updatedFiles = [...form.files, newFile];
-
-      setForm((f) => ({
-        ...f,
-        files: updatedFiles,
-      }));
+      setForm((f) => ({ ...f, files: updatedFiles }));
 
       setUploadStatus({
         loading: false,
         error: null,
         success: 'Document capturé ! Cliquez "Enregistrer" pour sauvegarder.',
       });
-
-      setTimeout(
-        () => setUploadStatus({ loading: false, error: null, success: null }),
-        3000
-      );
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       console.error("Erreur lors de la capture du document :", err);
       setUploadStatus({
@@ -951,6 +767,7 @@ function MemberForm({ member, onSave, onCancel }) {
       });
     }
   };
+
   const removeFile = async (fileToRemove, event) => {
     event?.stopPropagation();
     event?.preventDefault();
@@ -965,11 +782,8 @@ function MemberForm({ member, onSave, onCancel }) {
       const [bucket, ...pathParts] = afterPrefix.split("/");
       const path = pathParts.join("/");
 
-      const { error: storageError } = await supabase.storage
-        .from(bucket)
-        .remove([path]);
-      if (storageError)
-        throw new Error(`Erreur de suppression : ${storageError.message}`);
+      const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
+      if (storageError) throw new Error(`Erreur de suppression : ${storageError.message}`);
 
       const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
       setForm((f) => ({ ...f, files: newFiles }));
@@ -979,59 +793,26 @@ function MemberForm({ member, onSave, onCancel }) {
         error: null,
         success: 'Fichier supprimé ! Cliquez "Enregistrer" pour sauvegarder.',
       });
-      setTimeout(
-        () => setUploadStatus({ loading: false, error: null, success: null }),
-        3000
-      );
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
       console.error("Erreur suppression fichier :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
     }
   };
 
-  // 🔹 Partie 12 - Fonctions de rendu des onglets avec section photo modernisée
-
-  // ✅ ONGLET IDENTITÉ MODIFIÉ - Nouvelle section photo avec sélecteur caméra
+  // Tabs renderers
   const renderIdentityTab = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField
-              label="Nom"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              icon={FaUser}
-              placeholder="Nom de famille"
-            />
-            <InputField
-              label="Prénom"
-              name="firstName"
-              value={form.firstName}
-              onChange={handleChange}
-              icon={FaUser}
-              placeholder="Prénom"
-            />
+            <InputField label="Nom" name="name" value={form.name} onChange={handleChange} icon={FaUser} placeholder="Nom de famille" />
+            <InputField label="Prénom" name="firstName" value={form.firstName} onChange={handleChange} icon={FaUser} placeholder="Prénom" />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField
-              type="date"
-              label="Date de naissance"
-              name="birthdate"
-              value={form.birthdate}
-              onChange={handleChange}
-              icon={FaCalendarAlt}
-            />
-            <SelectField
-              label="Sexe"
-              name="gender"
-              value={form.gender}
-              onChange={handleChange}
-              options={["Homme", "Femme"]}
-              icon={FaUser}
-            />
+            <InputField type="date" label="Date de naissance" name="birthdate" value={form.birthdate} onChange={handleChange} icon={FaCalendarAlt} />
+            <SelectField label="Sexe" name="gender" value={form.gender} onChange={handleChange} options={["Homme", "Femme"]} icon={FaUser} />
           </div>
 
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-6 rounded-xl border border-blue-200 dark:border-gray-600">
@@ -1041,23 +822,15 @@ function MemberForm({ member, onSave, onCancel }) {
                   <FaGraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-800 dark:text-white">
-                    Statut étudiant
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Bénéficiez de tarifs préférentiels
-                  </p>
+                  <h3 className="font-semibold text-gray-800 dark:text-white">Statut étudiant</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Bénéficiez de tarifs préférentiels</p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() =>
-                  setForm((f) => ({ ...f, etudiant: !f.etudiant }))
-                }
+                onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
                 className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  form.etudiant
-                    ? "bg-gradient-to-r from-blue-500 to-purple-600"
-                    : "bg-gray-300 dark:bg-gray-600"
+                  form.etudiant ? "bg-gradient-to-r from-blue-500 to-purple-600" : "bg-gray-300 dark:bg-gray-600"
                 }`}
               >
                 <span
@@ -1073,24 +846,18 @@ function MemberForm({ member, onSave, onCancel }) {
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
               <div className="flex items-center gap-3">
                 <FaCalendarAlt className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                <span className="text-gray-700 dark:text-gray-200 font-medium">
-                  Âge : {age} ans
-                </span>
+                <span className="text-gray-700 dark:text-gray-200 font-medium">Âge : {age} ans</span>
               </div>
             </div>
           )}
         </div>
-        {/* ✅ SECTION PHOTO MODERNISÉE avec sélecteur caméra */}
+
+        {/* ✅ SECTION PHOTO */}
         <div className="flex flex-col items-center space-y-4">
-          {/* Prévisualisation de la photo */}
           <div className="relative">
             {form.photo ? (
               <div className="relative">
-                <img
-                  src={form.photo}
-                  alt="Photo du membre"
-                  className="w-40 h-40 object-cover rounded-2xl border-4 border-white shadow-lg"
-                />
+                <img src={form.photo} alt="Photo du membre" className="w-40 h-40 object-cover rounded-2xl border-4 border-white shadow-lg" />
                 <button
                   type="button"
                   onClick={() => setForm((prev) => ({ ...prev, photo: null }))}
@@ -1109,9 +876,7 @@ function MemberForm({ member, onSave, onCancel }) {
             )}
           </div>
 
-          {/* ✅ NOUVEAUX BOUTONS PHOTO avec sélecteur caméra */}
           <div className="flex flex-col gap-3 w-full">
-            {/* Bouton caméra avec sélecteur avant/arrière */}
             <button
               type="button"
               onClick={() => setShowCamera("photo")}
@@ -1121,7 +886,6 @@ function MemberForm({ member, onSave, onCancel }) {
               📱 Prendre une photo
             </button>
 
-            {/* Bouton upload fichier */}
             <label className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors cursor-pointer">
               <Upload className="w-4 h-4" />
               Choisir un fichier
@@ -1132,8 +896,8 @@ function MemberForm({ member, onSave, onCancel }) {
                   const file = e.target.files[0];
                   if (file) {
                     const reader = new FileReader();
-                    reader.onload = (e) => {
-                      setForm((prev) => ({ ...prev, photo: e.target.result }));
+                    reader.onload = (ev) => {
+                      setForm((prev) => ({ ...prev, photo: ev.target.result }));
                     };
                     reader.readAsDataURL(file);
                   }
@@ -1143,11 +907,9 @@ function MemberForm({ member, onSave, onCancel }) {
             </label>
           </div>
 
-          {/* Info sur les caméras disponibles */}
           <div className="text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
-              📸 Utilisez le bouton caméra pour choisir entre caméra avant
-              (selfie) et arrière
+              📸 Utilisez le bouton caméra pour choisir entre caméra avant (selfie) et arrière
             </p>
           </div>
         </div>
@@ -1158,39 +920,10 @@ function MemberForm({ member, onSave, onCancel }) {
   const renderContactTab = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <InputField
-          label="Adresse complète"
-          name="address"
-          value={form.address}
-          onChange={handleChange}
-          icon={FaHome}
-          placeholder="Numéro, rue, ville, code postal"
-        />
-        <InputField
-          label="Email"
-          name="email"
-          type="email"
-          value={form.email}
-          onChange={handleChange}
-          icon={FaEnvelope}
-          placeholder="exemple@email.com"
-        />
-        <InputField
-          label="Téléphone fixe"
-          name="phone"
-          value={form.phone}
-          onChange={handleChange}
-          icon={FaPhone}
-          placeholder="01 23 45 67 89"
-        />
-        <InputField
-          label="Téléphone portable"
-          name="mobile"
-          value={form.mobile}
-          onChange={handleChange}
-          icon={FaPhone}
-          placeholder="06 12 34 56 78"
-        />
+        <InputField label="Adresse complète" name="address" value={form.address} onChange={handleChange} icon={FaHome} placeholder="Numéro, rue, ville, code postal" />
+        <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} icon={FaEnvelope} placeholder="exemple@email.com" />
+        <InputField label="Téléphone fixe" name="phone" value={form.phone} onChange={handleChange} icon={FaPhone} placeholder="01 23 45 67 89" />
+        <InputField label="Téléphone portable" name="mobile" value={form.mobile} onChange={handleChange} icon={FaPhone} placeholder="06 12 34 56 78" />
       </div>
     </div>
   );
@@ -1206,30 +939,9 @@ function MemberForm({ member, onSave, onCancel }) {
           options={Object.keys(subscriptionDurations)}
           icon={FaCreditCard}
         />
-        <InputField
-          label="ID Badge"
-          name="badgeId"
-          value={form.badgeId}
-          onChange={handleChange}
-          icon={FaIdCard}
-          placeholder="Numéro du badge d'accès"
-        />
-        <InputField
-          type="date"
-          label="Date de début"
-          name="startDate"
-          value={form.startDate}
-          onChange={handleChange}
-          icon={FaCalendarAlt}
-        />
-        <InputField
-          type="date"
-          label="Date de fin"
-          name="endDate"
-          value={form.endDate}
-          readOnly
-          icon={FaCalendarAlt}
-        />
+        <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} icon={FaIdCard} placeholder="Numéro du badge d'accès" />
+        <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} icon={FaCalendarAlt} />
+        <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly icon={FaCalendarAlt} />
       </div>
 
       {isExpired && (
@@ -1237,14 +949,14 @@ function MemberForm({ member, onSave, onCancel }) {
           <div className="flex items-center">
             <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
             <p className="text-red-800 dark:text-red-200 font-medium">
-              Abonnement expiré le {new Date(form.endDate).toLocaleDateString()}
+              Abonnement expiré le {form.endDate ? new Date(form.endDate).toLocaleDateString() : "—"}
             </p>
           </div>
         </div>
       )}
     </div>
   );
-  // ✅ ONGLET DOCUMENTS MODIFIÉ - Nouveau bouton caméra pour documents
+
   const renderDocumentsTab = () => (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -1255,16 +967,8 @@ function MemberForm({ member, onSave, onCancel }) {
           <FaFileUpload className="w-4 h-4" />
           Importer des fichiers
         </label>
-        <input
-          type="file"
-          id="fileUpload"
-          className="hidden"
-          multiple
-          onChange={handleFileUpload}
-          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-        />
+        <input type="file" id="fileUpload" className="hidden" multiple onChange={handleFileUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
 
-        {/* ✅ NOUVEAU BOUTON - Caméra pour documents avec sélecteur */}
         <button
           type="button"
           onClick={() => setShowCamera("document")}
@@ -1278,18 +982,13 @@ function MemberForm({ member, onSave, onCancel }) {
       {form.files.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {form.files.map((file) => (
-            <div
-              key={file.name}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow"
-            >
+            <div key={file.name} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow">
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
                   <FaFileAlt className="w-6 h-6 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-gray-800 dark:text-white truncate">
-                    {file.name}
-                  </h4>
+                  <h4 className="font-medium text-gray-800 dark:text-white truncate">{file.name}</h4>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {file.url && (
                       <>
@@ -1328,16 +1027,13 @@ function MemberForm({ member, onSave, onCancel }) {
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
           <FaFileAlt className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">
-            Aucun document
-          </p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm">
-            Importez des certificats, documents d'identité, etc.
-          </p>
+          <p className="text-gray-5 00 dark:text-gray-300 text-lg font-medium">Aucun document</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">Importez des certificats, documents d'identité, etc.</p>
         </div>
       )}
     </div>
   );
+
   const renderPaymentsTab = () => (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-xl border border-green-200 dark:border-green-600">
@@ -1352,9 +1048,7 @@ function MemberForm({ member, onSave, onCancel }) {
             type="number"
             name="amount"
             value={newPayment.amount}
-            onChange={(e) =>
-              setNewPayment((p) => ({ ...p, amount: e.target.value }))
-            }
+            onChange={(e) => setNewPayment((p) => ({ ...p, amount: e.target.value }))}
             icon={FaEuroSign}
             placeholder="0.00"
             step="0.01"
@@ -1363,9 +1057,7 @@ function MemberForm({ member, onSave, onCancel }) {
             label="Méthode de paiement"
             name="method"
             value={newPayment.method}
-            onChange={(e) =>
-              setNewPayment((p) => ({ ...p, method: e.target.value }))
-            }
+            onChange={(e) => setNewPayment((p) => ({ ...p, method: e.target.value }))}
             options={["espèces", "chèque", "carte", "virement", "autre"]}
             icon={FaCreditCard}
           />
@@ -1374,12 +1066,7 @@ function MemberForm({ member, onSave, onCancel }) {
             type="date"
             name="encaissement_prevu"
             value={newPayment.encaissement_prevu}
-            onChange={(e) =>
-              setNewPayment((p) => ({
-                ...p,
-                encaissement_prevu: e.target.value,
-              }))
-            }
+            onChange={(e) => setNewPayment((p) => ({ ...p, encaissement_prevu: e.target.value }))}
             icon={FaCalendarAlt}
           />
         </div>
@@ -1389,9 +1076,7 @@ function MemberForm({ member, onSave, onCancel }) {
             label="Commentaire"
             name="commentaire"
             value={newPayment.commentaire}
-            onChange={(e) =>
-              setNewPayment((p) => ({ ...p, commentaire: e.target.value }))
-            }
+            onChange={(e) => setNewPayment((p) => ({ ...p, commentaire: e.target.value }))}
             placeholder="Note ou commentaire sur ce paiement"
           />
         </div>
@@ -1402,21 +1087,15 @@ function MemberForm({ member, onSave, onCancel }) {
               <input
                 type="checkbox"
                 checked={newPayment.is_paid}
-                onChange={(e) =>
-                  setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))
-                }
+                onChange={(e) => setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))}
                 className="sr-only"
               />
               <div
                 className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                  newPayment.is_paid
-                    ? "bg-green-500 border-green-500"
-                    : "border-gray-300 dark:border-gray-500"
+                  newPayment.is_paid ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-500"
                 }`}
               >
-                {newPayment.is_paid && (
-                  <FaCheck className="w-3 h-3 text-white" />
-                )}
+                {newPayment.is_paid && <FaCheck className="w-3 h-3 text-white" />}
               </div>
             </div>
             Paiement déjà encaissé
@@ -1433,114 +1112,70 @@ function MemberForm({ member, onSave, onCancel }) {
           </button>
         </div>
       </div>
-      {/* Liste des paiements */}
+
       {payments.length > 0 ? (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Historique des paiements
-          </h3>
-          {payments.map((pay) => (
-            <div
-              key={pay.id}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-                <div className="flex-1 w-full sm:w-auto">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className={`p-2 rounded-lg ${
-                        pay.is_paid
-                          ? "bg-green-100 dark:bg-green-900"
-                          : "bg-orange-100 dark:bg-orange-900"
-                      }`}
-                    >
-                      <FaEuroSign
-                        className={`w-4 h-4 ${
-                          pay.is_paid
-                            ? "text-green-600 dark:text-green-300"
-                            : "text-orange-600 dark:text-orange-300"
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Historique des paiements</h3>
+          {payments.map((pay) => {
+            const amount = (Number(pay.amount) || 0).toFixed(2);
+            const paidDate = pay?.date_paiement ? new Date(pay.date_paiement).toLocaleDateString() : "—";
+            const encPrev = pay?.encaissement_prevu ? new Date(pay.encaissement_prevu).toLocaleDateString() : null;
+
+            return (
+              <div key={pay.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                  <div className="flex-1 w-full sm:w-auto">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`p-2 rounded-lg ${pay.is_paid ? "bg-green-100 dark:bg-green-900" : "bg-orange-100 dark:bg-orange-900"}`}>
+                        <FaEuroSign
+                          className={`w-4 h-4 ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"}`}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-lg text-gray-800 dark:text-white">{amount} €</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">{pay.method}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 mb-3">
+                      <input type="checkbox" checked={pay.is_paid} onChange={() => togglePaymentStatus(pay.id, !pay.is_paid)} className="sr-only" />
+                      <button
+                        onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          pay.is_paid ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-500 hover:border-green-400"
                         }`}
-                      />
+                      >
+                        {pay.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                      </button>
+                      <span className={`text-sm font-medium ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"}`}>
+                        {pay.is_paid ? "Encaissé" : "En attente"}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-lg text-gray-800 dark:text-white">
-                        {pay.amount.toFixed(2)} €
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
-                        {pay.method}
-                      </p>
+
+                    <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                      <p>Payé le {paidDate}</p>
+                      {encPrev && <p className="text-blue-600 dark:text-blue-300">Encaissement prévu : {encPrev}</p>}
+                      {pay.commentaire && <p className="italic text-gray-500 dark:text-gray-400">{pay.commentaire}</p>}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 mb-3">
-                    <input
-                      type="checkbox"
-                      checked={pay.is_paid}
-                      onChange={() => togglePaymentStatus(pay.id, !pay.is_paid)}
-                      className="sr-only"
-                    />
-                    <button
-                      onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                        pay.is_paid
-                          ? "bg-green-500 border-green-500"
-                          : "border-gray-300 dark:border-gray-500 hover:border-green-400"
-                      }`}
-                    >
-                      {pay.is_paid && (
-                        <FaCheck className="w-3 h-3 text-white" />
-                      )}
-                    </button>
-                    <span
-                      className={`text-sm font-medium ${
-                        pay.is_paid
-                          ? "text-green-600 dark:text-green-300"
-                          : "text-orange-600 dark:text-orange-300"
-                      }`}
-                    >
-                      {pay.is_paid ? "Encaissé" : "En attente"}
-                    </span>
-                  </div>
-
-                  <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                    <p>
-                      Payé le {new Date(pay.date_paiement).toLocaleDateString()}
-                    </p>
-                    {pay.encaissement_prevu && (
-                      <p className="text-blue-600 dark:text-blue-300">
-                        Encaissement prévu :{" "}
-                        {new Date(pay.encaissement_prevu).toLocaleDateString()}
-                      </p>
-                    )}
-                    {pay.commentaire && (
-                      <p className="italic text-gray-500 dark:text-gray-400">
-                        {pay.commentaire}
-                      </p>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => handleDeletePayment(pay.id)}
+                    className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 dark:text-red-300 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors w-full sm:w-auto"
+                  >
+                    <FaTrash className="w-3 h-3" />
+                    <span className="sm:hidden">Supprimer</span>
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => handleDeletePayment(pay.id)}
-                  className="flex items-center justify-center gap-2 px-3 py-2 text-red-600 dark:text-red-300 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors w-full sm:w-auto"
-                >
-                  <FaTrash className="w-3 h-3" />
-                  <span className="sm:hidden">Supprimer</span>
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-700 dark:text-gray-300">
-                Total des paiements :
-              </span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">Total des paiements :</span>
               <span className="text-2xl font-bold text-green-600 dark:text-green-300">
-                {payments
-                  .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
-                  .toFixed(2)}{" "}
-                €
+                {payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toFixed(2)} €
               </span>
             </div>
           </div>
@@ -1548,16 +1183,13 @@ function MemberForm({ member, onSave, onCancel }) {
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
           <FaEuroSign className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">
-            Aucun paiement enregistré
-          </p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm">
-            Ajoutez le premier paiement ci-dessus
-          </p>
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">Aucun paiement enregistré</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">Ajoutez le premier paiement ci-dessus</p>
         </div>
       )}
     </div>
   );
+
   const renderCurrentTab = () => {
     switch (activeTab) {
       case "identity":
@@ -1585,26 +1217,20 @@ function MemberForm({ member, onSave, onCancel }) {
       className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-6xl mx-auto mt-2 sm:mt-4 outline-none relative flex flex-col max-h-[98vh] sm:max-h-[95vh]"
       overlayClassName="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-start z-50 p-2 sm:p-4"
     >
-      {/* Header avec photo et infos principales */}
+      {/* Header */}
       <div className="bg-gradient-to-r from-blue-400 to-purple-500 dark:from-blue-800 dark:to-purple-800 text-white p-4 md:p-6 rounded-t-2xl">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center flex-shrink-0">
               {form.photo ? (
-                <img
-                  src={form.photo}
-                  alt="Avatar"
-                  className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover"
-                />
+                <img src={form.photo} alt="Avatar" className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover" />
               ) : (
                 <FaUser className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               )}
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-lg sm:text-2xl font-bold truncate">
-                {form.firstName || form.name
-                  ? `${form.firstName} ${form.name}`
-                  : "Nouveau membre"}
+                {form.firstName || form.name ? `${form.firstName} ${form.name}` : "Nouveau membre"}
               </h1>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
                 {form.badgeId && (
@@ -1637,10 +1263,11 @@ function MemberForm({ member, onSave, onCancel }) {
             </button>
           </div>
         </div>
-        {/* Navigation par onglets avec scroll horizontal */}
+
+        {/* Tabs */}
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex gap-1 sm:gap-2 min-w-max pb-2 sm:pb-0">
-            {tabs.map((tab, index) => (
+            {tabs.map((tab) => (
               <TabButton
                 key={tab.id}
                 active={activeTab === tab.id}
@@ -1654,7 +1281,7 @@ function MemberForm({ member, onSave, onCancel }) {
           </div>
         </div>
 
-        {/* Indicateurs de progression et navigation (mobile) */}
+        {/* Indicateurs + nav (mobile) */}
         <div className="flex items-center justify-between mt-4">
           <button
             onClick={() => goToTab(currentTabIndex - 1)}
@@ -1675,9 +1302,7 @@ function MemberForm({ member, onSave, onCancel }) {
                 key={index}
                 onClick={() => goToTab(index)}
                 className={`w-2 h-2 rounded-full transition-colors ${
-                  currentTabIndex === index
-                    ? "bg-white"
-                    : "bg-white bg-opacity-40"
+                  currentTabIndex === index ? "bg-white" : "bg-white bg-opacity-40"
                 }`}
               />
             ))}
@@ -1702,14 +1327,12 @@ function MemberForm({ member, onSave, onCancel }) {
         </div>
       </div>
 
-      {/* Notifications de statut */}
+      {/* Notifications */}
       {uploadStatus.loading && (
         <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
           <div className="flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
-            <p className="text-blue-700 dark:text-blue-300">
-              Téléversement en cours...
-            </p>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" />
+            <p className="text-blue-700 dark:text-blue-300">Téléversement en cours...</p>
           </div>
         </div>
       )}
@@ -1718,9 +1341,7 @@ function MemberForm({ member, onSave, onCancel }) {
         <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4">
           <div className="flex items-center">
             <FaTimes className="w-4 h-4 text-red-400 dark:text-red-300 mr-3" />
-            <p className="text-red-700 dark:text-red-200">
-              {uploadStatus.error}
-            </p>
+            <p className="text-red-700 dark:text-red-200">{uploadStatus.error}</p>
           </div>
         </div>
       )}
@@ -1729,14 +1350,12 @@ function MemberForm({ member, onSave, onCancel }) {
         <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-400 dark:border-green-700 p-4">
           <div className="flex items-center">
             <FaCheck className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
-            <p className="text-green-700 dark:text-green-100">
-              {uploadStatus.success}
-            </p>
+            <p className="text-green-700 dark:text-green-100">{uploadStatus.success}</p>
           </div>
         </div>
       )}
 
-      {/* Contenu des onglets avec gestion du swipe */}
+      {/* Contenu tabs + swipe */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div
           ref={containerRef}
@@ -1744,11 +1363,10 @@ function MemberForm({ member, onSave, onCancel }) {
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
           style={{
             transform: `translateX(${translateX}px)`,
-            transition: isDraggingRef.current
-              ? "none"
-              : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            transition: isDraggingRef.current ? "none" : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
           <div className="p-4 md:p-6 min-h-full">
@@ -1757,29 +1375,17 @@ function MemberForm({ member, onSave, onCancel }) {
         </div>
       </div>
 
-      {/* ✅ NOUVEAU MODAL CAMÉRA - Intégration complète avec corrections */}
+      {/* ✅ Modal Caméra */}
       {showCamera && (
         <CameraModal
-          key={showCamera} // ✅ CORRECTION : Ajout d'une clé pour forcer la réinitialisation complète du composant
+          key={showCamera}
           isOpen={!!showCamera}
-          onClose={() => {
-            console.log("🚪 Fermeture du modal caméra");
+          onClose={() => setShowCamera(null)}
+          onCapture={async (imageData) => {
             setShowCamera(null);
-          }}
-          onCapture={async (imageData) => { // ✅ CORRECTION : Gestion asynchrone de la capture
-            console.log(
-              "📸 Photo capturée depuis le modal:",
-              imageData.slice(0, 50) + "..."
-            );
-
-            // On ferme le modal immédiatement pour une meilleure expérience utilisateur
-            setShowCamera(null);
-
             if (showCamera === "document") {
-              // On attend la fin du traitement du document (qui est asynchrone)
               await captureDocument(imageData);
             } else {
-              // Le traitement de la photo de profil est synchrone
               handleCameraCapture(imageData);
             }
           }}
@@ -1792,34 +1398,9 @@ function MemberForm({ member, onSave, onCancel }) {
 
 export default MemberForm;
 
-// ✅ RÉSUMÉ DES CORRECTIONS APPLIQUÉES :
 /*
-🔧 CORRECTIONS POUR L'ERREUR WEBCAM ET LA STABILITÉ :
-
-1. 🔄 GESTION DU CYCLE DE VIE UNIFIÉE AVEC `useEffect`
-   - Un seul `useEffect` gère maintenant l'ouverture, la fermeture, et le changement de caméra.
-   - Il dépend de `[isOpen, facingMode]`, ce qui le force à se ré-exécuter uniquement lorsque c'est nécessaire.
-   - Cela élimine les conditions de concurrence (race conditions) qui causaient l'erreur "caméra occupée".
-
-2. 🧹 NETTOYAGE SÉQUENTIEL ET OBLIGATOIRE
-   - La logique garantit qu'un flux vidéo est TOUJOURS complètement arrêté (`cleanupStream`) AVANT de tenter d'en démarrer un nouveau.
-   - C'est la correction la plus critique pour résoudre le conflit entre la caméra avant et arrière.
-
-3. 🕵️ DÉTECTION PRÉCOCE DES CAMÉRAS
-   - La liste des caméras disponibles est maintenant récupérée dès l'initialisation.
-   - Le bouton pour basculer entre les caméras apparaît donc correctement dès la première ouverture, s'il y a plusieurs caméras.
-
-4. 🚦 GESTION D'ERREURS AMÉLIORÉE
-   - Des messages d'erreur plus clairs sont affichés à l'utilisateur, par exemple si la caméra est introuvable (`NotFoundError`) ou si l'accès est refusé.
-
-5. 📸 LOGIQUE DE REPRISE DE PHOTO FIABILISÉE
-   - La fonction "Reprendre" une photo force maintenant correctement le redémarrage du flux vidéo.
-
-6. 🔑 RÉINITIALISATION FORCÉE DU MODAL (NOUVELLE CORRECTION)
-   - Ajout d'une prop `key` au composant `<CameraModal>`.
-   - Cela force React à créer une nouvelle instance du modal à chaque ouverture, que ce soit pour une photo de profil ou un document.
-   - Cela garantit qu'aucun état interne (comme une caméra mal libérée) ne soit conservé entre les utilisations.
-
-RÉSULTAT : Le composant caméra est maintenant beaucoup plus stable. L'erreur "La caméra est occupée"
-lors du basculement ne devrait plus se produire, et l'expérience utilisateur est plus fluide.
+Résumé corrections clé :
+- Remplacement de SwitchCamera ➜ RefreshCcw (lucide-react) + utilisation pour le bouton de bascule.
+- Blindage montants/dates côté Paiements (Number(...) avant toFixed, date nullable).
+- Caméra : cycle de vie unique, cleanup strict, bascule avant/arrière stable, reprise fluide.
 */
