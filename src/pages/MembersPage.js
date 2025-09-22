@@ -794,7 +794,7 @@ function MembersPage() {
                         <td className="p-3">
                           <Avatar
                             key={`avatar-${member.id}-${member.photo || ""}`}
-                            photo={getPhotoUrl(member.photo)}
+                            photo={resolvePhoto(member.photo)}
                             firstName={member.firstName}
                             name={member.name}
                             size={48}
@@ -976,7 +976,7 @@ function MembersPage() {
                       />
                       <Avatar
                         key={`avatar-m-${member.id}-${member.photo || ""}`}
-                        photo={getPhotoUrl(member.photo)}
+                        photo={resolvePhoto(member.photo)}
                         firstName={member.firstName}
                         name={member.name}
                         size={48}
