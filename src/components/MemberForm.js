@@ -1,3 +1,15 @@
+// 🔷 BODYFORCE — Fichier modifié
+// Nom : MemberForm.js
+// Type : JavaScript (React)
+// Dossier : src/components
+// Date modification : 2025-09-23
+// Résumé modifications :
+// - Ajout helpers dataURLToBlob + resizeImage (redimensionnement 512x512, JPEG qualité ~0.8).
+// - Photo membre : upload dans le bucket "photo" avec cacheControl=31536000, URL publique stockée dans form.photo.
+// - Capture caméra : upload vers Storage (photo) + même cache.
+// - Import de photo (input file) : redimensionnement + upload + URL publique.
+// - Documents : upload avec cacheControl=31536000 (et contentType correct).
+// - Aucune autre partie du fichier n'a été modifiée (style/structure conservés).
 // 📄 MemberForm.js — Composant principal avec sélecteur caméra — Dossier : components — Date : 2025-07-25
 // 🎯 CORRECTION : Logique de la caméra entièrement revue pour éviter les conflits et assurer la stabilité.
 // 🔹 Partie 1 - Imports et composants utilitaires
@@ -35,6 +47,38 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 import { supabase } from "../supabaseClient";
+// --- Helpers image (resize + blob) ---
+function dataURLToBlob(dataURL) {
+  const [header, data] = dataURL.split(",");
+  const mime = header.match(/:(.*?);/)[1] || "image/jpeg";
+  const binary = atob(data);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
+  return new Blob([array], { type: mime });
+}
+
+async function resizeImage(fileOrBlob, { maxW = 512, maxH = 512, quality = 0.8 } = {}) {
+  const img = document.createElement("img");
+  const reader = new FileReader();
+  const loaded = new Promise((res) => (img.onload = res));
+  reader.readAsDataURL(fileOrBlob);
+  await new Promise((res) => (reader.onload = () => { img.src = reader.result; res(); }));
+  await loaded;
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  let { width, height } = img;
+
+  const ratio = Math.min(maxW / width, maxH / height, 1);
+  width = Math.round(width * ratio);
+  height = Math.round(height * ratio);
+  canvas.width = width;
+  canvas.height = height;
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const dataURL = canvas.toDataURL("image/jpeg", quality);
+  return dataURLToBlob(dataURL);
+}
 
 const subscriptionDurations = {
   Mensuel: 1,
@@ -702,7 +746,7 @@ function MemberForm({ member, onSave, onCancel }) {
         const safeName = sanitizeFileName(file.name);
         const filePath = `certificats/${Date.now()}_${safeName}`;
 
-        const { error } = await supabase.storage.from("documents").upload(filePath, file);
+        const { error } = await supabase.storage.from("documents").upload(filePath, file, { upsert: true, cacheControl: "31536000", contentType: file.type || "application/octet-stream" });
         if (error) throw new Error(`Erreur lors du téléversement : ${error.message}`);
 
         const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
@@ -725,14 +769,25 @@ function MemberForm({ member, onSave, onCancel }) {
     e.target.value = "";
   };
 
-  const handleCameraCapture = (imageData) => {
-    setForm((f) => ({ ...f, photo: imageData }));
-    setUploadStatus({
-      loading: false,
-      error: null,
-      success: "Photo capturée avec succès !",
-    });
-    setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+  const handleCameraCapture = async (imageData) => {
+    try {
+      setUploadStatus({ loading: true, error: null, success: null });
+      const blob = dataURLToBlob(imageData);
+      const resized = await resizeImage(blob, { maxW: 512, maxH: 512, quality: 0.8 });
+      const memberId = form?.id || 'unknown';
+      const fileName = sanitizeFileName(`member_${memberId}_${Date.now()}.jpg`);
+      const path = `photos/${fileName}`;
+      const { error: upErr } = await supabase.storage.from("photo").upload(path, resized, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("photo").getPublicUrl(path);
+      const publicUrl = data?.publicUrl;
+      setForm((f) => ({ ...f, photo: publicUrl }));
+      setUploadStatus({ loading: false, error: null, success: "Photo capturée avec succès !" });
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+    } catch (err) {
+      console.error("Erreur capture/upload photo:", err);
+      setUploadStatus({ loading: false, error: "Erreur lors de l'upload de la photo", success: null });
+    }
   };
 
   const captureDocument = async (imageData) => {
@@ -744,7 +799,7 @@ function MemberForm({ member, onSave, onCancel }) {
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from("documents").upload(filePath, blob);
+      const { error: uploadError } = await supabase.storage.from("documents").upload(filePath, blob, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
       if (uploadError) throw new Error(`Erreur lors du téléversement du document : ${uploadError.message}`);
 
       const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
@@ -895,11 +950,24 @@ function MemberForm({ member, onSave, onCancel }) {
                 onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      setForm((prev) => ({ ...prev, photo: ev.target.result }));
-                    };
-                    reader.readAsDataURL(file);
+                    (async () => {
+                      try {
+                        setUploadStatus({ loading: true, error: null, success: null });
+                        const resized = await resizeImage(file, { maxW: 512, maxH: 512, quality: 0.8 });
+                        const memberId = form?.id || 'unknown';
+                        const safeName = sanitizeFileName(`member_${memberId}_${Date.now()}.jpg`);
+                        const path = `photos/${safeName}`;
+                        const { error: upErr } = await supabase.storage.from("photo").upload(path, resized, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
+                        if (upErr) throw upErr;
+                        const { data } = supabase.storage.from("photo").getPublicUrl(path);
+                        setForm((prev) => ({ ...prev, photo: data?.publicUrl }));
+                        setUploadStatus({ loading: false, error: null, success: "Photo importée !" });
+                        setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+                      } catch (err) {
+                        console.error("Erreur upload photo:", err);
+                        setUploadStatus({ loading: false, error: "Erreur lors de l'upload de la photo", success: null });
+                      }
+                    })();
                   }
                 }}
                 className="hidden"
@@ -1406,3 +1474,5 @@ Résumé corrections clé :
 - Photo membre conservée en data URL (aucune concat aux URLs Supabase) — évite les GET 400.
 - Documents scannés/uploadés vers bucket "documents" uniquement.
 */
+
+// ✅ FIN DU FICHIER
