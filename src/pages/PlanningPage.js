@@ -1,4 +1,6 @@
-// 📄 PlanningPage_new.js — React — Date : 2025-08-12 (fix Avatar API aligné)
+// 📄 PlanningPage.js — React — Dossier : src/pages — Date : 2025-09-24
+// ✅ Correction: affichage des photos aligné sur MembersPage (Avatar API unifiée: photo, firstName, name, size)
+// ⚠️ Règles BODYFORCE respectées : structure et styles conservés, modifications minimales et ciblées
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -56,11 +58,12 @@ const classes = {
   iconContainer: "p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl",
   title: "text-3xl font-bold text-gray-900 dark:text-gray-100",
   subtitle: "text-gray-600 dark:text-gray-400 mt-1",
+  avatar: "w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600",
   avatarInitials:
     "w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm",
 };
 
-// 👉 Avatar central (API alignée avec MembersPage)
+// 👉 Avatar (même usage que dans MembersPage)
 import Avatar from "../components/Avatar";
 
 // Dates utils
@@ -382,6 +385,70 @@ function PlanningPage() {
     return { totalPresences, uniqueMembers, avgPresencesPerDay, avgMembersPerDay, busiestDay };
   })();
 
+  const StatsResume = () => (
+    <div className={cn(classes.card, "p-6 mb-6")}>
+      <div className="flex items-center gap-3 mb-6">
+        <div className={classes.iconContainer}>
+          <BarChart3 className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Résumé de la période</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {formatDate(startDate, "dd/MM/yyyy")} - {formatDate(endDate, "dd/MM/yyyy")}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Membres actifs</span>
+          </div>
+          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{stats.uniqueMembers}</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-green-600 dark:text-green-400" />
+            <span className="text-xs font-medium text-green-700 dark:text-green-400">Total présences</span>
+          </div>
+          <div className="text-2xl font-bold text-green-900 dark:text-green-100">{stats.totalPresences}</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-400">Moy./jour</span>
+          </div>
+          <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">{stats.avgMembersPerDay}</div>
+          <div className="text-xs text-purple-600 dark:text-purple-400">membres</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+            <span className="text-xs font-medium text-orange-700 dark:text-orange-400">Jours couverts</span>
+          </div>
+          <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">{allDays.length}</div>
+        </div>
+
+        {stats.busiestDay.day && (
+          <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg p-4 border border-red-200 dark:border-red-700">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <span className="text-xs font-medium text-red-700 dark:text-red-400">Jour pic</span>
+            </div>
+            <div className="text-lg font-bold text-red-900 dark:text-red-100">{stats.busiestDay.members}</div>
+            <div className="text-xs text-red-600 dark:text-red-400">
+              {new Date(stats.busiestDay.day).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // Vue Liste (pastilles journalières)
   const ListView = () => (
     <div className={cn(classes.card, "overflow-hidden")}>
@@ -405,12 +472,14 @@ function PlanningPage() {
           return (
             <div key={member.badgeId || idx} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
               <div className="flex items-center gap-3 mb-3">
+                {/* ✅ Avatar comme MembersPage */}
                 <Avatar
                   photo={member.photo}
                   firstName={member.firstName}
                   name={member.name}
-                  size={40} // ~ w-10 h-10
+                  size={40} // ≈ w-10 h-10
                 />
+
                 <div className="min-w-0">
                   <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                     {member.name} {member.firstName}
@@ -508,7 +577,13 @@ function PlanningPage() {
                 style={{ gridTemplateColumns: `200px repeat(${allDays.length}, 80px)` }}
               >
                 <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
-                  <Avatar photo={member.photo} firstName={member.firstName} name={member.name} size={32} />
+                  {/* ✅ Avatar comme MembersPage */}
+                  <Avatar
+                    photo={member.photo}
+                    firstName={member.firstName}
+                    name={member.name}
+                    size={32}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">{member.name}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{member.firstName}</div>
@@ -624,12 +699,12 @@ function PlanningPage() {
           onMouseMove={onAvatarMove}
           onMouseLeave={onAvatarLeave}
         >
-          {/* Avatar (photo data: ou http, sinon initiales) */}
+          {/* ✅ Avatar comme MembersPage */}
           <Avatar
             photo={member.photo}
             firstName={member.firstName}
             name={member.name}
-            size={32} // ~ w-8 h-8
+            size={32}
           />
 
           {/* Badge compteur pour passages multiples */}
@@ -639,16 +714,19 @@ function PlanningPage() {
             </div>
           )}
 
-          {/* TOOLTIP CSS (conservé) */}
+          {/* TOOLTIP CSS complet */}
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-[200]">
             <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
               {/* En-tête avec photo et nom */}
               <div className="flex items-center gap-3 mb-3">
-                <Avatar photo={member.photo} firstName={member.firstName} name={member.name} size={48} />
+                <Avatar
+                  photo={member.photo}
+                  firstName={member.firstName}
+                  name={member.name}
+                  size={48}
+                />
                 <div>
-                  <h4 className="font-bold text-lg">
-                    {member?.name} {member?.firstName}
-                  </h4>
+                  <h4 className="font-bold text-lg">{member?.name} {member?.firstName}</h4>
                   <p className="text-blue-300 text-sm">Badge: {member?.badgeId}</p>
                 </div>
               </div>
@@ -660,7 +738,7 @@ function PlanningPage() {
                   <span className="text-sm">{formatDate(new Date(dayKey + "T00:00:00"), "EEEE dd MMMM")}</span>
                 </div>
 
-                {/* Cas standard / multiples */}
+                {/* Cas standard : 1 passage */}
                 {(() => {
                   const presences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
                   const multiple = presences.length > 1;
@@ -679,6 +757,7 @@ function PlanningPage() {
                         <span className="text-sm font-semibold text-orange-300">⚠️ {presences.length} passages (inhabituel)</span>
                       </div>
 
+                      {/* Liste des heures pour les cas multiples */}
                       <div className="mt-2">
                         <div className="text-xs text-gray-300 mb-1">Heures de passage :</div>
                         <div className="flex flex-wrap gap-1">
@@ -699,12 +778,17 @@ function PlanningPage() {
                 })()}
               </div>
 
+              {/* Badge de statut */}
               <div className="flex justify-between items-center">
                 <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
                   Présent(e)
                 </span>
+                {presenceCount > 1 && (
+                  <span className="text-xs text-orange-400 font-medium">Vérifier badge</span>
+                )}
               </div>
 
+              {/* Flèche pointer */}
               <div className="absolute top-full left-1/2 -translate-x-1/2">
                 <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
               </div>
@@ -731,7 +815,12 @@ function PlanningPage() {
         >
           <div className="relative bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
             <div className="flex items-center gap-3 mb-3">
-              <Avatar photo={member?.photo} firstName={member?.firstName} name={member?.name} size={48} />
+              <Avatar
+                photo={member?.photo}
+                firstName={member?.firstName}
+                name={member?.name}
+                size={48}
+              />
               <div>
                 <h4 className="font-bold text-lg">
                   {member?.name} {member?.firstName}
@@ -996,8 +1085,8 @@ function PlanningPage() {
           </div>
         </div>
 
-        {/* Tooltip global (optionnel) */}
-        {/* {renderTooltip()} */}
+        {/* Tooltip global */}
+        {/* (optionnel) renderTooltip() si tu veux la version "suiveuse" au lieu du tooltip CSS */}
       </div>
     );
   };
@@ -1020,7 +1109,7 @@ function PlanningPage() {
               </div>
             </div>
 
-            {/* Vues + filtre */}
+            {/* Vues + filtre - ORDRE CORRIGÉ */}
             <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
               <button
                 onClick={() => setViewMode("list")}
@@ -1035,6 +1124,7 @@ function PlanningPage() {
                 <List className="w-5 h-5" />
               </button>
 
+              {/* VUE MENSUELLE EN DEUXIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => {
@@ -1056,6 +1146,7 @@ function PlanningPage() {
                 </button>
               )}
 
+              {/* VUE COMPACTE EN TROISIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => setViewMode("compact")}
@@ -1310,3 +1401,5 @@ function PlanningPage() {
 }
 
 export default PlanningPage;
+
+// ✅ FIN DU FICHIER
