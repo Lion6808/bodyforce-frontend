@@ -344,33 +344,21 @@ export async function listThreadWithMember(memberId) {
 export async function listMyThread(myMemberId) {
   if (!myMemberId) return [];
 
-  // Reçus (admins -> moi)
+  // 1) Messages reçus (admins -> moi)
   const { data: inbound, error: e1 } = await sb
     .from("message_recipients")
     .select(`
       id, read_at, created_at,
-      messages:message_id (id, subject, body, created_at, author_member_id, author_user_id, is_broadcast)
+      messages:message_id (
+        id, subject, body, created_at, author_member_id, author_user_id, is_broadcast
+      )
     `)
     .eq("recipient_member_id", myMemberId);
   if (e1) throw e1;
 
-  // Envoyés (moi -> admins), clé = author_user_id
-  const {
-    data: { user },
-  } = await sb.auth.getUser();
-
-  const { data: sent, error: e2 } = await sb
-    .from("messages")
-    .select(`
-      id, subject, body, created_at, author_member_id, author_user_id, is_broadcast,
-      recipients:message_recipients (recipient_member_id)
-    `)
-    .eq("author_user_id", user?.id || "");
-  if (e2) throw e2;
-
   const inboundMapped = (inbound || []).map((r) => ({
-    id: `in_${r.id}`,
-    messageId: r.messages?.id,
+    id: `in_${r.id}`,                           // id d'accusé de réception
+    messageId: r.messages?.id,                  // id du message réel
     subject: r.messages?.subject,
     body: r.messages?.body,
     createdAt: r.messages?.created_at || r.created_at,
@@ -380,28 +368,41 @@ export async function listMyThread(myMemberId) {
     direction: "in",
   }));
 
-  const outboundMapped = [];
-  (sent || []).forEach((m) => {
-    (m.recipients || []).forEach((rcpt) => {
-      outboundMapped.push({
-        id: `out_${m.id}_${rcpt.recipient_member_id}`,
-        messageId: m.id,
-        subject: m.subject,
-        body: m.body,
-        createdAt: m.created_at,
-        authorMemberId: m.author_member_id, // peut être null sur anciens messages
-        authorUserId: m.author_user_id,
-        isBroadcast: m.is_broadcast,
-        direction: "out",
-      });
-    });
-  });
+  // 2) Messages envoyés par MOI (moi -> admins) : **une seule entrée par message**
+  const { data: { user }, error: uErr } = await sb.auth.getUser();
+  if (uErr) throw uErr;
 
-  const all = [...inboundMapped, ...outboundMapped].sort(
+  const { data: sent, error: e2 } = await sb
+    .from("messages")
+    .select(`id, subject, body, created_at, author_member_id, author_user_id, is_broadcast`)
+    .eq("author_user_id", user?.id || "");
+  if (e2) throw e2;
+
+  const outboundMapped = (sent || []).map((m) => ({
+    id: `out_${m.id}`,               // ✅ une bulle unique par message
+    messageId: m.id,
+    subject: m.subject,
+    body: m.body,
+    createdAt: m.created_at,
+    authorMemberId: m.author_member_id, // peut être null sur anciens messages
+    authorUserId: m.author_user_id,
+    isBroadcast: m.is_broadcast,
+    direction: "out",
+  }));
+
+  // 3) Fusion + tri chrono
+  const merged = [...inboundMapped, ...outboundMapped].sort(
     (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
   );
-  return all;
+
+  // 4) Dédup de sécurité (au cas où)
+  const uniq = Array.from(
+    new Map(merged.map(m => [`${m.direction}:${m.messageId ?? m.id}`, m])).values()
+  );
+
+  return uniq;
 }
+
 
 /** Envoi direct à 1 membre (admin -> membre) */
 export async function sendToMember({ toMemberId, subject, body, authorMemberId }) {
