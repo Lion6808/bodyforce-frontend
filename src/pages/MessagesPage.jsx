@@ -29,6 +29,22 @@ import * as MsgSvc from "../services/messagesService";
 
 const ADMIN_SENTINEL = -1;
 
+// Déduplique un tableau d’objets sur une clé
+const dedupeBy = (rows, keyFn) => {
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const r of rows) {
+    const k = keyFn(r);
+    if (k == null) continue;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+};
+
+
 // Avatar Component (ajout lazy/decoding, logique/UX inchangées)
 const Avatar = ({ member, size = "md", showOnline = false, className = "" }) => {
   const sizes = {
@@ -478,7 +494,10 @@ export default function MessagesPage() {
       } else {
         data = await listMyThread(me.id);
       }
-      setThread(data || []);
+      // ⚠️ Assure-toi que tes services renvoient bien un champ 'id' (id du message)
+      const unique = dedupeBy(data, (m) => m.id);
+      setThread(unique);
+
 
       // Marquer comme lu
       try {
