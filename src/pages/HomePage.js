@@ -51,6 +51,9 @@ function HomePage() {
   const [attendance7d, setAttendance7d] = useState([]);
   const [recentPresences, setRecentPresences] = useState([]);
 
+  // 🔹 NOUVEAU: Derniers membres inscrits (admin)
+  const [latestMembers, setLatestMembers] = useState([]);
+
   // --- Helper robuste pour récupérer les paiements d'un membre (gère member_id/memberId + colonnes de date)
   const fetchMemberPayments = async (memberId) => {
     if (!memberId) return [];
@@ -212,6 +215,24 @@ function HomePage() {
             });
 
             await fetchAttendanceAdmin();
+
+            // 🔹 NOUVEAU : Derniers membres (id DESC, 3)
+            try {
+              const { data: latest, error: latestErr } = await supabase
+                .from("members")
+                .select("id, firstName, name, photo")
+                .order("id", { ascending: false })
+                .limit(3);
+              if (latestErr) {
+                console.error("Error fetching latest members:", latestErr);
+                setLatestMembers([]);
+              } else {
+                setLatestMembers(latest || []);
+              }
+            } catch (e) {
+              console.error("Latest members fetch error:", e);
+              setLatestMembers([]);
+            }
           } else {
             // Non-admin : charger SES paiements
             if (memberCtx?.id) {
@@ -276,7 +297,7 @@ function HomePage() {
       <div className="flex items-center justify-center">
         <svg width={size} height={size} className="block">
           <defs>
-            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%">
               <stop offset="0%" stopColor="#22c55e" />
               <stop offset="100%" stopColor="#3b82f6" />
             </linearGradient>
@@ -569,7 +590,7 @@ function HomePage() {
                     })()}
                   </div>
 
-                  <div className="absolute inset-0 flex items-end justify-between pl-10 pr-2 pb-2">
+                  <div className="absolute inset-0 flex items=end justify-between pl-10 pr-2 pb-2">
                     {attendance7d.map((d, idx) => {
                       const maxValue = Math.max(...attendance7d.map((d) => d.count));
                       const adjustedMax = maxValue > 0 ? maxValue : 10;
@@ -791,6 +812,58 @@ function HomePage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 🔹 Derniers membres inscrits (ADMIN) */}
+      {isAdmin && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Derniers membres inscrits</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+              {latestMembers.length} / 3
+            </span>
+          </div>
+
+          {latestMembers.length > 0 ? (
+            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+              {latestMembers.map((m) => {
+                const displayName = `${m.firstName || ""} ${m.name || ""}`.trim() || `Membre #${m.id}`;
+                return (
+                  <li key={m.id} className="py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {m.photo ? (
+                        <img
+                          src={m.photo}
+                          alt={displayName}
+                          width="40"
+                          height="40"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow"
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          sizes="40px"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-sm font-semibold text-white shadow">
+                          {getInitials(m.firstName, m.name)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{displayName}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">ID #{m.id}</div>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                      Nouveau
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Aucun membre récent à afficher.</p>
+          )}
         </div>
       )}
 
