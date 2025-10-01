@@ -676,6 +676,12 @@ export default function MyAttendancesPage() {
     setRange({ start: formatIntl(start, "yyyy-MM-dd"), end: formatIntl(end, "yyyy-MM-dd") });
   };
 
+  const setCurrentYear = () => {
+    const end = new Date();
+    const start = new Date(end.getFullYear(), 0, 1); // 1er janvier de l'année en cours
+    setRange({ start: formatIntl(start, "yyyy-MM-dd"), end: formatIntl(end, "yyyy-MM-dd") });
+  };
+
   const dayLabels = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 
   return (
@@ -783,6 +789,12 @@ export default function MyAttendancesPage() {
               onClick={() => setMonths(3)}
             >
               3 derniers mois
+            </button>
+            <button
+              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
+              onClick={setCurrentYear}
+            >
+              Année en cours
             </button>
 
             <div className="flex items-end gap-2">
