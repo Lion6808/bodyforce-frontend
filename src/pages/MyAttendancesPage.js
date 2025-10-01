@@ -686,7 +686,7 @@ export default function MyAttendancesPage() {
 
   return (
     <div className="p-4 md:p-6 text-gray-900 dark:text-gray-100">
-      {/* Header */}
+      {/* 1️⃣ HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold">Mes présences</h1>
@@ -718,129 +718,7 @@ export default function MyAttendancesPage() {
         </div>
       </div>
 
-      {/* 🎯 NOUVEAU : Panneau de Motivation (placé APRÈS les répartitions) */}
-      {!loading && user && userMemberData && badgeId && presences.length > 0 && (
-        <MotivationPanel motivationData={motivationData} stats={stats} />
-      )}
-
-      {/* Contenu principal (historique détaillé) */}
-      {!loading && user && userMemberData && badgeId && stats.dailyStats.length > 0 && (
-        <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-          <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-            Historique détaillé des visites
-          </div>
-          <ul className="divide-y dark:divide-gray-700">
-            {stats.dailyStats.map((d) => {
-              const k = d.date.toISOString();
-              return (
-                <li key={k} className="py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs text-gray-900 dark:text-gray-100 flex-shrink-0">
-                      {formatIntl(d.date, "dd/MM/yyyy")}
-                    </div>
-                    <div className="text-sm min-w-0">
-                      <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {formatIntl(d.date, "EEEE dd MMMM")}
-                      </div>
-                      <div className="text-gray-600 dark:text-gray-300 text-xs">
-                        {d.visits} visite{d.visits > 1 ? "s" : ""}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-800 dark:text-gray-200 flex-shrink-0">
-                    {d.first && `Arrivée : ${formatIntl(d.first, "HH:mm")}`}
-                    {d.last && d.first !== d.last && ` — Dernier badge : ${formatIntl(d.last, "HH:mm")}`}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-      <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
-        <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
-              <FaChartBar />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">Suivi des présences</div>
-              <div className="text-xs text-gray-600 dark:text-gray-300">
-                Membre : {memberName} {badgeId ? `(Badge : ${badgeId})` : ""}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-end gap-2">
-            <button
-              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
-              onClick={() => setDays(7)}
-            >
-              7 derniers jours
-            </button>
-            <button
-              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
-              onClick={() => setDays(30)}
-            >
-              30 derniers jours
-            </button>
-            <button
-              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
-              onClick={() => setMonths(3)}
-            >
-              3 derniers mois
-            </button>
-            <button
-              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
-              onClick={setCurrentYear}
-            >
-              Année en cours
-            </button>
-
-            <div className="flex items-end gap-2">
-              <div className="flex flex-col">
-                <label className="text-[11px] text-gray-600 dark:text-gray-300 mb-1">
-                  Début
-                </label>
-                <input
-                  type="date"
-                  value={range.start}
-                  onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))}
-                  className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100"
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="text-[11px] text-gray-600 dark:text-gray-300 mb-1">
-                  Fin
-                </label>
-                <input
-                  type="date"
-                  value={range.end}
-                  onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
-                  className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100"
-                />
-              </div>
-              <button
-                onClick={() => setRange((r) => ({ ...r }))}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                title="Actualiser"
-              >
-                <FaRedoAlt /> Actualiser
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Tuiles récap */}
-        <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
-          <StatTile icon={FaCalendarAlt} title="Total visites" value={stats.totalVisits} accent="indigo" />
-          <StatTile icon={FaIdCard} title="Jours uniques" value={stats.uniqueDays} accent="green" />
-          <StatTile icon={FaClock} title="Moyenne / jour" value={stats.avgVisitsPerDay} accent="purple" />
-          <StatTile icon={FaFireAlt} title="Heure favorite" value={stats.peakHour >= 0 ? `${stats.peakHour}h` : "-"} accent="orange" />
-        </div>
-      </div>
-
-      {/* États simples */}
+      {/* 2️⃣ ÉTATS D'ERREUR */}
       {!user && (
         <div className="p-4 rounded-2xl border dark:border-gray-700 bg-yellow-50 text-yellow-900 mb-6">
           Vous devez être connecté pour voir vos présences.
@@ -857,51 +735,178 @@ export default function MyAttendancesPage() {
         </div>
       )}
 
+      {/* 3️⃣ LOADER */}
       {loading && (
         <div className="my-6 text-sm text-gray-600 dark:text-gray-300">Chargement…</div>
       )}
 
-      {/* Graphiques de répartition */}
+      {/* 4️⃣ BLOC "SUIVI DES PRÉSENCES" - EN PREMIER */}
       {!loading && user && userMemberData && badgeId && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-            <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-              Répartition par jour de la semaine
-            </div>
-            {(() => {
-              const max = Math.max(...stats.weeklyDistribution);
-              return dayLabels.map((lbl, idx) => (
-                <BarRow key={lbl} label={lbl} value={stats.weeklyDistribution[idx] || 0} max={max} />
-              ));
-            })()}
-            {stats.peakDay && (
-              <div className="mt-4 text-sm text-indigo-700 dark:text-indigo-300">
-                Jour préféré : {stats.peakDay}
+        <>
+          <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
+            <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
+                  <FaChartBar />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold">Suivi des présences</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300">
+                    Membre : {memberName} {badgeId ? `(Badge : ${badgeId})` : ""}
+                  </div>
+                </div>
               </div>
-            )}
+
+              <div className="flex flex-wrap items-end gap-2">
+                <button
+                  className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
+                  onClick={() => setDays(7)}
+                >
+                  7 derniers jours
+                </button>
+                <button
+                  className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
+                  onClick={() => setDays(30)}
+                >
+                  30 derniers jours
+                </button>
+                <button
+                  className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
+                  onClick={() => setMonths(3)}
+                >
+                  3 derniers mois
+                </button>
+                <button
+                  className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
+                  onClick={setCurrentYear}
+                >
+                  Année en cours
+                </button>
+
+                <div className="flex items-end gap-2">
+                  <div className="flex flex-col">
+                    <label className="text-[11px] text-gray-600 dark:text-gray-300 mb-1">
+                      Début
+                    </label>
+                    <input
+                      type="date"
+                      value={range.start}
+                      onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))}
+                      className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="text-[11px] text-gray-600 dark:text-gray-300 mb-1">
+                      Fin
+                    </label>
+                    <input
+                      type="date"
+                      value={range.end}
+                      onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
+                      className="px-3 py-2 rounded-lg border bg-white dark:bg-gray-800 dark:border-gray-700 text-sm text-gray-900 dark:text-gray-100"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setRange((r) => ({ ...r }))}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    title="Actualiser"
+                  >
+                    <FaRedoAlt /> Actualiser
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Tuiles récap */}
+            <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
+              <StatTile icon={FaCalendarAlt} title="Total visites" value={stats.totalVisits} accent="indigo" />
+              <StatTile icon={FaIdCard} title="Jours uniques" value={stats.uniqueDays} accent="green" />
+              <StatTile icon={FaClock} title="Moyenne / jour" value={stats.avgVisitsPerDay} accent="purple" />
+              <StatTile icon={FaFireAlt} title="Heure favorite" value={stats.peakHour >= 0 ? `${stats.peakHour}h` : "-"} accent="orange" />
+            </div>
           </div>
 
-          <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-            <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-              Répartition par heure
-            </div>
-            <div className="grid grid-cols-4 xs:grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
-              {Array.from({ length: 24 }).map((_, h) => (
-                <HourCell
-                  key={h}
-                  hour={h}
-                  count={stats.hourlyDistribution[h] || 0}
-                  max={Math.max(...stats.hourlyDistribution)}
-                />
-              ))}
-            </div>
-            {stats.peakHour >= 0 && (
-              <div className="mt-4 text-sm text-purple-700 dark:text-purple-300">
-                Heure de pointe : {stats.peakHour}h
+          {/* 5️⃣ GRAPHIQUES DE RÉPARTITION */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+              <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                Répartition par jour de la semaine
               </div>
-            )}
+              {(() => {
+                const max = Math.max(...stats.weeklyDistribution);
+                return dayLabels.map((lbl, idx) => (
+                  <BarRow key={lbl} label={lbl} value={stats.weeklyDistribution[idx] || 0} max={max} />
+                ));
+              })()}
+              {stats.peakDay && (
+                <div className="mt-4 text-sm text-indigo-700 dark:text-indigo-300">
+                  Jour préféré : {stats.peakDay}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+              <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                Répartition par heure
+              </div>
+              <div className="grid grid-cols-4 xs:grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
+                {Array.from({ length: 24 }).map((_, h) => (
+                  <HourCell
+                    key={h}
+                    hour={h}
+                    count={stats.hourlyDistribution[h] || 0}
+                    max={Math.max(...stats.hourlyDistribution)}
+                  />
+                ))}
+              </div>
+              {stats.peakHour >= 0 && (
+                <div className="mt-4 text-sm text-purple-700 dark:text-purple-300">
+                  Heure de pointe : {stats.peakHour}h
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* 6️⃣ PANNEAU DE MOTIVATION */}
+          {presences.length > 0 && (
+            <MotivationPanel motivationData={motivationData} stats={stats} />
+          )}
+
+          {/* 7️⃣ HISTORIQUE DÉTAILLÉ */}
+          {stats.dailyStats.length > 0 && (
+            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+              <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                Historique détaillé des visites
+              </div>
+              <ul className="divide-y dark:divide-gray-700">
+                {stats.dailyStats.map((d) => {
+                  const k = d.date.toISOString();
+                  return (
+                    <li key={k} className="py-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs text-gray-900 dark:text-gray-100 flex-shrink-0">
+                          {formatIntl(d.date, "dd/MM/yyyy")}
+                        </div>
+                        <div className="text-sm min-w-0">
+                          <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {formatIntl(d.date, "EEEE dd MMMM")}
+                          </div>
+                          <div className="text-gray-600 dark:text-gray-300 text-xs">
+                            {d.visits} visite{d.visits > 1 ? "s" : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-800 dark:text-gray-200 flex-shrink-0">
+                        {d.first && `Arrivée : ${formatIntl(d.first, "HH:mm")}`}
+                        {d.last && d.first !== d.last && ` — Dernier badge : ${formatIntl(d.last, "HH:mm")}`}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
