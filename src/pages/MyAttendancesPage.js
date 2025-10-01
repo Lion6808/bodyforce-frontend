@@ -17,7 +17,7 @@ import {
   FaTrophy,
   FaFire,
   FaBullseye,
-  FaTrendingUp,
+  FaChartLine,
   FaAward,
   FaBolt,
 } from "react-icons/fa";
@@ -385,7 +385,7 @@ function MotivationPanel({ motivationData, stats }) {
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-            <FaTrendingUp className="text-purple-500 dark:text-purple-400 text-xl" />
+            <FaChartLine className="text-purple-500 dark:text-purple-400 text-xl" />
           </div>
           <div className="flex-1">
             <h4 className="text-gray-900 dark:text-white font-bold text-lg">
