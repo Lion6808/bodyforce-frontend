@@ -16,7 +16,7 @@ import {
   FaChartBar,
   FaTrophy,
   FaFire,
-  FaTarget,
+  FaBullseye,
   FaTrendingUp,
   FaAward,
   FaBolt,
@@ -339,7 +339,7 @@ function MotivationPanel({ motivationData, stats }) {
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-              <FaTarget className="text-blue-500 dark:text-blue-400 text-xl" />
+              <FaBullseye className="text-blue-500 dark:text-blue-400 text-xl" />
             </div>
             <div>
               <h4 className="text-gray-900 dark:text-white font-bold text-lg">Objectif du mois</h4>
