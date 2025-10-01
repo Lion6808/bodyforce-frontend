@@ -283,7 +283,7 @@ function MotivationPanel({ motivationData, stats }) {
           <div>
             <h3 className="text-xl font-bold">{getMotivationalMessage()}</h3>
             <p className="text-indigo-100 text-sm mt-1">
-              Membre depuis {motivationData.daysSinceMember} jours • Niveau {motivationData.level}
+              Niveau {motivationData.level} • {getLevelName(motivationData.level)}
             </p>
           </div>
         </div>
@@ -462,7 +462,7 @@ function MotivationPanel({ motivationData, stats }) {
       </div>
 
       {/* Statistiques motivantes */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-4 border border-green-200 dark:border-green-800">
           <div className="flex items-center gap-2 mb-2">
             <FaClock className="text-green-600 dark:text-green-400" />
@@ -483,17 +483,6 @@ function MotivationPanel({ motivationData, stats }) {
             ~{motivationData.estimatedCalories}
           </p>
           <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Brûlées (estimé)</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-          <div className="flex items-center gap-2 mb-2">
-            <FaCalendarAlt className="text-blue-600 dark:text-blue-400" />
-            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Ancienneté</span>
-          </div>
-          <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-            {motivationData.daysSinceMember}j
-          </p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Membre depuis</p>
         </div>
 
         <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/10 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
@@ -723,12 +712,45 @@ export default function MyAttendancesPage() {
         </div>
       </div>
 
-      {/* 🎯 NOUVEAU : Panneau de Motivation (placé AVANT les stats détaillées) */}
+      {/* 🎯 NOUVEAU : Panneau de Motivation (placé APRÈS les répartitions) */}
       {!loading && user && userMemberData && badgeId && presences.length > 0 && (
         <MotivationPanel motivationData={motivationData} stats={stats} />
       )}
 
-      {/* Bloc "Suivi des présences" */}
+      {/* Contenu principal (historique détaillé) */}
+      {!loading && user && userMemberData && badgeId && stats.dailyStats.length > 0 && (
+        <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+          <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
+            Historique détaillé des visites
+          </div>
+          <ul className="divide-y dark:divide-gray-700">
+            {stats.dailyStats.map((d) => {
+              const k = d.date.toISOString();
+              return (
+                <li key={k} className="py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs text-gray-900 dark:text-gray-100 flex-shrink-0">
+                      {formatIntl(d.date, "dd/MM/yyyy")}
+                    </div>
+                    <div className="text-sm min-w-0">
+                      <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {formatIntl(d.date, "EEEE dd MMMM")}
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-300 text-xs">
+                        {d.visits} visite{d.visits > 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-800 dark:text-gray-200 flex-shrink-0">
+                    {d.first && `Arrivée : ${formatIntl(d.first, "HH:mm")}`}
+                    {d.last && d.first !== d.last && ` — Dernier badge : ${formatIntl(d.last, "HH:mm")}`}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
         <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -827,9 +849,9 @@ export default function MyAttendancesPage() {
         <div className="my-6 text-sm text-gray-600 dark:text-gray-300">Chargement…</div>
       )}
 
-      {/* Contenu principal (graphiques et historique) */}
+      {/* Graphiques de répartition */}
       {!loading && user && userMemberData && badgeId && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
             <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
               Répartition par jour de la semaine
@@ -865,44 +887,6 @@ export default function MyAttendancesPage() {
               <div className="mt-4 text-sm text-purple-700 dark:text-purple-300">
                 Heure de pointe : {stats.peakHour}h
               </div>
-            )}
-          </div>
-
-          <div className="lg:col-span-2 p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-            <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-              Historique des visites
-            </div>
-            {stats.dailyStats.length === 0 ? (
-              <div className="text-sm text-gray-600 dark:text-gray-300">
-                Aucune visite sur la période sélectionnée.
-              </div>
-            ) : (
-              <ul className="divide-y dark:divide-gray-700">
-                {stats.dailyStats.map((d) => {
-                  const k = d.date.toISOString();
-                  return (
-                    <li key={k} className="py-3 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs text-gray-900 dark:text-gray-100 flex-shrink-0">
-                          {formatIntl(d.date, "dd/MM/yyyy")}
-                        </div>
-                        <div className="text-sm min-w-0">
-                          <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                            {formatIntl(d.date, "EEEE dd MMMM")}
-                          </div>
-                          <div className="text-gray-600 dark:text-gray-300 text-xs">
-                            {d.visits} visite{d.visits > 1 ? "s" : ""}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-800 dark:text-gray-200 flex-shrink-0">
-                        {d.first && `Arrivée : ${formatIntl(d.first, "HH:mm")}`}
-                        {d.last && d.first !== d.last && ` — Dernier badge : ${formatIntl(d.last, "HH:mm")}`}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
             )}
           </div>
         </div>
