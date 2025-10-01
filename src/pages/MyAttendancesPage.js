@@ -1,7 +1,7 @@
 // 📄 Fichier : src/pages/MyAttendancesPage.js
-// 🎯 Objectif : Vue "Mes présences" (utilisateur simple) avec le DESIGN de l’onglet Admin
-// 🌓 Dark mode : Contrastes corrigés (pas de texte noir sur fond sombre)
-// 📱 Mobile : Grilles et tailles adaptées (XS/SM/MD/LG), no overflow
+// 🎯 Objectif : Vue "Mes présences" avec PANNEAU DE MOTIVATION
+// 🌓 Dark mode : Contrastes corrigés
+// 📱 Mobile : Grilles et tailles adaptées
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
@@ -14,6 +14,12 @@ import {
   FaClock,
   FaFireAlt,
   FaChartBar,
+  FaTrophy,
+  FaFire,
+  FaTarget,
+  FaTrendingUp,
+  FaAward,
+  FaBolt,
 } from "react-icons/fa";
 
 /* -------------------------------------------
@@ -45,7 +51,7 @@ const toDateString = (date) => {
 const parseTimestamp = (ts) => new Date(ts);
 
 /* ------------------------------------------------------
-   Calcul des statistiques (équivalent onglet "Présence")
+   Calcul des statistiques
 ------------------------------------------------------- */
 const calculateAttendanceStats = (presences) => {
   if (!presences || !presences.length) {
@@ -65,7 +71,7 @@ const calculateAttendanceStats = (presences) => {
 
   const dailyPresences = {};
   const hourlyDistribution = new Array(24).fill(0);
-  const weeklyDistribution = new Array(7).fill(0); // 0=Dim .. 6=Sam
+  const weeklyDistribution = new Array(7).fill(0);
 
   presences.forEach((p) => {
     const d = p.parsedDate;
@@ -109,8 +115,427 @@ const calculateAttendanceStats = (presences) => {
   };
 };
 
+/* ------------------------------------------------------
+   🎯 NOUVEAU : Calcul des données de motivation
+------------------------------------------------------- */
+const calculateMotivationData = (presences, userMemberData) => {
+  if (!presences || !presences.length) {
+    return {
+      currentStreak: 0,
+      maxStreak: 0,
+      level: 1,
+      levelProgress: 0,
+      nextLevelVisits: 5,
+      badges: [],
+      monthVisits: 0,
+      monthlyGoal: 12,
+      monthProgress: 0,
+      daysSinceMember: 0,
+      estimatedHours: 0,
+      estimatedCalories: 0,
+      nextBadge: { visits: 5, name: "Débutant" },
+      weeklyRegularity: 0,
+    };
+  }
+
+  const sortedDates = presences
+    .map(p => p.parsedDate)
+    .sort((a, b) => b - a);
+
+  // 1. Calcul des streaks
+  let currentStreak = 0;
+  let maxStreak = 0;
+  let tempStreak = 1;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (sortedDates.length > 0) {
+    const lastVisit = new Date(sortedDates[0]);
+    lastVisit.setHours(0, 0, 0, 0);
+    const daysDiff = Math.floor((today - lastVisit) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff <= 1) {
+      currentStreak = 1;
+      for (let i = 0; i < sortedDates.length - 1; i++) {
+        const current = new Date(sortedDates[i]);
+        const next = new Date(sortedDates[i + 1]);
+        current.setHours(0, 0, 0, 0);
+        next.setHours(0, 0, 0, 0);
+        const diff = Math.floor((current - next) / (1000 * 60 * 60 * 24));
+        if (diff === 1) currentStreak++;
+        else break;
+      }
+    }
+  }
+  
+  // Meilleure série
+  for (let i = 0; i < sortedDates.length - 1; i++) {
+    const current = new Date(sortedDates[i]);
+    const next = new Date(sortedDates[i + 1]);
+    current.setHours(0, 0, 0, 0);
+    next.setHours(0, 0, 0, 0);
+    const diff = Math.floor((current - next) / (1000 * 60 * 60 * 24));
+    if (diff === 1) {
+      tempStreak++;
+    } else {
+      maxStreak = Math.max(maxStreak, tempStreak);
+      tempStreak = 1;
+    }
+  }
+  maxStreak = Math.max(maxStreak, tempStreak);
+
+  // 2. Niveau
+  const totalVisits = presences.length;
+  const level = Math.floor(totalVisits / 5) + 1;
+  const nextLevelVisits = level * 5;
+  const levelProgress = ((totalVisits % 5) / 5) * 100;
+
+  // 3. Badges
+  const badges = [];
+  if (totalVisits >= 5) badges.push({ icon: "🥉", name: "Débutant", desc: "5 visites" });
+  if (totalVisits >= 10) badges.push({ icon: "🥈", name: "Régulier", desc: "10 visites" });
+  if (totalVisits >= 20) badges.push({ icon: "🥇", name: "Assidu", desc: "20 visites" });
+  if (totalVisits >= 50) badges.push({ icon: "💎", name: "Expert", desc: "50 visites" });
+  
+  const morningVisits = presences.filter(p => p.parsedDate.getHours() < 9).length;
+  if (morningVisits >= 5) badges.push({ icon: "🌅", name: "Lève-tôt", desc: "5 visites avant 9h" });
+  
+  if (maxStreak >= 7) badges.push({ icon: "🔥", name: "Warrior", desc: "7 jours consécutifs" });
+
+  // 4. Objectif mensuel
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const monthVisits = presences.filter(p => {
+    const d = p.parsedDate;
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  }).length;
+  
+  const monthlyGoal = 12;
+  const monthProgress = (monthVisits / monthlyGoal) * 100;
+
+  // 5. Ancienneté
+  const memberSince = userMemberData?.createdAt 
+    ? new Date(userMemberData.createdAt) 
+    : new Date(sortedDates[sortedDates.length - 1]);
+  const daysSinceMember = Math.floor((today - memberSince) / (1000 * 60 * 60 * 24));
+
+  // 6. Estimations
+  const estimatedHours = totalVisits * 1.5;
+  const estimatedCalories = totalVisits * 300;
+
+  // 7. Prochain badge
+  const nextBadge = totalVisits < 10 ? { visits: 10, name: "Régulier" } :
+                    totalVisits < 20 ? { visits: 20, name: "Assidu" } :
+                    totalVisits < 50 ? { visits: 50, name: "Expert" } :
+                    { visits: 100, name: "Légende" };
+
+  // 8. Régularité hebdomadaire
+  const weeklyRegularity = daysSinceMember > 0 
+    ? Math.round((totalVisits / (daysSinceMember / 7)) * 10) / 10 
+    : 0;
+
+  return {
+    currentStreak,
+    maxStreak,
+    level,
+    levelProgress,
+    nextLevelVisits,
+    badges,
+    monthVisits,
+    monthlyGoal,
+    monthProgress,
+    daysSinceMember,
+    estimatedHours,
+    estimatedCalories,
+    nextBadge,
+    weeklyRegularity,
+  };
+};
+
 /* -------------------------------------------
-   UI Subcomponents
+   🎯 NOUVEAU : Composant Panneau de Motivation
+-------------------------------------------- */
+function MotivationPanel({ motivationData, stats }) {
+  const getLevelName = (level) => {
+    if (level <= 2) return "Débutant";
+    if (level <= 4) return "Intermédiaire";
+    if (level <= 8) return "Confirmé";
+    if (level <= 12) return "Expert";
+    return "Maître";
+  };
+
+  const getMotivationalMessage = () => {
+    const { currentStreak, monthProgress } = motivationData;
+    if (currentStreak >= 5) return "🔥 Incroyable série ! Continuez comme ça !";
+    if (currentStreak >= 3) return "💪 Vous êtes sur une belle lancée !";
+    if (monthProgress >= 75) return "🎯 Objectif du mois presque atteint !";
+    if (stats.totalVisits < 5) return "🌟 Continuez, chaque visite compte !";
+    return "💪 Vous progressez bien, ne lâchez rien !";
+  };
+
+  return (
+    <div className="space-y-4 mb-6">
+      {/* Message motivant */}
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-700 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center gap-3">
+          <FaBolt className="text-3xl" />
+          <div>
+            <h3 className="text-xl font-bold">{getMotivationalMessage()}</h3>
+            <p className="text-indigo-100 text-sm mt-1">
+              Membre depuis {motivationData.daysSinceMember} jours • Niveau {motivationData.level}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Série et Objectif du mois */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Série actuelle */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+              <FaFire className="text-orange-500 dark:text-orange-400 text-xl" />
+            </div>
+            <div>
+              <h4 className="text-gray-900 dark:text-white font-bold text-lg">Série en cours</h4>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Jours consécutifs</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-4xl font-bold text-orange-500 dark:text-orange-400">
+                  {motivationData.currentStreak}
+                </span>
+                <span className="text-gray-500 dark:text-gray-400 text-sm">
+                  jour{motivationData.currentStreak > 1 ? 's' : ''}
+                </span>
+              </div>
+              {motivationData.currentStreak > 0 ? (
+                <p className="text-green-600 dark:text-green-400 text-sm font-medium">
+                  🔥 Continue ! Ne brise pas la série
+                </p>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  Venez aujourd'hui pour démarrer une série !
+                </p>
+              )}
+            </div>
+            
+            <div className="pt-3 border-t dark:border-gray-700">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Meilleure série</span>
+                <span className="font-bold text-gray-900 dark:text-white">
+                  {motivationData.maxStreak} jours
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Objectif du mois */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+              <FaTarget className="text-blue-500 dark:text-blue-400 text-xl" />
+            </div>
+            <div>
+              <h4 className="text-gray-900 dark:text-white font-bold text-lg">Objectif du mois</h4>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">12 visites recommandées</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <div>
+              <div className="flex justify-between items-baseline mb-2">
+                <span className="text-4xl font-bold text-blue-500 dark:text-blue-400">
+                  {motivationData.monthVisits}
+                </span>
+                <span className="text-gray-500 dark:text-gray-400 text-sm">
+                  / {motivationData.monthlyGoal} visites
+                </span>
+              </div>
+              
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-2">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-400 dark:to-blue-500 h-3 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(motivationData.monthProgress, 100)}%` }}
+                />
+              </div>
+              
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {motivationData.monthVisits >= motivationData.monthlyGoal ? (
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    🎉 Objectif atteint !
+                  </span>
+                ) : (
+                  <span>
+                    Plus que <strong>{motivationData.monthlyGoal - motivationData.monthVisits}</strong> visite{(motivationData.monthlyGoal - motivationData.monthVisits) > 1 ? 's' : ''}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Niveau et progression */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+            <FaTrendingUp className="text-purple-500 dark:text-purple-400 text-xl" />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-gray-900 dark:text-white font-bold text-lg">
+              Niveau {motivationData.level} • {getLevelName(motivationData.level)}
+            </h4>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              {stats.totalVisits} / {motivationData.nextLevelVisits} visites jusqu'au niveau {motivationData.level + 1}
+            </p>
+          </div>
+        </div>
+        
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mb-2">
+          <div 
+            className="bg-gradient-to-r from-purple-500 to-pink-500 dark:from-purple-400 dark:to-pink-400 h-4 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+            style={{ width: `${motivationData.levelProgress}%` }}
+          >
+            {motivationData.levelProgress > 15 && (
+              <span className="text-white text-xs font-bold">
+                {Math.round(motivationData.levelProgress)}%
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Badges débloqués */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
+            <FaAward className="text-yellow-600 dark:text-yellow-400 text-xl" />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-gray-900 dark:text-white font-bold text-lg">Vos Badges</h4>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              {motivationData.badges.length} badge{motivationData.badges.length > 1 ? 's' : ''} débloqué{motivationData.badges.length > 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
+        
+        {motivationData.badges.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {motivationData.badges.map((badge, idx) => (
+              <div 
+                key={idx}
+                className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-all hover:shadow-md"
+              >
+                <div className="text-4xl mb-2 text-center">{badge.icon}</div>
+                <div className="text-center">
+                  <p className="font-bold text-sm text-gray-900 dark:text-white">{badge.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{badge.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <p>Continuez vos visites pour débloquer des badges !</p>
+            <p className="text-sm mt-2">
+              Prochain : <strong>{motivationData.nextBadge.name}</strong> à {motivationData.nextBadge.visits} visites
+            </p>
+          </div>
+        )}
+        
+        {stats.totalVisits < motivationData.nextBadge.visits && (
+          <div className="mt-4 pt-4 border-t dark:border-gray-700">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              🎯 Prochain badge : <strong>{motivationData.nextBadge.name}</strong>
+              <span className="ml-2 text-blue-600 dark:text-blue-400 font-medium">
+                (+{motivationData.nextBadge.visits - stats.totalVisits} visite{(motivationData.nextBadge.visits - stats.totalVisits) > 1 ? 's' : ''})
+              </span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Statistiques motivantes */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-4 border border-green-200 dark:border-green-800">
+          <div className="flex items-center gap-2 mb-2">
+            <FaClock className="text-green-600 dark:text-green-400" />
+            <span className="text-xs font-medium text-green-700 dark:text-green-300">Temps total</span>
+          </div>
+          <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+            {motivationData.estimatedHours}h
+          </p>
+          <p className="text-xs text-green-600 dark:text-green-400 mt-1">Entraînement estimé</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/10 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+          <div className="flex items-center gap-2 mb-2">
+            <FaFireAlt className="text-orange-600 dark:text-orange-400" />
+            <span className="text-xs font-medium text-orange-700 dark:text-orange-300">Calories</span>
+          </div>
+          <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+            ~{motivationData.estimatedCalories}
+          </p>
+          <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Brûlées (estimé)</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2 mb-2">
+            <FaCalendarAlt className="text-blue-600 dark:text-blue-400" />
+            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Ancienneté</span>
+          </div>
+          <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+            {motivationData.daysSinceMember}j
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Membre depuis</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/10 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+          <div className="flex items-center gap-2 mb-2">
+            <FaTrophy className="text-purple-600 dark:text-purple-400" />
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Régularité</span>
+          </div>
+          <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+            {motivationData.weeklyRegularity}
+          </p>
+          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">Visites/semaine</p>
+        </div>
+      </div>
+
+      {/* Recommandation personnalisée */}
+      {stats.peakDay && (
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-6 border border-indigo-200 dark:border-indigo-800">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-indigo-500 dark:bg-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xl">💡</span>
+            </div>
+            <div>
+              <h4 className="text-gray-900 dark:text-white font-bold mb-2">Recommandation personnalisée</h4>
+              <p className="text-gray-700 dark:text-gray-300 text-sm">
+                Votre meilleure performance : <strong>les {stats.peakDay}s{stats.peakHour >= 0 ? ` à ${stats.peakHour}h` : ''}</strong>.
+                {motivationData.monthVisits < motivationData.monthlyGoal && (
+                  <> Pour atteindre votre objectif, planifiez <strong>{Math.ceil((motivationData.monthlyGoal - motivationData.monthVisits) / 4)} visite{Math.ceil((motivationData.monthlyGoal - motivationData.monthVisits) / 4) > 1 ? 's' : ''} par semaine</strong>.</>
+                )}
+                {motivationData.currentStreak === 0 && motivationData.maxStreak > 0 && (
+                  <> Vous avez déjà fait une série de <strong>{motivationData.maxStreak} jours</strong>, vous pouvez le refaire ! 💪</>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------
+   UI Subcomponents (inchangés)
 -------------------------------------------- */
 function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
   const gradient =
@@ -171,7 +596,7 @@ function HourCell({ hour, count, max }) {
       <div className="text-[10px] text-gray-600 dark:text-gray-300 mb-1">{hour}h</div>
       <div
         className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shadow-sm"
-        style={{ background: `rgba(99,102,241,${alpha})` }} // indigo
+        style={{ background: `rgba(99,102,241,${alpha})` }}
         title={`${count} visite${count > 1 ? "s" : ""}`}
       >
         <span className="text-xs font-semibold text-gray-900 dark:text-white">{count || ""}</span>
@@ -181,7 +606,7 @@ function HourCell({ hour, count, max }) {
 }
 
 /* -------------------------------------------
-   PAGE
+   PAGE PRINCIPALE
 -------------------------------------------- */
 export default function MyAttendancesPage() {
   const { user, userMemberData } = useAuth();
@@ -199,6 +624,12 @@ export default function MyAttendancesPage() {
   const [presences, setPresences] = useState([]);
 
   const stats = useMemo(() => calculateAttendanceStats(presences), [presences]);
+  
+  // 🎯 NOUVEAU : Calcul des données de motivation
+  const motivationData = useMemo(
+    () => calculateMotivationData(presences, userMemberData),
+    [presences, userMemberData]
+  );
 
   const badgeId = userMemberData?.badgeId || null;
   const memberName =
@@ -216,7 +647,7 @@ export default function MyAttendancesPage() {
         const { data, error } = await supabase
           .from("presences")
           .select("*")
-          .eq("badgeId", badgeId) // 🔁 switch possible par email si ta table le permet
+          .eq("badgeId", badgeId)
           .gte("timestamp", `${range.start}T00:00:00`)
           .lte("timestamp", `${range.end}T23:59:59`)
           .order("timestamp", { ascending: false });
@@ -242,7 +673,6 @@ export default function MyAttendancesPage() {
     fetchPresences();
   }, [user, badgeId, range.start, range.end]);
 
-  // Raccourcis période
   const setDays = (days) => {
     const end = new Date();
     const start = new Date();
@@ -261,12 +691,12 @@ export default function MyAttendancesPage() {
 
   return (
     <div className="p-4 md:p-6 text-gray-900 dark:text-gray-100">
-      {/* Header + fiche mini */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold">Mes présences</h1>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Consultez vos statistiques et l’historique de vos visites.
+            Consultez vos statistiques et l'historique de vos visites.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -292,6 +722,11 @@ export default function MyAttendancesPage() {
           </div>
         </div>
       </div>
+
+      {/* 🎯 NOUVEAU : Panneau de Motivation (placé AVANT les stats détaillées) */}
+      {!loading && user && userMemberData && badgeId && presences.length > 0 && (
+        <MotivationPanel motivationData={motivationData} stats={stats} />
+      )}
 
       {/* Bloc "Suivi des présences" */}
       <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
@@ -384,19 +819,17 @@ export default function MyAttendancesPage() {
       )}
       {user && userMemberData && !badgeId && (
         <div className="p-4 rounded-2xl border dark:border-gray-700 bg-yellow-50 text-yellow-900 mb-6">
-          Aucun badge n’est associé à votre profil. Contactez un administrateur.
+          Aucun badge n'est associé à votre profil. Contactez un administrateur.
         </div>
       )}
 
-      {/* Loader */}
       {loading && (
         <div className="my-6 text-sm text-gray-600 dark:text-gray-300">Chargement…</div>
       )}
 
-      {/* Contenu principal */}
+      {/* Contenu principal (graphiques et historique) */}
       {!loading && user && userMemberData && badgeId && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Répartition par jour */}
           <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
             <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
               Répartition par jour de la semaine
@@ -414,7 +847,6 @@ export default function MyAttendancesPage() {
             )}
           </div>
 
-          {/* Répartition par heure */}
           <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
             <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
               Répartition par heure
@@ -436,7 +868,6 @@ export default function MyAttendancesPage() {
             )}
           </div>
 
-          {/* Historique des visites */}
           <div className="lg:col-span-2 p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
             <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
               Historique des visites
