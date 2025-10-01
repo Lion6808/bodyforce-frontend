@@ -590,7 +590,7 @@ function HomePage() {
                     })()}
                   </div>
 
-                  <div className="absolute inset-0 flex items=end justify-between pl-10 pr-2 pb-2">
+                  <div className="absolute inset-0 flex items-end justify-between pl-10 pr-2 pb-2">
                     {attendance7d.map((d, idx) => {
                       const maxValue = Math.max(...attendance7d.map((d) => d.count));
                       const adjustedMax = maxValue > 0 ? maxValue : 10;
@@ -817,7 +817,7 @@ function HomePage() {
 
       {/* 🔹 Derniers membres inscrits (ADMIN) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+        <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Derniers membres inscrits</h2>
             <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
