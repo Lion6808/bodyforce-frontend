@@ -1,7 +1,8 @@
-// 📄 MemberFormPage.js — COMPLET CORRIGÉ avec gestion des paiements et onglets réorganisés
+// 📄 MemberFormPage.js — COMPLET CORRIGÉ avec compression optimisée egress
 // 🎯 Onglets réorganisés : Profil | Documents | Abonnement | Présence | Messages
 // 🔒 Gestion complète des paiements alignée sur MemberForm
-// ✅ NOUVEAU : Retour intelligent avec repositionnement automatique
+// ✅ Compression photos pour optimiser egress Supabase
+// ✅ Retour intelligent avec repositionnement automatique
 
 import MemberMessagesTab from "../components/MemberMessagesTab";
 import React, { useEffect, useRef, useState } from "react";
@@ -37,7 +38,7 @@ import {
   FaEdit,
   FaPaperPlane,
   FaComments,
-  FaClipboardList, // Pour l'onglet Présence
+  FaClipboardList,
   FaSync,
   FaChartLine,
   FaChartBar,
@@ -90,7 +91,38 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 
-// ✅ COMPOSANT CAMÉRA
+// ✅ NOUVELLE FONCTION : Compression d'image optimisée egress
+const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = maxSize;
+      canvas.height = maxSize;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, maxSize, maxSize);
+
+      const compressed = canvas.toDataURL("image/jpeg", quality);
+
+      // Log pour monitoring egress
+      const sizeKB = Math.round((compressed.length * 0.75) / 1024);
+      console.log(
+        `📸 Photo optimisée: ${sizeKB} KB (${maxSize}x${maxSize} @ ${
+          quality * 100
+        }%)`
+      );
+
+      resolve(compressed);
+    };
+
+    img.onerror = reject;
+    img.src = imageData;
+  });
+};
+
+// ✅ COMPOSANT CAMÉRA (INCHANGÉ - gestion streams préservée)
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -220,23 +252,27 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
       <div
-        className={`${isDarkMode ? "bg-gray-800" : "bg-white"
-          } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
+        className={`${
+          isDarkMode ? "bg-gray-800" : "bg-white"
+        } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
       >
         <div
-          className={`p-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"
-            } flex items-center justify-between`}
+          className={`p-4 border-b ${
+            isDarkMode ? "border-gray-700" : "border-gray-200"
+          } flex items-center justify-between`}
         >
           <h3
-            className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"
-              }`}
+            className={`text-lg font-semibold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
           >
             📸 Prendre une photo
           </h3>
           <button
             onClick={onClose}
-            className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${isDarkMode ? "text-gray-300" : "text-gray-600"
-              }`}
+            className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+              isDarkMode ? "text-gray-300" : "text-gray-600"
+            }`}
           >
             <X className="w-5 h-5" />
           </button>
@@ -245,7 +281,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           {error && (
             <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
-              <p className="font-medium mb-2">❌ Erreur caméra</p>
+              <p className="font-medium mb-2">⚠ Erreur caméra</p>
               <p className="text-sm">{error}</p>
             </div>
           )}
@@ -267,8 +303,9 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover transition-opacity duration-300 ${isLoading ? "opacity-0" : "opacity-100"
-                    }`}
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${
+                    isLoading ? "opacity-0" : "opacity-100"
+                  }`}
                   style={{
                     transform: facingMode === "user" ? "scaleX(-1)" : "none",
                   }}
@@ -294,10 +331,11 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   {availableCameras.length > 1 && (
                     <button
                       onClick={switchCamera}
-                      className={`p-3 rounded-full border-2 ${isDarkMode
-                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                        : "border-gray-300 text-gray-600 hover:bg-gray-100"
-                        } transition-colors`}
+                      className={`p-3 rounded-full border-2 ${
+                        isDarkMode
+                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                          : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                      } transition-colors`}
                     >
                       <SwitchCamera className="w-6 h-6" />
                     </button>
@@ -311,10 +349,11 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   </button>
                   <button
                     onClick={onClose}
-                    className={`p-3 rounded-full border-2 ${isDarkMode
-                      ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                      : "border-gray-300 text-gray-600 hover:bg-gray-100"
-                      } transition-colors`}
+                    className={`p-3 rounded-full border-2 ${
+                      isDarkMode
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                    } transition-colors`}
                   >
                     <X className="w-6 h-6" />
                   </button>
@@ -358,10 +397,11 @@ function InputField({ label, icon: Icon, error, ...props }) {
       <div className="relative">
         <input
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error
-            ? "border-red-300 bg-red-50 dark:bg-red-950"
-            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-            }`}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+            error
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+          }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
@@ -379,10 +419,11 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
       <div className="relative">
         <select
           {...props}
-          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error
-            ? "border-red-300 bg-red-50 dark:bg-red-950"
-            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
-            }`}
+          className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+            error
+              ? "border-red-300 bg-red-50 dark:bg-red-950"
+              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+          }`}
         >
           {options.map((opt) => (
             <option key={opt} value={opt}>
@@ -432,10 +473,11 @@ function ConfirmDialog({
         <div className="p-6">
           <div className="flex items-center gap-4 mb-4">
             <div
-              className={`p-3 rounded-full ${type === "danger"
-                ? "bg-red-100 dark:bg-red-900/30"
-                : "bg-orange-100 dark:bg-orange-900/30"
-                }`}
+              className={`p-3 rounded-full ${
+                type === "danger"
+                  ? "bg-red-100 dark:bg-red-900/30"
+                  : "bg-orange-100 dark:bg-orange-900/30"
+              }`}
             >
               {type === "danger" ? (
                 <FaTrash className="w-6 h-6 text-red-600 dark:text-red-400" />
@@ -461,10 +503,11 @@ function ConfirmDialog({
             </button>
             <button
               onClick={onConfirm}
-              className={`px-4 py-2 text-white rounded-lg transition-colors ${type === "danger"
-                ? "bg-red-600 hover:bg-red-700"
-                : "bg-orange-600 hover:bg-orange-700"
-                }`}
+              className={`px-4 py-2 text-white rounded-lg transition-colors ${
+                type === "danger"
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-orange-600 hover:bg-orange-700"
+              }`}
             >
               {type === "danger" ? "Supprimer" : "Confirmer"}
             </button>
@@ -502,7 +545,6 @@ function MemberFormPage() {
 
   const [payments, setPayments] = useState([]);
 
-  // ✅ État pour gestion des paiements
   const [newPayment, setNewPayment] = useState({
     amount: "",
     method: "espèces",
@@ -519,14 +561,12 @@ function MemberFormPage() {
     success: null,
   });
 
-  // ✅ États pour les confirmations
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     type: "",
     item: null,
   });
 
-  // ✅ États pour les présences
   const [attendanceData, setAttendanceData] = useState({
     presences: [],
     loading: false,
@@ -537,12 +577,11 @@ function MemberFormPage() {
   const [attendanceFilters, setAttendanceFilters] = useState({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
       .toISOString()
-      .split("T")[0], // 30 derniers jours
+      .split("T")[0],
     endDate: new Date().toISOString().split("T")[0],
     showHourlyGraph: false,
   });
 
-  // ✅ Onglets avec compteurs
   const tabs = [
     { id: "profile", label: "Profil", icon: FaUser },
     {
@@ -580,8 +619,8 @@ function MemberFormPage() {
         files: Array.isArray(member.files)
           ? member.files
           : typeof member.files === "string"
-            ? JSON.parse(member.files || "[]")
-            : [],
+          ? JSON.parse(member.files || "[]")
+          : [],
         etudiant: !!member.etudiant,
       });
       if (member.id) fetchPayments(member.id);
@@ -620,8 +659,8 @@ function MemberFormPage() {
 
   const age = form.birthdate
     ? Math.floor(
-      (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
-    )
+        (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
+      )
     : null;
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
 
@@ -630,10 +669,8 @@ function MemberFormPage() {
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  // ✅ NOUVELLE fonction handleBack modifiée pour le repositionnement
   const handleBack = (editedMemberId = null) => {
     if (returnPath) {
-      // Si on a modifié un membre, transmettre l'info pour le repositionnement
       if (editedMemberId) {
         navigate(returnPath, {
           state: {
@@ -649,7 +686,6 @@ function MemberFormPage() {
     }
   };
 
-  // ✅ NOUVELLE fonction handleSave modifiée pour le repositionnement
   const handleSave = async () => {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
@@ -657,7 +693,6 @@ function MemberFormPage() {
       let savedMemberId;
 
       if (member?.id) {
-        // Modification d'un membre existant
         await supabaseServices.updateMember(member.id, {
           ...form,
           files: JSON.stringify(form.files),
@@ -669,7 +704,6 @@ function MemberFormPage() {
           success: "Membre modifié avec succès !",
         });
       } else {
-        // Création d'un nouveau membre
         const newMember = await supabaseServices.createMember({
           ...form,
           files: JSON.stringify(form.files),
@@ -682,7 +716,6 @@ function MemberFormPage() {
         });
       }
 
-      // ✅ Retour avec l'ID du membre pour repositionnement
       setTimeout(() => handleBack(savedMemberId), 1500);
     } catch (error) {
       setUploadStatus({
@@ -693,7 +726,6 @@ function MemberFormPage() {
     }
   };
 
-  // ✅ FONCTIONS pour gestion des paiements
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
       .from("payments")
@@ -760,7 +792,6 @@ function MemberFormPage() {
     fetchPayments(member.id);
   };
 
-  // ✅ FONCTION DE FORMATAGE
   const formatPrice = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
       return "0,00 €";
@@ -810,43 +841,66 @@ function MemberFormPage() {
     e.target.value = "";
   };
 
-  const handleCameraCapture = (imageData) => {
-    setForm((f) => ({ ...f, photo: imageData }));
-    setUploadStatus({
-      loading: false,
-      error: null,
-      success: "Photo capturée avec succès !",
-    });
+  // ✅ MODIFIÉ : Compression après capture caméra
+  const handleCameraCapture = async (imageData) => {
+    try {
+      // Compression du dataURL reçu de la caméra
+      const compressed = await compressImageData(imageData, 256, 0.6);
+
+      setForm((f) => ({ ...f, photo: compressed }));
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: "Photo capturée et optimisée !",
+      });
+    } catch (err) {
+      setUploadStatus({
+        loading: false,
+        error: "Erreur lors de la compression",
+        success: null,
+      });
+    }
+
     setTimeout(
       () => setUploadStatus({ loading: false, error: null, success: null }),
       3000
     );
   };
 
+  // ✅ MODIFIÉ : Compression pour documents capturés
   const captureDocument = async (imageData) => {
     setUploadStatus({ loading: true, error: null, success: null });
     try {
-      const response = await fetch(imageData);
+      // Compression avant conversion en blob (documents: taille plus grande)
+      const compressed = await compressImageData(imageData, 800, 0.75);
+
+      const response = await fetch(compressed);
       const blob = await response.blob();
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
+
       const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(filePath, blob);
+
       if (uploadError)
         throw new Error(
           `Erreur lors du téléversement du document : ${uploadError.message}`
         );
+
       const { data } = supabase.storage
         .from("documents")
         .getPublicUrl(filePath);
+
       const newFile = { name: fileName, url: data.publicUrl };
       setForm((f) => ({ ...f, files: [...f.files, newFile] }));
+
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Document capturé !",
+        success: "Document capturé et optimisé !",
       });
+
       setTimeout(
         () => setUploadStatus({ loading: false, error: null, success: null }),
         3000
@@ -860,7 +914,6 @@ function MemberFormPage() {
     }
   };
 
-  // ✅ SUPPRESSION PHOTO AVEC CONFIRMATION
   const handleRemovePhoto = () => {
     setConfirmDialog({
       isOpen: true,
@@ -869,7 +922,6 @@ function MemberFormPage() {
     });
   };
 
-  // ✅ SUPPRESSION FICHIER AVEC CONFIRMATION
   const handleRemoveFile = (fileToRemove) => {
     setConfirmDialog({
       isOpen: true,
@@ -878,7 +930,6 @@ function MemberFormPage() {
     });
   };
 
-  // ✅ CONFIRMATION DE SUPPRESSION
   const handleConfirmDelete = async () => {
     const { type, item } = confirmDialog;
 
@@ -931,7 +982,6 @@ function MemberFormPage() {
     setConfirmDialog({ isOpen: false, type: "", item: null });
   };
 
-  // ✅ FONCTIONS pour les présences
   const fetchMemberAttendance = async (memberId) => {
     if (!memberId) return;
 
@@ -1041,7 +1091,6 @@ function MemberFormPage() {
     };
   };
 
-  // ✅ ONGLET PROFIL
   const renderProfileTab = () => (
     <div className="space-y-8">
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -1111,14 +1160,16 @@ function MemberFormPage() {
             <button
               type="button"
               onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
-              className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant
-                ? "bg-gradient-to-r from-blue-500 to-purple-600"
-                : "bg-gray-300 dark:bg-gray-600"
-                }`}
+              className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                form.etudiant
+                  ? "bg-gradient-to-r from-blue-500 to-purple-600"
+                  : "bg-gray-300 dark:bg-gray-600"
+              }`}
             >
               <span
-                className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${form.etudiant ? "translate-x-7" : ""
-                  }`}
+                className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-300 ${
+                  form.etudiant ? "translate-x-7" : ""
+                }`}
               />
             </button>
           </div>
@@ -1169,7 +1220,6 @@ function MemberFormPage() {
     </div>
   );
 
-  // ✅ ONGLET DOCUMENTS
   const renderDocumentsTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
@@ -1200,7 +1250,7 @@ function MemberFormPage() {
           className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <Camera className="w-4 h-4" />
-          📄 Photographier un document
+          Photographier un document
         </button>
       </div>
 
@@ -1267,8 +1317,6 @@ function MemberFormPage() {
       )}
     </div>
   );
-
-  // ✅ ONGLET ABONNEMENT
   const renderSubscriptionTab = () => {
     const totalPayments = payments.reduce((sum, payment) => {
       const amount = parseFloat(payment.amount) || 0;
@@ -1329,7 +1377,6 @@ function MemberFormPage() {
           </div>
         )}
 
-        {/* Section ajout de paiement */}
         {member?.id && (
           <div className="mt-8 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-xl border border-green-200 dark:border-green-600">
             <h4 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -1402,10 +1449,11 @@ function MemberFormPage() {
                     className="sr-only"
                   />
                   <div
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${newPayment.is_paid
-                      ? "bg-green-500 border-green-500"
-                      : "border-gray-300 dark:border-gray-500"
-                      }`}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                      newPayment.is_paid
+                        ? "bg-green-500 border-green-500"
+                        : "border-gray-300 dark:border-gray-500"
+                    }`}
                   >
                     {newPayment.is_paid && (
                       <FaCheck className="w-3 h-3 text-white" />
@@ -1428,7 +1476,6 @@ function MemberFormPage() {
           </div>
         )}
 
-        {/* Historique des paiements */}
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1461,16 +1508,18 @@ function MemberFormPage() {
                     <div className="flex-1 w-full sm:w-auto">
                       <div className="flex items-center gap-3 mb-3">
                         <div
-                          className={`p-2 rounded-lg ${pay.is_paid
-                            ? "bg-green-100 dark:bg-green-900"
-                            : "bg-orange-100 dark:bg-orange-900"
-                            }`}
+                          className={`p-2 rounded-lg ${
+                            pay.is_paid
+                              ? "bg-green-100 dark:bg-green-900"
+                              : "bg-orange-100 dark:bg-orange-900"
+                          }`}
                         >
                           <FaEuroSign
-                            className={`w-4 h-4 ${pay.is_paid
-                              ? "text-green-600 dark:text-green-300"
-                              : "text-orange-600 dark:text-orange-300"
-                              }`}
+                            className={`w-4 h-4 ${
+                              pay.is_paid
+                                ? "text-green-600 dark:text-green-300"
+                                : "text-orange-600 dark:text-orange-300"
+                            }`}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1488,20 +1537,22 @@ function MemberFormPage() {
                           onClick={() =>
                             togglePaymentStatus(pay.id, !pay.is_paid)
                           }
-                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${pay.is_paid
-                            ? "bg-green-500 border-green-500"
-                            : "border-gray-300 dark:border-gray-500 hover:border-green-400"
-                            }`}
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                            pay.is_paid
+                              ? "bg-green-500 border-green-500"
+                              : "border-gray-300 dark:border-gray-500 hover:border-green-400"
+                          }`}
                         >
                           {pay.is_paid && (
                             <FaCheck className="w-3 h-3 text-white" />
                           )}
                         </button>
                         <span
-                          className={`text-sm font-medium ${pay.is_paid
-                            ? "text-green-600 dark:text-green-300"
-                            : "text-orange-600 dark:text-orange-300"
-                            }`}
+                          className={`text-sm font-medium ${
+                            pay.is_paid
+                              ? "text-green-600 dark:text-green-300"
+                              : "text-orange-600 dark:text-orange-300"
+                          }`}
                         >
                           {pay.is_paid ? "Encaissé" : "En attente"}
                         </span>
@@ -1522,7 +1573,7 @@ function MemberFormPage() {
                         )}
                         {pay.commentaire && (
                           <p className="italic text-gray-500 dark:text-gray-400">
-                            💬 {pay.commentaire}
+                            {pay.commentaire}
                           </p>
                         )}
                       </div>
@@ -1539,7 +1590,6 @@ function MemberFormPage() {
                 </div>
               ))}
 
-              {/* Résumé total */}
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1591,7 +1641,6 @@ function MemberFormPage() {
     );
   };
 
-  // ✅ ONGLET PRÉSENCES
   const renderAttendanceTab = () => {
     const { presences, loading, error, stats } = attendanceData;
 
@@ -1613,7 +1662,6 @@ function MemberFormPage() {
 
     return (
       <div className="space-y-6">
-        {/* Filtres et actions */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -1670,7 +1718,6 @@ function MemberFormPage() {
             </div>
           </div>
 
-          {/* Raccourcis temporels */}
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               onClick={() =>
@@ -1716,7 +1763,6 @@ function MemberFormPage() {
               3 derniers mois
             </button>
 
-            {/* ✅ NOUVEAU BOUTON : Année en cours */}
             <button
               onClick={() => {
                 const currentYear = new Date().getFullYear();
@@ -1728,12 +1774,11 @@ function MemberFormPage() {
               }}
               className="px-3 py-1 text-xs bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/50 dark:hover:to-purple-900/50 text-blue-700 dark:text-blue-400 rounded border-2 border-blue-300 dark:border-blue-600 transition-colors font-semibold"
             >
-              📅 Année en cours
+              Année en cours
             </button>
           </div>
         </div>
 
-        {/* État de chargement */}
         {loading && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-center py-8">
@@ -1745,7 +1790,6 @@ function MemberFormPage() {
           </div>
         )}
 
-        {/* Gestion des erreurs */}
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
             <div className="flex items-center gap-3">
@@ -1762,7 +1806,6 @@ function MemberFormPage() {
           </div>
         )}
 
-        {/* Statistiques principales */}
         {!loading && !error && stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-700">
@@ -1831,10 +1874,8 @@ function MemberFormPage() {
           </div>
         )}
 
-        {/* Graphiques et analyses */}
         {!loading && !error && stats && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Distribution hebdomadaire */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <FaChartBar className="w-5 h-5 text-blue-600" />
@@ -1863,10 +1904,11 @@ function MemberFormPage() {
                       </div>
                       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-6 relative overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${index === 0 || index === 6
-                            ? "bg-gradient-to-r from-blue-400 to-blue-600"
-                            : "bg-gradient-to-r from-green-400 to-green-600"
-                            }`}
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            index === 0 || index === 6
+                              ? "bg-gradient-to-r from-blue-400 to-blue-600"
+                              : "bg-gradient-to-r from-green-400 to-green-600"
+                          }`}
                           style={{ width: `${percentage}%` }}
                         ></div>
                         <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-800 dark:text-gray-200">
@@ -1887,7 +1929,6 @@ function MemberFormPage() {
               )}
             </div>
 
-            {/* Distribution horaire */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <FaClock className="w-5 h-5 text-purple-600" />
@@ -1915,8 +1956,9 @@ function MemberFormPage() {
                           <div
                             className="w-full bg-gradient-to-t from-purple-500 to-purple-400 rounded-t flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
                             style={{ height: `${height}px` }}
-                            title={`${hour}h: ${count} visite${count > 1 ? "s" : ""
-                              }`}
+                            title={`${hour}h: ${count} visite${
+                              count > 1 ? "s" : ""
+                            }`}
                           >
                             {count > 0 && height > 20 ? count : ""}
                           </div>
@@ -1938,7 +1980,6 @@ function MemberFormPage() {
           </div>
         )}
 
-        {/* Historique détaillé des visites */}
         {!loading && !error && stats && stats.dailyStats.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
@@ -1959,20 +2000,22 @@ function MemberFormPage() {
               {stats.dailyStats.map((day, index) => (
                 <div
                   key={index}
-                  className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${isToday(day.date)
-                    ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
-                    : isWeekend(day.date)
+                  className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+                    isToday(day.date)
+                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
+                      : isWeekend(day.date)
                       ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700"
                       : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center gap-4">
                     <div className="text-center">
                       <div
-                        className={`text-lg font-bold ${isToday(day.date)
-                          ? "text-blue-600 dark:text-blue-400"
-                          : "text-gray-900 dark:text-white"
-                          }`}
+                        className={`text-lg font-bold ${
+                          isToday(day.date)
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-gray-900 dark:text-white"
+                        }`}
                       >
                         {day.date.getDate()}
                       </div>
@@ -2019,12 +2062,13 @@ function MemberFormPage() {
                     </div>
 
                     <div
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${day.count === 1
-                        ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
-                        : day.count <= 3
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        day.count === 1
+                          ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                          : day.count <= 3
                           ? "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
                           : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
-                        }`}
+                      }`}
                     >
                       {day.count}
                     </div>
@@ -2035,7 +2079,6 @@ function MemberFormPage() {
           </div>
         )}
 
-        {/* Aucune donnée */}
         {!loading && !error && (!stats || stats.totalVisits === 0) && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="text-center py-12">
@@ -2048,8 +2091,8 @@ function MemberFormPage() {
                 {form.badgeId ? ` avec le badge ${form.badgeId}` : ""}
               </p>
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-                💡 Les présences apparaîtront ici dès que le membre utilisera
-                son badge d'accès
+                Les présences apparaîtront ici dès que le membre utilisera son
+                badge d'accès
               </div>
             </div>
           </div>
@@ -2058,7 +2101,6 @@ function MemberFormPage() {
     );
   };
 
-  // ✅ ONGLET MESSAGES
   const renderMessagesTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="text-center py-12">
@@ -2066,12 +2108,12 @@ function MemberFormPage() {
         <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
           Journal des messages
         </h3>
-        <MemberMessagesTab memberId={currentMember?.id} />
+        {member?.id && <MemberMessagesTab memberId={member.id} />}
         <p className="text-gray-500 dark:text-gray-400 mb-6">
           Cette fonctionnalité sera bientôt disponible
         </p>
         <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-sm text-green-700 dark:text-green-300">
-          💬 Notes, communications, historique des échanges
+          Notes, communications, historique des échanges
         </div>
       </div>
     </div>
@@ -2096,12 +2138,10 @@ function MemberFormPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      {/* Panel gauche - Photo + Infos principales */}
       <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-        {/* Header avec navigation */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <button
-            onClick={() => handleBack()} // ✅ Sans ID = retour normal
+            onClick={() => handleBack()}
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -2151,7 +2191,6 @@ function MemberFormPage() {
           </div>
         </div>
 
-        {/* Actions photo */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="space-y-3">
             <button
@@ -2169,13 +2208,55 @@ function MemberFormPage() {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files[0];
                   if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) =>
-                      setForm((prev) => ({ ...prev, photo: e.target.result }));
-                    reader.readAsDataURL(file);
+                    try {
+                      setUploadStatus({
+                        loading: true,
+                        error: null,
+                        success: null,
+                      });
+
+                      const reader = new FileReader();
+                      reader.onload = async (event) => {
+                        try {
+                          const compressed = await compressImageData(
+                            event.target.result,
+                            256,
+                            0.6
+                          );
+                          setForm((prev) => ({ ...prev, photo: compressed }));
+                          setUploadStatus({
+                            loading: false,
+                            error: null,
+                            success: "Photo optimisée et ajoutée",
+                          });
+                          setTimeout(
+                            () =>
+                              setUploadStatus({
+                                loading: false,
+                                error: null,
+                                success: null,
+                              }),
+                            3000
+                          );
+                        } catch (err) {
+                          setUploadStatus({
+                            loading: false,
+                            error: "Erreur lors de la compression",
+                            success: null,
+                          });
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    } catch (err) {
+                      setUploadStatus({
+                        loading: false,
+                        error: "Erreur lors du chargement",
+                        success: null,
+                      });
+                    }
                   }
                 }}
                 className="hidden"
@@ -2184,7 +2265,6 @@ function MemberFormPage() {
           </div>
         </div>
 
-        {/* Informations personnelles principales */}
         <div className="p-6 space-y-4 flex-1">
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wide">
             Détails personnels
@@ -2238,7 +2318,6 @@ function MemberFormPage() {
           </div>
         </div>
 
-        {/* Actions rapides */}
         <div className="p-6 border-t border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-4 gap-2">
             <button className="p-3 text-gray-600 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex flex-col items-center gap-1">
@@ -2261,9 +2340,7 @@ function MemberFormPage() {
         </div>
       </div>
 
-      {/* Panel droit - Contenu principal avec onglets */}
       <div className="flex-1 flex flex-col">
-        {/* Header avec titre et actions */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -2277,7 +2354,7 @@ function MemberFormPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => handleBack()} // ✅ Sans ID = retour normal
+                onClick={() => handleBack()}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Annuler
@@ -2303,17 +2380,17 @@ function MemberFormPage() {
           </div>
         </div>
 
-        {/* Navigation par onglets */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeTab === tab.id
-                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-                  }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
+                  activeTab === tab.id
+                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+                }`}
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
@@ -2327,7 +2404,6 @@ function MemberFormPage() {
           </nav>
         </div>
 
-        {/* Notifications de statut */}
         {uploadStatus.loading && (
           <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
             <div className="flex items-center">
@@ -2361,13 +2437,11 @@ function MemberFormPage() {
           </div>
         )}
 
-        {/* Contenu principal des onglets */}
         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
           <div className="p-6">{renderCurrentTab()}</div>
         </div>
       </div>
 
-      {/* Modal caméra */}
       {showCamera && (
         <CameraModal
           key={showCamera}
@@ -2378,14 +2452,13 @@ function MemberFormPage() {
             if (showCamera === "document") {
               await captureDocument(imageData);
             } else {
-              handleCameraCapture(imageData);
+              await handleCameraCapture(imageData);
             }
           }}
           isDarkMode={isDarkMode}
         />
       )}
 
-      {/* Modal de confirmation */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         onConfirm={handleConfirmDelete}
