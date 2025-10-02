@@ -71,6 +71,53 @@ export const uploadPhoto = (path, file, opts) =>
 ------------------------------------------------------------------- */
 export const supabaseServices = {
   /* ---------------- Members ---------------- */
+
+  // ✅ NOUVEAU CODE ICI - LIGNES 72 à 109
+  async getMembersWithoutPhotos() {
+    const { data, error } = await supabase
+      .from("members")
+      .select(
+        "id, name, firstName, birthdate, gender, address, phone, mobile, email, subscriptionType, startDate, endDate, badgeId, files, etudiant"
+      )
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Erreur getMembersWithoutPhotos:", error);
+      throw error;
+    }
+
+    return (data || []).map((member) => ({
+      ...member,
+      files: member.files || [],
+      etudiant: !!member.etudiant,
+      photo: null,
+    }));
+  },
+
+  async getMemberPhotos(memberIds) {
+    if (!memberIds || memberIds.length === 0) return {};
+
+    const { data, error } = await supabase
+      .from("members")
+      .select("id, photo")
+      .in("id", memberIds);
+
+    if (error) {
+      console.error("Erreur getMemberPhotos:", error);
+      throw error;
+    }
+
+    const photosMap = {};
+    (data || []).forEach((member) => {
+      if (member.photo) {
+        photosMap[member.id] = member.photo;
+      }
+    });
+
+    return photosMap;
+  },
+  // FIN DU NOUVEAU CODE
+
   async getMembers() {
     const { data, error } = await supabase
       .from("members")
