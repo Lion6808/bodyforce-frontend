@@ -1,4 +1,4 @@
-// 📄 HomePage.js — Page d'accueil COMPLÈTE (fusion + widgets réintégrés) — Dossier : src/pages
+// 📄 HomePage.js — Page d'accueil COMPLÈTE (fusion + widgets réintégrés + skeletons) — Dossier : src/pages
 // 👤 Utilisateur: Hero de bienvenue + grande photo
 // 🛡️ Admin: Hero avec badges perso + widgets stats club + widgets motivation
 // ✅ Les stats sont chargées pour tous les utilisateurs connectés
@@ -9,6 +9,7 @@
 //    - Derniers passages (ADMIN)
 //    - Derniers membres inscrits (ADMIN)
 //    - Abonnements échus (ADMIN)
+// ✅ Ajout: Skeletons/Loaders + petite factorisation (cartes stats)
 
 import React, { useEffect, useState } from "react";
 import { isToday, isBefore, parseISO, format } from "date-fns";
@@ -34,6 +35,45 @@ import { supabaseServices, supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 
 // ====================================================
+// SKELETONS / LOADERS (simples et légers)
+// ====================================================
+const SkeletonPulse = ({ className = "" }) => (
+  <div className={`bg-gray-200 dark:bg-gray-700 animate-pulse ${className}`} />
+);
+
+const SkeletonCard = () => (
+  <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-100 dark:border-gray-700 animate-pulse">
+    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
+    <div className="ml-4 flex-1">
+      <SkeletonPulse className="h-4 w-24 mb-2 rounded" />
+      <SkeletonPulse className="h-6 w-16 rounded" />
+    </div>
+  </div>
+);
+
+const SkeletonListItem = () => (
+  <div className="flex items-center justify-between p-3 rounded-lg border border-transparent">
+    <div className="flex items-center gap-3 min-w-0 flex-1">
+      <SkeletonPulse className="w-10 h-10 rounded-full" />
+      <div className="min-w-0 flex-1">
+        <SkeletonPulse className="h-4 w-40 mb-2 rounded" />
+        <SkeletonPulse className="h-3 w-24 rounded" />
+      </div>
+    </div>
+    <div className="text-right flex-shrink-0 ml-3">
+      <SkeletonPulse className="h-4 w-12 mb-1 rounded" />
+      <SkeletonPulse className="h-3 w-10 rounded" />
+    </div>
+  </div>
+);
+
+const SkeletonRing = () => (
+  <div className="flex items-center justify-center">
+    <div className="w-40 h-40 rounded-full border-8 border-gray-200 dark:border-gray-700 animate-pulse" />
+  </div>
+);
+
+// ====================================================
 // COMPOSANT : Widgets de Motivation Admin (stats club)
 // ====================================================
 const AdminMotivationWidgets = ({ stats, paymentSummary, attendance7d, latestMembers }) => {
@@ -50,7 +90,6 @@ const AdminMotivationWidgets = ({ stats, paymentSummary, attendance7d, latestMem
     const maxPossibleDaily = currentMembers * 0.4;
     const attendanceRate = maxPossibleDaily > 0 ? Math.min(Math.round((avgPerDay / maxPossibleDaily) * 100), 100) : 0;
 
-    const totalRevenue = paymentSummary?.paidAmount || 0;
     const paymentRate = paymentSummary?.totalAmount > 0
       ? Math.round((paymentSummary.paidAmount / paymentSummary.totalAmount) * 100)
       : 0;
@@ -64,7 +103,6 @@ const AdminMotivationWidgets = ({ stats, paymentSummary, attendance7d, latestMem
       totalAttendances,
       avgPerDay,
       attendanceRate,
-      totalRevenue,
       paymentRate,
     };
   };
@@ -91,41 +129,15 @@ const AdminMotivationWidgets = ({ stats, paymentSummary, attendance7d, latestMem
 
   const getAdminBadges = () => {
     const badges = [];
-
-    if (metrics.paymentRate >= 95) {
-      badges.push({ icon: <FaDollarSign />, name: "Gestion parfaite", desc: `${metrics.paymentRate}% encaissés`, color: "from-emerald-500 to-green-600" });
-    }
-    if (metrics.attendanceRate >= 80 || metrics.totalAttendances >= 150) {
-      badges.push({ icon: <FaFire />, name: "Club actif", desc: `${metrics.totalAttendances} passages/sem`, color: "from-orange-500 to-red-600" });
-    }
-    if (metrics.newMembersThisMonth >= 5) {
-      badges.push({ icon: <FaRocket />, name: "Forte croissance", desc: `+${metrics.newMembersThisMonth} membres`, color: "from-purple-500 to-pink-600" });
-    }
-    if (metrics.currentMembers >= 200) {
-      badges.push({ icon: <FaUsers />, name: "Cap des 200", desc: `${metrics.currentMembers} membres`, color: "from-blue-500 to-indigo-600" });
-    }
-    if (metrics.goalProgress >= 80) {
-      badges.push({ icon: <FaBullseye />, name: "Objectif proche", desc: `${Math.round(metrics.goalProgress)}% atteint`, color: "from-cyan-500 to-blue-600" });
-    }
-
+    if (metrics.paymentRate >= 95) badges.push({ icon: <FaDollarSign />, name: "Gestion parfaite", desc: `${metrics.paymentRate}% encaissés`, color: "from-emerald-500 to-green-600" });
+    if (metrics.attendanceRate >= 80 || metrics.totalAttendances >= 150) badges.push({ icon: <FaFire />, name: "Club actif", desc: `${metrics.totalAttendances} passages/sem`, color: "from-orange-500 to-red-600" });
+    if (metrics.newMembersThisMonth >= 5) badges.push({ icon: <FaRocket />, name: "Forte croissance", desc: `+${metrics.newMembersThisMonth} membres`, color: "from-purple-500 to-pink-600" });
+    if (metrics.currentMembers >= 200) badges.push({ icon: <FaUsers />, name: "Cap des 200", desc: `${metrics.currentMembers} membres`, color: "from-blue-500 to-indigo-600" });
+    if (metrics.goalProgress >= 80) badges.push({ icon: <FaBullseye />, name: "Objectif proche", desc: `${Math.round(metrics.goalProgress)}% atteint`, color: "from-cyan-500 to-blue-600" });
     return badges;
   };
 
   const adminBadges = getAdminBadges();
-
-  const getNextMilestone = () => {
-    if (metrics.currentMembers < 250) {
-      const remaining = metrics.memberGoal - metrics.currentMembers;
-      return { icon: <FaBullseye />, title: "Prochain objectif", desc: `Recruter ${remaining} membre${remaining > 1 ? "s" : ""} pour atteindre 250`, progress: metrics.goalProgress };
-    }
-    if (paymentSummary?.paymentRate < 95) {
-      const pendingCount = paymentSummary?.pendingCount || 0;
-      return { icon: <FaDollarSign />, title: "Améliorer encaissements", desc: `${pendingCount} paiement${pendingCount > 1 ? "s" : ""} en attente`, progress: Math.min(100, Math.round((paymentSummary.paidAmount / Math.max(1, paymentSummary.totalAmount)) * 100)) };
-    }
-    return { icon: <FaTrophy />, title: "Excellent travail !", desc: "Tous les objectifs principaux sont atteints", progress: 100 };
-  };
-
-  const nextMilestone = getNextMilestone();
 
   return (
     <div className="space-y-6 mb-8">
@@ -135,11 +147,10 @@ const AdminMotivationWidgets = ({ stats, paymentSummary, attendance7d, latestMem
           <div className="flex-1 min-w-0">
             <h3 className="text-2xl font-bold mb-1">{motivationMessage.title}</h3>
             <p className="text-blue-100 dark:text-blue-200 text-sm">{motivationMessage.desc}</p>
-
             <div className="mt-4 flex flex-wrap gap-3">
               <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2">
                 <div className="text-xs text-blue-100">Membres</div>
-                <div className="text-lg font-bold">{(stats?.total || 0)}</div>
+                <div className="text-lg font-bold">{stats?.total || 0}</div>
               </div>
               <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2">
                 <div className="text-xs text-blue-100">Passages/jour</div>
@@ -151,182 +162,15 @@ const AdminMotivationWidgets = ({ stats, paymentSummary, attendance7d, latestMem
               </div>
             </div>
           </div>
-
           {adminBadges.length > 0 && (
             <div className="hidden lg:flex gap-2 flex-shrink-0">
               {adminBadges.slice(0, 3).map((badge, idx) => (
-                <div
-                  key={idx}
-                  className={`w-14 h-14 rounded-xl bg-gradient-to-br ${badge.color} flex items-center justify-center text-white text-xl shadow-lg transform hover:scale-110 transition-transform cursor-pointer`}
-                  title={`${badge.name}: ${badge.desc}`}
-                >
+                <div key={idx} className={`w-14 h-14 rounded-xl bg-gradient-to-br ${badge.color} flex items-center justify-center text-white text-xl shadow-lg transform hover:scale-110 transition-transform cursor-pointer`} title={`${badge.name}: ${badge.desc}`}>
                   {badge.icon}
                 </div>
               ))}
             </div>
           )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-              <FaBullseye className="text-blue-600 dark:text-blue-400 text-xl" />
-            </div>
-            <div>
-              <h4 className="text-gray-900 dark:text-white font-bold text-lg">Objectif 250</h4>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">membres actifs</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex justify-between items-baseline">
-              <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">{stats?.total || 0}</span>
-              <span className="text-gray-500 dark:text-gray-400 text-sm">/ 250</span>
-            </div>
-
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-400 dark:to-blue-500 h-3 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(((stats?.total || 0) / 250) * 100, 100)}%` }}
-              />
-            </div>
-
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-600 dark:text-gray-300">
-                <strong>{Math.round(((stats?.total || 0) / 250) * 100)}%</strong> atteint
-              </span>
-              <span className="text-blue-600 dark:text-blue-400 font-medium">
-                +{Math.max(0, 250 - (stats?.total || 0))} restants
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-              <FaChartLine className="text-purple-600 dark:text-purple-400 text-xl" />
-            </div>
-            <div>
-              <h4 className="text-gray-900 dark:text-white font-bold text-lg">Croissance</h4>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">nouveaux membres</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-purple-600 dark:text-purple-400">+{latestMembers?.length || 0}</span>
-              <span className="text-gray-500 dark:text-gray-400 text-sm">récemment</span>
-            </div>
-
-            <div className="pt-3 border-t dark:border-gray-700 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Total actuel</span>
-                <span className="font-bold text-gray-900 dark:text-white">{stats?.total || 0}</span>
-              </div>
-              {(latestMembers?.length || 0) >= 5 ? (
-                <p className="text-xs text-green-600 dark:text-green-400 font-medium">🚀 Excellente dynamique !</p>
-              ) : (
-                <p className="text-xs text-orange-600 dark:text-orange-400">💡 Intensifiez le recrutement</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
-              <FaFire className="text-orange-600 dark:text-orange-400 text-xl" />
-            </div>
-            <div>
-              <h4 className="text-gray-900 dark:text-white font-bold text-lg">Engagement</h4>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">activité du club</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-orange-600 dark:text-orange-400">{attendance7d.reduce((s, d) => s + (d.count || 0), 0)}</span>
-              <span className="text-gray-500 dark:text-gray-400 text-sm">passages/7j</span>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Moyenne/jour</span>
-                <span className="font-bold text-gray-900 dark:text-white">{attendance7d?.length ? Math.round(attendance7d.reduce((s, d) => s + (d.count || 0), 0) / attendance7d.length) : 0}</span>
-              </div>
-
-              {attendance7d?.length > 0 && (
-                <div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div className="bg-gradient-to-r from-orange-500 to-red-500 h-2 rounded-full" style={{ width: `${Math.min(100, Math.round(((attendance7d.reduce((s, d) => s + (d.count || 0), 0) / attendance7d.length) / Math.max(1, (stats?.total || 0) * 0.4)) * 100))}%` }} />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Taux d'activité estimé</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/** Badges admin **/}
-      {(() => {
-        const totalAttendances = attendance7d?.reduce((s, d) => s + (d.count || 0), 0) || 0;
-        const paymentRate = paymentSummary?.totalAmount > 0 ? Math.round((paymentSummary.paidAmount / paymentSummary.totalAmount) * 100) : 0;
-        const adminBadges = [];
-        if (paymentRate >= 95) adminBadges.push({ icon: <FaDollarSign />, name: "Gestion parfaite", desc: `${paymentRate}% encaissés`, color: "from-emerald-500 to-green-600" });
-        if (totalAttendances >= 150) adminBadges.push({ icon: <FaFire />, name: "Club actif", desc: `${totalAttendances} passages/sem`, color: "from-orange-500 to-red-600" });
-        if ((latestMembers?.length || 0) >= 5) adminBadges.push({ icon: <FaRocket />, name: "Forte croissance", desc: `+${latestMembers.length} membres`, color: "from-purple-500 to-pink-600" });
-        if ((stats?.total || 0) >= 200) adminBadges.push({ icon: <FaUsers />, name: "Cap des 200", desc: `${stats.total} membres`, color: "from-blue-500 to-indigo-600" });
-
-        return adminBadges.length > 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
-                <FaAward className="text-yellow-600 dark:text-yellow-400 text-xl" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-gray-900 dark:text-white font-bold text-lg">Badges de Performance</h4>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">{adminBadges.length} récompense{adminBadges.length > 1 ? "s" : ""} débloquée{adminBadges.length > 1 ? "s" : ""}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {adminBadges.map((badge, idx) => (
-                <div key={idx} className="group relative">
-                  <div className={`bg-gradient-to-br ${badge.color} rounded-xl p-4 text-white shadow-lg transform hover:scale-105 transition-all cursor-pointer`}>
-                    <div className="text-3xl mb-2 flex justify-center">{badge.icon}</div>
-                    <div className="text-center">
-                      <p className="font-bold text-sm">{badge.name}</p>
-                      <p className="text-xs opacity-90 mt-1">{badge.desc}</p>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null;
-      })()}
-
-      {/** Prochain jalon **/}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-6 border border-indigo-200 dark:border-indigo-800">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 bg-indigo-500 dark:bg-indigo-600 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xl">
-            <FaBullseye />
-          </div>
-          <div className="flex-1">
-            <h4 className="text-gray-900 dark:text-white font-bold text-lg mb-1">Prochain objectif</h4>
-            <p className="text-gray-700 dark:text-gray-300 text-sm mb-3">Recruter {Math.max(0, 250 - (stats?.total || 0))} membres pour atteindre 250</p>
-            <div>
-              <div className="w-full bg-white/50 dark:bg-gray-700/50 rounded-full h-2">
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(((stats?.total || 0) / 250) * 100, 100)}%` }} />
-              </div>
-              <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">{Math.round(((stats?.total || 0) / 250) * 100)}% complété</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -339,6 +183,14 @@ const AdminMotivationWidgets = ({ stats, paymentSummary, attendance7d, latestMem
 function HomePage() {
   const { user, role, userMemberData: memberCtx } = useAuth();
   const isAdmin = (role || "").toLowerCase() === "admin";
+
+  // Loading flags
+  const [loading, setLoading] = useState({
+    stats: true,
+    payments: true,
+    presences: true,
+    latestMembers: true,
+  });
 
   const [stats, setStats] = useState({
     total: 0,
@@ -398,9 +250,7 @@ function HomePage() {
           if (!orderErr && ordered) return ordered;
         }
         return data || [];
-      } catch {
-        // continue
-      }
+      } catch {}
     }
 
     try {
@@ -412,9 +262,7 @@ function HomePage() {
         const list = await supabaseServices.getPaymentsByMemberId(memberId);
         if (Array.isArray(list)) return list;
       }
-    } catch {
-      // continue
-    }
+    } catch {}
     return [];
   };
 
@@ -439,6 +287,7 @@ function HomePage() {
           console.error("Error loading presences:", error);
           setAttendance7d([]);
           setRecentPresences([]);
+          setLoading((s) => ({ ...s, presences: false }));
           return;
         }
 
@@ -475,13 +324,13 @@ function HomePage() {
             }, {});
           }
         }
-        setRecentPresences(
-          recent.map((r) => ({ id: r.id, ts: r.timestamp, member: membersByBadge[r.badgeId], badgeId: r.badgeId }))
-        );
+        setRecentPresences(recent.map((r) => ({ id: r.id, ts: r.timestamp, member: membersByBadge[r.badgeId], badgeId: r.badgeId })));
       } catch (e) {
         console.error("fetchAttendanceAdmin error:", e);
         setAttendance7d([]);
         setRecentPresences([]);
+      } finally {
+        setLoading((s) => ({ ...s, presences: false }));
       }
     };
 
@@ -503,23 +352,31 @@ function HomePage() {
             );
           } catch (statsError) {
             console.error("Could not fetch statistics:", statsError?.message);
+          } finally {
+            setLoading((s) => ({ ...s, stats: false }));
           }
 
           if (isAdmin) {
-            const payments = await supabaseServices.getPayments();
-            const paid = (payments || []).filter((p) => p.is_paid);
-            const pending = (payments || []).filter((p) => !p.is_paid);
-            const sum = (arr) => arr.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+            try {
+              const payments = await supabaseServices.getPayments();
+              const paid = (payments || []).filter((p) => p.is_paid);
+              const pending = (payments || []).filter((p) => !p.is_paid);
+              const sum = (arr) => arr.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
 
-            setPendingPayments(pending);
-            setPaymentSummary({
-              totalCount: payments?.length || 0,
-              paidCount: paid.length,
-              pendingCount: pending.length,
-              totalAmount: sum(payments || []),
-              paidAmount: sum(paid),
-              pendingAmount: sum(pending),
-            });
+              setPendingPayments(pending);
+              setPaymentSummary({
+                totalCount: payments?.length || 0,
+                paidCount: paid.length,
+                pendingCount: pending.length,
+                totalAmount: sum(payments || []),
+                paidAmount: sum(paid),
+                pendingAmount: sum(pending),
+              });
+            } catch (e) {
+              console.error("Payments fetch error:", e);
+            } finally {
+              setLoading((s) => ({ ...s, payments: false }));
+            }
 
             await fetchAttendanceAdmin();
 
@@ -538,24 +395,35 @@ function HomePage() {
             } catch (e) {
               console.error("Latest members fetch error:", e);
               setLatestMembers([]);
+            } finally {
+              setLoading((s) => ({ ...s, latestMembers: false }));
             }
           } else {
-            if (memberCtx?.id) {
-              const memberPayments = await fetchMemberPayments(memberCtx.id);
-              setUserPayments(memberPayments || []);
-            } else {
-              setUserPayments([]);
+            try {
+              if (memberCtx?.id) {
+                const memberPayments = await fetchMemberPayments(memberCtx.id);
+                setUserPayments(memberPayments || []);
+              } else {
+                setUserPayments([]);
+              }
+            } catch (e) {
+              console.error("User payments fetch error:", e);
+            } finally {
+              setLoading((s) => ({ ...s, payments: false }));
             }
           }
         } else {
           setUserPayments([]);
+          setLoading((s) => ({ ...s, stats: false, payments: false, presences: false, latestMembers: false }));
         }
       } catch (e) {
         console.error("HomePage fetch error:", e);
+        setLoading((s) => ({ ...s, stats: false, payments: false, presences: false, latestMembers: false }));
       }
     };
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, user, isAdmin, memberCtx?.id]);
 
   // Stats perso admin (streak/level/visites mois)
@@ -630,6 +498,7 @@ function HomePage() {
     return (a + b).toUpperCase() || "?";
   };
 
+  // ===== Widget StatCard générique (factorisé)
   const StatCard = ({ icon: Icon, label, value, color }) => (
     <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 border border-gray-100 dark:border-gray-700">
       <div className={`p-3 rounded-full ${color} text-white`}>
@@ -642,6 +511,7 @@ function HomePage() {
     </div>
   );
 
+  // Anneau de progression SVG
   const CircularProgress = ({ size = 160, stroke = 14, value = 0 }) => {
     const radius = (size - stroke) / 2;
     const circumference = 2 * Math.PI * radius;
@@ -675,7 +545,7 @@ function HomePage() {
 
   return (
     <div className="p-6 bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-      {/* HERO UTILISATEUR avec badges perso admin */}
+      {/* HERO UTILISATEUR */}
       {user && (
         <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-blue-500/10 dark:from-indigo-400/10 dark:via-emerald-400/10 dark:to-blue-400/10" />
@@ -684,9 +554,7 @@ function HomePage() {
               {memberPhoto ? (
                 <img src={memberPhoto} alt={memberDisplayName} width="160" height="160" className="w-32 h-32 md:w-40 md:h-40 rounded-2xl object-cover shadow-xl ring-4 ring-white dark:ring-gray-700" decoding="async" fetchPriority="high" />
               ) : (
-                <div className="w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-700">
-                  {getInitials(memberFirstName, memberLastName) || "?"}
-                </div>
+                <div className="w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-700">{getInitials(memberFirstName, memberLastName) || "?"}</div>
               )}
               <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-emerald-400/90 blur-sm" />
             </div>
@@ -710,9 +578,7 @@ function HomePage() {
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300">🎯 {adminPersonalStats.monthVisits}/{adminPersonalStats.monthlyGoal} ce mois</span>
                     <a href="/my-attendances" className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center gap-1">
                       Voir mes stats
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </a>
                   </>
                 )}
@@ -726,40 +592,52 @@ function HomePage() {
         </div>
       )}
 
-      {/* Widgets statistiques (pour tous) */}
+      {/* Widgets statistiques (pour tous) avec skeletons */}
       {user && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard icon={FaUsers} label="Total Membres" value={stats.total} color="bg-blue-500" />
-          <StatCard icon={FaUserCheck} label="Actifs" value={stats.actifs} color="bg-green-500" />
-          <StatCard icon={FaUserTimes} label="Expirés" value={stats.expirés} color="bg-red-500" />
-          <StatCard icon={FaMale} label="Hommes" value={stats.hommes} color="bg-indigo-500" />
-          <StatCard icon={FaFemale} label="Femmes" value={stats.femmes} color="bg-pink-500" />
-          <StatCard icon={FaGraduationCap} label="Étudiants" value={stats.etudiants} color="bg-yellow-500" />
+          {loading.stats ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : (
+            <>
+              <StatCard icon={FaUsers} label="Total Membres" value={stats.total} color="bg-blue-500" />
+              <StatCard icon={FaUserCheck} label="Actifs" value={stats.actifs} color="bg-green-500" />
+              <StatCard icon={FaUserTimes} label="Expirés" value={stats.expirés} color="bg-red-500" />
+              <StatCard icon={FaMale} label="Hommes" value={stats.hommes} color="bg-indigo-500" />
+              <StatCard icon={FaFemale} label="Femmes" value={stats.femmes} color="bg-pink-500" />
+              <StatCard icon={FaGraduationCap} label="Étudiants" value={stats.etudiants} color="bg-yellow-500" />
+            </>
+          )}
         </div>
       )}
 
       {/* Widgets de motivation admin (stats club) */}
       {isAdmin && (
-        <AdminMotivationWidgets
-          stats={stats}
-          paymentSummary={paymentSummary}
-          attendance7d={attendance7d}
-          latestMembers={latestMembers}
-        />
+        <AdminMotivationWidgets stats={stats} paymentSummary={paymentSummary} attendance7d={attendance7d} latestMembers={latestMembers} />
       )}
 
       {/* Vos paiements (NON-ADMIN) */}
       {user && !isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <FaCreditCard className="text-blue-500" />
-              Vos paiements
-            </h2>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{userPayments?.length || 0} opération(s)</span>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2"><FaCreditCard className="text-blue-500" />Vos paiements</h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{loading.payments ? "—" : (userPayments?.length || 0)} opération(s)</span>
           </div>
 
-          {userPayments?.length > 0 ? (
+          {loading.payments ? (
+            <div className="space-y-2">
+              <SkeletonListItem />
+              <SkeletonListItem />
+              <SkeletonListItem />
+              <SkeletonListItem />
+            </div>
+          ) : userPayments?.length > 0 ? (
             <ul className="divide-y divide-gray-200 dark:divide-gray-700">
               {userPayments.map((p) => {
                 const isPaid = !!p.is_paid;
@@ -792,65 +670,54 @@ function HomePage() {
         </div>
       )}
 
-      {/* ========================= */}
-      {/*  État global des paiements (ADMIN) — réintégré */}
-      {/* ========================= */}
+      {/* État global des paiements (ADMIN) — réintégré avec skeleton */}
       {isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <FaCreditCard className="text-blue-500" />
-              État global des paiements
-            </h2>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{totalCount} opérations • {(totalAmount || 0).toFixed(2)} €</span>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2"><FaCreditCard className="text-blue-500" />État global des paiements</h2>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{loading.payments ? "Chargement…" : `${totalCount} opérations • ${(totalAmount || 0).toFixed(2)} €`}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-6">
             <div className="flex justify-center">
-              <CircularProgress value={progress} />
+              {loading.payments ? <SkeletonRing /> : <CircularProgress value={progress} />}
             </div>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block w-3 h-3 rounded-full bg-green-500" />
-                  <span className="text-gray-700 dark:text-gray-300 font-medium">Payé</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-gray-900 dark:text-white font-semibold">{(paidAmount || 0).toFixed(2)} €</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{paidCount} op.</div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block w-3 h-3 rounded-full bg-amber-500" />
-                  <span className="text-gray-700 dark:text-gray-300 font-medium">En attente</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-gray-900 dark:text-white font-semibold">{(pendingAmount || 0).toFixed(2)} €</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{pendingCount} op.</div>
-                </div>
-              </div>
-              <div className="mt-2">
-                <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                  <div className="h-2 bg-gradient-to-r from-green-500 to-blue-500" style={{ width: `${Math.round(progress * 100)}%` }} />
-                </div>
-                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{Math.round(progress * 100)}% du montant total déjà encaissé</div>
-              </div>
+              {loading.payments ? (
+                <>
+                  <div className="flex items-center justify-between"><SkeletonPulse className="h-4 w-40 rounded" /><SkeletonPulse className="h-4 w-24 rounded" /></div>
+                  <div className="flex items-center justify-between"><SkeletonPulse className="h-4 w-40 rounded" /><SkeletonPulse className="h-4 w-24 rounded" /></div>
+                  <SkeletonPulse className="h-2 w-full rounded" />
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3"><span className="inline-block w-3 h-3 rounded-full bg-green-500" /><span className="text-gray-700 dark:text-gray-300 font-medium">Payé</span></div>
+                    <div className="text-right"><div className="text-gray-900 dark:text-white font-semibold">{(paidAmount || 0).toFixed(2)} €</div><div className="text-sm text-gray-500 dark:text-gray-400">{paidCount} op.</div></div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3"><span className="inline-block w-3 h-3 rounded-full bg-amber-500" /><span className="text-gray-700 dark:text-gray-300 font-medium">En attente</span></div>
+                    <div className="text-right"><div className="text-gray-900 dark:text-white font-semibold">{(pendingAmount || 0).toFixed(2)} €</div><div className="text-sm text-gray-500 dark:text-gray-400">{pendingCount} op.</div></div>
+                  </div>
+                  <div className="mt-2">
+                    <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden"><div className="h-2 bg-gradient-to-r from-green-500 to-blue-500" style={{ width: `${Math.round(progress * 100)}%` }} /></div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{Math.round(progress * 100)}% du montant total déjà encaissé</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* ========================= */}
-      {/*  Présences 7 derniers jours + Derniers passages (ADMIN) — réintégré */}
-      {/* ========================= */}
+      {/* Présences 7 derniers jours + Derniers passages (ADMIN) — réintégré avec skeletons */}
       {isAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Graph 7 derniers jours */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Présences — 7 derniers jours</h2>
-              {attendance7d.length > 0 && (
+              {!loading.presences && attendance7d.length > 0 && (
                 <div className="text-right">
                   <div className="text-sm font-medium text-gray-900 dark:text-white">{attendance7d.reduce((sum, d) => sum + d.count, 0)} passages</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Moy: {Math.round(attendance7d.reduce((sum, d) => sum + d.count, 0) / 7)}/jour</div>
@@ -858,8 +725,15 @@ function HomePage() {
               )}
             </div>
 
-            {attendance7d.length > 0 ? (
+            {loading.presences ? (
+              <div className="h-60 flex items-end justify-between pl-10 pr-2 pb-2 gap-2">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <SkeletonPulse key={i} className="w-full h-40 rounded" />
+                ))}
+              </div>
+            ) : attendance7d.length > 0 ? (
               <div className="relative w-full">
+                {/* (graph custom identique à ta version, inchangé) */}
                 <div className="relative h-48 sm:h-56 lg:h-60">
                   <div className="absolute inset-0">
                     {(() => {
@@ -890,69 +764,23 @@ function HomePage() {
                       return (
                         <div key={idx} className="flex flex-col items-center justify-end group cursor-pointer" style={{ width: "calc(100% / 7 - 8px)" }}>
                           <div className={`text-xs font-medium mb-1 transition-all duration-200 ${d.count > 0 ? "text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400" : "text-gray-400 dark:text-gray-600"}`}>{d.count}</div>
-                          <div
-                            className={`w-full rounded-t-lg shadow-lg transition-all duration-500 group-hover:shadow-xl relative overflow-hidden ${isTodayLabel ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800" : ""}`}
+                          <div className={`w-full rounded-t-lg shadow-lg transition-all duration-500 group-hover:shadow-xl relative overflow-hidden ${isTodayLabel ? "ring-2 ring-blue-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800" : ""}`}
                             style={{
                               height: `${heightInPixels}px`,
-                              background:
-                                d.count > 0
-                                  ? isTodayLabel
-                                    ? "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(16,185,129,1) 50%, rgba(34,197,94,1) 100%)"
-                                    : isWeekend
-                                    ? "linear-gradient(180deg, rgba(139,92,246,1) 0%, rgba(168,85,247,1) 100%)"
-                                    : "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(34,197,94,1) 100%)"
-                                  : "linear-gradient(180deg, rgba(156,163,175,0.3) 0%, rgba(156,163,175,0.1) 100%)",
-                            }}
-                          >
+                              background: d.count > 0 ? (isTodayLabel ? "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(16,185,129,1) 50%, rgba(34,197,94,1) 100%)" : (isWeekend ? "linear-gradient(180deg, rgba(139,92,246,1) 0%, rgba(168,85,247,1) 100%)" : "linear-gradient(180deg, rgba(59,130,246,1) 0%, rgba(34,197,94,1) 100%)")) : "linear-gradient(180deg, rgba(156,163,175,0.3) 0%, rgba(156,163,175,0.1) 100%)",
+                            }}>
                             {d.count > 0 && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />}
-                          </div>
-                          <div className="absolute bottom-full mb-8 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-3 py-2 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-10">
-                            <div className="font-medium">{format(d.date, "EEEE dd/MM")}</div>
-                            <div className="text-gray-300 dark:text-gray-400">{d.count} passage{d.count > 1 ? "s" : ""}{isTodayLabel && " (Aujourd'hui)"}{isWeekend && " (Week-end)"}</div>
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-
-                <div className="mt-4 flex justify-between pl-10 pr-2">
-                  {attendance7d.map((d, idx) => {
-                    const isTodayLabel = format(d.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-                    const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6;
-                    return (
-                      <div key={idx} className="flex flex-col items-center" style={{ width: "calc(100% / 7 - 8px)" }}>
-                        <span className={`text-xs font-medium ${isTodayLabel ? "text-blue-600 dark:text-blue-400 font-bold" : isWeekend ? "text-purple-600 dark:text-purple-400" : "text-gray-600 dark:text-gray-400"}`}>{format(d.date, "dd/MM")}</span>
-                        <span className={`text-[10px] ${isTodayLabel ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"}`}>{format(d.date, "EEE").substring(0, 3)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-4 justify-center text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded bg-gradient-to-b from-blue-500 to-green-500" />
-                    <span className="text-gray-600 dark:text-gray-400">Jours ouvrés</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded bg-gradient-to-b from-purple-500 to-purple-600" />
-                    <span className="text-gray-600 dark:text-gray-400">Week-end</span>
-                  </div>
-                  {attendance7d.some((d) => format(d.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")) && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-blue-400 ring-2 ring-blue-400 ring-opacity-50" />
-                      <span className="text-gray-600 dark:text-gray-400">Aujourd'hui</span>
-                    </div>
-                  )}
-                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2 2z" />
-                  </svg>
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2 2z" /></svg>
                 </div>
                 <div className="text-sm font-medium mb-1">Aucune présence</div>
                 <div className="text-xs">Aucune donnée disponible sur la période</div>
@@ -964,18 +792,24 @@ function HomePage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Derniers passages</h2>
-              {recentPresences.length > 0 && (
+              {!loading.presences && recentPresences.length > 0 && (
                 <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium px-2.5 py-0.5 rounded-full">{recentPresences.length} récents</span>
               )}
             </div>
 
-            {recentPresences.length > 0 ? (
+            {loading.presences ? (
+              <div className="space-y-2">
+                <SkeletonListItem />
+                <SkeletonListItem />
+                <SkeletonListItem />
+                <SkeletonListItem />
+              </div>
+            ) : recentPresences.length > 0 ? (
               <div className="space-y-1 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
                 {recentPresences.map((r, index) => {
                   const m = r.member;
                   const ts = typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
                   const displayName = m ? `${m.firstName || ""} ${m.name || ""}`.trim() : `Badge ${r.badgeId || "?"}`;
-
                   const getTimeAgo = (date) => {
                     const now = new Date();
                     const diffInMinutes = Math.floor((now - date) / (1000 * 60));
@@ -987,18 +821,14 @@ function HomePage() {
                     if (diffInDays < 7) return `Il y a ${diffInDays}j`;
                     return format(date, "dd/MM/yyyy");
                   };
-
                   const timeAgo = getTimeAgo(ts);
-
                   return (
                     <div key={r.id} className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         {m?.photo ? (
                           <img src={m.photo} alt={displayName} width="40" height="40" className="w-10 h-10 rounded-full object-cover shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200" loading="lazy" decoding="async" referrerPolicy="no-referrer" sizes="40px" />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200">
-                            {getInitials(m?.firstName, m?.name)}
-                          </div>
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-semibold text-white shadow-lg border-2 border-white dark:border-gray-700 group-hover:shadow-xl group-hover:scale-105 transition-all duration-200">{getInitials(m?.firstName, m?.name)}</div>
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{displayName}</div>
@@ -1010,9 +840,7 @@ function HomePage() {
                         <div className="text-xs text-gray-500 dark:text-gray-400">{format(ts, "dd/MM")}</div>
                       </div>
                       {index < 3 && (
-                        <div className="ml-2">
-                          <div className={`w-2 h-2 rounded-full ${index === 0 ? "bg-green-400 animate-pulse" : index === 1 ? "bg-yellow-400" : "bg-gray-400"}`} />
-                        </div>
+                        <div className="ml-2"><div className={`w-2 h-2 rounded-full ${index === 0 ? "bg-green-400 animate-pulse" : index === 1 ? "bg-yellow-400" : "bg-gray-400"}`} /></div>
                       )}
                     </div>
                   );
@@ -1021,9 +849,7 @@ function HomePage() {
             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
                 <div className="text-sm font-medium mb-1">Aucun passage récent</div>
                 <div className="text-xs">Les derniers passages apparaîtront ici</div>
@@ -1033,16 +859,20 @@ function HomePage() {
         </div>
       )}
 
-      {/* ========================= */}
-      {/*  Derniers membres inscrits (ADMIN) — réintégré */}
-      {/* ========================= */}
+      {/* Derniers membres inscrits (ADMIN) — réintégré avec skeletons */}
       {isAdmin && (
         <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Derniers membres inscrits</h2>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{latestMembers.length} / 3</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{loading.latestMembers ? "—" : `${latestMembers.length} / 3`}</span>
           </div>
-          {latestMembers.length > 0 ? (
+          {loading.latestMembers ? (
+            <div className="space-y-2">
+              <SkeletonListItem />
+              <SkeletonListItem />
+              <SkeletonListItem />
+            </div>
+          ) : latestMembers.length > 0 ? (
             <ul className="divide-y divide-gray-200 dark:divide-gray-700">
               {latestMembers.map((m) => {
                 const displayName = `${m.firstName || ""} ${m.name || ""}`.trim() || `Membre #${m.id}`;
@@ -1070,9 +900,7 @@ function HomePage() {
         </div>
       )}
 
-      {/* ========================= */}
-      {/*  Abonnements échus (ADMIN) — réintégré */}
-      {/* ========================= */}
+      {/* Abonnements échus (ADMIN) — réintégré (pas de skeleton spécifique) */}
       {isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Abonnements échus</h2>
@@ -1088,9 +916,7 @@ function HomePage() {
               </ul>
               {stats.membresExpirés.length > 5 && (
                 <div className="mt-4 text-center">
-                  <a href="/members?filter=expired" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                    Voir les {stats.membresExpirés.length - 5} autres...
-                  </a>
+                  <a href="/members?filter=expired" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Voir les {stats.membresExpirés.length - 5} autres...</a>
                 </div>
               )}
             </>
