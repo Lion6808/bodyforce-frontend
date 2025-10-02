@@ -295,8 +295,8 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                     <button
                       onClick={switchCamera}
                       className={`p-3 rounded-full border-2 ${isDarkMode
-                          ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                          : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-100"
                         } transition-colors`}
                     >
                       <SwitchCamera className="w-6 h-6" />
@@ -312,8 +312,8 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   <button
                     onClick={onClose}
                     className={`p-3 rounded-full border-2 ${isDarkMode
-                        ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-                        : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                      ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                      : "border-gray-300 text-gray-600 hover:bg-gray-100"
                       } transition-colors`}
                   >
                     <X className="w-6 h-6" />
@@ -359,8 +359,8 @@ function InputField({ label, icon: Icon, error, ...props }) {
         <input
           {...props}
           className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${error
-              ? "border-red-300 bg-red-50 dark:bg-red-950"
-              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+            ? "border-red-300 bg-red-50 dark:bg-red-950"
+            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
             }`}
         />
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -380,8 +380,8 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
         <select
           {...props}
           className={`w-full px-4 py-3 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${error
-              ? "border-red-300 bg-red-50 dark:bg-red-950"
-              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
+            ? "border-red-300 bg-red-50 dark:bg-red-950"
+            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
             }`}
         >
           {options.map((opt) => (
@@ -433,8 +433,8 @@ function ConfirmDialog({
           <div className="flex items-center gap-4 mb-4">
             <div
               className={`p-3 rounded-full ${type === "danger"
-                  ? "bg-red-100 dark:bg-red-900/30"
-                  : "bg-orange-100 dark:bg-orange-900/30"
+                ? "bg-red-100 dark:bg-red-900/30"
+                : "bg-orange-100 dark:bg-orange-900/30"
                 }`}
             >
               {type === "danger" ? (
@@ -462,8 +462,8 @@ function ConfirmDialog({
             <button
               onClick={onConfirm}
               className={`px-4 py-2 text-white rounded-lg transition-colors ${type === "danger"
-                  ? "bg-red-600 hover:bg-red-700"
-                  : "bg-orange-600 hover:bg-orange-700"
+                ? "bg-red-600 hover:bg-red-700"
+                : "bg-orange-600 hover:bg-orange-700"
                 }`}
             >
               {type === "danger" ? "Supprimer" : "Confirmer"}
@@ -1112,8 +1112,8 @@ function MemberFormPage() {
               type="button"
               onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
               className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.etudiant
-                  ? "bg-gradient-to-r from-blue-500 to-purple-600"
-                  : "bg-gray-300 dark:bg-gray-600"
+                ? "bg-gradient-to-r from-blue-500 to-purple-600"
+                : "bg-gray-300 dark:bg-gray-600"
                 }`}
             >
               <span
@@ -1403,8 +1403,8 @@ function MemberFormPage() {
                   />
                   <div
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${newPayment.is_paid
-                        ? "bg-green-500 border-green-500"
-                        : "border-gray-300 dark:border-gray-500"
+                      ? "bg-green-500 border-green-500"
+                      : "border-gray-300 dark:border-gray-500"
                       }`}
                   >
                     {newPayment.is_paid && (
@@ -1462,14 +1462,14 @@ function MemberFormPage() {
                       <div className="flex items-center gap-3 mb-3">
                         <div
                           className={`p-2 rounded-lg ${pay.is_paid
-                              ? "bg-green-100 dark:bg-green-900"
-                              : "bg-orange-100 dark:bg-orange-900"
+                            ? "bg-green-100 dark:bg-green-900"
+                            : "bg-orange-100 dark:bg-orange-900"
                             }`}
                         >
                           <FaEuroSign
                             className={`w-4 h-4 ${pay.is_paid
-                                ? "text-green-600 dark:text-green-300"
-                                : "text-orange-600 dark:text-orange-300"
+                              ? "text-green-600 dark:text-green-300"
+                              : "text-orange-600 dark:text-orange-300"
                               }`}
                           />
                         </div>
@@ -1489,8 +1489,8 @@ function MemberFormPage() {
                             togglePaymentStatus(pay.id, !pay.is_paid)
                           }
                           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${pay.is_paid
-                              ? "bg-green-500 border-green-500"
-                              : "border-gray-300 dark:border-gray-500 hover:border-green-400"
+                            ? "bg-green-500 border-green-500"
+                            : "border-gray-300 dark:border-gray-500 hover:border-green-400"
                             }`}
                         >
                           {pay.is_paid && (
@@ -1499,8 +1499,8 @@ function MemberFormPage() {
                         </button>
                         <span
                           className={`text-sm font-medium ${pay.is_paid
-                              ? "text-green-600 dark:text-green-300"
-                              : "text-orange-600 dark:text-orange-300"
+                            ? "text-green-600 dark:text-green-300"
+                            : "text-orange-600 dark:text-orange-300"
                             }`}
                         >
                           {pay.is_paid ? "Encaissé" : "En attente"}
@@ -1700,6 +1700,7 @@ function MemberFormPage() {
             >
               30 derniers jours
             </button>
+
             <button
               onClick={() =>
                 setAttendanceFilters((prev) => ({
@@ -1713,6 +1714,21 @@ function MemberFormPage() {
               className="px-3 py-1 text-xs bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-blue-200 dark:border-blue-600 transition-colors"
             >
               3 derniers mois
+            </button>
+
+            {/* ✅ NOUVEAU BOUTON : Année en cours */}
+            <button
+              onClick={() => {
+                const currentYear = new Date().getFullYear();
+                setAttendanceFilters((prev) => ({
+                  ...prev,
+                  startDate: `${currentYear}-01-01`,
+                  endDate: new Date().toISOString().split("T")[0],
+                }));
+              }}
+              className="px-3 py-1 text-xs bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/50 dark:hover:to-purple-900/50 text-blue-700 dark:text-blue-400 rounded border-2 border-blue-300 dark:border-blue-600 transition-colors font-semibold"
+            >
+              📅 Année en cours
             </button>
           </div>
         </div>
@@ -1848,8 +1864,8 @@ function MemberFormPage() {
                       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-6 relative overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${index === 0 || index === 6
-                              ? "bg-gradient-to-r from-blue-400 to-blue-600"
-                              : "bg-gradient-to-r from-green-400 to-green-600"
+                            ? "bg-gradient-to-r from-blue-400 to-blue-600"
+                            : "bg-gradient-to-r from-green-400 to-green-600"
                             }`}
                           style={{ width: `${percentage}%` }}
                         ></div>
@@ -1944,18 +1960,18 @@ function MemberFormPage() {
                 <div
                   key={index}
                   className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${isToday(day.date)
-                      ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
-                      : isWeekend(day.date)
-                        ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700"
-                        : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
+                    : isWeekend(day.date)
+                      ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700"
+                      : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                     }`}
                 >
                   <div className="flex items-center gap-4">
                     <div className="text-center">
                       <div
                         className={`text-lg font-bold ${isToday(day.date)
-                            ? "text-blue-600 dark:text-blue-400"
-                            : "text-gray-900 dark:text-white"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-gray-900 dark:text-white"
                           }`}
                       >
                         {day.date.getDate()}
@@ -2004,10 +2020,10 @@ function MemberFormPage() {
 
                     <div
                       className={`px-3 py-1 rounded-full text-xs font-bold ${day.count === 1
-                          ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
-                          : day.count <= 3
-                            ? "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
-                            : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
+                        ? "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+                        : day.count <= 3
+                          ? "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
+                          : "bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300"
                         }`}
                     >
                       {day.count}
@@ -2295,8 +2311,8 @@ function MemberFormPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${activeTab === tab.id
-                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
                   }`}
               >
                 <tab.icon className="w-4 h-4" />
