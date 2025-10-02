@@ -1394,3 +1394,29 @@
 .swipe-content.swiping {
   transition: none;
 }
+
+/* ===== FIX BOTTOM NAVIGATION ===== */
+
+/* S'assurer que le menu "Plus" apparaît au bon endroit */
+.fixed.bottom-0 {
+  position: fixed !important;
+}
+
+/* Animation smooth du menu Plus */
+.bg-white.border-t {
+  transition: all 0.3s ease;
+}
+
+/* Éviter que le contenu passe sous la nav */
+@media (max-width: 768px) {
+  .swipe-container.pb-20 {
+    padding-bottom: 5rem; /* 80px pour la bottom nav */
+  }
+}
+
+/* Safe area pour iPhone avec encoche */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+}

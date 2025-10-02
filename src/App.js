@@ -1346,16 +1346,10 @@ function AppRoutes() {
 
       <PWAToast toast={toast} onClose={closeToast} />
 
-      {/* Contenu principal avec Bottom Nav */}
-      <main
-        className={`flex-1 flex flex-col overflow-hidden ${
-          isMobile ? "pb-16" : ""
-        }`}
-      >
+      {/* Contenu principal */}
+      <main className="flex-1 overflow-y-auto p-4">
         <div
-          className={`flex-1 overflow-y-auto ${
-            isMobile ? "swipe-container" : ""
-          } p-4`}
+          className={isMobile ? "swipe-container pb-20" : ""}
           onTouchStart={isMobile ? onTouchStart : undefined}
           onTouchMove={isMobile ? onTouchMove : undefined}
           onTouchEnd={isMobile ? onTouchEnd : undefined}
@@ -1393,12 +1387,14 @@ function AppRoutes() {
             </Routes>
           </div>
         </div>
-
-        {/* Bottom Navigation Bar (mobile uniquement) */}
-        {isMobile && (
-          <BottomNavigationBar isAdmin={isAdmin} currentPath={location.pathname} />
-        )}
       </main>
+
+      {/* Bottom Navigation Bar FIXED en bas (mobile uniquement) */}
+      {isMobile && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
+          <BottomNavigationBar isAdmin={isAdmin} currentPath={location.pathname} />
+        </div>
+      )}
     </div>
   );
 }
