@@ -3,7 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 /* ------------------------------------------------------------------
-   1) Client Supabase
+   1) Client Supabase (singleton pour éviter le warning GoTrue)
 ------------------------------------------------------------------- */
 const supabaseUrl =
   process.env.REACT_APP_SUPABASE_URL ||
@@ -15,19 +15,22 @@ const supabaseKey =
 
 const SB_OPTS = {
   auth: {
-    storageKey: 'bodyforce-auth',
-+    autoRefreshToken: true,
-+    persistSession: true,
-+    detectSessionInUrl: true,
+    storageKey: "bodyforce-auth",
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
   },
 };
- if (!globalThis.__SUPABASE__) {
-   globalThis.__SUPABASE__ = createClient(supabaseUrl, supabaseKey, SB_OPTS);
- }
- export const supabase = globalThis.__SUPABASE__;
+
+if (!globalThis.__SUPABASE__) {
+  globalThis.__SUPABASE__ = createClient(supabaseUrl, supabaseKey, SB_OPTS);
+}
+export const supabase = globalThis.__SUPABASE__;
 
 /* ------------------------------------------------------------------
    2) Helpers: cache des publicUrl + uploads avec cacheControl
+   (⚠️ Les photos membres ne passent plus par Storage ; on conserve
+   ces helpers pour les documents/certificats, etc.)
 ------------------------------------------------------------------- */
 
 // Petit cache mémoire pour éviter de recalculer les publicUrl à chaque rendu
@@ -44,7 +47,8 @@ export const getPublicUrlCached = (bucket, path) => {
   return url;
 };
 
-// 👉 Utilisé par tes pages pour les avatars
+// (Legacy) Utilisé ailleurs pour d'autres images éventuelles.
+// Pour les PHOTOS MEMBRES : ne plus appeler ceci.
 export const getPhotoUrl = (path) => getPublicUrlCached("photo", path);
 
 // Upload générique avec cache long (1 an) et upsert
@@ -58,14 +62,15 @@ export const uploadWithCacheControl = async (bucket, path, file, opts = {}) => {
   return data;
 };
 
-// Raccourci pour les photos
+// Raccourci pour les photos si jamais besoin (éviter pour les membres)
 export const uploadPhoto = (path, file, opts) =>
   uploadWithCacheControl("photo", path, file, opts);
 
 /* ------------------------------------------------------------------
-   3) Services existants (inchangés fonctionnellement)
+   3) Services applicatifs
 ------------------------------------------------------------------- */
 export const supabaseServices = {
+  /* ---------------- Members ---------------- */
   async getMembers() {
     const { data, error } = await supabase
       .from("members")
@@ -163,6 +168,7 @@ export const supabaseServices = {
     }
   },
 
+  /* ---------------- Presences ---------------- */
   async getPresences(startDate = null, endDate = null, badgeId = null) {
     let query = supabase
       .from("presences")
@@ -236,6 +242,7 @@ export const supabaseServices = {
     }
   },
 
+  /* ---------------- Payments ---------------- */
   async getPayments(memberId = null) {
     let query = supabase
       .from("payments")
@@ -297,11 +304,13 @@ export const supabaseServices = {
     return this.updatePayment(id, { is_paid: isPaid });
   },
 
+  /* ---------------- Files (documents/certificats) ---------------- */
   // ✅ Upload fichiers (utilise cache long + renvoie l’URL via le cache)
   async uploadFile(bucket, path, file) {
     const uploaded = await uploadWithCacheControl(bucket, path, file);
     const publicUrl = getPublicUrlCached(bucket, uploaded.path);
     return { path: uploaded.path, publicUrl };
+    // Note: pour les PHOTOS MEMBRES, ne pas utiliser Storage.
   },
 
   async deleteFile(bucket, path) {
@@ -318,6 +327,7 @@ export const supabaseServices = {
     return getPublicUrlCached(bucket, path);
   },
 
+  /* ---------------- Stats ---------------- */
   async getStatistics() {
     try {
       // Pagination Supabase (par 1000)
@@ -371,7 +381,7 @@ export const supabaseServices = {
                 endDate: member.endDate,
               });
             }
-          } catch (e) {
+          } catch {
             stats.expirés++;
           }
         } else {
@@ -401,6 +411,7 @@ export const supabaseServices = {
     }
   },
 
+  /* ---------------- Utils ---------------- */
   async testConnection() {
     try {
       const { error } = await supabase.from("members").select("id").limit(1);
