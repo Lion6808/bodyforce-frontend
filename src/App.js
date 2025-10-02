@@ -1636,10 +1636,8 @@ function AppRoutes() {
               </>
             )}
 
-            {/* Routes pour les utilisateurs non-admin */}
-            {!isAdmin && (
-              <Route path="/my-attendances" element={<MyAttendancesPage />} />
-            )}
+            {/* Routes pour tous les utilisateurs*/}
+            <Route path="/my-attendances" element={<MyAttendancesPage />} />
 
             {/* Route profil accessible à tous */}
             <Route path="/profile" element={<UserProfilePage />} />
