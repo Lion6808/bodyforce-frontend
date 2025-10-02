@@ -423,7 +423,8 @@ function HomePage() {
     };
 
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    /* eslint-disable-next-line */
+
   }, [role, user, isAdmin, memberCtx?.id]);
 
   // Stats perso admin (streak/level/visites mois)
