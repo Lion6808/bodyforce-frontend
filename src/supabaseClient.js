@@ -13,9 +13,18 @@ const supabaseKey =
   process.env.REACT_APP_SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwZ2NxcnN4dHRmbHV0ZHNhc2FyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MjEzMTYsImV4cCI6MjA2Nzk5NzMxNn0.7gecaEShO4oUStTcL9Xi-sJni9Pkb4d3mV5OVWxxiyM";
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
-});
+const SB_OPTS = {
+  auth: {
+    storageKey: 'bodyforce-auth',
++    autoRefreshToken: true,
++    persistSession: true,
++    detectSessionInUrl: true,
+  },
+};
+ if (!globalThis.__SUPABASE__) {
+   globalThis.__SUPABASE__ = createClient(supabaseUrl, supabaseKey, SB_OPTS);
+ }
+ export const supabase = globalThis.__SUPABASE__;
 
 /* ------------------------------------------------------------------
    2) Helpers: cache des publicUrl + uploads avec cacheControl
