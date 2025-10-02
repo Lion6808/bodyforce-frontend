@@ -1,8 +1,8 @@
-// ✅ MembersPage.js OPTIMISÉ EGRESS avec pagination + lazy photos
+// ✅ MembersPage.js COMPLET avec conservation du contexte + repositionnement (par id simple)
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabaseServices } from "../supabaseClient";
+import { supabaseServices, getPhotoUrl } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 import { isBefore, parseISO } from "date-fns";
 import {
@@ -12,13 +12,11 @@ import {
   FaSync,
   FaUser,
   FaExternalLinkAlt,
-  FaChevronLeft,
-  FaChevronRight,
 } from "react-icons/fa";
 
 import Avatar from "../components/Avatar";
 
-// [GARDÉ] Toutes les fonctions de recherche avancée inchangées
+// Normalise: minuscules + suppression des accents
 const normalize = (s = "") =>
   s
     .toString()
@@ -26,29 +24,48 @@ const normalize = (s = "") =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-const escapeForWildcard = (s) => s.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&");
+// Échappe les caractères regex (sauf * et ? que l'on gère ensuite)
+const escapeForWildcard = (s) => s.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&"); // on échappera * et ? après
 
+// Transforme un token utilisateur avec * et ? en RegExp
 const tokenToRegex = (tokenRaw) => {
   if (!tokenRaw) return null;
+
   let t = tokenRaw.trim();
+
+  // Autoriser ^ et $ si l'utilisateur les met volontairement
   const anchoredStart = t.startsWith("^");
   const anchoredEnd = t.endsWith("$");
+
+  // Enlève ^/$ pour ne pas les échapper
   if (anchoredStart) t = t.slice(1);
   if (anchoredEnd) t = t.slice(0, -1);
+
+  // Échappe tout sauf * et ?
   t = escapeForWildcard(t);
+
+  // Remplace * -> .*  et  ? -> .
   t = t.replace(/\*/g, ".*").replace(/\?/g, ".");
+
+  // Si l'utilisateur n'a pas mis d’ancrage, on fait un match "contient"
   if (!anchoredStart) t = ".*" + t;
   if (!anchoredEnd) t = t + ".*";
+
   return new RegExp("^" + t + "$", "i");
 };
 
+// Parse la recherche en clauses (OR) contenant des tokens (AND)
 const parseSearch = (search) => {
   const raw = (search || "").trim();
   if (!raw) return [];
+
+  // Split OR (insensible à la casse) — ex: "b* OR mar*" → deux clauses
   const orClauses = raw
     .split(/\s+OR\s+/i)
     .map((c) => c.trim())
     .filter(Boolean);
+
+  // Chaque clause est une liste (AND) de tokens séparés par espaces
   return orClauses.map((clause) =>
     clause
       .split(/\s+/)
@@ -59,18 +76,23 @@ const parseSearch = (search) => {
   );
 };
 
+// Teste si un membre correspond aux regex
 const matchesSearch = (member, compiledClauses) => {
   if (!compiledClauses.length) return true;
+
   const haystack = normalize(
     [member.name, member.firstName, member.badgeId, member.email, member.mobile]
       .filter(Boolean)
       .join(" ")
   );
+
+  // OR entre clauses, AND entre tokens d'une clause
   return compiledClauses.some((tokens) =>
     tokens.every((rx) => rx.test(haystack))
   );
 };
 
+// Analyse l'entrée utilisateur pour l'UI (badges, OR/AND, jokers, ancres)
 const analyzeSearch = (raw) => {
   const text = (raw || "").trim();
   if (!text)
@@ -80,6 +102,7 @@ const analyzeSearch = (raw) => {
       hasWildcards: false,
       hasAnchors: false,
     };
+
   const orParts = text
     .split(/\s+OR\s+/i)
     .map((s) => s.trim())
@@ -90,9 +113,10 @@ const analyzeSearch = (raw) => {
       .map((t) => t.trim())
       .filter(Boolean)
   );
+
   return {
     active: true,
-    clauses,
+    clauses, // ex: [["b*","homme"],["mar*"]]  => (b* AND homme) OR (mar*)
     hasWildcards: /[*?]/.test(text),
     hasAnchors: /(\^|\$)/.test(text),
   };
@@ -104,6 +128,7 @@ function SearchHints({ search }) {
 
   return (
     <div className="w-full sm:w-auto sm:max-w-[36rem] text-xs mt-1 space-y-1">
+      {/* Ligne d'état */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
           Recherche avancée
@@ -120,12 +145,13 @@ function SearchHints({ search }) {
         )}
       </div>
 
+      {/* Badges des clauses/tokens */}
       <div className="flex flex-wrap items-center gap-2">
         {info.clauses.map((tokens, i) => (
           <div
             key={i}
             className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-            title="Tous les tokens d'un groupe = AND"
+            title="Tous les tokens d’un groupe = AND"
           >
             {tokens.map((t, j) => (
               <span
@@ -150,6 +176,7 @@ function SearchHints({ search }) {
         )}
       </div>
 
+      {/* Mini aide */}
       <div className="text-[11px] text-gray-500 dark:text-gray-400">
         Exemples : <code className="font-mono">b*</code> (commence par b),{" "}
         <code className="font-mono">*son</code> (finit par son),{" "}
@@ -167,6 +194,7 @@ function MembersPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // ✅ (gardé, au cas où)
   const returnedFromEdit = location.state?.returnedFromEdit;
   const editedMemberIdFromState = location.state?.memberId;
 
@@ -180,13 +208,7 @@ function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ✅ NOUVEAU : États pour pagination et photos
-  const [currentPage, setCurrentPage] = useState(1);
-  const [photosCache, setPhotosCache] = useState({}); // { memberId: photoDataURL }
-  const [loadingPhotos, setLoadingPhotos] = useState(false);
-  const ITEMS_PER_PAGE = 20;
-
-  // ✅ États pour modal mobile
+  // ✅ États pour l'approche hybride
   const [selectedMember, setSelectedMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -195,7 +217,7 @@ function MembersPage() {
   const memberRefs = useRef({});
   const restoreRef = useRef(null);
 
-  // ✅ Détection mobile
+  // ✅ Détection de la taille d'écran
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
@@ -205,7 +227,7 @@ function MembersPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ Scroll restoration
+  // ✅ Forcer la restauration manuelle du scroll pour éviter l'auto du navigateur
   useEffect(() => {
     const { history } = window;
     const prev = history.scrollRestoration;
@@ -223,7 +245,7 @@ function MembersPage() {
     };
   }, []);
 
-  // ✅ Lecture contexte sauvegardé
+  // ✅ Lecture du contexte sauvegardé (filtres/tri/selection—facultatif)
   useEffect(() => {
     const raw = sessionStorage.getItem("membersPageCtx");
     if (!raw) return;
@@ -233,12 +255,11 @@ function MembersPage() {
       if (ctx.activeFilter !== undefined) setActiveFilter(ctx.activeFilter);
       if (typeof ctx.sortAsc === "boolean") setSortAsc(ctx.sortAsc);
       if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
-      if (typeof ctx.currentPage === "number") setCurrentPage(ctx.currentPage);
       restoreRef.current = ctx;
     } catch {}
   }, []);
 
-  // ✅ Repositionnement par memberId
+  // ✅ Repositionnement quand un memberId est passé via location.state (optionnel)
   useEffect(() => {
     if (!editedMemberIdFromState) return;
     if (loading || filteredMembers.length === 0) return;
@@ -251,7 +272,7 @@ function MembersPage() {
     return () => clearTimeout(t);
   }, [editedMemberIdFromState, loading, filteredMembers, location.pathname]);
 
-  // ✅ Repositionnement simple par id
+  // ✅ Repositionnement simple par id mémorisé (le cœur de la solution)
   useEffect(() => {
     if (loading || filteredMembers.length === 0) return;
 
@@ -259,7 +280,7 @@ function MembersPage() {
     if (!lastId) return;
 
     let attempts = 0;
-    const maxAttempts = 40;
+    const maxAttempts = 40; // ~2s max
     let done = false;
 
     const highlight = (el) => {
@@ -300,7 +321,52 @@ function MembersPage() {
     requestAnimationFrame(tryScroll);
   }, [loading, filteredMembers]);
 
-  // ✅ Scroll vers membre
+  // ✅ Repositionnement après restauration de scrollY (si tu veux garder)
+  useEffect(() => {
+    const ctx = restoreRef.current;
+    if (!ctx) return;
+    if (loading) return;
+
+    const scrollEl = document.scrollingElement || document.documentElement;
+    let attempts = 0;
+    const maxAttempts = 25;
+    const interval = 50;
+
+    const cleanup = () => {
+      restoreRef.current = null;
+      sessionStorage.removeItem("membersPageCtx");
+    };
+
+    const tryRestore = () => {
+      attempts += 1;
+
+      // Si on a un membre ciblé et sa ligne est prête, on scrolle dessus (mais membersLastId est prioritaire)
+      if (ctx.editedMemberId && memberRefs.current[ctx.editedMemberId]) {
+        scrollToMember(ctx.editedMemberId);
+        cleanup();
+        return;
+      }
+
+      if (scrollEl) {
+        scrollEl.scrollTo({ top: ctx.scrollY || 0, behavior: "auto" });
+      } else {
+        window.scrollTo({ top: ctx.scrollY || 0, behavior: "auto" });
+      }
+
+      const currentY = scrollEl ? scrollEl.scrollTop : window.scrollY;
+      const closeEnough = Math.abs(currentY - (ctx.scrollY || 0)) < 3;
+
+      if (closeEnough || attempts >= maxAttempts) {
+        cleanup();
+      } else {
+        setTimeout(tryRestore, interval);
+      }
+    };
+
+    setTimeout(tryRestore, 40);
+  }, [loading, filteredMembers]);
+
+  // ✅ NOUVELLE FONCTION : Scroll vers un membre spécifique
   const scrollToMember = (memberId) => {
     const memberElement =
       memberRefs.current[memberId] ||
@@ -309,6 +375,8 @@ function MembersPage() {
       );
     if (memberElement) {
       memberElement.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      // Effet visuel
       memberElement.style.transition = "all 0.3s ease";
       memberElement.style.transform = "scale(1.02)";
       memberElement.style.boxShadow = "0 8px 25px rgba(59, 130, 246, 0.3)";
@@ -321,7 +389,7 @@ function MembersPage() {
     }
   };
 
-  // ✅ Sauvegarde contexte avec page
+  // ✅ Sauvegarde du contexte (facultatif, tu l’avais déjà)
   const saveMembersPageContext = (extra = {}) => {
     const scrollEl = document.scrollingElement || document.documentElement;
     const ctx = {
@@ -329,7 +397,6 @@ function MembersPage() {
       activeFilter,
       sortAsc,
       selectedIds,
-      currentPage, // NOUVEAU
       scrollY: scrollEl ? scrollEl.scrollTop : window.scrollY || 0,
       savedAt: Date.now(),
       ...extra,
@@ -337,14 +404,47 @@ function MembersPage() {
     sessionStorage.setItem("membersPageCtx", JSON.stringify(ctx));
   };
 
-  // ✅ MODIFIÉ : Chargement sans photos
+  // ✅ HANDLER HYBRIDE pour l'édition — mémorise juste l'id
+  const handleEditMember = (member) => {
+    if (isMobile) {
+      setSelectedMember(member);
+      setShowForm(true);
+    } else {
+      sessionStorage.setItem("membersLastId", String(member.id)); // <— clé simple
+      saveMembersPageContext({ editedMemberId: member.id }); // (optionnel)
+      navigate("/members/edit", {
+        state: { member, returnPath: "/members", memberId: member.id },
+      });
+    }
+  };
+
+  // ✅ HANDLER HYBRIDE pour l'ajout — nettoie l'id mémorisé
+  const handleAddMember = () => {
+    if (isMobile) {
+      setSelectedMember(null);
+      setShowForm(true);
+    } else {
+      sessionStorage.removeItem("membersLastId");
+      saveMembersPageContext({ editedMemberId: null });
+      navigate("/members/new", {
+        state: { member: null, returnPath: "/members" },
+      });
+    }
+  };
+
+  // ✅ HANDLER pour fermer le modal (mobile uniquement)
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setSelectedMember(null);
+  };
+
   const fetchMembers = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await supabaseServices.getMembersWithoutPhotos(); // CHANGÉ ICI
+      const data = await supabaseServices.getMembers();
       setMembers(data);
-      console.log(`✅ ${data.length} membres chargés (sans photos)`);
+      console.log(`✅ ${data.length} membres chargés depuis Supabase`);
     } catch (err) {
       console.error("Erreur récupération membres :", err);
       setError(`Erreur lors du chargement: ${err.message}`);
@@ -357,50 +457,12 @@ function MembersPage() {
     fetchMembers();
   }, []);
 
-  // ✅ NOUVEAU : Chargement des photos pour la page courante
   useEffect(() => {
-    if (loading || paginatedMembers.length === 0) return;
-
-    const loadPhotosForCurrentPage = async () => {
-      const memberIds = paginatedMembers.map((m) => m.id);
-
-      // Vérifier quelles photos sont déjà en cache
-      const missingIds = memberIds.filter((id) => !photosCache[id]);
-
-      if (missingIds.length === 0) {
-        console.log(`✅ Photos déjà en cache pour page ${currentPage}`);
-        return;
-      }
-
-      try {
-        setLoadingPhotos(true);
-        console.log(
-          `📸 Chargement de ${missingIds.length} photos pour page ${currentPage}`
-        );
-
-        const newPhotos = await supabaseServices.getMemberPhotos(missingIds);
-
-        setPhotosCache((prev) => ({
-          ...prev,
-          ...newPhotos,
-        }));
-
-        console.log(`✅ ${Object.keys(newPhotos).length} photos chargées`);
-      } catch (err) {
-        console.error("Erreur chargement photos:", err);
-      } finally {
-        setLoadingPhotos(false);
-      }
-    };
-
-    loadPhotosForCurrentPage();
-  }, [currentPage, paginatedMembers, loading]);
-
-  // ✅ Filtrage (GARDÉ - inchangé)
-  useEffect(() => {
+    // --- Nouveau filtrage avancé avec jokers/conditions ---
     const compiledClauses = parseSearch(search);
     let result = members.filter((m) => matchesSearch(m, compiledClauses));
 
+    // Appliquer les filtres
     if (activeFilter === "Homme") {
       result = result.filter((m) => m.gender === "Homme");
     } else if (activeFilter === "Femme") {
@@ -440,6 +502,7 @@ function MembersPage() {
       });
     }
 
+    // Tri par nom
     result.sort((a, b) => {
       const nameA = (a.name || "").toLowerCase();
       const nameB = (b.name || "").toLowerCase();
@@ -447,54 +510,7 @@ function MembersPage() {
     });
 
     setFilteredMembers(result);
-    setCurrentPage(1); // NOUVEAU : Reset à la page 1 quand filtres changent
   }, [members, search, sortAsc, activeFilter]);
-
-  // ✅ NOUVEAU : Calcul pagination
-  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
-
-  // ✅ NOUVEAU : Navigation pagination
-  const goToPage = (page) => {
-    if (page < 1 || page > totalPages) return;
-    setCurrentPage(page);
-    saveMembersPageContext({ currentPage: page });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  // ✅ Handlers (GARDÉS - inchangés)
-  const handleEditMember = (member) => {
-    if (isMobile) {
-      setSelectedMember(member);
-      setShowForm(true);
-    } else {
-      sessionStorage.setItem("membersLastId", String(member.id));
-      saveMembersPageContext({ editedMemberId: member.id });
-      navigate("/members/edit", {
-        state: { member, returnPath: "/members", memberId: member.id },
-      });
-    }
-  };
-
-  const handleAddMember = () => {
-    if (isMobile) {
-      setSelectedMember(null);
-      setShowForm(true);
-    } else {
-      sessionStorage.removeItem("membersLastId");
-      saveMembersPageContext({ editedMemberId: null });
-      navigate("/members/new", {
-        state: { member: null, returnPath: "/members" },
-      });
-    }
-  };
-
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setSelectedMember(null);
-  };
 
   const handleDelete = async (id) => {
     if (
@@ -532,11 +548,10 @@ function MembersPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === paginatedMembers.length) {
-      // CHANGÉ : sélection page courante
+    if (selectedIds.length === filteredMembers.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(paginatedMembers.map((m) => m.id));
+      setSelectedIds(filteredMembers.map((m) => m.id));
     }
   };
 
@@ -546,7 +561,7 @@ function MembersPage() {
     );
   };
 
-  // ✅ Stats (GARDÉES - inchangées)
+  // Calculer les statistiques
   const total = filteredMembers.length;
   const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
   const femaleCount = filteredMembers.filter(
@@ -606,7 +621,7 @@ function MembersPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">
-            Chargement des membres optimisé...
+            Chargement des membres depuis Supabase...
           </p>
         </div>
       </div>
@@ -637,7 +652,7 @@ function MembersPage() {
             Liste des membres
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            {members.length} membres • Mode optimisé egress
+            {members.length} membres dans la base Supabase
           </p>
         </div>
         <button
@@ -669,7 +684,7 @@ function MembersPage() {
         </div>
       )}
 
-      {/* Widgets */}
+      {/* Widgets de statistiques */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
         <Widget
           title="👥 Total"
@@ -748,84 +763,21 @@ function MembersPage() {
         </div>
       </div>
 
-      {/* ✅ NOUVEAU : Contrôles de pagination EN HAUT */}
-      {totalPages > 1 && (
-        <div className="mb-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage} sur {totalPages} • Affichage de {startIndex + 1}-
-            {Math.min(endIndex, filteredMembers.length)} sur{" "}
-            {filteredMembers.length} membres
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
-            >
-              <FaChevronLeft className="w-3 h-3" />
-              <span className="hidden sm:inline">Précédent</span>
-            </button>
-
-            {/* Numéros de pages */}
-            <div className="hidden sm:flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((page) => {
-                  // Afficher : 1ère, dernière, courante, et ±1 autour de la courante
-                  return (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - currentPage) <= 1
-                  );
-                })
-                .map((page, idx, arr) => (
-                  <React.Fragment key={page}>
-                    {idx > 0 && arr[idx - 1] !== page - 1 && (
-                      <span className="px-2 text-gray-400 dark:text-gray-600">
-                        ...
-                      </span>
-                    )}
-                    <button
-                      onClick={() => goToPage(page)}
-                      className={`px-3 py-2 rounded-lg transition-colors ${
-                        page === currentPage
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  </React.Fragment>
-                ))}
-            </div>
-
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
-            >
-              <span className="hidden sm:inline">Suivant</span>
-              <FaChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Contrôles de tri desktop */}
+      {/* Contrôles de tri en mode desktop */}
       <div className="hidden lg:flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={
-                selectedIds.length === paginatedMembers.length &&
-                paginatedMembers.length > 0
+                selectedIds.length === filteredMembers.length &&
+                filteredMembers.length > 0
               }
               onChange={toggleSelectAll}
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              Sélectionner la page
+              Sélectionner tout
             </span>
           </label>
         </div>
@@ -850,7 +802,7 @@ function MembersPage() {
         </div>
       ) : (
         <>
-          {/* Vue tableau desktop */}
+          {/* Vue tableau pour desktop */}
           <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -860,8 +812,8 @@ function MembersPage() {
                       <input
                         type="checkbox"
                         checked={
-                          selectedIds.length === paginatedMembers.length &&
-                          paginatedMembers.length > 0
+                          selectedIds.length === filteredMembers.length &&
+                          filteredMembers.length > 0
                         }
                         onChange={toggleSelectAll}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
@@ -899,7 +851,7 @@ function MembersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                  {paginatedMembers.map((member) => {
+                  {filteredMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
                           try {
@@ -941,10 +893,10 @@ function MembersPage() {
 
                         <td className="p-3">
                           <Avatar
-                            photo={photosCache[member.id] || null}
+                            photo={member.photo}
                             firstName={member.firstName}
                             name={member.name}
-                            size={48}
+                            size={48} // 12 * 4
                           />
                         </td>
 
@@ -1083,21 +1035,22 @@ function MembersPage() {
             </div>
           </div>
 
-          {/* Vue cartes mobile */}
+          {/* Vue cartes pour mobile/tablette */}
           <div className="lg:hidden space-y-4">
+            {/* Contrôles de tri mobile */}
             <div className="flex items-center justify-between mb-4">
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={
-                    selectedIds.length === paginatedMembers.length &&
-                    paginatedMembers.length > 0
+                    selectedIds.length === filteredMembers.length &&
+                    filteredMembers.length > 0
                   }
                   onChange={toggleSelectAll}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Sélectionner la page
+                  Tout sélectionner
                 </span>
               </label>
               <button onClick={() => setSortAsc(!sortAsc)}>
@@ -1108,7 +1061,7 @@ function MembersPage() {
               </button>
             </div>
 
-            {paginatedMembers.map((member) => {
+            {filteredMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
                     try {
@@ -1136,6 +1089,7 @@ function MembersPage() {
                   }}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-150 transform-gpu member-card"
                 >
+                  {/* En-tête de la carte */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3 flex-1">
                       <input
@@ -1145,7 +1099,7 @@ function MembersPage() {
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
                       />
                       <Avatar
-                        photo={photosCache[member.id] || null}
+                        photo={member.photo}
                         firstName={member.firstName}
                         name={member.name}
                         size={48}
@@ -1166,6 +1120,7 @@ function MembersPage() {
                     </div>
                   </div>
 
+                  {/* Informations personnelles */}
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
@@ -1191,6 +1146,7 @@ function MembersPage() {
                       </span>
                     </div>
 
+                    {/* Contact */}
                     <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                       {member.email && (
                         <div className="flex items-center gap-2">
@@ -1207,6 +1163,7 @@ function MembersPage() {
                     </div>
                   </div>
 
+                  {/* Abonnement et Badge */}
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
                       <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -1241,6 +1198,7 @@ function MembersPage() {
                     </div>
                   </div>
 
+                  {/* Status */}
                   <div className="flex flex-wrap gap-2 mb-4">
                     {isExpired ? (
                       <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
@@ -1262,6 +1220,7 @@ function MembersPage() {
                     )}
                   </div>
 
+                  {/* Actions */}
                   <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
                     <button
                       onClick={() => handleEditMember(member)}
@@ -1285,68 +1244,21 @@ function MembersPage() {
         </>
       )}
 
-      {/* ✅ NOUVEAU : Contrôles pagination EN BAS (répétés) */}
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage} sur {totalPages}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
-            >
-              <FaChevronLeft className="w-3 h-3" />
-              <span className="hidden sm:inline">Précédent</span>
-            </button>
-
-            <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">
-              {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur{" "}
-              {filteredMembers.length}
-            </span>
-
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
-            >
-              <span className="hidden sm:inline">Suivant</span>
-              <FaChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Résumé */}
+      {/* Résumé en bas */}
       {filteredMembers.length > 0 && (
         <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400">
-          <div className="flex items-center justify-between">
-            <div>
-              Affichage de {startIndex + 1}-
-              {Math.min(endIndex, filteredMembers.length)} sur{" "}
-              {filteredMembers.length} membre
-              {filteredMembers.length !== 1 ? "s" : ""} filtrés •{" "}
-              {members.length} total
-            </div>
-            {loadingPhotos && (
-              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                Chargement photos...
-              </div>
-            )}
-          </div>
+          Affichage de {filteredMembers.length} membre
+          {filteredMembers.length !== 1 ? "s" : ""} sur {members.length} total
           {selectedIds.length > 0 && (
-            <div className="mt-2 text-blue-600 dark:text-blue-400 font-medium">
-              {selectedIds.length} sélectionné
+            <span className="ml-4 text-blue-600 dark:text-blue-400 font-medium">
+              • {selectedIds.length} sélectionné
               {selectedIds.length !== 1 ? "s" : ""}
-            </div>
+            </span>
           )}
         </div>
       )}
 
-      {/* Modal mobile */}
+      {/* ✅ MODAL CONDITIONNEL - Affiché uniquement en mobile */}
       {showForm && isMobile && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
           <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
@@ -1382,6 +1294,7 @@ function MembersPage() {
 
                   await fetchMembers();
 
+                  // ✅ Repositionnement après sauvegarde mobile
                   if (memberId) {
                     setTimeout(() => scrollToMember(memberId), 200);
                   }
@@ -1399,6 +1312,7 @@ function MembersPage() {
   );
 }
 
+// Composant Widget pour les statistiques
 function Widget({ title, value, onClick, active = false }) {
   return (
     <div
