@@ -1375,3 +1375,22 @@
 .dark .recharts-pie .recharts-label {
   fill: #f9fafb !important; /* texte labels en dark */
 }
+
+/* ===== BOTTOM NAVIGATION BAR ===== */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Animation des indicateurs swipe (déjà existante normalement) */
+.swipe-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-content {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.swipe-content.swiping {
+  transition: none;
+}

@@ -1,10 +1,5 @@
-// ✅ PARTIE 1/6 : IMPORTS ET CONFIGURATIONS
+// ✅ PARTIE 1/7 : IMPORTS ET CONFIGURATIONS
 
-// Messagerie
-import MessagesPage from "./pages/MessagesPage";
-import NotificationBell from "./components/NotificationBell";
-
-// src/App.js
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -37,22 +32,16 @@ import {
   FaAdjust,
   FaAngleDoubleLeft,
   FaAngleDoubleRight,
-  FaClipboardList, // Icône pour les présences
-  FaEnvelope,      // ✅ AJOUT : icône Messages
+  FaClipboardList,
+  FaEnvelope,
+  FaEllipsisH, // Pour le bouton "Plus"
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
 
-// 🔄 Récupération photo de profil (si disponible)
-const fetchUserPhoto = async (userId) => {
-  const { data, error } = await supabase
-    .from("members")
-    .select("photo")
-    .eq("email", userId)
-    .single();
-
-  return error ? null : data?.photo || null;
-};
+// Messagerie et notifications
+import MessagesPage from "./pages/MessagesPage";
+import NotificationBell from "./components/NotificationBell";
 
 // Import des pages
 import HomePage from "./pages/HomePage";
@@ -65,94 +54,139 @@ import UserProfilePage from "./pages/UserProfilePage";
 import MyAttendancesPage from "./pages/MyAttendancesPage";
 import InvitationsPage from "./pages/InvitationsPage";
 import InvitationSignupPage from "./pages/InvitationSignupPage";
-import MemberFormPage from "./pages/MemberFormPage"; // ✅ NOUVEAU - pour desktop
+import MemberFormPage from "./pages/MemberFormPage";
 
-// Import des styles et notifications
+// Styles et notifications
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 
-// Configuration des pages pour la navigation swipe - DYNAMIQUE selon le rôle
-const getSwipePages = (isAdmin) => {
-  const basePage = [
-    {
-      name: "Accueil",
-      path: "/",
-      icon: <FaHome className="text-red-500 dark:text-red-400" />,
-      component: "HomePage",
-    },
-  ];
+// Récupération photo de profil
+const fetchUserPhoto = async (userId) => {
+  const { data, error } = await supabase
+    .from("members")
+    .select("photo")
+    .eq("email", userId)
+    .single();
 
+  return error ? null : data?.photo || null;
+};
+
+// ✅ Configuration des onglets Bottom Nav - DYNAMIQUE selon le rôle
+const getBottomNavTabs = (isAdmin) => {
   if (isAdmin) {
     return [
-      ...basePage,
       {
+        id: "home",
+        name: "Accueil",
+        path: "/",
+        icon: FaHome,
+        color: "text-red-500",
+      },
+      {
+        id: "members",
         name: "Membres",
         path: "/members",
-        icon: <FaUserFriends className="text-green-500 dark:text-green-400" />,
-        component: "MembersPage",
+        icon: FaUserFriends,
+        color: "text-green-500",
       },
       {
+        id: "planning",
         name: "Planning",
         path: "/planning",
-        icon: (
-          <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
-        ),
-        component: "PlanningPage",
+        icon: FaCalendarAlt,
+        color: "text-yellow-500",
       },
       {
+        id: "payments",
         name: "Paiements",
         path: "/payments",
-        icon: <FaCreditCard className="text-purple-500 dark:text-purple-400" />,
-        component: "PaymentsPage",
+        icon: FaCreditCard,
+        color: "text-purple-500",
       },
       {
-        name: "Statistiques",
-        path: "/statistics",
-        icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
-        component: "StatisticsPage",
+        id: "more",
+        name: "Plus",
+        path: "/more",
+        icon: FaEllipsisH,
+        color: "text-gray-500",
+        isMore: true,
       },
     ];
   } else {
-    // Partie utilisateur reste identique
     return [
-      ...basePage,
       {
-        name: "Mes Présences",
-        path: "/my-attendances",
-        icon: (
-          <FaClipboardList className="text-green-500 dark:text-green-400" />
-        ),
-        component: "MyAttendancesPage",
+        id: "home",
+        name: "Accueil",
+        path: "/",
+        icon: FaHome,
+        color: "text-red-500",
       },
       {
-        name: "Mon Profil",
+        id: "messages",
+        name: "Messages",
+        path: "/messages",
+        icon: FaEnvelope,
+        color: "text-blue-500",
+      },
+      {
+        id: "attendances",
+        name: "Présences",
+        path: "/my-attendances",
+        icon: FaClipboardList,
+        color: "text-green-500",
+      },
+      {
+        id: "profile",
+        name: "Profil",
         path: "/profile",
-        icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
-        component: "UserProfilePage",
+        icon: FaUser,
+        color: "text-purple-500",
       },
     ];
   }
 };
 
-// ✅ PARTIE 2/6 : HOOK POUR LA GESTION DU MODE SOMBRE
+// ✅ Menu "Plus" pour admin
+const getMoreMenuItems = () => [
+  {
+    id: "statistics",
+    name: "Statistiques",
+    path: "/statistics",
+    icon: FaChartBar,
+    color: "text-blue-500",
+  },
+  {
+    id: "messages",
+    name: "Messages",
+    path: "/messages",
+    icon: FaEnvelope,
+    color: "text-sky-500",
+  },
+  {
+    id: "invitations",
+    name: "Invitations",
+    path: "/invitations",
+    icon: FaUserPlus,
+    color: "text-orange-500",
+  },
+];
+
+// ✅ PARTIE 2/7 : HOOK DARK MODE (Inchangé)
 
 function useDarkMode() {
   const [darkMode, setDarkMode] = useState("auto");
   const [actualDarkMode, setActualDarkMode] = useState(false);
 
-  // ✅ Constantes pour les heures de basculement
   const NIGHT_START_HOUR = 19;
   const NIGHT_END_HOUR = 7;
-  const AUTO_CHECK_INTERVAL = 60000; // 1 minute
+  const AUTO_CHECK_INTERVAL = 60000;
 
-  // Fonction pour vérifier si c'est la nuit
   const isNightTime = () => {
     const hour = new Date().getHours();
     return hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR;
   };
 
-  // Fonction pour déterminer le mode sombre actuel
   const determineActualMode = (mode) => {
     switch (mode) {
       case "dark":
@@ -165,44 +199,29 @@ function useDarkMode() {
     }
   };
 
-  // Fonction pour appliquer le thème au DOM
   const applyTheme = (isDark) => {
     const htmlElement = document.documentElement;
-
     if (isDark) {
       htmlElement.classList.add("dark");
     } else {
       htmlElement.classList.remove("dark");
     }
-
-    // ✅ Console log uniquement en développement
-    if (process.env.NODE_ENV === "development") {
-      console.log(`🎨 Mode appliqué: ${isDark ? "Sombre" : "Clair"}`, {
-        classList: Array.from(htmlElement.classList),
-        darkMode,
-        actualDarkMode: isDark,
-      });
-    }
   };
 
-  // Charger les préférences au démarrage
   useEffect(() => {
     const savedMode = localStorage.getItem("darkMode") || "auto";
     const newActualMode = determineActualMode(savedMode);
-
     setDarkMode(savedMode);
     setActualDarkMode(newActualMode);
     applyTheme(newActualMode);
   }, []);
 
-  // Mettre à jour le thème quand le mode change
   useEffect(() => {
     const newActualMode = determineActualMode(darkMode);
     setActualDarkMode(newActualMode);
     applyTheme(newActualMode);
   }, [darkMode]);
 
-  // Timer pour le mode automatique
   useEffect(() => {
     if (darkMode === "auto") {
       const interval = setInterval(() => {
@@ -212,7 +231,6 @@ function useDarkMode() {
           applyTheme(shouldBeDark);
         }
       }, AUTO_CHECK_INTERVAL);
-
       return () => clearInterval(interval);
     }
   }, [darkMode, actualDarkMode]);
@@ -221,7 +239,6 @@ function useDarkMode() {
     const modes = ["auto", "light", "dark"];
     const currentIndex = modes.indexOf(darkMode);
     const nextMode = modes[(currentIndex + 1) % modes.length];
-
     setDarkMode(nextMode);
     localStorage.setItem("darkMode", nextMode);
   };
@@ -259,7 +276,7 @@ function useDarkMode() {
   };
 }
 
-// ✅ PARTIE 3/6 : HOOK POUR LA NAVIGATION PAR SWIPE
+// ✅ PARTIE 3/7 : HOOK SWIPE NAVIGATION (Adapté pour Bottom Nav)
 
 function useSwipeNavigation(isAdmin) {
   const [touchStart, setTouchStart] = useState(null);
@@ -271,14 +288,13 @@ function useSwipeNavigation(isAdmin) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Constantes pour le swipe
   const MIN_SWIPE_DISTANCE = 100;
   const MAX_SWIPE_DISTANCE = 200;
   const SWIPE_ANIMATION_DELAY = 200;
   const SWIPE_RESET_DELAY = 50;
 
-  // Utilise les pages dynamiques selon le rôle
-  const SWIPE_PAGES = getSwipePages(isAdmin);
+  // Utilise les mêmes pages que le bottom nav (sans "More")
+  const SWIPE_PAGES = getBottomNavTabs(isAdmin).filter(tab => !tab.isMore);
 
   const getCurrentPageIndex = () => {
     return SWIPE_PAGES.findIndex((page) => page.path === location.pathname);
@@ -297,7 +313,6 @@ function useSwipeNavigation(isAdmin) {
       if (newIndex < 0) newIndex = SWIPE_PAGES.length - 1;
     }
 
-    // Animation de sortie puis navigation
     setIsSwipping(true);
     setSwipeOffset(
       direction === "left" ? -window.innerWidth : window.innerWidth
@@ -330,7 +345,6 @@ function useSwipeNavigation(isAdmin) {
 
     setSwipeDirection(direction);
 
-    // Appliquer une résistance progressive
     let offset = distance;
     const absDistance = Math.abs(distance);
 
@@ -388,7 +402,7 @@ function useSwipeNavigation(isAdmin) {
   };
 }
 
-// ✅ PARTIE 4/6 : HOOK PWA ET COMPOSANTS UTILITAIRES
+// ✅ PARTIE 4/7 : HOOK PWA (Inchangé)
 
 function usePWA() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -398,7 +412,6 @@ function usePWA() {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   useEffect(() => {
-    // Vérifier si l'app est déjà installée
     if (
       window.matchMedia("(display-mode: standalone)").matches ||
       window.navigator.standalone
@@ -412,12 +425,11 @@ function usePWA() {
       setDeferredPrompt(e);
       setIsInstallable(true);
 
-      // 🔥 NOUVEAU : Afficher une invitation après 30 secondes
       setTimeout(() => {
         if (!localStorage.getItem("install_prompt_dismissed")) {
           setShowInstallPrompt(true);
         }
-      }, 30000); // 30 secondes
+      }, 30000);
     };
 
     const handleAppInstalled = () => {
@@ -484,7 +496,6 @@ function usePWA() {
   const dismissInstallPrompt = () => {
     setShowInstallPrompt(false);
     localStorage.setItem("install_prompt_dismissed", "true");
-    // Reproposer dans 7 jours
     setTimeout(() => {
       localStorage.removeItem("install_prompt_dismissed");
     }, 7 * 24 * 60 * 60 * 1000);
@@ -505,79 +516,8 @@ function usePWA() {
   };
 }
 
-// ✅ FONCTION App() CORRIGÉE
+// ✅ PARTIE 5/7 : COMPOSANTS PWA ET UI
 
-function App() {
-  const { user, loading } = useAuth();
-
-  // ✅ HOOK PWA AVEC TOUTES LES VARIABLES
-  const {
-    isInstallable,
-    isInstalled,
-    installApp,
-    toast,
-    closeToast,
-    showInstallPrompt,
-    dismissInstallPrompt,
-  } = usePWA();
-
-  // ✅ FONCTION POUR GÉRER L'INSTALLATION DEPUIS L'INVITATION
-  const handleInstallFromPrompt = () => {
-    installApp();
-    dismissInstallPrompt();
-  };
-
-  // ✅ Écran de chargement
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Router>
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/" /> : <LoginPage />}
-        />
-        <Route path="/invitation" element={<InvitationSignupPage />} />
-        <Route path="/*" element={<AppRoutes />} />
-      </Routes>
-
-      {/* 🔥 INVITATION PWA */}
-      <InstallPrompt
-        show={showInstallPrompt && isInstallable && !isInstalled}
-        onInstall={handleInstallFromPrompt}
-        onDismiss={dismissInstallPrompt}
-      />
-
-      {/* Toast PWA */}
-      <PWAToast toast={toast} onClose={closeToast} />
-
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
-    </Router>
-  );
-}
-
-// ✅ PARTIE 5/6 : COMPOSANTS PWA ET PAGE DE CONNEXION - COMPLÈTE
-
-// ===== COMPOSANT TOAST PWA =====
 function PWAToast({ toast, onClose }) {
   const [show, setShow] = useState(false);
 
@@ -607,7 +547,6 @@ function PWAToast({ toast, onClose }) {
   );
 }
 
-// ===== COMPOSANT INVITATION À INSTALLER =====
 function InstallPrompt({ show, onInstall, onDismiss }) {
   const [animate, setAnimate] = useState(false);
 
@@ -620,140 +559,43 @@ function InstallPrompt({ show, onInstall, onDismiss }) {
   if (!show) return null;
 
   return (
-    <>
-      {/* Version discrète - Notification en bas à droite */}
-      <div
-        className={`discrete-install-prompt ${animate ? "show" : ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="discrete-install-content">
-          {/* Icône et texte */}
-          <div className="discrete-install-info">
-            <div className="discrete-install-icon">📱</div>
-            <div className="discrete-install-text">
-              <div className="discrete-install-title">Installer BodyForce</div>
-              <div className="discrete-install-subtitle">
-                Accès rapide depuis votre écran d'accueil
-              </div>
+    <div
+      className={`discrete-install-prompt ${animate ? "show" : ""}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="discrete-install-content">
+        <div className="discrete-install-info">
+          <div className="discrete-install-icon">📱</div>
+          <div className="discrete-install-text">
+            <div className="discrete-install-title">Installer BodyForce</div>
+            <div className="discrete-install-subtitle">
+              Accès rapide depuis votre écran d'accueil
             </div>
-          </div>
-
-          {/* Boutons d’action */}
-          <div className="discrete-install-actions">
-            <button
-              onClick={onDismiss}
-              className="discrete-btn discrete-btn-dismiss"
-              title="Plus tard"
-            >
-              ✕
-            </button>
-            <button
-              onClick={onInstall}
-              className="discrete-btn discrete-btn-install"
-            >
-              Installer
-            </button>
           </div>
         </div>
 
-        {/* Barre de progression (optionnelle) */}
-        <div className="discrete-install-progress"></div>
+        <div className="discrete-install-actions">
+          <button
+            onClick={onDismiss}
+            className="discrete-btn discrete-btn-dismiss"
+            title="Plus tard"
+          >
+            ✕
+          </button>
+          <button
+            onClick={onInstall}
+            className="discrete-btn discrete-btn-install"
+          >
+            Installer
+          </button>
+        </div>
       </div>
-    </>
-  );
-}
 
-// ===== COMPOSANTS DE NAVIGATION SWIPE =====
-function SwipePreview({
-  direction,
-  swipeOffset,
-  currentPageIndex,
-  SWIPE_PAGES,
-}) {
-  if (!direction || Math.abs(swipeOffset) < 50) return null;
-
-  const nextPageIndex =
-    direction === "right"
-      ? (currentPageIndex - 1 + SWIPE_PAGES.length) % SWIPE_PAGES.length
-      : (currentPageIndex + 1) % SWIPE_PAGES.length;
-
-  const nextPage = SWIPE_PAGES[nextPageIndex];
-  const opacity = Math.min(Math.abs(swipeOffset) / 150, 1);
-
-  return (
-    <div
-      className={`swipe-preview ${Math.abs(swipeOffset) > 50 ? "active" : ""}`}
-      style={{ opacity }}
-    >
-      <div className="swipe-preview-content">
-        <div className="swipe-preview-icon">{nextPage.icon}</div>
-        <div className="swipe-preview-text">{nextPage.name}</div>
-      </div>
+      <div className="discrete-install-progress"></div>
     </div>
   );
 }
 
-function SwipeResistanceIndicator({ swipeOffset, direction }) {
-  if (!direction || Math.abs(swipeOffset) < 100) return null;
-
-  const resistance = Math.min((Math.abs(swipeOffset) - 100) / 100, 1);
-  const height = `${resistance * 80}%`;
-
-  return (
-    <div
-      className={`swipe-resistance-indicator ${direction} ${resistance > 0 ? "active" : ""
-        }`}
-      style={{ height }}
-    />
-  );
-}
-
-function PageIndicator({ currentIndex, totalPages, isMobile, SWIPE_PAGES }) {
-  if (!isMobile) return null;
-
-  return (
-    <div className="page-indicator">
-      {SWIPE_PAGES.map((_, index) => (
-        <div
-          key={index}
-          className={`page-indicator-dot ${index === currentIndex ? "active" : ""
-            }`}
-        />
-      ))}
-    </div>
-  );
-}
-
-function SwipeNavigationArrows({ onNavigate, isMobile }) {
-  if (!isMobile) return null;
-
-  return (
-    <div className="swipe-navigation-arrows">
-      <button
-        className="swipe-arrow left"
-        onClick={() => onNavigate("right")}
-        aria-label="Page précédente"
-      >
-        <FaChevronLeft />
-      </button>
-      <button
-        className="swipe-arrow right"
-        onClick={() => onNavigate("left")}
-        aria-label="Page suivante"
-      >
-        <FaChevronRight />
-      </button>
-    </div>
-  );
-}
-
-function SwipeHint({ show }) {
-  if (!show) return null;
-
-  return <div className="swipe-hint">← Glissez pour naviguer →</div>;
-}
-
-// ===== PAGE DE CONNEXION =====
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -861,9 +703,117 @@ function LoginPage() {
   );
 }
 
-// ✅ COMPOSANTS MANQUANTS À AJOUTER DANS VOTRE APP.JS
+// ✅ PARTIE 6/7 : BOTTOM NAVIGATION BAR + MORE MENU
 
-// ===== SIDEBAR DESKTOP (avec correction useLocation) =====
+function BottomNavigationBar({ isAdmin, currentPath }) {
+  const navigate = useNavigate();
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const tabs = getBottomNavTabs(isAdmin);
+  const moreItems = getMoreMenuItems();
+
+  // Vérifier si on est sur une page du menu "Plus"
+  const isMorePageActive = moreItems.some(item => item.path === currentPath);
+  
+  const handleTabClick = (tab) => {
+    if (tab.isMore) {
+      setShowMoreMenu(!showMoreMenu);
+    } else {
+      navigate(tab.path);
+      setShowMoreMenu(false);
+    }
+  };
+
+  const handleMoreItemClick = (item) => {
+    navigate(item.path);
+    setShowMoreMenu(false);
+  };
+
+  return (
+    <>
+      {/* Menu "Plus" étendu */}
+      {showMoreMenu && isAdmin && (
+        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3 shadow-lg">
+          <div className="grid grid-cols-3 gap-3">
+            {moreItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleMoreItemClick(item)}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${
+                    currentPath === item.path
+                      ? 'bg-gray-100 dark:bg-gray-700'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  }`}
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    currentPath === item.path
+                      ? 'bg-gray-200 dark:bg-gray-600'
+                      : 'bg-gray-100 dark:bg-gray-700'
+                  }`}>
+                    <Icon className={`w-6 h-6 ${item.color}`} />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {item.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Barre de navigation */}
+      <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg safe-area-bottom">
+        <div className="flex items-center justify-around px-2 py-2">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = tab.isMore 
+              ? (showMoreMenu || isMorePageActive)
+              : currentPath === tab.path;
+            
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabClick(tab)}
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 min-w-[60px] ${
+                  isActive
+                    ? 'bg-gray-100 dark:bg-gray-700'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <div className="relative">
+                  <Icon
+                    className={`w-6 h-6 transition-all ${
+                      isActive ? tab.color : 'text-gray-400 dark:text-gray-500'
+                    }`}
+                  />
+                  {/* Badge notification pour Messages */}
+                  {tab.id === 'messages' && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center">
+                      3
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={`text-xs font-medium transition-all ${
+                    isActive
+                      ? 'text-gray-900 dark:text-white'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  {tab.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </>
+  );
+}
+
+// ✅ Sidebar Desktop (inchangée)
 function EnhancedSidebar({
   user,
   isAdmin,
@@ -872,12 +822,11 @@ function EnhancedSidebar({
   getDarkModeIcon,
   getDarkModeLabel,
 }) {
-  const location = useLocation(); // ✅ Correction : useLocation défini ici
+  const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem("sidebar-collapsed") === "true";
   });
 
-  // Menu conditionnel selon le rôle
   const menu = [
     {
       name: "Accueil",
@@ -886,66 +835,64 @@ function EnhancedSidebar({
     },
     ...(isAdmin
       ? [
-        {
-          name: "Membres",
-          path: "/members",
-          icon: (
-            <FaUserFriends className="text-green-500 dark:text-green-400" />
-          ),
-        },
-        {
-          name: "Planning",
-          path: "/planning",
-          icon: (
-            <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
-          ),
-        },
-        {
-          name: "Paiements",
-          path: "/payments",
-          icon: (
-            <FaCreditCard className="text-purple-500 dark:text-purple-400" />
-          ),
-        },
-        {
-          name: "Statistiques",
-          path: "/statistics",
-          icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
-        },
-        // ✅ AJOUT : Messages (admin)
-        {
-          name: "Messages",
-          path: "/messages",
-          icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
-        },
-        {
-          name: "Invitations",
-          path: "/invitations",
-          icon: (
-            <FaUserPlus className="text-orange-500 dark:text-orange-400" />
-          ),
-        },
-      ]
+          {
+            name: "Membres",
+            path: "/members",
+            icon: (
+              <FaUserFriends className="text-green-500 dark:text-green-400" />
+            ),
+          },
+          {
+            name: "Planning",
+            path: "/planning",
+            icon: (
+              <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
+            ),
+          },
+          {
+            name: "Paiements",
+            path: "/payments",
+            icon: (
+              <FaCreditCard className="text-purple-500 dark:text-purple-400" />
+            ),
+          },
+          {
+            name: "Statistiques",
+            path: "/statistics",
+            icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
+          },
+          {
+            name: "Messages",
+            path: "/messages",
+            icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
+          },
+          {
+            name: "Invitations",
+            path: "/invitations",
+            icon: (
+              <FaUserPlus className="text-orange-500 dark:text-orange-400" />
+            ),
+          },
+        ]
       : [
-        // ✅ AJOUT : Messages (non-admin)
-        {
-          name: "Messages",
-          path: "/messages",
-          icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
-        },
-        {
-          name: "Mon Profil",
-          path: "/profile",
-          icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
-        },
-        {
-          name: "Mes Présences",
-          path: "/my-attendances",
-          icon: (
-            <FaClipboardList className="text-green-500 dark:text-green-400" />
-          ),
-        },
-      ]),
+          {
+            name: "Messages",
+            path: "/messages",
+            icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
+          },
+          {
+            name: "Mon Profil",
+            path: "/profile",
+            icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
+          },
+          {
+            name: "Mes Présences",
+            path: "/my-attendances",
+            icon: (
+              <FaClipboardList className="text-green-500 dark:text-green-400" />
+            ),
+          },
+        ]),
   ];
 
   const toggleSidebar = () => {
@@ -956,10 +903,10 @@ function EnhancedSidebar({
 
   return (
     <aside
-      className={`enhanced-sidebar ${isCollapsed ? "collapsed" : "expanded"
-        } flex-col items-center hidden lg:flex transition-all duration-400 ease-out`}
+      className={`enhanced-sidebar ${
+        isCollapsed ? "collapsed" : "expanded"
+      } flex-col items-center hidden lg:flex transition-all duration-400 ease-out`}
     >
-      {/* Bouton toggle */}
       <button
         className="sidebar-toggle"
         onClick={toggleSidebar}
@@ -970,11 +917,11 @@ function EnhancedSidebar({
         </div>
       </button>
 
-      {/* En-tête avec logo et titre */}
       <div className="sidebar-logo sidebar-logo-3d text-center p-4 pb-2">
         <h1
-          className={`sidebar-title text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2 ${isCollapsed ? "opacity-0" : "opacity-100"
-            }`}
+          className={`sidebar-title text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2 ${
+            isCollapsed ? "opacity-0" : "opacity-100"
+          }`}
         >
           CLUB BODY FORCE
         </h1>
@@ -988,10 +935,10 @@ function EnhancedSidebar({
         />
       </div>
 
-      {/* Informations utilisateur */}
       <div
-        className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${isCollapsed ? "opacity-0" : "opacity-100"
-          }`}
+        className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${
+          isCollapsed ? "opacity-0" : "opacity-100"
+        }`}
       >
         {user?.photo ? (
           <img
@@ -1012,7 +959,6 @@ function EnhancedSidebar({
           )}
         </div>
 
-        {/* … après l'avatar … */}
         <div className="ml-auto">
           <NotificationBell />
         </div>
@@ -1020,13 +966,13 @@ function EnhancedSidebar({
 
       <div className="sidebar-divider"></div>
 
-      {/* Menu principal */}
       <ul className="w-full space-y-2 px-4 flex-1">
         {menu.map((item, index) => (
           <li
             key={item.path}
-            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? "active" : ""
-              }`}
+            className={`sidebar-menu-item sidebar-item-enter ${
+              location.pathname === item.path ? "active" : ""
+            }`}
             style={{ animationDelay: `${index * 0.1}s` }}
           >
             <Link to={item.path} className="menu-link">
@@ -1037,11 +983,11 @@ function EnhancedSidebar({
           </li>
         ))}
 
-        {/* Menu admin utilisateurs */}
         {isAdmin && (
           <li
-            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? "active" : ""
-              }`}
+            className={`sidebar-menu-item sidebar-item-enter ${
+              location.pathname === "/admin/users" ? "active" : ""
+            }`}
             style={{ animationDelay: `${menu.length * 0.1}s` }}
           >
             <Link to="/admin/users" className="menu-link">
@@ -1057,7 +1003,6 @@ function EnhancedSidebar({
 
       <div className="sidebar-divider"></div>
 
-      {/* Footer avec actions */}
       <div className="sidebar-footer w-full px-4 space-y-2">
         <div className="sidebar-menu-item">
           <button
@@ -1094,13 +1039,12 @@ function EnhancedSidebar({
   );
 }
 
-// ===== MENU MOBILE ANIMÉ (MANQUANT) =====
+// Menu mobile hamburger (pour paramètres/déconnexion uniquement)
 function AnimatedMobileMenu({
   isOpen,
   onClose,
   user,
   isAdmin,
-  location,
   onLogout,
   toggleDarkMode,
   getDarkModeIcon,
@@ -1109,9 +1053,7 @@ function AnimatedMobileMenu({
   const [animate, setAnimate] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
-  const [isOpening, setIsOpening] = useState(false);
 
-  // Constantes pour les animations
   const ANIMATION_DELAY = 200;
   const CLOSING_DELAY = 400;
 
@@ -1119,38 +1061,16 @@ function AnimatedMobileMenu({
     if (isOpen) {
       setShouldRender(true);
       setIsClosing(false);
-      setIsOpening(true);
-
-      const openTimer = setTimeout(() => {
-        setIsOpening(false);
-      }, 10);
-
-      const animateTimer = setTimeout(() => setAnimate(true), ANIMATION_DELAY);
-
-      return () => {
-        clearTimeout(openTimer);
-        clearTimeout(animateTimer);
-      };
+      setTimeout(() => setAnimate(true), ANIMATION_DELAY);
     } else if (shouldRender) {
       setIsClosing(true);
       setAnimate(false);
-
-      const timer = setTimeout(() => {
+      setTimeout(() => {
         setShouldRender(false);
         setIsClosing(false);
-        setIsOpening(false);
       }, CLOSING_DELAY);
-
-      return () => clearTimeout(timer);
     }
   }, [isOpen, shouldRender]);
-
-  // Handlers optimisés
-  const handleItemClick = () => {
-    setAnimate(false);
-    setIsClosing(true);
-    setTimeout(onClose, ANIMATION_DELAY);
-  };
 
   const handleLogout = () => {
     setAnimate(false);
@@ -1169,12 +1089,6 @@ function AnimatedMobileMenu({
     setTimeout(onClose, ANIMATION_DELAY);
   };
 
-  const handleCloseClick = () => {
-    setAnimate(false);
-    setIsClosing(true);
-    setTimeout(onClose, ANIMATION_DELAY);
-  };
-
   if (!shouldRender) return null;
 
   return (
@@ -1185,13 +1099,14 @@ function AnimatedMobileMenu({
       />
 
       <div
-        className={`mobile-menu-container ${!isOpening && isOpen && !isClosing ? "open" : ""
-          } ${isClosing ? "closing" : ""}`}
+        className={`mobile-menu-container ${
+          isOpen && !isClosing ? "open" : ""
+        } ${isClosing ? "closing" : ""}`}
       >
-        {/* Header */}
         <div
-          className={`menu-header ${animate ? "animate" : ""
-            } p-6 border-b border-white/20`}
+          className={`menu-header ${
+            animate ? "animate" : ""
+          } p-6 border-b border-white/20`}
         >
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
@@ -1208,9 +1123,10 @@ function AnimatedMobileMenu({
               <h1 className="text-lg font-bold text-white">BODY FORCE</h1>
             </div>
             <button
-              onClick={handleCloseClick}
-              className={`close-button ${animate ? "animate" : ""
-                } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
+              onClick={handleOverlayClick}
+              className={`close-button ${
+                animate ? "animate" : ""
+              } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
               aria-label="Fermer le menu"
             >
               <FaTimes className="text-xl" />
@@ -1218,10 +1134,10 @@ function AnimatedMobileMenu({
           </div>
         </div>
 
-        {/* User Profile */}
         <div
-          className={`user-profile ${animate ? "animate" : ""
-            } p-6 border-b border-white/20`}
+          className={`user-profile ${
+            animate ? "animate" : ""
+          } p-6 border-b border-white/20`}
         >
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
             {user?.photo ? (
@@ -1247,146 +1163,12 @@ function AnimatedMobileMenu({
           </div>
         </div>
 
-        {/* Navigation */}
         <div className="p-6 space-y-3">
-          <Link
-            to="/"
-            onClick={handleItemClick}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/" ? "bg-white/20" : ""
-              }`}
-          >
-            <FaHome className="text-xl text-red-300" />
-            <span className="font-medium">Accueil</span>
-          </Link>
-
-          {/* Liens conditionnels pour admin */}
-          {isAdmin && (
-            <>
-              <Link
-                to="/members"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/members" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaUserFriends className="text-xl text-green-300" />
-                <span className="font-medium">Membres</span>
-              </Link>
-
-              <Link
-                to="/planning"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/planning" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaCalendarAlt className="text-xl text-yellow-300" />
-                <span className="font-medium">Planning</span>
-              </Link>
-
-              <Link
-                to="/payments"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/payments" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaCreditCard className="text-xl text-purple-300" />
-                <span className="font-medium">Paiements</span>
-              </Link>
-
-              <Link
-                to="/statistics"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/statistics" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaChartBar className="text-xl text-blue-300" />
-                <span className="font-medium">Statistiques</span>
-              </Link>
-
-              {/* ✅ AJOUT : Messages (admin, mobile) */}
-              <Link
-                to="/messages"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/messages" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaEnvelope className="text-xl text-blue-300" />
-                <span className="font-medium">Messages</span>
-              </Link>
-
-              <Link
-                to="/invitations"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/invitations" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaUserPlus className="text-xl text-orange-300" />
-                <span className="font-medium">Invitations</span>
-              </Link>
-
-              <Link
-                to="/admin/users"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/admin/users" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaUserCircle className="text-xl text-purple-300" />
-                <span className="font-medium">Utilisateurs</span>
-              </Link>
-            </>
-          )}
-
-          {/* Menu pour utilisateurs non-admin */}
-          {!isAdmin && (
-            <>
-              {/* ✅ AJOUT : Messages (non-admin, mobile) */}
-              <Link
-                to="/messages"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/messages" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaEnvelope className="text-xl text-blue-300" />
-                <span className="font-medium">Messages</span>
-              </Link>
-
-              <Link
-                to="/profile"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/profile" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaUser className="text-xl text-blue-300" />
-                <span className="font-medium">Mon Profil</span>
-              </Link>
-
-              <Link
-                to="/my-attendances"
-                onClick={handleItemClick}
-                className={`menu-item ${animate ? "animate" : ""
-                  } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 transition-all duration-200 ${location.pathname === "/my-attendances" ? "bg-white/20" : ""
-                  }`}
-              >
-                <FaClipboardList className="text-xl text-green-300" />
-                <span className="font-medium">Mes Présences</span>
-              </Link>
-            </>
-          )}
-
-          {/* Actions */}
           <button
             onClick={toggleDarkMode}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
+            className={`menu-item ${
+              animate ? "animate" : ""
+            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
           >
             <div className="text-xl text-gray-300">{getDarkModeIcon()}</div>
             <span className="font-medium">{getDarkModeLabel()}</span>
@@ -1394,8 +1176,9 @@ function AnimatedMobileMenu({
 
           <button
             onClick={handleLogout}
-            className={`menu-item ${animate ? "animate" : ""
-              } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
+            className={`menu-item ${
+              animate ? "animate" : ""
+            } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
           >
             <FaSignOutAlt className="text-xl" />
             <span className="font-medium">Déconnexion</span>
@@ -1406,10 +1189,10 @@ function AnimatedMobileMenu({
   );
 }
 
-// ✅ PARTIE 6/6 SUITE : COMPOSANT PRINCIPAL APPROUTES - FINALE
+// ✅ PARTIE 7/7 : COMPOSANT PRINCIPAL + APP
 
 function AppRoutes() {
-  const { user, role, setUser, userMemberData } = useAuth();
+  const { user, role, setUser } = useAuth();
   const isAdmin = role === "admin";
 
   useEffect(() => {
@@ -1424,15 +1207,12 @@ function AppRoutes() {
     updateUserPhoto();
   }, [user, setUser]);
 
-  // ✅ États locaux (SUPPRIMÉ editingMember et showForm pour l'approche hybride)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [showSwipeHint, setShowSwipeHint] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Hooks personnalisés
   const {
     isInstallable,
     isInstalled,
@@ -1449,35 +1229,22 @@ function AppRoutes() {
   };
 
   const { toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
+  
   const {
     onTouchStart,
     onTouchMove,
     onTouchEnd,
-    getCurrentPageIndex,
-    navigateToPage,
     isSwipeEnabled,
     setIsSwipeEnabled,
-    totalPages,
     swipeOffset,
     isSwipping,
     swipeDirection,
-    SWIPE_PAGES,
   } = useSwipeNavigation(isAdmin);
 
-  // ✅ Détection mobile et hint de swipe
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-
-      // Afficher le hint seulement une fois
-      if (mobile && !localStorage.getItem("swipe_hint_shown")) {
-        setShowSwipeHint(true);
-        setTimeout(() => {
-          setShowSwipeHint(false);
-          localStorage.setItem("swipe_hint_shown", "true");
-        }, 3000);
-      }
     };
 
     checkMobile();
@@ -1485,12 +1252,10 @@ function AppRoutes() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ Désactiver le swipe selon l'état de l'UI (SIMPLIFIÉ)
   useEffect(() => {
     setIsSwipeEnabled(!mobileMenuOpen);
   }, [mobileMenuOpen, setIsSwipeEnabled]);
 
-  // ✅ Handler de déconnexion
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -1526,7 +1291,6 @@ function AppRoutes() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* ✅ AJOUT : cloche de notifications (mobile header) */}
           <NotificationBell />
 
           <button
@@ -1548,7 +1312,6 @@ function AppRoutes() {
         </div>
       </div>
 
-      {/* Sidebar desktop */}
       <EnhancedSidebar
         user={user}
         isAdmin={isAdmin}
@@ -1558,20 +1321,17 @@ function AppRoutes() {
         getDarkModeLabel={getDarkModeLabel}
       />
 
-      {/* Menu mobile */}
       <AnimatedMobileMenu
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
         user={user}
         isAdmin={isAdmin}
-        location={location}
         onLogout={handleLogout}
         toggleDarkMode={toggleDarkMode}
         getDarkModeIcon={getDarkModeIcon}
         getDarkModeLabel={getDarkModeLabel}
       />
 
-      {/* Bouton installation PWA */}
       {isInstallable && !isInstalled && (
         <button
           onClick={installApp}
@@ -1584,92 +1344,125 @@ function AppRoutes() {
         </button>
       )}
 
-      {/* Toast PWA */}
       <PWAToast toast={toast} onClose={closeToast} />
 
-      {/* Indicateurs de navigation mobile */}
-      <PageIndicator
-        currentIndex={getCurrentPageIndex()}
-        totalPages={totalPages}
-        isMobile={isMobile}
-        SWIPE_PAGES={SWIPE_PAGES}
-      />
-
-      <SwipeNavigationArrows onNavigate={navigateToPage} isMobile={isMobile} />
-
-      <SwipeHint show={showSwipeHint} />
-
-      {/* Contenu principal */}
+      {/* Contenu principal avec Bottom Nav */}
       <main
-        className={`flex-1 p-4 overflow-y-auto ${isMobile ? "swipe-container" : ""
-          }`}
-        onTouchStart={isMobile ? onTouchStart : undefined}
-        onTouchMove={isMobile ? onTouchMove : undefined}
-        onTouchEnd={isMobile ? onTouchEnd : undefined}
+        className={`flex-1 flex flex-col overflow-hidden ${
+          isMobile ? "pb-16" : ""
+        }`}
       >
-        {/* Contenu avec transformation swipe */}
         <div
-          className={`swipe-content ${isSwipping ? "swiping" : ""}`}
-          style={{
-            transform:
-              isMobile && swipeOffset !== 0
-                ? `translateX(${swipeOffset}px)`
-                : "translateX(0)",
-          }}
+          className={`flex-1 overflow-y-auto ${
+            isMobile ? "swipe-container" : ""
+          } p-4`}
+          onTouchStart={isMobile ? onTouchStart : undefined}
+          onTouchMove={isMobile ? onTouchMove : undefined}
+          onTouchEnd={isMobile ? onTouchEnd : undefined}
         >
-          {/* ✅ ROUTES HYBRIDES MODIFIÉES */}
-          <Routes>
-            <Route path="/" element={<HomePage />} />
+          <div
+            className={`swipe-content ${isSwipping ? "swiping" : ""}`}
+            style={{
+              transform:
+                isMobile && swipeOffset !== 0
+                  ? `translateX(${swipeOffset}px)`
+                  : "translateX(0)",
+            }}
+          >
+            <Routes>
+              <Route path="/" element={<HomePage />} />
 
-            {/* Routes réservées aux admins */}
-            {isAdmin && (
-              <>
-                <Route path="/members" element={<MembersPage />} />
-                {/* ✅ Routes desktop pour MemberFormPage */}
-                <Route path="/members/new" element={<MemberFormPage />} />
-                <Route path="/members/edit" element={<MemberFormPage />} />
-                <Route path="/planning" element={<PlanningPage />} />
-                <Route path="/payments" element={<PaymentsPage />} />
-                <Route path="/statistics" element={<StatisticsPage />} />
-                <Route path="/admin/users" element={<UserManagementPage />} />
-                <Route path="/invitations" element={<InvitationsPage />} />
-              </>
-            )}
+              {isAdmin && (
+                <>
+                  <Route path="/members" element={<MembersPage />} />
+                  <Route path="/members/new" element={<MemberFormPage />} />
+                  <Route path="/members/edit" element={<MemberFormPage />} />
+                  <Route path="/planning" element={<PlanningPage />} />
+                  <Route path="/payments" element={<PaymentsPage />} />
+                  <Route path="/statistics" element={<StatisticsPage />} />
+                  <Route path="/admin/users" element={<UserManagementPage />} />
+                  <Route path="/invitations" element={<InvitationsPage />} />
+                </>
+              )}
 
-            {/* Routes pour tous les utilisateurs*/}
-            <Route path="/my-attendances" element={<MyAttendancesPage />} />
+              <Route path="/my-attendances" element={<MyAttendancesPage />} />
+              <Route path="/profile" element={<UserProfilePage />} />
+              <Route path="/messages" element={<MessagesPage />} />
 
-            {/* Route profil accessible à tous */}
-            <Route path="/profile" element={<UserProfilePage />} />
-
-            {/* ✅ Messages accessible à tous (protégé par l'app globale déjà) */}
-            <Route path="/messages" element={<MessagesPage />} />
-
-            {/* Redirection par défaut */}
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </div>
         </div>
 
-        {/* Éléments d'interface swipe (mobile) */}
+        {/* Bottom Navigation Bar (mobile uniquement) */}
         {isMobile && (
-          <>
-            <SwipePreview
-              direction={swipeDirection}
-              swipeOffset={swipeOffset}
-              currentPageIndex={getCurrentPageIndex()}
-              SWIPE_PAGES={SWIPE_PAGES}
-            />
-
-            <SwipeResistanceIndicator
-              swipeOffset={swipeOffset}
-              direction={swipeDirection}
-            />
-          </>
+          <BottomNavigationBar isAdmin={isAdmin} currentPath={location.pathname} />
         )}
-
-        {/* ✅ SUPPRIMÉ : Formulaire d'édition des membres (remplacé par l'approche hybride) */}
       </main>
     </div>
+  );
+}
+
+function App() {
+  const { user, loading } = useAuth();
+
+  const {
+    isInstallable,
+    isInstalled,
+    installApp,
+    toast,
+    closeToast,
+    showInstallPrompt,
+    dismissInstallPrompt,
+  } = usePWA();
+
+  const handleInstallFromPrompt = () => {
+    installApp();
+    dismissInstallPrompt();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/" /> : <LoginPage />}
+        />
+        <Route path="/invitation" element={<InvitationSignupPage />} />
+        <Route path="/*" element={<AppRoutes />} />
+      </Routes>
+
+      <InstallPrompt
+        show={showInstallPrompt && isInstallable && !isInstalled}
+        onInstall={handleInstallFromPrompt}
+        onDismiss={dismissInstallPrompt}
+      />
+
+      <PWAToast toast={toast} onClose={closeToast} />
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+    </Router>
   );
 }
 
