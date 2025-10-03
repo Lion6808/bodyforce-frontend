@@ -1,11 +1,11 @@
-// 📄 PlanningPage.js — OPTIMISÉ EGRESS (photos lazy-load)
+// 📄 PlanningPage.js — OPTIMISÉ EGRESS (photos lazy-load, aligné sur MembersPage)
 // ✅ Optimisations :
-//    - Membres chargés SANS photo, puis lazy-load
-//    - Cache photos pour éviter rechargements
-//    - Chargement intelligent : uniquement membres avec présences dans la période
-//    - Utilisation du composant Avatar avec cache
+//    - Membres chargés SANS photo via supabaseServices, normalisés
+//    - Lazy-load des photos ciblées + cache (pattern MembersPage)
+//    - Chargement présences paginé (range) + période
+//    - Aucune directive ESLint nécessaire
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
 
@@ -23,6 +23,7 @@ import {
   TrendingUp,
   BarChart3,
 } from "lucide-react";
+
 import { createClient } from "@supabase/supabase-js";
 import {
   startOfWeek,
@@ -33,16 +34,16 @@ import {
   endOfYear,
 } from "date-fns";
 
-// Supabase
+// Supabase (utilisé ici pour la table 'presences')
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
   process.env.REACT_APP_SUPABASE_KEY
 );
 
-// ✅ Import supabaseServices pour getMemberPhotos
+// ✅ Services (pattern MembersPage)
 import { supabaseServices } from "../supabaseClient";
 
-// Avatar component
+// Avatar
 import Avatar from "../components/Avatar";
 
 // Tailwind helpers
@@ -83,9 +84,7 @@ const formatDate = (date, fmt) => {
   if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
   return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
 };
-
 const parseTimestamp = (ts) => new Date(ts);
-
 const toDateString = (date) => {
   if (!date) return "";
   const y = date.getFullYear();
@@ -93,7 +92,6 @@ const toDateString = (date) => {
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 };
-
 const isWeekend = (date) => [0, 6].includes(date.getDay());
 const isWithinInterval = (date, interval) => date >= interval.start && date <= interval.end;
 const eachDayOfInterval = ({ start, end }) => {
@@ -134,6 +132,7 @@ const subWeeks = (d, n) => addWeeks(d, -n);
 const isToday = (d) => d.toDateString() === new Date().toDateString();
 
 function PlanningPage() {
+  // États principaux
   const [presences, setPresences] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -142,15 +141,15 @@ function PlanningPage() {
   const [isRetrying, setIsRetrying] = useState(false);
   const { role } = useAuth();
 
-  // ✅ Cache photos optimisé
-  const [photosCache, setPhotosCache] = useState({});
+  // ✅ Cache photos (pattern MembersPage)
+  const [photosCache, setPhotosCache] = useState({}); // { [memberId]: dataURL | null }
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const photosLoadingRef = useRef(false);
 
+  // Période / filtres / UI
   const [period, setPeriod] = useState("week");
   const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
-
   const [filterBadge, setFilterBadge] = useState("");
   const [filterName, setFilterName] = useState("");
   const [showNightHours, setShowNightHours] = useState(false);
@@ -159,87 +158,85 @@ function PlanningPage() {
   const [isMobile, setIsMobile] = useState(false);
 
   // Vue mensuelle
-  const [expandedDays, setExpandedDays] = useState(new Set());gender
-  const [hoveredMember, setHoveredMember] = useState(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [expandedDays, setExpandedDays] = useState(new Set());
 
-  // ✅ OPTIMISATION: Chargement membres SANS photo
-  const loadData = async (showRetryIndicator = false) => {
-    try {
-      if (showRetryIndicator) setIsRetrying(true);
-      setLoading(true);
-      setError("");
+  // Chargement combiné (membres SANS photo + présences) — en useCallback (pas de disable ESLint)
+  const loadData = useCallback(
+    async (showRetryIndicator = false) => {
+      try {
+        if (showRetryIndicator) setIsRetrying(true);
+        setLoading(true);
+        setError("");
 
-      // ✅ Charger membres SANS photo
-      const { data: membersData, error: membersError } = await supabase
-        .from("members")
-        .select("id, firstName, name, badgeId, gender, isStudent, subscription_start, subscription_end, createdAt");
+        // ✅ Membres sans photos via services (normalisé, évite 400)
+        const membersData = (await supabaseServices.getMembersWithoutPhotos()) || [];
+        setMembers(membersData);
+        console.log(`✅ ${membersData.length} membres chargés (sans photos, normalisés)`);
 
-      if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
-      setMembers(Array.isArray(membersData) ? membersData : []);
+        // ✅ Présences par pagination (range)
+        let allPresences = [];
+        let from = 0;
+        const pageSize = 1000;
+        let done = false;
 
-      console.log(`✅ ${membersData?.length || 0} membres chargés (sans photos)`);
+        while (!done) {
+          const { data, error } = await supabase
+            .from("presences")
+            .select("*")
+            .gte("timestamp", startDate.toISOString())
+            .lte("timestamp", endDate.toISOString())
+            .order("timestamp", { ascending: false })
+            .range(from, from + pageSize - 1);
 
-      let allPresences = [];
-      let from = 0;
-      const pageSize = 1000;
-      let done = false;
+          if (error) throw new Error(`Erreur présences: ${error.message}`);
 
-      while (!done) {
-        const { data, error } = await supabase
-          .from("presences")
-          .select("*")
-          .gte("timestamp", startDate.toISOString())
-          .lte("timestamp", endDate.toISOString())
-          .order("timestamp", { ascending: false })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw new Error(`Erreur présences: ${error.message}`);
-        if (data?.length) {
-          allPresences = [...allPresences, ...data];
-          from += pageSize;
+          if (data?.length) {
+            allPresences = allPresences.concat(data);
+            from += pageSize;
+          }
+          if (!data || data.length < pageSize) done = true;
         }
-        if (!data || data.length < pageSize) done = true;
+
+        setPresences(
+          allPresences.map((p) => ({
+            badgeId: p.badgeId,
+            timestamp: p.timestamp,
+            parsedDate: parseTimestamp(p.timestamp),
+          }))
+        );
+
+        setRetryCount(0);
+      } catch (err) {
+        console.error("loadData error:", err);
+        setError(err.message || "Erreur de connexion à la base de données");
+      } finally {
+        setLoading(false);
+        setIsRetrying(false);
       }
+    },
+    [startDate, endDate]
+  );
 
-      setPresences(
-        allPresences.map((p) => ({
-          badgeId: p.badgeId,
-          timestamp: p.timestamp,
-          parsedDate: parseTimestamp(p.timestamp),
-        }))
-      );
-      setRetryCount(0);
-    } catch (err) {
-      setError(err.message || "Erreur de connexion à la base de données");
-    } finally {
-      setLoading(false);
-      setIsRetrying(false);
-    }
-  };
-
+  // Effet initial + à chaque changement de période
   useEffect(() => {
     loadData();
-  }, [startDate, endDate]);
+  }, [loadData]);
 
-  // ✅ Lazy-load photos pour les membres ayant des présences
+  // ✅ Lazy-load photos pour les membres visibles dans la période (pattern MembersPage)
   useEffect(() => {
     const loadPhotosForVisibleMembers = async () => {
-      if (loading || photosLoadingRef.current || members.length === 0 || presences.length === 0) {
-        return;
-      }
+      if (loading || photosLoadingRef.current || members.length === 0 || presences.length === 0) return;
 
-      // Collecter les IDs des membres qui ont des présences dans la période
+      // BadgeId des membres ayant des présences
       const memberIdsWithPresences = new Set(presences.map((p) => p.badgeId));
 
-      // Convertir badgeId en id pour le chargement photos
+      // Convertir badgeId -> id
       const memberIdsToLoad = members
-        .filter((m) => memberIdsWithPresences.has(m.badgeId))
+        .filter((m) => m.badgeId && memberIdsWithPresences.has(m.badgeId))
         .map((m) => m.id);
 
-      // Filtrer ceux déjà en cache
+      // Filtrer ceux déjà connus dans le cache (même null = déjà vérifié)
       const missingIds = memberIdsToLoad.filter((id) => !(id in photosCache));
-
       if (missingIds.length === 0) {
         console.log("✅ Photos déjà en cache pour PlanningPage");
         return;
@@ -248,35 +245,29 @@ function PlanningPage() {
       try {
         photosLoadingRef.current = true;
         setLoadingPhotos(true);
-        console.log(`📸 Chargement de ${missingIds.length} photos pour PlanningPage`);
+        console.log(`📸 Chargement de ${missingIds.length} photos (PlanningPage)`);
 
+        // getMemberPhotos retourne { [id]: dataURL }
         const newPhotos = (await supabaseServices.getMemberPhotos(missingIds)) || {};
-        const nextCache = { ...photosCache };
+        const nextCache = { ...photosCache, ...newPhotos };
 
-        // Ajouter les nouvelles photos
-        Object.assign(nextCache, newPhotos);
-
-        // Marquer null pour ceux sans photo
+        // Marquer explicitement null ceux non retournés
         for (const id of missingIds) {
-          if (!(id in newPhotos)) {
-            nextCache[id] = null;
-          }
+          if (!(id in newPhotos)) nextCache[id] = null;
         }
 
-        // Update seulement si changement
+        // N'update que si changement réel
         let changed = false;
-        const allKeys = new Set([...Object.keys(photosCache), ...Object.keys(nextCache)]);
-        for (const k of allKeys) {
+        const keys = new Set([...Object.keys(photosCache), ...Object.keys(nextCache)]);
+        for (const k of keys) {
           if (photosCache[k] !== nextCache[k]) {
             changed = true;
             break;
           }
         }
+        if (changed) setPhotosCache(nextCache);
 
-        if (changed) {
-          setPhotosCache(nextCache);
-          console.log(`✅ ${Object.keys(newPhotos).length} photos chargées pour PlanningPage`);
-        }
+        console.log(`✅ ${Object.keys(newPhotos).length} photos chargées (PlanningPage)`);
       } catch (err) {
         console.error("Erreur chargement photos PlanningPage:", err);
       } finally {
@@ -286,13 +277,14 @@ function PlanningPage() {
     };
 
     loadPhotosForVisibleMembers();
-  }, [loading, members, presences, photosCache]);
+  }, [loading, members, presences, photosCache]); // garder photosCache ici pour éviter doublons logiques
 
   const handleRetry = () => {
     setRetryCount((v) => v + 1);
     loadData(true);
   };
 
+  // Détection mobile
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     onResize();
@@ -397,7 +389,7 @@ function PlanningPage() {
   const renderLoading = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
       <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <RefreshCw className="w-8 h-8 animate-spin text-white" />
         </div>
         <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
@@ -413,6 +405,7 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
+  // -------- Données dérivées --------
   const filteredPresences = presences.filter((p) => {
     const presenceDate = toLocalDate(p.timestamp);
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
@@ -426,8 +419,6 @@ function PlanningPage() {
   });
 
   const allDays = eachDayOfInterval({ start: startDate, end: endDate });
-  const fullHours = Array.from({ length: 24 }, (_, i) => i);
-  const hours = showNightHours ? fullHours : fullHours.slice(6);
 
   const getMemberInfo = (badgeId) => members.find((m) => m.badgeId === badgeId) || {};
 
@@ -458,8 +449,7 @@ function PlanningPage() {
     return { totalPresences, uniqueMembers, avgPresencesPerDay, avgMembersPerDay, busiestDay };
   })();
 
-  // --- Sous-composants liés à l'état (déclarés DANS PlanningPage) ---
-
+  // -------- Sous-composants --------
   const StatsResume = () => (
     <div className={cn(classes.card, "p-6 mb-6")}>
       <div className="flex items-center gap-3 mb-6">
@@ -525,7 +515,7 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Liste - AVEC CACHE PHOTOS
+  // Vue Liste
   const ListView = () => (
     <div className={cn(classes.card, "overflow-hidden")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -616,7 +606,7 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Compacte - AVEC CACHE PHOTOS
+  // Vue Compacte
   const CompactView = () => (
     <div className={cn(classes.card, "overflow-hidden")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -698,7 +688,7 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Mensuelle - AVEC CACHE PHOTOS (code complet conservé pour brièveté)
+  // Vue Mensuelle
   const MonthlyView = () => {
     const generateCalendarDays = () => {
       const y = startDate.getFullYear();
@@ -864,37 +854,24 @@ function PlanningPage() {
             const today = isToday(day);
             const expanded = expandedDays.has(dateKey);
 
-            let visibleMembers, hiddenMembersCount, showExpandButton;
+            let visibleMembersIds;
+            let showExpandButton;
+
             if (memberIds.length <= 9) {
-              visibleMembers = memberIds;
-              hiddenMembersCount = 0;
+              visibleMembersIds = memberIds;
               showExpandButton = false;
             } else if (memberIds.length <= 20) {
-              if (expanded) {
-                visibleMembers = memberIds;
-                hiddenMembersCount = 0;
-                showExpandButton = true;
-              } else {
-                visibleMembers = memberIds.slice(0, 6);
-                hiddenMembersCount = memberIds.length - 6;
-                showExpandButton = true;
-              }
+              visibleMembersIds = expanded ? memberIds : memberIds.slice(0, 6);
+              showExpandButton = true;
             } else {
-              if (expanded) {
-                visibleMembers = memberIds.slice(0, 30);
-                hiddenMembersCount = Math.max(0, memberIds.length - 30);
-                showExpandButton = true;
-              } else {
-                visibleMembers = memberIds.slice(0, 6);
-                hiddenMembersCount = memberIds.length - 6;
-                showExpandButton = true;
-              }
+              visibleMembersIds = expanded ? memberIds.slice(0, 30) : memberIds.slice(0, 6);
+              showExpandButton = true;
             }
 
             return (
               <div
                 key={idx}
-                className={`${expanded ? "min-h[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""} ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all`}
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"} border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""} ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span className={cn("text-sm font-semibold", !inMonth ? "text-gray-400" : today ? "text-blue-600" : weekend ? "text-blue-600" : "text-gray-900 dark:text-gray-100")}>
@@ -915,7 +892,7 @@ function PlanningPage() {
                   <div className="space-y-1">
                     {expanded && memberIds.length > 20 ? (
                       <div className="grid grid-cols-6 gap-0.5">
-                        {visibleMembers.map((badgeId, index) => (
+                        {visibleMembersIds.map((badgeId, index) => (
                           <div key={badgeId} className="flex justify-center">
                             {renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, index)}
                           </div>
@@ -924,20 +901,20 @@ function PlanningPage() {
                     ) : (
                       <>
                         <div className="flex justify-start gap-1 flex-wrap">
-                          {visibleMembers.slice(0, 3).map((badgeId, memberIndex) =>
+                          {visibleMembersIds.slice(0, 3).map((badgeId, memberIndex) =>
                             renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, memberIndex)
                           )}
                         </div>
-                        {visibleMembers.length > 3 && (
+                        {visibleMembersIds.length > 3 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(3, 6).map((badgeId, memberIndex) =>
+                            {visibleMembersIds.slice(3, 6).map((badgeId, memberIndex) =>
                               renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, memberIndex + 3)
                             )}
                           </div>
                         )}
-                        {visibleMembers.length > 6 && (
+                        {visibleMembersIds.length > 6 && (
                           <div className="flex justify-start gap-1 flex-wrap">
-                            {visibleMembers.slice(6, 9).map((badgeId, memberIndex) =>
+                            {visibleMembersIds.slice(6, 9).map((badgeId, memberIndex) =>
                               renderMemberAvatar(badgeId, dayMemberPresences[badgeId].length, dateKey, idx, memberIndex + 6)
                             )}
                           </div>
@@ -951,7 +928,7 @@ function PlanningPage() {
                           onClick={() => toggleDayExpansion(dateKey)}
                           className={cn("px-2 py-1 rounded-full text-[10px] font-bold transition-all", expanded ? "bg-blue-500 text-white" : memberIds.length > 30 ? "bg-red-500 text-white animate-pulse" : "bg-orange-500 text-white")}
                         >
-                          {expanded ? "−" : `+${Math.max(0, memberIds.length - visibleMembers.length)}`}
+                          {expanded ? "−" : `+${Math.max(0, memberIds.length - visibleMembersIds.length)}`}
                         </button>
                       )}
                     </div>
@@ -984,7 +961,7 @@ function PlanningPage() {
     );
   };
 
-  // Rendu principal (suite du code - identique sauf ajout indicateur photos)
+  // -------- Rendu principal --------
   return (
     <div className={classes.pageContainer}>
       <div className={classes.maxWidthWrapper}>
@@ -1001,9 +978,17 @@ function PlanningPage() {
             </div>
 
             <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
-              <button onClick={() => setViewMode("list")} className={cn(classes.buttonSecondary, viewMode === "list" ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400")} title="Vue liste">
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  classes.buttonSecondary,
+                  viewMode === "list" ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
+                )}
+                title="Vue liste"
+              >
                 <List className="w-5 h-5" />
               </button>
+
               {!isMobile && (
                 <button
                   onClick={() => {
@@ -1013,18 +998,37 @@ function PlanningPage() {
                       updateDateRange("month", startDate);
                     }
                   }}
-                  className={cn(classes.buttonSecondary, viewMode === "monthly" ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400")}
+                  className={cn(
+                    classes.buttonSecondary,
+                    viewMode === "monthly" ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
+                  )}
                   title="Vue mensuelle"
                 >
                   <Grid className="w-5 h-5" />
                 </button>
               )}
+
               {!isMobile && (
-                <button onClick={() => setViewMode("compact")} className={cn(classes.buttonSecondary, viewMode === "compact" ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400")} title="Vue compacte">
+                <button
+                  onClick={() => setViewMode("compact")}
+                  className={cn(
+                    classes.buttonSecondary,
+                    viewMode === "compact" ? "bg-white dark:bg-gray-600 shadow-md text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"
+                  )}
+                  title="Vue compacte"
+                >
                   <Users className="w-5 h-5" />
                 </button>
               )}
-              <button onClick={() => setShowFilters(!showFilters)} className={cn("p-3 rounded-lg transition-all", showFilters ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400")} title="Filtres">
+
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn(
+                  "p-3 rounded-lg transition-all",
+                  showFilters ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                )}
+                title="Filtres"
+              >
                 <Filter className="w-5 h-5" />
               </button>
             </div>
@@ -1073,7 +1077,15 @@ function PlanningPage() {
                 />
               </div>
 
-              <select className={classes.select} value={period} onChange={(e) => { const value = e.target.value; setPeriod(value); updateDateRange(value, startDate); }}>
+              <select
+                className={classes.select}
+                value={period}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setPeriod(value);
+                  updateDateRange(value, startDate);
+                }}
+              >
                 <option value="week">Semaine</option>
                 <option value="month">Mois</option>
                 <option value="year">Année</option>
@@ -1095,12 +1107,63 @@ function PlanningPage() {
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
             <div className="flex flex-wrap gap-2">
               <span className="text-sm font-medium text-blue-800 dark:text-blue-300 mr-2">Raccourcis :</span>
-              <button onClick={() => { const today = new Date(); setStartDate(startOfDay(today)); setEndDate(endOfDay(today)); }} className={classes.presetButton}>Aujourd'hui</button>
-              <button onClick={() => { const today = new Date(); setStartDate(startOfDay(new Date(today.setDate(today.getDate() - 6)))); setEndDate(endOfDay(new Date())); }} className={classes.presetButton}>7 derniers jours</button>
-              <button onClick={() => { const today = new Date(); setStartDate(startOfDay(new Date(today.setDate(today.getDate() - 29)))); setEndDate(endOfDay(new Date())); }} className={classes.presetButton}>30 derniers jours</button>
-              <button onClick={() => { setStartDate(startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 }))); setEndDate(endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))); }} className={classes.presetButton}>Cette Semaine</button>
-              <button onClick={() => { setStartDate(startOfDay(startOfMonth(new Date()))); setEndDate(endOfDay(endOfMonth(new Date()))); }} className={classes.presetButton}>Ce Mois</button>
-              <button onClick={() => { setStartDate(startOfDay(startOfYear(new Date()))); setEndDate(endOfDay(endOfYear(new Date()))); }} className={classes.presetButton}>Cette Année</button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setStartDate(startOfDay(today));
+                  setEndDate(endOfDay(today));
+                }}
+                className={classes.presetButton}
+              >
+                Aujourd'hui
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setStartDate(startOfDay(new Date(today.setDate(today.getDate() - 6))));
+                  setEndDate(endOfDay(new Date()));
+                }}
+                className={classes.presetButton}
+              >
+                7 derniers jours
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setStartDate(startOfDay(new Date(today.setDate(today.getDate() - 29))));
+                  setEndDate(endOfDay(new Date()));
+                }}
+                className={classes.presetButton}
+              >
+                30 derniers jours
+              </button>
+              <button
+                onClick={() => {
+                  setStartDate(startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 })));
+                  setEndDate(endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 })));
+                }}
+                className={classes.presetButton}
+              >
+                Cette Semaine
+              </button>
+              <button
+                onClick={() => {
+                  setStartDate(startOfDay(startOfMonth(new Date())));
+                  setEndDate(endOfDay(endOfMonth(new Date())));
+                }}
+                className={classes.presetButton}
+              >
+                Ce Mois
+              </button>
+              <button
+                onClick={() => {
+                  setStartDate(startOfDay(startOfYear(new Date())));
+                  setEndDate(endOfDay(endOfYear(new Date())));
+                }}
+                className={classes.presetButton}
+              >
+                Cette Année
+              </button>
             </div>
           </div>
         </div>
@@ -1110,15 +1173,32 @@ function PlanningPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rechercher par nom</label>
-                <input type="text" placeholder="Nom ou prénom..." value={filterName} onChange={(e) => setFilterName(e.target.value)} className={cn(classes.input, "w-full placeholder-gray-500 dark:placeholder-gray-400")} />
+                <input
+                  type="text"
+                  placeholder="Nom ou prénom..."
+                  value={filterName}
+                  onChange={(e) => setFilterName(e.target.value)}
+                  className={cn(classes.input, "w-full placeholder-gray-500 dark:placeholder-gray-400")}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filtrer par badge</label>
-                <input type="text" placeholder="Numéro de badge..." value={filterBadge} onChange={(e) => setFilterBadge(e.target.value)} className={cn(classes.input, "w-full placeholder-gray-500 dark:placeholder-gray-400")} />
+                <input
+                  type="text"
+                  placeholder="Numéro de badge..."
+                  value={filterBadge}
+                  onChange={(e) => setFilterBadge(e.target.value)}
+                  className={cn(classes.input, "w-full placeholder-gray-500 dark:placeholder-gray-400")}
+                />
               </div>
               <div className="flex items-end">
                 <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
-                  <input type="checkbox" checked={showNightHours} onChange={() => setShowNightHours(!showNightHours)} className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" />
+                  <input
+                    type="checkbox"
+                    checked={showNightHours}
+                    onChange={() => setShowNightHours(!showNightHours)}
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                  />
                   <span className="text-gray-700 dark:text-gray-300">Afficher 00h - 06h</span>
                 </label>
               </div>
@@ -1141,7 +1221,10 @@ function PlanningPage() {
             </div>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Aucune présence trouvée</h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6">Aucune présence sur cette période ou avec ces filtres.</p>
-            <button onClick={handleRetry} className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2 mx-auto">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all flex items-center gap-2 mx-auto"
+            >
               <RefreshCw className="w-4 h-4" />
               Recharger
             </button>
