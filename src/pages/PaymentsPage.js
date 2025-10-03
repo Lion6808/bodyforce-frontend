@@ -39,9 +39,6 @@ const normalize = (s = "") =>
 
 const escapeForWildcard = (s) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
 
-function PaymentsPage() {
-  // ... reste du code
-
 const tokenToRegex = (tokenRaw) => {
   if (!tokenRaw) return null;
   let t = tokenRaw.trim();
