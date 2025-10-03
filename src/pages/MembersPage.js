@@ -1,4 +1,4 @@
-// ✅ MembersPage.js OPTIMISÉ EGRESS avec pagination + lazy photos
+// ✅ MembersPage.js OPTIMISÉ EGRESS avec pagination + lazy photos (corrigé)
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -10,7 +10,6 @@ import {
   FaTrash,
   FaPlus,
   FaSync,
-  FaUser,
   FaExternalLinkAlt,
   FaChevronLeft,
   FaChevronRight,
@@ -18,7 +17,9 @@ import {
 
 import Avatar from "../components/Avatar";
 
-// [GARDÉ] Toutes les fonctions de recherche avancée inchangées
+// ───────────────────────────────────────────────────────────────────────────────
+// Utils recherche avancée (inchangés)
+// ───────────────────────────────────────────────────────────────────────────────
 const normalize = (s = "") =>
   s
     .toString()
@@ -49,14 +50,15 @@ const parseSearch = (search) => {
     .split(/\s+OR\s+/i)
     .map((c) => c.trim())
     .filter(Boolean);
-  return orClauses.map((clause) =>
-    clause
-      .split(/\s+/)
-      .map((tok) => tok.trim())
-      .filter(Boolean)
-      .map(tokenToRegex)
-      .filter(Boolean)
-  );
+  return orClauses
+    .map((clause) =>
+      clause
+        .split(/\s+/)
+        .map((tok) => tok.trim())
+        .filter(Boolean)
+        .map(tokenToRegex)
+        .filter(Boolean)
+    );
 };
 
 const matchesSearch = (member, compiledClauses) => {
@@ -66,30 +68,19 @@ const matchesSearch = (member, compiledClauses) => {
       .filter(Boolean)
       .join(" ")
   );
-  return compiledClauses.some((tokens) =>
-    tokens.every((rx) => rx.test(haystack))
-  );
+  return compiledClauses.some((tokens) => tokens.every((rx) => rx.test(haystack)));
 };
 
 const analyzeSearch = (raw) => {
   const text = (raw || "").trim();
   if (!text)
-    return {
-      active: false,
-      clauses: [],
-      hasWildcards: false,
-      hasAnchors: false,
-    };
+    return { active: false, clauses: [], hasWildcards: false, hasAnchors: false };
   const orParts = text
     .split(/\s+OR\s+/i)
     .map((s) => s.trim())
     .filter(Boolean);
-  const clauses = orParts.map((p) =>
-    p
-      .split(/\s+/)
-      .map((t) => t.trim())
-      .filter(Boolean)
-  );
+  const clauses = orParts
+    .map((p) => p.split(/\s+/).map((t) => t.trim()).filter(Boolean));
   return {
     active: true,
     clauses,
@@ -163,6 +154,9 @@ function SearchHints({ search }) {
   );
 }
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Composant principal
+// ───────────────────────────────────────────────────────────────────────────────
 function MembersPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -170,7 +164,7 @@ function MembersPage() {
   const returnedFromEdit = location.state?.returnedFromEdit;
   const editedMemberIdFromState = location.state?.memberId;
 
-  // ✅ États existants
+  // États
   const [members, setMembers] = useState([]);
   const [filteredMembers, setFilteredMembers] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -180,50 +174,46 @@ function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ✅ NOUVEAU : États pour pagination et photos
+  // Pagination + photos
   const [currentPage, setCurrentPage] = useState(1);
-  const [photosCache, setPhotosCache] = useState({}); // { memberId: photoDataURL }
+  const [photosCache, setPhotosCache] = useState({}); // { memberId: dataURL | null }
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const ITEMS_PER_PAGE = 20;
 
-  // ✅ États pour modal mobile
+  // Modal mobile
   const [selectedMember, setSelectedMember] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ Refs
+  // Refs
   const memberRefs = useRef({});
   const restoreRef = useRef(null);
+  const photosLoadingRef = useRef(false); // évite courses d’effets
 
-  // ✅ Détection mobile
+  // Détection mobile
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ✅ Scroll restoration
+  // Scroll restoration
   useEffect(() => {
     const { history } = window;
     const prev = history.scrollRestoration;
     try {
-      if ("scrollRestoration" in history) {
-        history.scrollRestoration = "manual";
-      }
+      if ("scrollRestoration" in history) history.scrollRestoration = "manual";
     } catch {}
     return () => {
       try {
-        if ("scrollRestoration" in history) {
+        if ("scrollRestoration" in history)
           history.scrollRestoration = prev || "auto";
-        }
       } catch {}
     };
   }, []);
 
-  // ✅ Lecture contexte sauvegardé
+  // Lecture contexte sauvegardé
   useEffect(() => {
     const raw = sessionStorage.getItem("membersPageCtx");
     if (!raw) return;
@@ -238,7 +228,7 @@ function MembersPage() {
     } catch {}
   }, []);
 
-  // ✅ Repositionnement par memberId
+  // Repositionnement par memberId (retour depuis edit)
   useEffect(() => {
     if (!editedMemberIdFromState) return;
     if (loading || filteredMembers.length === 0) return;
@@ -251,7 +241,7 @@ function MembersPage() {
     return () => clearTimeout(t);
   }, [editedMemberIdFromState, loading, filteredMembers, location.pathname]);
 
-  // ✅ Repositionnement simple par id
+  // Repositionnement simple par id (depuis sessionStorage)
   useEffect(() => {
     if (loading || filteredMembers.length === 0) return;
 
@@ -279,11 +269,7 @@ function MembersPage() {
       const sel = `[data-member-id="${CSS.escape(String(lastId))}"]`;
       const el = document.querySelector(sel);
       if (el) {
-        el.scrollIntoView({
-          behavior: "auto",
-          block: "center",
-          inline: "nearest",
-        });
+        el.scrollIntoView({ behavior: "auto", block: "center", inline: "nearest" });
         highlight(el);
         sessionStorage.removeItem("membersLastId");
         done = true;
@@ -300,13 +286,11 @@ function MembersPage() {
     requestAnimationFrame(tryScroll);
   }, [loading, filteredMembers]);
 
-  // ✅ Scroll vers membre
+  // Scroll vers membre
   const scrollToMember = (memberId) => {
     const memberElement =
       memberRefs.current[memberId] ||
-      document.querySelector(
-        `[data-member-id="${CSS.escape(String(memberId))}"]`
-      );
+      document.querySelector(`[data-member-id="${CSS.escape(String(memberId))}"]`);
     if (memberElement) {
       memberElement.scrollIntoView({ behavior: "smooth", block: "center" });
       memberElement.style.transition = "all 0.3s ease";
@@ -321,7 +305,7 @@ function MembersPage() {
     }
   };
 
-  // ✅ Sauvegarde contexte avec page
+  // Sauvegarde contexte
   const saveMembersPageContext = (extra = {}) => {
     const scrollEl = document.scrollingElement || document.documentElement;
     const ctx = {
@@ -329,7 +313,7 @@ function MembersPage() {
       activeFilter,
       sortAsc,
       selectedIds,
-      currentPage, // NOUVEAU
+      currentPage,
       scrollY: scrollEl ? scrollEl.scrollTop : window.scrollY || 0,
       savedAt: Date.now(),
       ...extra,
@@ -337,14 +321,14 @@ function MembersPage() {
     sessionStorage.setItem("membersPageCtx", JSON.stringify(ctx));
   };
 
-  // ✅ MODIFIÉ : Chargement sans photos
+  // Chargement membres (sans photos)
   const fetchMembers = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await supabaseServices.getMembersWithoutPhotos(); // CHANGÉ ICI
-      setMembers(data);
-      console.log(`✅ ${data.length} membres chargés (sans photos)`);
+      const data = await supabaseServices.getMembersWithoutPhotos();
+      setMembers(data || []);
+      console.log(`✅ ${data?.length ?? 0} membres chargés (sans photos)`);
     } catch (err) {
       console.error("Erreur récupération membres :", err);
       setError(`Erreur lors du chargement: ${err.message}`);
@@ -357,7 +341,7 @@ function MembersPage() {
     fetchMembers();
   }, []);
 
-  // ✅ Filtrage (GARDÉ - inchangé)
+  // Filtrage liste
   useEffect(() => {
     const compiledClauses = parseSearch(search);
     let result = members.filter((m) => matchesSearch(m, compiledClauses));
@@ -373,7 +357,7 @@ function MembersPage() {
         if (!m.endDate) return true;
         try {
           return isBefore(parseISO(m.endDate), new Date());
-        } catch (e) {
+        } catch {
           return true;
         }
       });
@@ -387,7 +371,7 @@ function MembersPage() {
             date.getMonth() === now.getMonth() &&
             date.getFullYear() === now.getFullYear()
           );
-        } catch (e) {
+        } catch {
           return false;
         }
       });
@@ -395,8 +379,7 @@ function MembersPage() {
       result = result.filter((m) => {
         if (!m.files) return true;
         if (Array.isArray(m.files)) return m.files.length === 0;
-        if (typeof m.files === "string")
-          return m.files === "[]" || m.files === "";
+        if (typeof m.files === "string") return m.files === "[]" || m.files === "";
         return Object.keys(m.files).length === 0;
       });
     }
@@ -408,31 +391,30 @@ function MembersPage() {
     });
 
     setFilteredMembers(result);
-    setCurrentPage(1); // NOUVEAU : Reset à la page 1 quand filtres changent
+    setCurrentPage(1); // reset à la page 1 quand filtres changent
   }, [members, search, sortAsc, activeFilter]);
 
-  // ✅ NOUVEAU : Calcul pagination avec useMemo (AVANT le useEffect photos)
+  // ── ✅ Pagination via useMemo (AVANT l'effet photos)
   const paginatedMembers = useMemo(() => {
-    const totalPagesLocal = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
-    const startIndexLocal = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndexLocal = startIndexLocal + ITEMS_PER_PAGE;
-    return filteredMembers.slice(startIndexLocal, endIndexLocal);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredMembers.slice(startIndex, endIndex);
   }, [filteredMembers, currentPage]);
 
-  // Expose aussi les bornes/pages pour le rendu
   const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
 
-  // ✅ NOUVEAU : Chargement des photos pour la page courante (APRÈS paginatedMembers)
+  // ── ✅ Chargement des photos pour la page courante (anti-boucles)
   useEffect(() => {
     if (loading || paginatedMembers.length === 0) return;
+    if (photosLoadingRef.current) return; // évite courses
 
     const loadPhotosForCurrentPage = async () => {
       const memberIds = paginatedMembers.map((m) => m.id);
 
-      // Vérifier quelles photos sont déjà en cache
-      const missingIds = memberIds.filter((id) => !photosCache[id]);
+      // IMPORTANT : on considère qu'une entrée présente dans le cache (même null) = déjà vérifiée
+      const missingIds = memberIds.filter((id) => !(id in photosCache));
 
       if (missingIds.length === 0) {
         console.log(`✅ Photos déjà en cache pour page ${currentPage}`);
@@ -440,30 +422,45 @@ function MembersPage() {
       }
 
       try {
+        photosLoadingRef.current = true;
         setLoadingPhotos(true);
-        console.log(
-          `📸 Chargement de ${missingIds.length} photos pour page ${currentPage}`
-        );
+        console.log(`📸 Chargement de ${missingIds.length} photos pour page ${currentPage}`);
 
-        const newPhotos = await supabaseServices.getMemberPhotos(missingIds);
+        // => Doit renvoyer un objet { [id]: dataURL } uniquement pour ceux qui existent
+        const newPhotos = (await supabaseServices.getMemberPhotos(missingIds)) || {};
 
-        setPhotosCache((prev) => ({
-          ...prev,
-          ...newPhotos,
-        }));
+        // Construire le prochain cache :
+        const nextCache = { ...photosCache, ...newPhotos };
+
+        // Pour chaque id demandé non retourné par l'API, on marque explicitement "pas de photo"
+        for (const id of missingIds) {
+          if (!(id in newPhotos)) nextCache[id] = null;
+        }
+
+        // N'update l'état QUE si le contenu change réellement (évite re-render et re-effets)
+        let changed = false;
+        const keys = new Set([...Object.keys(photosCache), ...Object.keys(nextCache)]);
+        for (const k of keys) {
+          if (photosCache[k] !== nextCache[k]) {
+            changed = true;
+            break;
+          }
+        }
+        if (changed) setPhotosCache(nextCache);
 
         console.log(`✅ ${Object.keys(newPhotos).length} photos chargées`);
       } catch (err) {
         console.error("Erreur chargement photos:", err);
       } finally {
         setLoadingPhotos(false);
+        photosLoadingRef.current = false;
       }
     };
 
     loadPhotosForCurrentPage();
   }, [currentPage, paginatedMembers, loading, photosCache]);
 
-  // ✅ NOUVEAU : Navigation pagination
+  // Navigation pagination
   const goToPage = (page) => {
     if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
@@ -471,7 +468,7 @@ function MembersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ✅ Handlers (GARDÉS - inchangés)
+  // Handlers
   const handleEditMember = (member) => {
     if (isMobile) {
       setSelectedMember(member);
@@ -492,9 +489,7 @@ function MembersPage() {
     } else {
       sessionStorage.removeItem("membersLastId");
       saveMembersPageContext({ editedMemberId: null });
-      navigate("/members/new", {
-        state: { member: null, returnPath: "/members" },
-      });
+      navigate("/members/new", { state: { member: null, returnPath: "/members" } });
     }
   };
 
@@ -504,9 +499,7 @@ function MembersPage() {
   };
 
   const handleDelete = async (id) => {
-    if (
-      window.confirm("Supprimer ce membre ? Cette action est irréversible.")
-    ) {
+    if (window.confirm("Supprimer ce membre ? Cette action est irréversible.")) {
       try {
         await supabaseServices.deleteMember(id);
         await fetchMembers();
@@ -540,7 +533,6 @@ function MembersPage() {
 
   const toggleSelectAll = () => {
     if (selectedIds.length === paginatedMembers.length) {
-      // CHANGÉ : sélection page courante
       setSelectedIds([]);
     } else {
       setSelectedIds(paginatedMembers.map((m) => m.id));
@@ -553,17 +545,15 @@ function MembersPage() {
     );
   };
 
-  // ✅ Stats (GARDÉES - inchangées)
+  // Stats
   const total = filteredMembers.length;
   const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
-  const femaleCount = filteredMembers.filter(
-    (m) => m.gender === "Femme"
-  ).length;
+  const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
   const expiredCount = filteredMembers.filter((m) => {
     if (!m.endDate) return true;
     try {
       return isBefore(parseISO(m.endDate), new Date());
-    } catch (e) {
+    } catch {
       return true;
     }
   }).length;
@@ -580,11 +570,8 @@ function MembersPage() {
     try {
       const date = parseISO(m.startDate);
       const now = new Date();
-      return (
-        date.getMonth() === now.getMonth() &&
-        date.getFullYear() === now.getFullYear()
-      );
-    } catch (e) {
+      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    } catch {
       return false;
     }
   }).length;
@@ -607,6 +594,7 @@ function MembersPage() {
     }
   };
 
+  // UI état général
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -658,68 +646,15 @@ function MembersPage() {
         </button>
       </div>
 
-      {activeFilter && (
-        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <div className="flex justify-between items-center">
-            <span className="text-blue-700 dark:text-blue-300">
-              Filtre actif : <strong>{activeFilter}</strong> (
-              {filteredMembers.length} résultat
-              {filteredMembers.length !== 1 ? "s" : ""})
-            </span>
-            <button
-              onClick={() => setActiveFilter(null)}
-              className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline text-sm"
-            >
-              Réinitialiser
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Widgets */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-        <Widget
-          title="👥 Total"
-          value={total}
-          onClick={() => setActiveFilter(null)}
-          active={!activeFilter}
-        />
-        <Widget
-          title="👨 Hommes"
-          value={maleCount}
-          onClick={() => setActiveFilter("Homme")}
-          active={activeFilter === "Homme"}
-        />
-        <Widget
-          title="👩 Femmes"
-          value={femaleCount}
-          onClick={() => setActiveFilter("Femme")}
-          active={activeFilter === "Femme"}
-        />
-        <Widget
-          title="🎓 Étudiants"
-          value={studentCount}
-          onClick={() => setActiveFilter("Etudiant")}
-          active={activeFilter === "Etudiant"}
-        />
-        <Widget
-          title="📅 Expirés"
-          value={expiredCount}
-          onClick={() => setActiveFilter("Expiré")}
-          active={activeFilter === "Expiré"}
-        />
-        <Widget
-          title="✅ Récents"
-          value={recentCount}
-          onClick={() => setActiveFilter("Récent")}
-          active={activeFilter === "Récent"}
-        />
-        <Widget
-          title="📂 Sans certif"
-          value={noCertCount}
-          onClick={() => setActiveFilter("SansCertif")}
-          active={activeFilter === "SansCertif"}
-        />
+        <Widget title="👥 Total" value={total} onClick={() => setActiveFilter(null)} active={!activeFilter} />
+        <Widget title="👨 Hommes" value={maleCount} onClick={() => setActiveFilter("Homme")} active={activeFilter === "Homme"} />
+        <Widget title="👩 Femmes" value={femaleCount} onClick={() => setActiveFilter("Femme")} active={activeFilter === "Femme"} />
+        <Widget title="🎓 Étudiants" value={studentCount} onClick={() => setActiveFilter("Etudiant")} active={activeFilter === "Etudiant"} />
+        <Widget title="📅 Expirés" value={expiredCount} onClick={() => setActiveFilter("Expiré")} active={activeFilter === "Expiré"} />
+        <Widget title="✅ Récents" value={recentCount} onClick={() => setActiveFilter("Récent")} active={activeFilter === "Récent"} />
+        <Widget title="📂 Sans certif" value={noCertCount} onClick={() => setActiveFilter("SansCertif")} active={activeFilter === "SansCertif"} />
       </div>
 
       {/* Barre d'actions */}
@@ -755,13 +690,11 @@ function MembersPage() {
         </div>
       </div>
 
-      {/* ✅ NOUVEAU : Contrôles de pagination EN HAUT */}
+      {/* Pagination top */}
       {totalPages > 1 && (
         <div className="mb-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage} sur {totalPages} • Affichage de {startIndex + 1}-
-            {Math.min(endIndex, filteredMembers.length)} sur{" "}
-            {filteredMembers.length} membres
+            Page {currentPage} sur {totalPages} • Affichage de {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membres
           </div>
 
           <div className="flex items-center gap-2">
@@ -774,23 +707,13 @@ function MembersPage() {
               <span className="hidden sm:inline">Précédent</span>
             </button>
 
-            {/* Numéros de pages */}
             <div className="hidden sm:flex items-center gap-1">
               {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((page) => {
-                  // Afficher : 1ère, dernière, courante, et ±1 autour de la courante
-                  return (
-                    page === 1 ||
-                    page === totalPages ||
-                    Math.abs(page - currentPage) <= 1
-                  );
-                })
+                .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
                 .map((page, idx, arr) => (
                   <React.Fragment key={page}>
                     {idx > 0 && arr[idx - 1] !== page - 1 && (
-                      <span className="px-2 text-gray-400 dark:text-gray-600">
-                        ...
-                      </span>
+                      <span className="px-2 text-gray-400 dark:text-gray-600">...</span>
                     )}
                     <button
                       onClick={() => goToPage(page)}
@@ -818,37 +741,7 @@ function MembersPage() {
         </div>
       )}
 
-      {/* Contrôles de tri desktop */}
-      <div className="hidden lg:flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={
-                selectedIds.length === paginatedMembers.length &&
-                paginatedMembers.length > 0
-              }
-              onChange={toggleSelectAll}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              Sélectionner la page
-            </span>
-          </label>
-        </div>
-        <button
-          onClick={() => setSortAsc(!sortAsc)}
-          className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-        >
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Trier par nom
-          </span>
-          <span className="text-gray-500 dark:text-gray-400">
-            {sortAsc ? "▲" : "▼"}
-          </span>
-        </button>
-      </div>
-
+      {/* Vue tableau desktop */}
       {filteredMembers.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 dark:text-gray-400">
           {search || activeFilter
@@ -857,7 +750,6 @@ function MembersPage() {
         </div>
       ) : (
         <>
-          {/* Vue tableau desktop */}
           <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -866,43 +758,26 @@ function MembersPage() {
                     <th className="p-3 text-left">
                       <input
                         type="checkbox"
-                        checked={
-                          selectedIds.length === paginatedMembers.length &&
-                          paginatedMembers.length > 0
-                        }
+                        checked={selectedIds.length === paginatedMembers.length && paginatedMembers.length > 0}
                         onChange={toggleSelectAll}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                     </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Photo
-                    </th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Photo</th>
                     <th className="p-3 text-left">
                       <button
                         onClick={() => setSortAsc(!sortAsc)}
                         className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                       >
                         Nom{" "}
-                        <span className="text-gray-500 dark:text-gray-400">
-                          {sortAsc ? "▲" : "▼"}
-                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
                       </button>
                     </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Infos
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Abonnement
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Badge
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Status
-                    </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">
-                      Actions
-                    </th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Infos</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Abonnement</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Badge</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Status</th>
+                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
@@ -910,11 +785,8 @@ function MembersPage() {
                     const isExpired = member.endDate
                       ? (() => {
                           try {
-                            return isBefore(
-                              parseISO(member.endDate),
-                              new Date()
-                            );
-                          } catch (e) {
+                            return isBefore(parseISO(member.endDate), new Date());
+                          } catch {
                             return true;
                           }
                         })()
@@ -966,9 +838,7 @@ function MembersPage() {
                             </span>
                             <FaExternalLinkAlt className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200" />
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            ID: {member.id}
-                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
                         </td>
 
                         <td className="p-3">
@@ -998,9 +868,7 @@ function MembersPage() {
                               </div>
                             )}
                             {member.mobile && (
-                              <div className="text-gray-600 dark:text-gray-400 text-xs">
-                                📱 {member.mobile}
-                              </div>
+                              <div className="text-gray-600 dark:text-gray-400 text-xs">📱 {member.mobile}</div>
                             )}
                           </div>
                         </td>
@@ -1096,22 +964,15 @@ function MembersPage() {
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={
-                    selectedIds.length === paginatedMembers.length &&
-                    paginatedMembers.length > 0
-                  }
+                  checked={selectedIds.length === paginatedMembers.length && paginatedMembers.length > 0}
                   onChange={toggleSelectAll}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Sélectionner la page
-                </span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Sélectionner la page</span>
               </label>
               <button onClick={() => setSortAsc(!sortAsc)}>
                 <span className="text-gray-700 dark:text-gray-300">Nom</span>{" "}
-                <span className="text-gray-500 dark:text-gray-400">
-                  {sortAsc ? "▲" : "▼"}
-                </span>
+                <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "▲" : "▼"}</span>
               </button>
             </div>
 
@@ -1120,7 +981,7 @@ function MembersPage() {
                 ? (() => {
                     try {
                       return isBefore(parseISO(member.endDate), new Date());
-                    } catch (e) {
+                    } catch {
                       return true;
                     }
                   })()
@@ -1166,9 +1027,7 @@ function MembersPage() {
                         >
                           {member.name} {member.firstName}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          ID: {member.id}
-                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
                       </div>
                     </div>
                   </div>
@@ -1292,7 +1151,7 @@ function MembersPage() {
         </>
       )}
 
-      {/* ✅ NOUVEAU : Contrôles pagination EN BAS (répétés) */}
+      {/* Pagination bottom */}
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -1310,8 +1169,7 @@ function MembersPage() {
             </button>
 
             <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">
-              {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur{" "}
-              {filteredMembers.length}
+              {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length}
             </span>
 
             <button
@@ -1331,11 +1189,8 @@ function MembersPage() {
         <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400">
           <div className="flex items-center justify-between">
             <div>
-              Affichage de {startIndex + 1}-
-              {Math.min(endIndex, filteredMembers.length)} sur{" "}
-              {filteredMembers.length} membre
-              {filteredMembers.length !== 1 ? "s" : ""} filtrés •{" "}
-              {members.length} total
+              Affichage de {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membre
+              {filteredMembers.length !== 1 ? "s" : ""} filtrés • {members.length} total
             </div>
             {loadingPhotos && (
               <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
@@ -1346,8 +1201,7 @@ function MembersPage() {
           </div>
           {selectedIds.length > 0 && (
             <div className="mt-2 text-blue-600 dark:text-blue-400 font-medium">
-              {selectedIds.length} sélectionné
-              {selectedIds.length !== 1 ? "s" : ""}
+              {selectedIds.length} sélectionné{selectedIds.length !== 1 ? "s" : ""}
             </div>
           )}
         </div>
@@ -1368,16 +1222,11 @@ function MembersPage() {
 
                   let memberId;
                   if (selectedMember?.id) {
-                    await supabaseServices.updateMember(
-                      selectedMember.id,
-                      memberData
-                    );
+                    await supabaseServices.updateMember(selectedMember.id, memberData);
                     memberId = selectedMember.id;
                     console.log("✅ Membre modifié:", selectedMember.id);
                   } else {
-                    const newMember = await supabaseServices.createMember(
-                      memberData
-                    );
+                    const newMember = await supabaseServices.createMember(memberData);
                     memberId = newMember.id;
                     console.log("✅ Nouveau membre créé:", newMember.id);
                   }
@@ -1418,18 +1267,14 @@ function Widget({ title, value, onClick, active = false }) {
     >
       <div
         className={`text-sm ${
-          active
-            ? "text-blue-700 dark:text-blue-300 font-medium"
-            : "text-gray-500 dark:text-gray-400"
+          active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
         }`}
       >
         {title}
       </div>
       <div
         className={`text-xl font-bold ${
-          active
-            ? "text-blue-800 dark:text-blue-200"
-            : "text-gray-800 dark:text-gray-200"
+          active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
         }`}
       >
         {value}
