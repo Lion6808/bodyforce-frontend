@@ -220,7 +220,6 @@ function PlanningPage() {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
   // ✅ Lazy-load photos pour les membres ayant des présences
