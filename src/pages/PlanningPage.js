@@ -30,6 +30,20 @@ import {
   endOfYear,
 } from "date-fns";
 
+
+// DEBUG : Vérifier l'état de connexion au chargement
+useEffect(() => {
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log("🔐 État session Supabase:", session ? "CONNECTÉ" : "DÉCONNECTÉ");
+    if (session) {
+      console.log("👤 User:", session.user.email);
+    }
+  };
+  checkAuth();
+}, []);
+
+
 // Supabase
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
