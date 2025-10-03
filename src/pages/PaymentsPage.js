@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
 import {
   CreditCard,
@@ -10,1375 +10,678 @@ import {
   Clock,
   DollarSign,
   Calendar,
-  Search,
+  Search as SearchIcon,
   Filter,
   Download,
   Eye,
   EyeOff,
-  RefreshCw,
   Edit,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 
 import Avatar from "../components/Avatar";
-
-// ✅ Import des services : un seul client Supabase partagé (evite multi GoTrue)
-import { supabase, supabaseServices } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
+import { supabase, supabaseServices } from "../supabaseClient";
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Constantes
+// ──────────────────────────────────────────────────────────────────────────────
+const ITEMS_PER_PAGE = 20;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Page
+// ──────────────────────────────────────────────────────────────────────────────
 function PaymentsPage() {
-  // ✅ Détection mobile
+  // Device / thème
   const [isMobile, setIsMobile] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(
+    document.documentElement.classList.contains("dark")
+  );
   useEffect(() => {
-    const checkIfMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkIfMobile();
-    window.addEventListener("resize", checkIfMobile);
-    return () => window.removeEventListener("resize", checkIfMobile);
-  }, []);
-
-  // ✅ Dark mode
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  useEffect(() => {
-    const checkDarkMode = () => {
-      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    const onResize = () => setIsMobile(window.innerWidth < 1024);
+    onResize();
+    window.addEventListener("resize", onResize);
+    const obs = new MutationObserver(() =>
+      setIsDarkMode(document.documentElement.classList.contains("dark"))
+    );
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => {
+      window.removeEventListener("resize", onResize);
+      obs.disconnect();
     };
-    checkDarkMode();
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
   }, []);
 
-  // ✅ Données
-  const [members, setMembers] = useState([]);
-  const [payments, setPayments] = useState([]);
+  // Données
+  const [members, setMembers] = useState([]);      // sans photos
+  const [payments, setPayments] = useState([]);    // tous les paiements
   const [loading, setLoading] = useState(true);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const [error, setError] = useState("");
 
-  // ✅ Filtres / recherche
+  // UI
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
-
-  // ✅ UI
   const [expandedMember, setExpandedMember] = useState(null);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
 
-  // ✅ Pagination + lazy photos
-  const ITEMS_PER_PAGE = 20;
+  // Edition mobile
+  const [showForm, setShowForm] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [photosCache, setPhotosCache] = useState({}); // { [memberId]: dataURL/string }
+
+  // Photos (cache)
+  // undefined => jamais tenté, null => NEGATIVE CACHE (pas de photo), string => dataURL
+  const [photosCache, setPhotosCache] = useState({});
   const [loadingPhotos, setLoadingPhotos] = useState(false);
 
-  // ====== Chargement (egress friendly) ======
-  const loadData = async (showRetryIndicator = false) => {
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Fetch de base
+  // ──────────────────────────────────────────────────────────────────────────────
+  const fetchAll = async () => {
     try {
-      if (showRetryIndicator) setIsRetrying(true);
       setLoading(true);
       setError("");
 
-      // 1) Membres SANS photos (egress optimisé)
-      const membersData = await supabaseServices.getMembersWithoutPhotos();
+      // 1) Membres (sans photo) pour réduire l'egress
+      const m = await supabaseServices.getMembersWithoutPhotos();
 
-      // 2) Paiements + relation membre (sans photo dans la relation)
-      const { data: paymentsData, error: paymentsError } = await supabase
+      // 2) Paiements
+      const { data: pays, error: e2 } = await supabase
         .from("payments")
-        .select(
-          `
-            *,
-            members (id, badgeId, name, firstName, email, phone, mobile)
-          `
-        )
+        .select("*")
         .order("date_paiement", { ascending: false });
 
-      if (paymentsError) throw new Error(`Erreur paiements: ${paymentsError.message}`);
-
-      setMembers(membersData || []);
-      setPayments(paymentsData || []);
-      setRetryCount(0);
+      if (e2) throw e2;
+      setMembers(m || []);
+      setPayments(pays || []);
     } catch (e) {
-      setError(e.message || "Erreur de connexion à la base de données");
+      console.error("fetchAll error:", e);
+      setError(e.message || "Erreur lors du chargement");
     } finally {
       setLoading(false);
-      setIsRetrying(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    fetchAll();
   }, []);
 
-  const handleRetry = () => {
-    setRetryCount((prev) => prev + 1);
-    loadData(true);
-  };
-
-  // ====== Helpers paiements ======
-  function isOverdue(payment) {
-    if (payment.is_paid) return false;
-    if (!payment.encaissement_prevu) return false;
-    return new Date(payment.encaissement_prevu) < new Date();
-  }
-
-  function getPaymentStatus(payment) {
-    if (payment.is_paid) return "paid";
-    if (isOverdue(payment)) return "overdue";
-    return "pending";
-  }
-
-  const stats = {
-    totalMembers: members.length,
-    totalExpected: payments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-    totalReceived: payments.filter((p) => p.is_paid).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-    totalPending: payments.filter((p) => !p.is_paid && !isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-    totalOverdue: payments.filter((p) => !p.is_paid && isOverdue(p)).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
-    paidCount: payments.filter((p) => p.is_paid).length,
-    pendingCount: payments.filter((p) => !p.is_paid && !isOverdue(p)).length,
-    overdueCount: payments.filter((p) => !p.is_paid && isOverdue(p)).length,
-  };
-  stats.collectionRate = stats.totalExpected > 0 ? (stats.totalReceived / stats.totalExpected) * 100 : 0;
-
-  // ====== Enrichissement membres (statuts / agrégats paiements) ======
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Enrichissement: rattacher les paiements aux membres
+  // ──────────────────────────────────────────────────────────────────────────────
   const enrichedMembers = useMemo(() => {
-    return members.map((member) => {
-      const memberPayments = payments.filter((p) => p.member_id === member.id);
-      const totalDue = memberPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-      const totalPaid = memberPayments.filter((p) => p.is_paid).reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-      const progressPercentage = totalDue > 0 ? (totalPaid / totalDue) * 100 : 0;
-      const hasOverdue = memberPayments.some((p) => !p.is_paid && isOverdue(p));
-      const hasPending = memberPayments.some((p) => !p.is_paid && !isOverdue(p));
-
-      let overallStatus = "no_payments";
-      if (memberPayments.length > 0) {
-        if (hasOverdue) overallStatus = "overdue";
-        else if (hasPending) overallStatus = "pending";
-        else overallStatus = "paid";
-      }
-
-      const lastPaymentDate = memberPayments
-        .filter((p) => p.is_paid)
-        .sort((a, b) => new Date(b.date_paiement) - new Date(a.date_paiement))[0]?.date_paiement;
-
-      return {
-        ...member,
-        payments: memberPayments,
-        totalDue,
-        totalPaid,
-        progressPercentage,
-        overallStatus,
-        lastPaymentDate,
-      };
+    if (!members.length) return [];
+    const byMember = new Map();
+    for (const p of payments) {
+      const key = p.member_id ?? p.memberId ?? p.user_id ?? p.memberID;
+      if (!key) continue;
+      const arr = byMember.get(key) || [];
+      arr.push(p);
+      byMember.set(key, arr);
+    }
+    return members.map((m) => {
+      const list = byMember.get(m.id) || [];
+      const totalPaid = list.reduce((s, p) => s + (Number(p.montant) || 0), 0);
+      const lastDate = list.length
+        ? list
+            .map((p) => new Date(p.date_paiement || p.created_at || p.date || 0))
+            .sort((a, b) => b - a)[0]
+            .toISOString()
+            .slice(0, 10)
+        : null;
+      const now = new Date();
+      const paidThisMonth = list.some((p) => {
+        const d = new Date(p.date_paiement || p.created_at || p.date || 0);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+      const overallStatus = paidThisMonth ? "paid" : list.length ? "pending" : "no_payments";
+      return { ...m, payments: list, totalPaid, lastPaymentDate: lastDate, overallStatus };
     });
   }, [members, payments]);
 
-  // ====== Filtrage + Recherche ======
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Filtre + recherche
+  // ──────────────────────────────────────────────────────────────────────────────
   const filteredMembers = useMemo(() => {
-    const query = searchTerm.toLowerCase();
-    return enrichedMembers.filter((member) => {
-      const matchesSearch =
-        member.name?.toLowerCase().includes(query) ||
-        member.firstName?.toLowerCase().includes(query) ||
-        member.badgeId?.toString().toLowerCase().includes(query);
-      const matchesStatus = statusFilter === "all" || member.overallStatus === statusFilter;
-      return matchesSearch && matchesStatus;
+    const q = (searchTerm || "").toLowerCase().trim();
+    return enrichedMembers.filter((m) => {
+      const hay = [m.name, m.firstName, m.badgeId, m.email, m.mobile, m.phone]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const okSearch = !q || hay.includes(q);
+      const okStatus = statusFilter === "all" || m.overallStatus === statusFilter;
+      return okSearch && okStatus;
     });
   }, [enrichedMembers, searchTerm, statusFilter]);
 
-  // ====== Pagination (20) ======
-  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Pagination (AVANT le useEffect des photos)
+  // ──────────────────────────────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(1);
+  }, [totalPages, currentPage]);
 
   const paginatedMembers = useMemo(() => {
-    return filteredMembers.slice(startIndex, endIndex);
-  }, [filteredMembers, startIndex, endIndex]);
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredMembers.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredMembers, currentPage]);
 
-  // Reset page quand filtres/recherche changent
+  const goToPage = (p) => {
+    if (p < 1 || p > totalPages) return;
+    setCurrentPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Chargement lazy des photos pour la page courante
+  // ──────────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
-
-  // ====== Lazy-load des photos pour la page courante ======
-  useEffect(() => {
-    if (loading || paginatedMembers.length === 0) return;
-
-    const loadPhotosForCurrentPage = async () => {
-      const ids = paginatedMembers.map((m) => m.id);
-      const missing = ids.filter((id) => !photosCache[id]);
-      if (missing.length === 0) return;
-
+    if (loading || !paginatedMembers.length) return;
+    const idsToLoad = paginatedMembers.map((m) => m.id).filter((id) => photosCache[id] === undefined);
+    if (!idsToLoad.length) return;
+    let cancelled = false;
+    (async () => {
       try {
         setLoadingPhotos(true);
-        const newPhotos = await supabaseServices.getMemberPhotos(missing);
-        setPhotosCache((prev) => ({ ...prev, ...newPhotos }));
+        const map = await supabaseServices.getMemberPhotos(idsToLoad);
+        if (cancelled) return;
+        setPhotosCache((prev) => {
+          const next = { ...prev };
+          for (const id of idsToLoad) {
+            next[id] = map[id] || null; // null => negative cache
+          }
+          return next;
+        });
       } catch (e) {
         console.error("Erreur chargement photos:", e);
       } finally {
-        setLoadingPhotos(false);
+        !cancelled && setLoadingPhotos(false);
       }
-    };
-
-    loadPhotosForCurrentPage();
+    })();
+    return () => { cancelled = true; };
   }, [loading, paginatedMembers, photosCache]);
 
-  // ====== UI helpers ======
-  const getStatusColor = (status) => {
-    const baseClasses = isDarkMode
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Helpers UI
+  // ──────────────────────────────────────────────────────────────────────────────
+  const pill = (status) => {
+    const theme = isDarkMode
       ? {
           paid: "text-green-400 bg-green-900/30",
           pending: "text-yellow-400 bg-yellow-900/30",
           overdue: "text-red-400 bg-red-900/30",
-          no_payments: "text-gray-400 bg-gray-800/30",
+          no_payments: "text-gray-300 bg-gray-700/60",
         }
       : {
-          paid: "text-green-600 bg-green-100",
-          pending: "text-yellow-600 bg-yellow-100",
-          overdue: "text-red-600 bg-red-100",
-          no_payments: "text-gray-600 bg-gray-100",
+          paid: "text-green-700 bg-green-100",
+          pending: "text-yellow-700 bg-yellow-100",
+          overdue: "text-red-700 bg-red-100",
+          no_payments: "text-gray-700 bg-gray-100",
         };
-    return baseClasses[status] || baseClasses.no_payments;
+    return theme[status] || theme.no_payments;
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "paid":
-        return <CheckCircle className="w-4 h-4" />;
-      case "pending":
-        return <Clock className="w-4 h-4" />;
-      case "overdue":
-        return <AlertCircle className="w-4 h-4" />;
-      case "no_payments":
-        return <CreditCard className="w-4 h-4" />;
-      default:
-        return <Clock className="w-4 h-4" />;
-    }
+  const euros = (n) => `${(Number(n) || 0).toFixed(2)} €`;
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Export CSV / PDF
+  // ──────────────────────────────────────────────────────────────────────────────
+  const exportCSV = () => {
+    const rows = [
+      ["ID", "Nom", "Prénom", "Badge", "Total payé", "Dernier paiement", "Statut"],
+      ...filteredMembers.map((m) => [
+        m.id,
+        m.name || "",
+        m.firstName || "",
+        m.badgeId || "",
+        String(m.totalPaid || 0).replace(".", ","),
+        m.lastPaymentDate || "",
+        m.overallStatus || "",
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `paiements_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case "paid":
-        return "Payé";
-      case "pending":
-        return "En attente";
-      case "overdue":
-        return "En retard";
-      case "no_payments":
-        return "Aucun paiement";
-      default:
-        return "Inconnu";
-    }
-  };
-
-  const getPaymentMethodIcon = (method) => {
-    switch (method) {
-      case "carte":
-        return "💳";
-      case "chèque":
-      case "cheque":
-        return "📝";
-      case "espèces":
-      case "especes":
-        return "💵";
-      case "autre":
-        return "🔄";
-      default:
-        return "❓";
-    }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "Non définie";
-    try {
-      return new Date(dateString).toLocaleDateString("fr-FR");
-    } catch {
-      return "Date invalide";
-    }
-  };
-
-  const formatDateTime = (dateString) => {
-    if (!dateString) return "Non définie";
-    try {
-      return new Date(dateString).toLocaleString("fr-FR");
-    } catch {
-      return "Date invalide";
-    }
-  };
-
-  // ====== Export PDF / CSV (inchangé, sauf qu’on s’appuie sur filteredMembers) ======
   const exportToPDF = () => {
     try {
       const doc = new jsPDF("landscape", "mm", "a4");
+      const primary = [59, 130, 246];
+      const white = [255, 255, 255];
+      const black = [0, 0, 0];
 
-      const primaryColor = [59, 130, 246];
-      const textColor = [0, 0, 0];
-      const whiteColor = [255, 255, 255];
+      // Header
+      doc.setFillColor(...primary);
+      doc.rect(0, 0, 297, 20, "F");
+      doc.setTextColor(...white);
+      doc.setFontSize(16);
+      doc.text("CLUB BODY FORCE — RAPPORT PAIEMENTS", 148.5, 12.5, { align: "center" });
 
-      doc.setFillColor(...primaryColor);
-      doc.rect(0, 0, 297, 25, "F");
-      doc.setTextColor(...whiteColor);
-      doc.setFontSize(18);
-      doc.text("CLUB BODY FORCE - RAPPORT PAIEMENTS", 148, 15, { align: "center" });
-
+      // Sous-titre
+      doc.setTextColor(...black);
+      doc.setFontSize(10);
       const now = new Date();
-      const dateStr = now.toLocaleDateString("fr-FR");
-      doc.setFontSize(10);
-      doc.text(`Genere le ${dateStr}`, 148, 22, { align: "center" });
+      const info = `Généré le ${now.toLocaleDateString("fr-FR")} • Membres filtrés: ${filteredMembers.length}`;
+      doc.text(info, 148.5, 28, { align: "center" });
 
-      doc.setTextColor(...textColor);
-      let yPos = 35;
-
-      // Stats globales
-      doc.setFontSize(14);
-      doc.text("STATISTIQUES GLOBALES", 20, yPos);
-      yPos += 10;
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(15, yPos - 2, 267, 35);
-      doc.setFontSize(10);
-      doc.text(`Total Attendu: ${stats.totalExpected.toLocaleString("fr-FR")} €`, 20, yPos + 5);
-      doc.text(`Total Recu: ${stats.totalReceived.toLocaleString("fr-FR")} € (${stats.collectionRate.toFixed(1)}%)`, 150, yPos + 5);
-      doc.text(`En Attente: ${stats.totalPending.toLocaleString("fr-FR")} € (${stats.pendingCount} paiements)`, 20, yPos + 15);
-      doc.text(`En Retard: ${stats.totalOverdue.toLocaleString("fr-FR")} € (${stats.overdueCount} paiements)`, 150, yPos + 15);
-      doc.text(`Nombre de membres: ${stats.totalMembers}`, 20, yPos + 25);
-      doc.text(`Paiements effectues: ${stats.paidCount}`, 150, yPos + 25);
-      yPos += 45;
-
-      // Répartition par méthode
-      doc.setFontSize(14);
-      doc.text("REPARTITION PAR METHODE DE PAIEMENT", 20, yPos);
-      yPos += 10;
-      doc.rect(15, yPos - 2, 267, 30);
-      doc.setFontSize(10);
-      let xPos = 20;
-
-      ["carte", "chèque", "espèces", "autre"].forEach((method) => {
-        const methodPayments = payments.filter(
-          (p) =>
-            p.is_paid &&
-            (p.method === method ||
-              (method === "chèque" && p.method === "cheque") ||
-              (method === "espèces" && p.method === "especes"))
-        );
-        const total = methodPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-        const percentage = stats.totalReceived > 0 ? (total / stats.totalReceived) * 100 : 0;
-
-        doc.text(`${method.toUpperCase()}:`, xPos, yPos + 8);
-        doc.text(`${total.toFixed(2)} €`, xPos, yPos + 15);
-        doc.text(`${percentage.toFixed(1)}%`, xPos, yPos + 22);
-        xPos += 65;
-      });
-
-      yPos += 40;
-
-      // Détail membres
-      doc.setFontSize(14);
-      doc.text(`DETAIL DES MEMBRES (${filteredMembers.length} affiches)`, 20, yPos);
-      yPos += 10;
+      // Colonnes
+      const headers = ["ID", "Nom", "Prénom", "Badge", "Dernier paiement", "Total payé", "Statut"];
+      const colX = [10, 25, 90, 155, 185, 225, 265];
 
       doc.setFontSize(9);
-      doc.text("NOM PRENOM", 20, yPos);
-      doc.text("BADGE", 80, yPos);
-      doc.text("STATUT", 110, yPos);
-      doc.text("PROGRESSION", 145, yPos);
-      doc.text("MONTANTS", 185, yPos);
-      doc.text("DERNIER PAIEMENT", 235, yPos);
-      yPos += 5;
+      doc.setFillColor(240);
+      doc.rect(8, 32, 281, 8, "F");
+      headers.forEach((h, i) => doc.text(h, colX[i], 38));
 
-      doc.setDrawColor(0, 0, 0);
-      doc.line(15, yPos, 280, yPos);
-      yPos += 8;
-
-      doc.setFontSize(8);
-
-      filteredMembers.forEach((member, index) => {
-        if (yPos > 190) {
-          doc.addPage();
-          yPos = 20;
-
-          doc.setFontSize(9);
-          doc.text("NOM PRENOM", 20, yPos);
-          doc.text("BADGE", 80, yPos);
-          doc.text("STATUT", 110, yPos);
-          doc.text("PROGRESSION", 145, yPos);
-          doc.text("MONTANTS", 185, yPos);
-          doc.text("DERNIER PAIEMENT", 235, yPos);
-          yPos += 5;
-          doc.line(15, yPos, 280, yPos);
-          yPos += 8;
-          doc.setFontSize(8);
+      // Lignes
+      let y = 46;
+      for (const m of filteredMembers) {
+        if (y > 190) {
+          doc.addPage("a4", "landscape");
+          y = 20;
         }
-
-        const fullName = `${member.firstName || ""} ${member.name || ""}`.trim();
-        const truncatedName = fullName.length > 25 ? fullName.substring(0, 22) + "..." : fullName;
-        doc.text(truncatedName, 20, yPos);
-
-        doc.text(member.badgeId || "N/A", 80, yPos);
-
-        const statusText =
-          member.overallStatus === "paid"
-            ? "Paye"
-            : member.overallStatus === "pending"
-            ? "Attente"
-            : member.overallStatus === "overdue"
-            ? "Retard"
-            : "Aucun";
-        doc.text(statusText, 110, yPos);
-
-        doc.text(`${member.progressPercentage.toFixed(0)}%`, 145, yPos);
-
-        doc.text(`${member.totalPaid.toFixed(0)}€/${member.totalDue.toFixed(0)}€`, 185, yPos);
-
-        const lastPayment = member.lastPaymentDate ? formatDate(member.lastPaymentDate) : "Aucun";
-        doc.text(lastPayment, 235, yPos);
-
-        yPos += 6;
-
-        if ((index + 1) % 5 === 0) {
-          doc.setDrawColor(220, 220, 220);
-          doc.line(15, yPos - 1, 280, yPos - 1);
-          yPos += 2;
-        }
-      });
-
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text(`Page ${i}/${pageCount}`, 148, 205, { align: "center" });
-        doc.text("Club Body Force - Rapport genere automatiquement", 148, 210, { align: "center" });
+        const row = [
+          String(m.id),
+          `${m.name || ""}`,
+          `${m.firstName || ""}`,
+          `${m.badgeId || ""}`,
+          m.lastPaymentDate || "—",
+          euros(m.totalPaid),
+          m.overallStatus === "paid" ? "Payé (mois)" : m.overallStatus === "pending" ? "En attente" : "Aucun",
+        ];
+        row.forEach((cell, i) => doc.text(String(cell), colX[i], y));
+        y += 7;
       }
 
-      const timestamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "_");
-      const fileName = `Rapport_Paiements_${timestamp}.pdf`;
-      doc.save(fileName);
-      console.log("✅ Export PDF réussi:", fileName);
-    } catch (error) {
-      console.error("❌ Erreur lors de l'export PDF:", error);
-      alert("Erreur lors de la génération du PDF. Veuillez réessayer.");
+      doc.save(`paiements_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) {
+      console.error("exportToPDF error:", e);
+      alert("Erreur lors de la génération du PDF.");
     }
   };
 
-  const exportToCSV = () => {
-    try {
-      const csvData = filteredMembers.map((member) => ({
-        Nom: member.name || "",
-        Prénom: member.firstName || "",
-        Badge: member.badgeId || "",
-        Email: member.email || "",
-        Téléphone: member.phone ?? member.mobile ?? "",
-        Statut: getStatusLabel(member.overallStatus),
-        "Progression (%)": member.progressPercentage.toFixed(1),
-        "Total Dû (€)": member.totalDue.toFixed(2),
-        "Total Payé (€)": member.totalPaid.toFixed(2),
-        "Reste à Payer (€)": (member.totalDue - member.totalPaid).toFixed(2),
-        "Nombre de Paiements": member.payments.length,
-        "Paiements Effectués": member.payments.filter((p) => p.is_paid).length,
-        "Paiements en Retard": member.payments.filter((p) => !p.is_paid && isOverdue(p)).length,
-        "Dernier Paiement": member.lastPaymentDate ? formatDate(member.lastPaymentDate) : "Aucun",
-      }));
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Rendu
+  // ──────────────────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="min-h-[300px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 rounded-full border-b-2 border-blue-600 animate-spin" />
+          <p className={isDarkMode ? "text-gray-300" : "text-gray-600"}>Chargement des paiements…</p>
+        </div>
+      </div>
+    );
+  }
 
-      const headers = Object.keys(csvData[0] || {});
-      const csvContent = [
-        headers.join(","),
-        ...csvData.map((row) => headers.map((h) => `"${String(row[h]).replace(/"/g, '""')}"`).join(",")),
-      ].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `Paiements_${new Date().toISOString().split("T")[0]}.csv`;
-      link.click();
-    } catch (error) {
-      console.error("❌ Erreur lors de l'export CSV:", error);
-      alert("Erreur lors de la génération du CSV. Veuillez réessayer.");
-    }
-  };
-
-  // ====== Rendus ======
-  const renderConnectionError = () => (
-    <div
-      className={`min-h-screen ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"
-        } flex items-center justify-center p-4`}
-    >
-      <div
-        className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          } rounded-xl shadow-lg p-8 max-w-md w-full text-center border`}
-      >
-        <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-        <h2 className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-800"} mb-4`}>
-          Problème de connexion
-        </h2>
-        <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"} mb-8 leading-relaxed`}>{error}</p>
+  if (error) {
+    return (
+      <div className={`p-6 rounded-xl border ${isDarkMode ? "bg-red-900/20 border-red-800 text-red-200" : "bg-red-50 border-red-200 text-red-700"}`}>
+        <div className="font-semibold mb-2">Erreur</div>
+        <div className="mb-4">{error}</div>
         <button
-          onClick={handleRetry}
-          disabled={isRetrying}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 
-                     disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 
-                     rounded-lg transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
+          onClick={fetchAll}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
         >
-          {isRetrying ? (
-            <>
-              <RefreshCw className="w-5 h-5 animate-spin" />
-              Reconnexion...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-5 h-5" />
-              Réessayer
-            </>
-          )}
+          Recharger
         </button>
-        {retryCount > 0 && (
-          <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-4`}>Tentative {retryCount + 1}</p>
-        )}
+      </div>
+    );
+  }
+
+  const SummaryCard = ({ title, value, icon: Icon, accent }) => (
+    <div className={`p-4 rounded-lg border flex items-center gap-3 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+      <div className={`p-2 rounded-lg ${accent}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div>
+        <div className={isDarkMode ? "text-gray-400 text-sm" : "text-gray-500 text-sm"}>{title}</div>
+        <div className={isDarkMode ? "text-white text-xl font-bold" : "text-gray-900 text-xl font-bold"}>{value}</div>
       </div>
     </div>
   );
 
-  const renderLoading = () => (
-    <div
-      className={`min-h-screen ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"
-        } flex items-center justify-center`}
-    >
-      <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-          <RefreshCw className="w-8 h-8 animate-spin text-white" />
+  const totalPaidAll = filteredMembers.reduce((s, m) => s + (m.totalPaid || 0), 0);
+
+  return (
+    <div className="px-2 sm:px-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className={isDarkMode ? "text-white text-2xl font-bold" : "text-gray-900 text-2xl font-bold"}>Paiements</h1>
+          <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+            {members.length} membres • {payments.length} paiements
+          </p>
         </div>
-        <h2 className={`text-xl font-semibold ${isDarkMode ? "text-white" : "text-gray-800"} mb-2`}>
-          {isRetrying ? "Reconnexion en cours..." : "Chargement des paiements..."}
-        </h2>
-        <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>Veuillez patienter</p>
-      </div>
-    </div>
-  );
-
-  // ====== Édition membre (robuste phone/mobile) ======
-  const handleEditMember = (member) => {
-    const memberOnlyData = {
-      id: member.id,
-      name: member.name,
-      firstName: member.firstName,
-      email: member.email,
-      phone: member.phone ?? member.mobile ?? "",
-      mobile: member.mobile ?? member.phone ?? "",
-      badgeId: member.badgeId,
-      photo: photosCache[member.id] || null, // on passe la photo si elle est en cache
-      dateOfBirth: member.dateOfBirth,
-      address: member.address,
-      subscriptionType: member.subscriptionType || member.membershipType || "Mensuel",
-      membershipType: member.membershipType,
-      startDate: member.startDate,
-      endDate: member.endDate,
-      status: member.status,
-      emergencyContact: member.emergencyContact,
-      emergencyPhone: member.emergencyPhone,
-      medicalInfo: member.medicalInfo,
-      files: member.files,
-    };
-    setSelectedMember(memberOnlyData);
-    setShowForm(true);
-  };
-
-  if (loading) return renderLoading();
-  if (error && !isRetrying) return renderConnectionError();
-
-  // ====== Pagination UI ======
-  const PaginationBar = ({ position = "top" }) =>
-    totalPages > 1 ? (
-      <div
-        className={`${
-          position === "top" ? "mb-4" : "mt-4"
-        } flex items-center justify-between ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-lg p-3 border`}
-      >
-        <div className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Page {currentPage} sur {totalPages} • Affichage de{" "}
-          {filteredMembers.length === 0 ? 0 : startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur{" "}
-          {filteredMembers.length} membres
-        </div>
-
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className={`px-3 py-2 rounded-lg inline-flex items-center gap-1 ${
-              isDarkMode ? "bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800" : "bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100"
-            } disabled:opacity-50`}
-            title="Précédent"
+            onClick={fetchAll}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
           >
-            <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Précédent</span>
+            Actualiser
           </button>
-
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages}
-            className={`px-3 py-2 rounded-lg inline-flex items-center gap-1 ${
-              isDarkMode ? "bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800" : "bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100"
-            } disabled:opacity-50`}
-            title="Suivant"
-          >
-            <span className="hidden sm:inline">Suivant</span>
-            <ChevronRight className="w-4 h-4" />
+          <button onClick={exportCSV} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white">
+            <Download className="w-4 h-4" />
+            CSV
+          </button>
+          <button onClick={exportToPDF} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Download className="w-4 h-4" />
+            PDF
           </button>
         </div>
       </div>
-    ) : null;
 
-  // ====== Vue mobile (utilise paginatedMembers + photosCache) ======
-  const renderMobileView = () => (
-    <div className="space-y-4">
-      {paginatedMembers.map((member) => (
-        <div
-          key={member.id}
-          className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-lg shadow border overflow-hidden`}
-        >
-          <div className="p-4">
-            {/* En-tête */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="flex-shrink-0">
-                  <Avatar
-                    photo={photosCache[member.id] || null}
-                    firstName={member.firstName}
-                    name={member.name}
-                    size={48}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"} truncate`}>
-                    {member.firstName || "Prénom"} {member.name || "Nom"}
-                  </h4>
-                  <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                    Badge: {member.badgeId || "N/A"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex-shrink-0 ml-2">
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                    member.overallStatus
-                  )}`}
-                >
-                  {getStatusIcon(member.overallStatus)}
-                  <span className="hidden sm:inline">{getStatusLabel(member.overallStatus)}</span>
-                </span>
-              </div>
-            </div>
+      {/* Widgets */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+        <SummaryCard title="Membres filtrés" value={filteredMembers.length} icon={Users} accent="bg-blue-100 text-blue-700" />
+        <SummaryCard title="Total payé (filtré)" value={euros(totalPaidAll)} icon={DollarSign} accent="bg-green-100 text-green-700" />
+        <SummaryCard title="Pages" value={`${currentPage} / ${Math.max(1, Math.ceil(filteredMembers.length / ITEMS_PER_PAGE))}`} icon={Calendar} accent="bg-purple-100 text-purple-700" />
+      </div>
 
-            {/* Infos */}
-            <div className="grid grid-cols-1 gap-3">
-              <div className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"} p-3 rounded-lg`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>Progression</span>
-                  <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                    {member.progressPercentage.toFixed(0)}%
-                  </span>
-                </div>
-                <div className={`w-full ${isDarkMode ? "bg-gray-600" : "bg-gray-200"} rounded-full h-2`}>
-                  <div
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      member.progressPercentage === 100
-                        ? "bg-gradient-to-r from-green-400 to-green-600"
-                        : member.progressPercentage > 50
-                        ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                        : "bg-gradient-to-r from-red-400 to-red-600"
-                    }`}
-                    style={{ width: `${Math.min(member.progressPercentage, 100)}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"} p-3 rounded-lg`}>
-                  <div className={`text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-600"} mb-1`}>Montants</div>
-                  <div className="text-sm">
-                    <div className="font-bold text-green-600">{member.totalPaid.toFixed(2)} €</div>
-                    <div className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>sur {member.totalDue.toFixed(2)} €</div>
-                  </div>
-                </div>
-
-                <div className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"} p-3 rounded-lg`}>
-                  <div className={`text-sm font-medium ${isDarkMode ? "text-gray-300" : "text-gray-600"} mb-1`}>Paiements</div>
-                  <div className="text-sm">
-                    <div className="font-bold text-blue-600">{member.payments.filter((p) => p.is_paid).length}</div>
-                    <div className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>sur {member.payments.length}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-3 flex flex-col sm:flex-row gap-2">
-              <button
-                onClick={() => setExpandedMember(expandedMember === member.id ? null : member.id)}
-                className={`flex-1 text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center gap-1 py-2 border ${
-                  isDarkMode ? "border-blue-500 hover:bg-blue-900/20" : "border-blue-200 hover:bg-blue-50"
-                } rounded-lg transition-colors`}
-              >
-                {expandedMember === member.id ? (
-                  <>
-                    <EyeOff className="w-4 h-4" />
-                    Masquer les détails
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-4 h-4" />
-                    Voir les détails
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => handleEditMember(member)}
-                className={`flex-1 sm:flex-none text-orange-600 hover:text-orange-800 text-sm font-medium flex items-center justify-center gap-1 py-2 px-4 border ${
-                  isDarkMode ? "border-orange-500 hover:bg-orange-900/20" : "border-orange-200 hover:bg-orange-50"
-                } rounded-lg transition-colors`}
-              >
-                <Edit className="w-4 h-4" />
-                Modifier
-              </button>
-            </div>
-          </div>
-
-          {expandedMember === member.id && (
-            <div className={`border-t ${isDarkMode ? "border-gray-700 bg-gray-900" : "border-gray-200 bg-gray-50"}`}>
-              <div className="p-4 space-y-4">
-                <h5 className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"} flex items-center gap-2`}>
-                  <CreditCard className="w-4 h-4" />
-                  Détail des paiements
-                </h5>
-
-                {member.payments.length > 0 ? (
-                  <div className="space-y-3">
-                    {member.payments.map((payment) => (
-                      <div
-                        key={payment.id}
-                        className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border"} rounded-lg p-3`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                              getPaymentStatus(payment)
-                            )}`}
-                          >
-                            {getStatusIcon(getPaymentStatus(payment))}
-                            {getStatusLabel(getPaymentStatus(payment))}
-                          </span>
-                          <span className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                            #{payment.id}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Montant:</span>
-                            <div className="font-bold">{parseFloat(payment.amount || 0).toFixed(2)} €</div>
-                          </div>
-                          <div>
-                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Méthode:</span>
-                            <div className="flex items-center gap-1">
-                              <span>{getPaymentMethodIcon(payment.method)}</span>
-                              <span className="capitalize">{payment.method}</span>
-                            </div>
-                          </div>
-                          <div>
-                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Date paiement:</span>
-                            <div className="font-medium">{payment.is_paid ? formatDate(payment.date_paiement) : "Non payé"}</div>
-                          </div>
-                          <div>
-                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Échéance:</span>
-                            <div className="font-medium">{formatDate(payment.encaissement_prevu)}</div>
-                          </div>
-                        </div>
-
-                        {payment.commentaire && (
-                          <div className={`mt-2 p-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-100"} rounded text-sm`}>
-                            <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Commentaire:</span>
-                            <div className={`${isDarkMode ? "text-gray-300" : "text-gray-700"} mt-1`}>{payment.commentaire}</div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <CreditCard className={`w-8 h-8 ${isDarkMode ? "text-gray-500" : "text-gray-400"} mx-auto mb-2`} />
-                    <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"} text-sm`}>Aucun paiement enregistré</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-
-  // ====== Rendu principal ======
-  return (
-    <div
-      className={`min-h-screen ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-black" : "bg-gradient-to-br from-blue-50 to-purple-50"} p-4 lg:p-6`}
-    >
-      <div className="max-w-full mx-auto">
-        {/* Header */}
-        <div className="mb-6 lg:mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <h1 className={`text-2xl lg:text-4xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"} mb-2`}>
-                Suivi des Paiements
-              </h1>
-              <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>Gérez et suivez les paiements de vos membres</p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
-              <button
-                onClick={exportToCSV}
-                disabled={loading || filteredMembers.length === 0}
-                className={`flex items-center justify-center gap-2 px-4 py-2 ${
-                  isDarkMode
-                    ? "bg-gray-800 border-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:text-gray-500 text-white"
-                    : "bg-white border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
-                } border rounded-lg transition-colors text-sm font-medium`}
-              >
-                <Download className="w-4 h-4" />
-                Exporter CSV
-              </button>
-              <button
-                onClick={exportToPDF}
-                disabled={loading || filteredMembers.length === 0}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors text-sm font-medium"
-              >
-                <Download className="w-4 h-4" />
-                Exporter PDF
-              </button>
-              <button
-                onClick={() => loadData(true)}
-                disabled={isRetrying}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors text-sm font-medium"
-              >
-                <RefreshCw className={`w-4 h-4 ${isRetrying ? "animate-spin" : ""}`} />
-                Actualiser
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Widgets stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8">
-          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 border`}>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex-1">
-                <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Total Attendu</p>
-                <p className={`text-lg lg:text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                  {stats.totalExpected.toLocaleString()} €
-                </p>
-                <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-1`}>{payments.length} paiement(s)</p>
-              </div>
-              <div className={`hidden lg:block p-3 ${isDarkMode ? "bg-blue-900/30" : "bg-blue-100"} rounded-full`}>
-                <DollarSign className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 border`}>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex-1">
-                <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Total Reçu</p>
-                <p className="text-lg lg:text-2xl font-bold text-green-600">{stats.totalReceived.toLocaleString()} €</p>
-                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3" />
-                  {stats.collectionRate.toFixed(1)}%
-                </p>
-              </div>
-              <div className={`hidden lg:block p-3 ${isDarkMode ? "bg-green-900/30" : "bg-green-100"} rounded-full`}>
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 border`}>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex-1">
-                <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>En Attente</p>
-                <p className="text-lg lg:text-2xl font-bold text-yellow-600">{stats.totalPending.toLocaleString()} €</p>
-                <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-1`}>{stats.pendingCount} paiement(s)</p>
-              </div>
-              <div className={`hidden lg:block p-3 ${isDarkMode ? "bg-yellow-900/30" : "bg-yellow-100"} rounded-full`}>
-                <Clock className="w-6 h-6 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 border`}>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex-1">
-                <p className={`text-xs lg:text-sm font-medium ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>En Retard</p>
-                <p className="text-lg lg:text-2xl font-bold text-red-600">{stats.totalOverdue.toLocaleString()} €</p>
-                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                  <TrendingDown className="w-3 h-3" />
-                  {stats.overdueCount} paiement(s)
-                </p>
-              </div>
-              <div className={`hidden lg:block p-3 ${isDarkMode ? "bg-red-900/30" : "bg-red-100"} rounded-full`}>
-                <AlertCircle className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Progression globale */}
-        <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 mb-6 lg:mb-8 border`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-            <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Progression Globale</h3>
-            <span className="text-xl lg:text-2xl font-bold text-blue-600">{stats.collectionRate.toFixed(1)}%</span>
-          </div>
-          <div className={`w-full ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded-full h-3 lg:h-4`}>
-            <div
-              className="bg-gradient-to-r from-blue-500 to-green-500 h-3 lg:h-4 rounded-full transition-all duration-1000 ease-out"
-              style={{ width: `${Math.min(stats.collectionRate, 100)}%` }}
+      {/* Barre d'actions */}
+      <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3">
+          <div className="relative w-full lg:w-80">
+            <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-60" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              placeholder="Rechercher nom, prénom, badge…"
+              className={`w-full pl-9 pr-3 py-2 rounded-lg border outline-none ${isDarkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-300" : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"}`}
             />
           </div>
-          <div className={`flex justify-between text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"} mt-2`}>
-            <span>{stats.totalReceived.toLocaleString()} € reçus</span>
-            <span>{stats.totalExpected.toLocaleString()} € attendus</span>
-          </div>
-        </div>
 
-        {/* Filtres */}
-        <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 mb-4 border`}>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? "text-gray-500" : "text-gray-400"} w-5 h-5`} />
-                <input
-                  type="text"
-                  placeholder="Rechercher par nom, prénom ou badge..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border ${
-                    isDarkMode
-                      ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500"
-                      : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  } rounded-lg`}
-                />
-              </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFilters((v) => !v)}
+              className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+            >
+              <Filter className="w-4 h-4" />
+              Filtres
+            </button>
 
+            {showFilters && (
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className={`px-4 py-2 border ${
-                  isDarkMode ? "border-gray-600 bg-gray-700 text-white focus:ring-blue-500 focus:border-blue-500" : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                } rounded-lg sm:w-48`}
+                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                className={`px-3 py-2 rounded-lg border ${isDarkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
               >
                 <option value="all">Tous les statuts</option>
-                <option value="paid">Payé</option>
+                <option value="paid">Payé ce mois</option>
                 <option value="pending">En attente</option>
-                <option value="overdue">En retard</option>
                 <option value="no_payments">Aucun paiement</option>
               </select>
-
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 sm:w-auto ${
-                  showFilters ? "bg-blue-100 text-blue-600" : isDarkMode ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">Filtres</span>
-              </button>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                {filteredMembers.length} membre(s) affiché(s) sur {members.length}
-              </p>
-              {(searchTerm || statusFilter !== "all") && (
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setStatusFilter("all");
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium self-start sm:self-auto"
-                >
-                  Réinitialiser les filtres
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Pagination TOP */}
-        <PaginationBar position="top" />
-
-        {/* Contenu principal */}
-        {isMobile ? (
-          // Vue mobile
-          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg border`}>
-            <div className={`px-4 py-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-              <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Membres ({filteredMembers.length})</h3>
-            </div>
-            <div className="p-4">
-              {filteredMembers.length > 0 ? (
-                <>
-                  {loadingPhotos && (
-                    <div className={`text-sm mb-3 ${isDarkMode ? "text-blue-300" : "text-blue-600"}`}>Chargement photos…</div>
-                  )}
-                  {renderMobileView()}
-                </>
-              ) : (
-                <div className="text-center py-12">
-                  <Users className={`w-16 h-16 ${isDarkMode ? "text-gray-500" : "text-gray-400"} mx-auto mb-4`} />
-                  <h3 className={`text-lg font-medium ${isDarkMode ? "text-white" : "text-gray-900"} mb-2`}>Aucun membre trouvé</h3>
-                  <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Essayez de modifier vos critères de recherche</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          // Vue desktop (tableau)
-          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg overflow-hidden border`}>
-            <div className={`px-6 py-4 border-b ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
-              <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Détail par Membre ({filteredMembers.length})</h3>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"}`}>
-                  <tr>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"} uppercase tracking-wider`}>Membre</th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"} uppercase tracking-wider`}>Statut</th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"} uppercase tracking-wider`}>Progression</th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"} uppercase tracking-wider`}>Montants</th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"} uppercase tracking-wider`}>Dernier Paiement</th>
-                    <th className={`px-6 py-3 text-left text-xs font-medium ${isDarkMode ? "text-gray-300" : "text-gray-500"} uppercase tracking-wider`}>Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody className={`${isDarkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-gray-200"} divide-y`}>
-                  {paginatedMembers.map((member) => (
-                    <React.Fragment key={member.id}>
-                      <tr className={`${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"} transition-colors`}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <Avatar
-                                photo={photosCache[member.id] || null}
-                                firstName={member.firstName}
-                                name={member.name}
-                                size={40}
-                              />
-                            </div>
-                            <div className="ml-4">
-                              <div className={`text-sm font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                                {member.firstName || "Prénom"} {member.name || "Nom"}
-                              </div>
-                              <div className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Badge: {member.badgeId || "N/A"}</div>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member.overallStatus)}`}>
-                            {getStatusIcon(member.overallStatus)}
-                            {getStatusLabel(member.overallStatus)}
-                          </span>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="w-32">
-                            <div className="flex items-center justify-between text-sm mb-1">
-                              <span className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>{member.progressPercentage.toFixed(0)}%</span>
-                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"} text-xs`}>
-                                {member.totalPaid.toFixed(0)}€/{member.totalDue.toFixed(0)}€
-                              </span>
-                            </div>
-                            <div className={`w-full ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded-full h-2`}>
-                              <div
-                                className={`h-2 rounded-full transition-all duration-500 ${
-                                  member.progressPercentage === 100
-                                    ? "bg-gradient-to-r from-green-400 to-green-600"
-                                    : member.progressPercentage > 50
-                                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                                    : "bg-gradient-to-r from-red-400 to-red-600"
-                                }`}
-                                style={{ width: `${Math.min(member.progressPercentage, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm">
-                            <div className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                              {member.totalPaid.toFixed(2)} € / {member.totalDue.toFixed(2)} €
-                            </div>
-                            <div className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>{member.payments.length} paiement(s)</div>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`text-sm ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                            {member.lastPaymentDate ? (
-                              <div className="flex items-center gap-1">
-                                <Calendar className={`w-4 h-4 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`} />
-                                {formatDate(member.lastPaymentDate)}
-                              </div>
-                            ) : (
-                              <span className={`${isDarkMode ? "text-gray-500" : "text-gray-400"} italic`}>Aucun paiement</span>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setExpandedMember(expandedMember === member.id ? null : member.id)}
-                              className="text-blue-600 hover:text-blue-900 transition-colors flex items-center gap-1"
-                            >
-                              {expandedMember === member.id ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                              {expandedMember === member.id ? "Masquer" : "Détails"}
-                            </button>
-
-                            <button
-                              onClick={() => handleEditMember(member)}
-                              className="text-orange-600 hover:text-orange-900 transition-colors flex items-center gap-1"
-                            >
-                              <Edit className="w-4 h-4" />
-                              Modifier
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {expandedMember === member.id && (
-                        <tr>
-                          <td colSpan="6" className={`px-6 py-4 ${isDarkMode ? "bg-gray-900" : "bg-gray-50"}`}>
-                            <div className="space-y-4">
-                              <h4 className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"} flex items-center gap-2`}>
-                                <CreditCard className="w-4 h-4" />
-                                Détail des paiements de {member.firstName} {member.name}
-                              </h4>
-
-                              {member.payments.length > 0 ? (
-                                <div className="grid gap-3">
-                                  {member.payments.map((payment) => (
-                                    <div
-                                      key={payment.id}
-                                      className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-lg p-4 border`}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-3">
-                                            <span
-                                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                                getPaymentStatus(payment)
-                                              )}`}
-                                            >
-                                              {getStatusIcon(getPaymentStatus(payment))}
-                                              {getStatusLabel(getPaymentStatus(payment))}
-                                            </span>
-                                            <span className={`font-medium ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                                              Paiement #{payment.id}
-                                            </span>
-                                          </div>
-
-                                          <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                            <div>
-                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Montant:</span>
-                                              <div className="font-medium">{parseFloat(payment.amount || 0).toFixed(2)} €</div>
-                                            </div>
-                                            <div>
-                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Méthode:</span>
-                                              <div className="font-medium flex items-center gap-1">
-                                                <span>{getPaymentMethodIcon(payment.method)}</span>
-                                                <span className="capitalize">{payment.method}</span>
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Date de paiement:</span>
-                                              <div className="font-medium">{payment.is_paid ? formatDateTime(payment.date_paiement) : "Non payé"}</div>
-                                            </div>
-                                            <div>
-                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Encaissement prévu:</span>
-                                              <div className="font-medium">{formatDate(payment.encaissement_prevu)}</div>
-                                            </div>
-                                          </div>
-
-                                          {payment.commentaire && (
-                                            <div className={`mt-3 p-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-50"} rounded`}>
-                                              <span className={`${isDarkMode ? "text-gray-400" : "text-gray-500"} text-sm`}>Commentaire:</span>
-                                              <div className={`${isDarkMode ? "text-gray-300" : "text-gray-700"} text-sm mt-1`}>{payment.commentaire}</div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="text-center py-8">
-                                  <CreditCard className={`w-12 h-12 ${isDarkMode ? "text-gray-500" : "text-gray-400"} mx-auto mb-3`} />
-                                  <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Aucun paiement enregistré pour ce membre</p>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {paginatedMembers.length === 0 && (
-              <div className="text-center py-12">
-                <Users className={`w-12 h-12 ${isDarkMode ? "text-gray-500" : "text-gray-400"} mx-auto mb-4`} />
-                <h3 className={`text-lg font-medium ${isDarkMode ? "text-white" : "text-gray-900"} mb-2`}>Aucun membre trouvé</h3>
-                <p className={`${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Essayez de modifier vos critères de recherche</p>
-              </div>
             )}
           </div>
-        )}
-
-        {/* Pagination BOTTOM */}
-        <PaginationBar position="bottom" />
-
-        {/* Stats par méthode & paiements récents */}
-        <div className="mt-6 lg:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 border`}>
-            <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"} mb-4`}>Répartition par Méthode</h3>
-            <div className="space-y-3">
-              {["carte", "chèque", "espèces", "autre"].map((method) => {
-                const methodPayments = payments.filter(
-                  (p) =>
-                    p.is_paid &&
-                    (p.method === method ||
-                      (method === "chèque" && p.method === "cheque") ||
-                      (method === "espèces" && p.method === "especes"))
-                );
-                const total = methodPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-                const percentage = stats.totalReceived > 0 ? (total / stats.totalReceived) * 100 : 0;
-
-                return (
-                  <div key={method} className={`flex items-center justify-between p-3 ${isDarkMode ? "bg-gray-700" : "bg-gray-50"} rounded-lg`}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg lg:text-xl">{getPaymentMethodIcon(method)}</span>
-                      <span className={`font-medium capitalize ${isDarkMode ? "text-white" : "text-gray-900"}`}>{method}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-sm lg:text-base">{total.toFixed(2)} €</div>
-                      <div className={`text-xs lg:text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                        {percentage.toFixed(1)}% • {methodPayments.length} paiement(s)
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 border`}>
-            <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"} mb-4`}>Paiements Récents</h3>
-            <div className="space-y-3">
-              {payments
-                .filter((p) => p.is_paid)
-                .slice(0, 5)
-                .map((payment) => (
-                  <div key={payment.id} className={`flex items-center justify-between p-3 ${isDarkMode ? "bg-gray-700" : "bg-gray-50"} rounded-lg`}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-lg">{getPaymentMethodIcon(payment.method)}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className={`font-medium text-sm ${isDarkMode ? "text-white" : "text-gray-900"} truncate`}>
-                          {payment.members?.firstName} {payment.members?.name}
-                        </div>
-                        <div className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>{formatDate(payment.date_paiement)}</div>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="font-medium text-sm lg:text-base text-green-600">{parseFloat(payment.amount).toFixed(2)} €</div>
-                    </div>
-                  </div>
-                ))}
-              {payments.filter((p) => p.is_paid).length === 0 && (
-                <div className={`text-center py-6 lg:py-8 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                  <Clock className={`w-8 lg:w-12 h-8 lg:h-12 mx-auto mb-2 ${isDarkMode ? "text-gray-600" : "text-gray-300"}`} />
-                  <p className="text-sm">Aucun paiement récent</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Résumé global */}
-        <div className="mt-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg p-4 lg:p-6 text-white">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-2xl lg:text-3xl font-bold">{stats.totalMembers}</div>
-              <div className="text-sm lg:text-base text-blue-100">Membres total</div>
-            </div>
-            <div>
-              <div className="text-2xl lg:text-3xl font-bold">{stats.collectionRate.toFixed(1)}%</div>
-              <div className="text-sm lg:text-base text-blue-100">Taux de collecte</div>
-            </div>
-            <div>
-              <div className="text-2xl lg:text-3xl font-bold">{stats.paidCount + stats.pendingCount + stats.overdueCount}</div>
-              <div className="text-sm lg:text-base text-blue-100">Total paiements</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Pied */}
-        <div className="mt-6 text-center">
-          <p className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Dernière mise à jour : {new Date().toLocaleString("fr-FR")}</p>
-          <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"} mt-1`}>Club Body Force - Système de Gestion des Paiements v2.1</p>
         </div>
       </div>
 
-      {/* ✅ Modal MemberForm */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div className={`${isDarkMode ? "bg-gray-800" : "bg-white"} mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4`}>
+      {/* Pagination TOP */}
+      {Math.ceil(filteredMembers.length / ITEMS_PER_PAGE) > 1 && (
+        <PaginationBar currentPage={currentPage} totalPages={totalPages} onPage={goToPage} className="mb-4" />
+      )}
+
+      {/* Table Desktop */}
+      <div className="hidden lg:block">
+        <div className={`rounded-lg border overflow-hidden ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+          <table className="w-full">
+            <thead className={isDarkMode ? "bg-gray-700" : "bg-gray-50"}>
+              <tr>
+                <th className="px-4 py-3 text-left">Membre</th>
+                <th className="px-4 py-3 text-left">Badge</th>
+                <th className="px-4 py-3 text-left">Dernier paiement</th>
+                <th className="px-4 py-3 text-left">Total payé</th>
+                <th className="px-4 py-3 text-left">Statut</th>
+                <th className="px-4 py-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody className={isDarkMode ? "divide-y divide-gray-700" : "divide-y divide-gray-200"}>
+              {paginatedMembers.map((m) => (
+                <React.Fragment key={m.id}>
+                  <tr className={isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-50"}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar photo={photosCache[m.id] || null} firstName={m.firstName} name={m.name} size={40} />
+                        <div>
+                          <div className={isDarkMode ? "text-white font-medium" : "text-gray-900 font-medium"}>
+                            {m.name} {m.firstName}
+                          </div>
+                          <div className={isDarkMode ? "text-gray-400 text-sm" : "text-gray-500 text-sm"}>{m.email || "—"}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-mono">{m.badgeId || "—"}</td>
+                    <td className="px-4 py-3">{m.lastPaymentDate || "—"}</td>
+                    <td className="px-4 py-3">{euros(m.totalPaid)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs ${pill(m.overallStatus)}`}>
+                        {m.overallStatus === "paid" ? "✅ Payé (mois)" : m.overallStatus === "pending" ? "⏳ En attente" : "— Aucun"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setExpandedMember((x) => (x === m.id ? null : m.id))}
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                        >
+                          {expandedMember === m.id ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          Détails
+                        </button>
+                        <button
+                          onClick={() => { setSelectedMember(m); setShowForm(true); }}
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded ${isDarkMode ? "bg-blue-900/30 hover:bg-blue-900/50 text-blue-200" : "bg-blue-100 hover:bg-blue-200 text-blue-700"}`}
+                        >
+                          <Edit className="w-4 h-4" />
+                          Modifier
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  {expandedMember === m.id && (
+                    <tr>
+                      <td colSpan={6} className={isDarkMode ? "bg-gray-900/30" : "bg-gray-50"}>
+                        <div className="p-4">
+                          <div className="font-medium mb-2">Historique des paiements</div>
+                          {m.payments && m.payments.length ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead className={isDarkMode ? "bg-gray-800" : "bg-white"}>
+                                  <tr>
+                                    <th className="px-3 py-2 text-left">Date</th>
+                                    <th className="px-3 py-2 text-left">Montant</th>
+                                    <th className="px-3 py-2 text-left">Moyen</th>
+                                    <th className="px-3 py-2 text-left">Référence</th>
+                                  </tr>
+                                </thead>
+                                <tbody className={isDarkMode ? "divide-y divide-gray-800" : "divide-y divide-gray-200"}>
+                                  {m.payments.map((p) => (
+                                    <tr key={p.id}>
+                                      <td className="px-3 py-2">{new Date(p.date_paiement || p.created_at || p.date).toLocaleDateString("fr-FR")}</td>
+                                      <td className="px-3 py-2">{euros(p.montant)}</td>
+                                      <td className="px-3 py-2">{p.moyen || p.method || "—"}</td>
+                                      <td className="px-3 py-2">{p.reference || p.ref || "—"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="text-sm opacity-60">Aucun paiement enregistré.</div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Cards Mobile */}
+      <div className="lg:hidden space-y-3">
+        {paginatedMembers.map((m) => (
+          <div key={m.id} className={`p-4 rounded-lg border ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
+            <div className="flex items-start gap-3">
+              <Avatar photo={photosCache[m.id] || null} firstName={m.firstName} name={m.name} size={48} />
+              <div className="flex-1">
+                <div className="font-semibold">{m.name} {m.firstName}</div>
+                <div className="text-sm opacity-70">{m.email || "—"}</div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="opacity-60">Badge:</span> <span className="font-mono">{m.badgeId || "—"}</span></div>
+                  <div><span className="opacity-60">Total:</span> {euros(m.totalPaid)}</div>
+                  <div><span className="opacity-60">Dernier:</span> {m.lastPaymentDate || "—"}</div>
+                  <div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${pill(m.overallStatus)}`}>
+                      {m.overallStatus === "paid" ? "✅ Payé (mois)" : m.overallStatus === "pending" ? "⏳ En attente" : "— Aucun"}
+                    </span>
+                  </div>
+                </div>
+
+                {expandedMember === m.id && (
+                  <div className="mt-3">
+                    <div className="font-medium mb-2">Historique des paiements</div>
+                    {m.payments && m.payments.length ? (
+                      <div className="text-sm space-y-1">
+                        {m.payments.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between">
+                            <span>{new Date(p.date_paiement || p.created_at || p.date).toLocaleDateString("fr-FR")}</span>
+                            <span className="font-mono">{euros(p.montant)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm opacity-60">Aucun paiement enregistré.</div>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    onClick={() => setExpandedMember((x) => (x === m.id ? null : m.id))}
+                    className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-200" : "bg-gray-100 hover:bg-gray-200 text-gray-800"}`}
+                  >
+                    {expandedMember === m.id ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    Détails
+                  </button>
+                  <button
+                    onClick={() => { setSelectedMember(m); setShowForm(true); }}
+                    className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg ${isDarkMode ? "bg-blue-900/30 hover:bg-blue-900/50 text-blue-200" : "bg-blue-100 hover:bg-blue-200 text-blue-700"}`}
+                  >
+                    <Edit className="w-4 h-4" />
+                    Modifier
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination BOTTOM */}
+      {Math.ceil(filteredMembers.length / ITEMS_PER_PAGE) > 1 && (
+        <PaginationBar currentPage={currentPage} totalPages={totalPages} onPage={goToPage} className="mt-4" />
+      )}
+
+      {/* Résumé */}
+      <div className={`mt-4 p-4 rounded-lg border text-sm ${isDarkMode ? "bg-gray-800 border-gray-700 text-gray-300" : "bg-gray-50 border-gray-200 text-gray-600"}`}>
+        <div className="flex items-center justify-between">
+          <div>
+            Affichage de {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredMembers.length)}
+            {" "}sur {filteredMembers.length} membres filtrés • {members.length} total
+          </div>
+          {loadingPhotos && <div className="italic">Chargement des photos…</div>}
+        </div>
+      </div>
+
+      {/* Modal d'édition mobile */}
+      {showForm && isMobile && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center overflow-auto">
+          <div className={`mt-6 mb-6 w-full max-w-3xl mx-4 rounded-xl shadow-xl ${isDarkMode ? "bg-gray-800" : "bg-white"}`}>
             <MemberForm
               member={selectedMember}
-              onSave={async (memberData, closeModal) => {
-                try {
-                  console.log("💾 Sauvegarde membre depuis PaymentsPage:", selectedMember ? "Modification" : "Création");
-
-                  if (selectedMember?.id) {
-                    const { error } = await supabase.from("members").update(memberData).eq("id", selectedMember.id);
-                    if (error) throw error;
-                    console.log("✅ Membre modifié:", selectedMember.id);
-                  } else {
-                    const { data, error } = await supabase.from("members").insert([memberData]).select();
-                    if (error) throw error;
-                    console.log("✅ Nouveau membre créé:", data[0]?.id);
-                  }
-
-                  if (closeModal) {
-                    setShowForm(false);
-                    setSelectedMember(null);
-                  }
-                  await loadData();
-                } catch (error) {
-                  console.error("❌ Erreur sauvegarde membre:", error);
-                  alert(`Erreur lors de la sauvegarde: ${error.message}`);
-                }
-              }}
-              onCancel={() => {
+              onSave={async () => {
                 setShowForm(false);
                 setSelectedMember(null);
+                await fetchAll();
               }}
+              onCancel={() => { setShowForm(false); setSelectedMember(null); }}
             />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Pagination (numéros + ellipses) — même UX que MembersPage
+// ──────────────────────────────────────────────────────────────────────────────
+function PaginationBar({ currentPage, totalPages, onPage, className = "" }) {
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 1) pages.push(i);
+  }
+  const withEllipsis = [];
+  for (let i = 0; i < pages.length; i++) {
+    withEllipsis.push(pages[i]);
+    if (i < pages.length - 1 && pages[i + 1] !== pages[i] + 1) withEllipsis.push("…");
+  }
+
+  return (
+    <div className={`flex items-center justify-between p-4 rounded-lg border ${className} bg-white/50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700`}>
+      <div className="text-sm opacity-70">Page {currentPage} sur {totalPages}</div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPage(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">Précédent</span>
+        </button>
+        <div className="hidden sm:flex items-center gap-1">
+          {withEllipsis.map((p, idx) =>
+            p === "…" ? (
+              <span key={`e-${idx}`} className="px-2 opacity-60">…</span>
+            ) : (
+              <button
+                key={p}
+                onClick={() => onPage(p)}
+                className={`px-3 py-2 rounded-lg transition-colors ${
+                  p === currentPage
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                }`}
+              >
+                {p}
+              </button>
+            )
+          )}
+        </div>
+        <button
+          onClick={() => onPage(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+        >
+          <span className="hidden sm:inline">Suivant</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }
