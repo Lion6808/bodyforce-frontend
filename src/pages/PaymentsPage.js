@@ -27,6 +27,147 @@ import Avatar from "../components/Avatar";
 import { supabase, supabaseServices } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Utils recherche avancée (identiques à MembersPage)
+// ───────────────────────────────────────────────────────────────────────────────
+const normalize = (s = "") =>
+  s
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const escapeForWildcard = (s) => s.replace(/[-/\\^$+?.()|[\]{}]/g, "\\import Avatar from "../components/Avatar";
+import { supabase, supabaseServices } from "../supabaseClient";
+import MemberForm from "../components/MemberForm";
+
+function PaymentsPage() {");
+
+const tokenToRegex = (tokenRaw) => {
+  if (!tokenRaw) return null;
+  let t = tokenRaw.trim();
+  const anchoredStart = t.startsWith("^");
+  const anchoredEnd = t.endsWith("$");
+  if (anchoredStart) t = t.slice(1);
+  if (anchoredEnd) t = t.slice(0, -1);
+  t = escapeForWildcard(t);
+  t = t.replace(/\*/g, ".*").replace(/\?/g, ".");
+  if (!anchoredStart) t = ".*" + t;
+  if (!anchoredEnd) t = t + ".*";
+  return new RegExp("^" + t + "$", "i");
+};
+
+const parseSearch = (search) => {
+  const raw = (search || "").trim();
+  if (!raw) return [];
+  const orClauses = raw
+    .split(/\s+OR\s+/i)
+    .map((c) => c.trim())
+    .filter(Boolean);
+  return orClauses
+    .map((clause) =>
+      clause
+        .split(/\s+/)
+        .map((tok) => tok.trim())
+        .filter(Boolean)
+        .map(tokenToRegex)
+        .filter(Boolean)
+    );
+};
+
+const matchesSearch = (member, compiledClauses) => {
+  if (!compiledClauses.length) return true;
+  const haystack = normalize(
+    [member.name, member.firstName, member.badgeId, member.email, member.mobile]
+      .filter(Boolean)
+      .join(" ")
+  );
+  return compiledClauses.some((tokens) => tokens.every((rx) => rx.test(haystack)));
+};
+
+const analyzeSearch = (raw) => {
+  const text = (raw || "").trim();
+  if (!text)
+    return { active: false, clauses: [], hasWildcards: false, hasAnchors: false };
+  const orParts = text
+    .split(/\s+OR\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const clauses = orParts
+    .map((p) => p.split(/\s+/).map((t) => t.trim()).filter(Boolean));
+  return {
+    active: true,
+    clauses,
+    hasWildcards: /[*?]/.test(text),
+    hasAnchors: /(\^|\$)/.test(text),
+  };
+};
+
+function SearchHints({ search }) {
+  const info = analyzeSearch(search);
+  if (!info.active) return null;
+
+  return (
+    <div className="w-full sm:w-auto sm:max-w-[36rem] text-xs mt-1 space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+          Recherche avancée
+        </span>
+        {info.hasWildcards && (
+          <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700">
+            Jokers * et ?
+          </span>
+        )}
+        {info.hasAnchors && (
+          <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
+            Ancres ^ et $
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {info.clauses.map((tokens, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
+            title="Tous les tokens d'un groupe = AND"
+          >
+            {tokens.map((t, j) => (
+              <span
+                key={j}
+                className="px-1.5 py-0.5 rounded bg-white/70 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 font-mono"
+              >
+                {t}
+              </span>
+            ))}
+            <span className="ml-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              AND
+            </span>
+          </div>
+        ))}
+        {info.clauses.length > 1 && (
+          <span
+            className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"
+            title="Groupes reliés par OR"
+          >
+            (Groupes reliés par OR)
+          </span>
+        )}
+      </div>
+
+      <div className="text-[11px] text-gray-500 dark:text-gray-400">
+        Exemples : <code className="font-mono">b*</code> (commence par b),{" "}
+        <code className="font-mono">*son</code> (finit par son),{" "}
+        <code className="font-mono">mar?</code> (mar + 1 char),{" "}
+        <code className="font-mono">homme mar*</code> (AND),{" "}
+        <code className="font-mono">b* OR mar*</code> (OR),{" "}
+        <code className="font-mono">^mar*</code> (ancré début),{" "}
+        <code className="font-mono">*tin$</code> (ancré fin).
+      </div>
+    </div>
+  );
+}
+
 function PaymentsPage() {
   // Détection mobile
   const [isMobile, setIsMobile] = useState(false);
@@ -179,16 +320,13 @@ function PaymentsPage() {
     });
   }, [members, payments]);
 
-  // Filtrage + Recherche
+  // Filtrage + Recherche avancée (avec wildcards et opérateurs)
   const filteredMembers = useMemo(() => {
-    const query = searchTerm.toLowerCase();
+    const compiledClauses = parseSearch(searchTerm);
     return enrichedMembers.filter((member) => {
-      const matchesSearch =
-        member.name?.toLowerCase().includes(query) ||
-        member.firstName?.toLowerCase().includes(query) ||
-        member.badgeId?.toString().toLowerCase().includes(query);
+      const matchesSearchQuery = matchesSearch(member, compiledClauses);
       const matchesStatus = statusFilter === "all" || member.overallStatus === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesSearchQuery && matchesStatus;
     });
   }, [enrichedMembers, searchTerm, statusFilter]);
 
@@ -576,28 +714,61 @@ function PaymentsPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Pagination UI
+  // Pagination UI (homogénéisée avec MembersPage)
   const PaginationBar = ({ position = "top" }) =>
     totalPages > 1 ? (
-      <div className={`${position === "top" ? "mb-4" : "mt-4"} flex items-center justify-between ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-lg p-3 border`}>
+      <div className={`${position === "top" ? "mb-4" : "mt-4"} flex items-center justify-between ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-lg p-4 border`}>
         <div className={`text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
           Page {currentPage} sur {totalPages} • Affichage de {filteredMembers.length === 0 ? 0 : startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membres
         </div>
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => goToPage(currentPage - 1)}
             disabled={currentPage === 1}
-            className={`px-3 py-2 rounded-lg inline-flex items-center gap-1 ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800" : "bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100"} disabled:opacity-50`}
-            title="Précédent"
+            className={`px-3 py-2 rounded-lg inline-flex items-center gap-1 ${
+              isDarkMode 
+                ? "bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800" 
+                : "bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100"
+            } disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
           >
             <ChevronLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Précédent</span>
           </button>
+
+          {/* Numéros de page avec ... */}
+          <div className="hidden sm:flex items-center gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+              .map((page, idx, arr) => (
+                <React.Fragment key={page}>
+                  {idx > 0 && arr[idx - 1] !== page - 1 && (
+                    <span className={`px-2 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>...</span>
+                  )}
+                  <button
+                    onClick={() => goToPage(page)}
+                    className={`px-3 py-2 rounded-lg transition-colors ${
+                      page === currentPage
+                        ? "bg-blue-600 text-white"
+                        : isDarkMode
+                        ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                </React.Fragment>
+              ))}
+          </div>
+
           <button
             onClick={() => goToPage(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className={`px-3 py-2 rounded-lg inline-flex items-center gap-1 ${isDarkMode ? "bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800" : "bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100"} disabled:opacity-50`}
-            title="Suivant"
+            className={`px-3 py-2 rounded-lg inline-flex items-center gap-1 ${
+              isDarkMode 
+                ? "bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800" 
+                : "bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100"
+            } disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
           >
             <span className="hidden sm:inline">Suivant</span>
             <ChevronRight className="w-4 h-4" />
@@ -877,17 +1048,20 @@ function PaymentsPage() {
         <div className={`${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"} rounded-xl shadow-lg p-4 lg:p-6 mb-4 border`}>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? "text-gray-500" : "text-gray-400"} w-5 h-5`} />
-                <input
-                  type="text"
-                  placeholder="Rechercher par nom, prénom ou badge..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border ${
-                    isDarkMode ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500" : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  } rounded-lg`}
-                />
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? "text-gray-500" : "text-gray-400"} w-5 h-5`} />
+                  <input
+                    type="text"
+                    placeholder="Rechercher par nom, prénom ou badge..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`w-full pl-10 pr-4 py-2 border ${
+                      isDarkMode ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500" : "border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    } rounded-lg`}
+                  />
+                </div>
+                <SearchHints search={searchTerm} />
               </div>
 
               <select
