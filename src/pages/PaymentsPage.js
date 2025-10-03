@@ -37,11 +37,10 @@ const normalize = (s = "") =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-const escapeForWildcard = (s) => s.replace(/[-/\\^$+?.()|[\]{}]/g, "\\import Avatar from "../components/Avatar";
-import { supabase, supabaseServices } from "../supabaseClient";
-import MemberForm from "../components/MemberForm";
+const escapeForWildcard = (s) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
 
-function PaymentsPage() {");
+function PaymentsPage() {
+  // ... reste du code
 
 const tokenToRegex = (tokenRaw) => {
   if (!tokenRaw) return null;
