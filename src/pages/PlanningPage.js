@@ -185,11 +185,17 @@ function PlanningPage() {
         requestCount++;
         console.log(`📊 Requête #${requestCount}: from=${from}, pageSize=${pageSize}`);
 
+        // Créer des copies propres des dates
+        const cleanStart = new Date(startDate);
+        cleanStart.setMilliseconds(0);
+        const cleanEnd = new Date(endDate);
+        cleanEnd.setMilliseconds(0);
+
         const { data, error } = await supabase
           .from("presences")
           .select("*")
-          .gte("timestamp", startDate.toISOString())
-          .lte("timestamp", endDate.toISOString())
+          .gte("timestamp", cleanStart.toISOString())
+          .lte("timestamp", cleanEnd.toISOString())
           .order("timestamp", { ascending: false })
           .range(from, from + pageSize - 1);
 
