@@ -162,16 +162,29 @@ function PlanningPage() {
       setLoading(true);
       setError("");
 
+      console.log("🔍 === DÉBUT CHARGEMENT PLANNING ===");
+      console.log("📅 Période demandée:", {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        startLocal: startDate.toLocaleString('fr-FR'),
+        endLocal: endDate.toLocaleString('fr-FR'),
+      });
+
       const { data: membersData, error: membersError } = await supabase.from("members").select("*");
       if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
       setMembers(Array.isArray(membersData) ? membersData : []);
+      console.log(`✅ ${membersData?.length || 0} membres chargés`);
 
       let allPresences = [];
       let from = 0;
       const pageSize = 1000;
       let done = false;
+      let requestCount = 0;
 
       while (!done) {
+        requestCount++;
+        console.log(`📊 Requête #${requestCount}: from=${from}, pageSize=${pageSize}`);
+
         const { data, error } = await supabase
           .from("presences")
           .select("*")
@@ -180,12 +193,38 @@ function PlanningPage() {
           .order("timestamp", { ascending: false })
           .range(from, from + pageSize - 1);
 
+        console.log(`📦 Résultat requête #${requestCount}:`, {
+          récupérées: data?.length || 0,
+          error: error ? error.message : "aucune"
+        });
+
         if (error) throw new Error(`Erreur présences: ${error.message}`);
+
         if (data?.length) {
           allPresences = [...allPresences, ...data];
           from += pageSize;
+          console.log(`✅ Total accumulé: ${allPresences.length} présences`);
         }
-        if (!data || data.length < pageSize) done = true;
+
+        if (!data || data.length < pageSize) {
+          done = true;
+          console.log(`🏁 Fin de la pagination (reçu ${data?.length || 0} < ${pageSize})`);
+        }
+      }
+
+      console.log(`🎯 RÉSULTAT FINAL: ${allPresences.length} présences chargées`);
+
+      if (allPresences.length > 0) {
+        console.log("📅 Échantillon de présences:");
+        console.log("  - Première:", allPresences[0]);
+        console.log("  - Dernière:", allPresences[allPresences.length - 1]);
+
+        // Vérifier les dates
+        const dates = allPresences.map(p => new Date(p.timestamp));
+        console.log("  - Date la plus ancienne:", new Date(Math.min(...dates)).toLocaleString('fr-FR'));
+        console.log("  - Date la plus récente:", new Date(Math.max(...dates)).toLocaleString('fr-FR'));
+      } else {
+        console.warn("⚠️ AUCUNE PRÉSENCE trouvée pour cette période!");
       }
 
       setPresences(
@@ -196,7 +235,9 @@ function PlanningPage() {
         }))
       );
       setRetryCount(0);
+      console.log("✅ === FIN CHARGEMENT PLANNING ===");
     } catch (err) {
+      console.error("❌ ERREUR COMPLÈTE:", err);
       setError(err.message || "Erreur de connexion à la base de données");
     } finally {
       setLoading(false);
@@ -506,8 +547,8 @@ function PlanningPage() {
                           has
                             ? "bg-green-500 text-white shadow-sm hover:scale-105"
                             : isWeekend(day)
-                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                              ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                         )}
                       >
                         <div className="leading-none">{formatDate(day, "EEE dd").split(" ")[1]}</div>
@@ -601,13 +642,13 @@ function PlanningPage() {
                           ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                             : dayTimes.length > 1
-                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : isWeekend(day)
-                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
-                          : idx % 2 === 0
-                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
-                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                            ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                            : idx % 2 === 0
+                              ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                              : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {dayTimes.length > 0 ? dayTimes.length : ""}
@@ -899,9 +940,8 @@ function PlanningPage() {
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
-                i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
-              }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5 ? "text-blue-600 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"
+                }`}
             >
               {day}
             </div>
@@ -950,13 +990,10 @@ function PlanningPage() {
             return (
               <div
                 key={idx}
-                className={`${
-                  expanded ? "min-h-[200px]" : "min-h-[140px]"
-                } border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
-                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${
-                  today ? "ring-2 ring-blue-500 ring-inset" : ""
-                } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"
+                  } border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                  } ${weekend ? "bg-blue-50 dark:bg-blue-900/10" : "bg-white dark:bg-gray-800"} ${today ? "ring-2 ring-blue-500 ring-inset" : ""
+                  } ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""} hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
@@ -965,10 +1002,10 @@ function PlanningPage() {
                       !inMonth
                         ? "text-gray-400 dark:text-gray-500"
                         : today
-                        ? "text-blue-600 dark:text-blue-400"
-                        : weekend
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-gray-900 dark:text-gray-100"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : weekend
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-gray-900 dark:text-gray-100"
                     )}
                   >
                     {day.getDate()}
@@ -982,8 +1019,8 @@ function PlanningPage() {
                           memberIds.length > 30
                             ? "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
                             : memberIds.length > 15
-                            ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                              ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                              : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                         )}
                       >
                         {memberIds.length > 99 ? "99+" : memberIds.length}
@@ -1036,8 +1073,8 @@ function PlanningPage() {
                             expanded
                               ? "bg-blue-500 text-white"
                               : memberIds.length > 30
-                              ? "bg-red-500 text-white animate-pulse"
-                              : "bg-orange-500 text-white"
+                                ? "bg-red-500 text-white animate-pulse"
+                                : "bg-orange-500 text-white"
                           )}
                           title={expanded ? "Réduire" : `Voir les ${memberIds.length} membres`}
                         >
