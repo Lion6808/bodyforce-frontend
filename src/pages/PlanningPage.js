@@ -159,7 +159,7 @@ function PlanningPage() {
   const [isMobile, setIsMobile] = useState(false);
 
   // Vue mensuelle
-  const [expandedDays, setExpandedDays] = useState(new Set());
+  const [expandedDays, setExpandedDays] = useState(new Set());gender
   const [hoveredMember, setHoveredMember] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -173,7 +173,7 @@ function PlanningPage() {
       // ✅ Charger membres SANS photo
       const { data: membersData, error: membersError } = await supabase
         .from("members")
-        .select("id, firstName, name, badgeId, sex, isStudent, subscription_start, subscription_end, createdAt");
+        .select("id, firstName, name, badgeId, gender, isStudent, subscription_start, subscription_end, createdAt");
 
       if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
       setMembers(Array.isArray(membersData) ? membersData : []);
