@@ -1,9 +1,10 @@
-// 📄 components/Avatar.jsx — COMPLET — Date : 2025-09-26
-// ✅ Correctif majeur : fallback initiales fiable si l'image échoue (plus besoin de F5)
+// 📄 components/Avatar.jsx — CORRIGÉ — Date : 2025-10-02
+// ✅ Ne fait plus d'appel à Supabase Storage pour les photos de membres
+// ✅ Supporte dataURL (base64), http(s) et chemins éventuels de documents
+// ✅ Fallback initiales fiable si l'image échoue
 // ✅ API identique : { photo, photo_path, photo_url, name, firstName, size, className, rounded }
 
 import React, { useMemo, useState } from "react";
-import { supabase } from "../supabaseClient";
 
 // Helpers
 function isHttpUrl(value) {
@@ -11,12 +12,6 @@ function isHttpUrl(value) {
 }
 function isDataUrl(value) {
   return typeof value === "string" && /^data:/i.test(value);
-}
-function pickBucketFromPath(path) {
-  if (!path || typeof path !== "string") return "photo";
-  // Si tu stockes des certifs dans un autre bucket :
-  if (path.startsWith("certificats/")) return "documents";
-  return "photo";
 }
 
 function resolveAvatarSrc(value) {
@@ -28,10 +23,13 @@ function resolveAvatarSrc(value) {
   // 2) URL absolue -> direct
   if (isHttpUrl(value)) return value;
 
-  // 3) Path Storage -> publicUrl
-  const bucket = pickBucketFromPath(value);
-  const { data } = supabase.storage.from(bucket).getPublicUrl(value);
-  return data?.publicUrl || null;
+  // 3) Legacy path (documents/certificats) : on n'essaie plus pour 'photo'
+  if (value.startsWith("certificats/") || value.startsWith("documents/")) {
+    // Dans ce cas tu peux brancher un helper si besoin, sinon null
+    return null;
+  }
+
+  return null;
 }
 
 function initialsOf(name = "", firstName = "") {
@@ -43,9 +41,9 @@ function initialsOf(name = "", firstName = "") {
 }
 
 export default function Avatar({
-  photo,          // peut être data-URL, http(s) ou path Storage
-  photo_path,     // path Storage recommandé
-  photo_url,      // URL externe, si utilisée
+  photo, // peut être data-URL ou http(s)
+  photo_path, // (legacy, inutile pour les membres désormais)
+  photo_url, // URL externe, si utilisée
   name,
   firstName,
   size = 48,
@@ -83,10 +81,10 @@ export default function Avatar({
       alt={alt}
       title={title || alt}
       style={dim}
-      loading="eager"                 // évite certains décalages/lazy placeholders
-      crossOrigin="anonymous"         // limite des warnings CORS/SW
+      loading="eager"
+      crossOrigin="anonymous"
       className={`${shape} object-cover border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 ${className}`}
-      onError={() => setImgError(true)} // -> bascule définitive vers initiales
+      onError={() => setImgError(true)}
     />
   );
 }
