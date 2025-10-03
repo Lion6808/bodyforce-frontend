@@ -253,42 +253,49 @@ function PlanningPage() {
   const toLocalDate = (timestamp) => parseTimestamp(timestamp);
 
   // Import Excel
-  const handleImportExcel = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-
-        let count = 0;
-        for (const row of rows) {
-          const badgeId = row["Qui"]?.toString();
-          const rawDate = row["Quand"];
-          if (!badgeId || !rawDate) continue;
-
-          // "12/03/25 08:17"
-          const m = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
-          if (!m) continue;
-          const [, dd, mm, yy, hh, min] = m;
-          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
-          const isoDate = localDate.toISOString();
-
-          const { error } = await supabase.from("presences").insert([{ badgeId, timestamp: isoDate }]);
-          if (!error) count++;
-        }
-        alert(`✅ Import terminé : ${count} présences insérées.`);
-        loadData();
-      };
-      reader.readAsArrayBuffer(file);
-    } catch (err) {
-      console.error("Erreur import Excel :", err);
-      alert("❌ Erreur lors de l'import.");
+const handleImportExcel = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  try {
+    // ✅ Vérifier l'authentification AVANT d'importer
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      alert("❌ Vous devez être connecté pour importer des présences.");
+      return;
     }
-  };
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet);
+
+      let count = 0;
+      for (const row of rows) {
+        const badgeId = row["Qui"]?.toString();
+        const rawDate = row["Quand"];
+        if (!badgeId || !rawDate) continue;
+
+        const m = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
+        if (!m) continue;
+        const [, dd, mm, yy, hh, min] = m;
+        const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+        const isoDate = localDate.toISOString();
+
+        const { error } = await supabase.from("presences").insert([{ badgeId, timestamp: isoDate }]);
+        if (!error) count++;
+      }
+      alert(`✅ Import terminé : ${count} présences insérées.`);
+      loadData();
+    };
+    reader.readAsArrayBuffer(file);
+  } catch (err) {
+    console.error("Erreur import Excel :", err);
+    alert("❌ Erreur lors de l'import.");
+  }
+};
 
   // UI: états de chargement / erreur
   const renderConnectionError = () => (
