@@ -161,7 +161,6 @@ function PlanningPage() {
 
   // Chargement Supabase (membres + présences de la période)
   const loadData = async (showRetryIndicator = false) => {
-    const loadData = async (showRetryIndicator = false) => {
   try {
     if (showRetryIndicator) setIsRetrying(true);
     setLoading(true);
