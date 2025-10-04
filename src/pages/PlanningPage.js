@@ -161,26 +161,16 @@ function PlanningPage() {
 
   // Chargement Supabase (membres + présences de la période)
   const loadData = async (showRetryIndicator = false) => {
-  try {
-    if (showRetryIndicator) setIsRetrying(true);
-    setLoading(true);
-    setError("");
-
-    // 🔍 TEST AUTHENTIFICATION
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    console.log("👤 Utilisateur authentifié:", userData);
-    console.log("❌ Erreur auth:", userError);
-
-    // Membres
-    const { data: membersData, error: membersError } = await supabase
-      .from("members")
-      .select("*");
-    // ... reste du code
-    
     try {
       if (showRetryIndicator) setIsRetrying(true);
       setLoading(true);
       setError("");
+
+      // 🔍 TEST AUTHENTIFICATION
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
+      console.log("👤 Utilisateur authentifié:", userData);
+      console.log("❌ Erreur auth:", userError);
 
       // Membres
       const { data: membersData, error: membersError } = await supabase
