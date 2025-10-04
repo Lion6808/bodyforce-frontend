@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
+import { supabase } from "../supabaseClient";
 
 import {
   Calendar,
@@ -20,7 +21,7 @@ import {
   TrendingUp,
   BarChart3,
 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+
 import {
   startOfWeek,
   endOfWeek,
@@ -29,12 +30,6 @@ import {
   startOfYear,
   endOfYear,
 } from "date-fns";
-
-// Supabase
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-);
 
 // Tailwind helpers
 const cn = (...classes) => classes.filter(Boolean).join(" ");
