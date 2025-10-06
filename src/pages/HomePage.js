@@ -1196,7 +1196,7 @@ function HomePage() {
                     return (
                       <div
                         key={index}
-                        className="flex-1 h-full flex flex-col items-center gap-2 group"
+                        className="flex-1 h-full flex flex-col items-center justify-end gap-2 group"
                       >
                         <div
                           className={`w-full bg-gradient-to-t ${gradient} rounded-t-xl relative transition-all hover:opacity-80 cursor-pointer shadow-lg`}
