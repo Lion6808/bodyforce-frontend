@@ -7,6 +7,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { isToday, isBefore, parseISO, format } from "date-fns";
+import { fr } from "date-fns/locale";
 import {
   FaUsers,
   FaUserCheck,
@@ -103,8 +104,8 @@ const AdminMotivationWidgets = ({
     const paymentRate =
       paymentSummary?.totalAmount > 0
         ? Math.round(
-          (paymentSummary.paidAmount / paymentSummary.totalAmount) * 100
-        )
+            (paymentSummary.paidAmount / paymentSummary.totalAmount) * 100
+          )
         : 0;
 
     return {
@@ -134,8 +135,9 @@ const AdminMotivationWidgets = ({
       return {
         emoji: "🎯",
         title: "Objectif presque atteint !",
-        desc: `Plus que ${metrics.memberGoal - metrics.currentMembers
-          } membres pour atteindre 250`,
+        desc: `Plus que ${
+          metrics.memberGoal - metrics.currentMembers
+        } membres pour atteindre 250`,
       };
     }
     if (metrics.newMembersThisMonth >= 5) {
@@ -227,9 +229,9 @@ const AdminMotivationWidgets = ({
                 <div className="text-lg font-bold">
                   {attendance7d?.length
                     ? Math.round(
-                      attendance7d.reduce((s, d) => s + (d.count || 0), 0) /
-                      attendance7d.length
-                    )
+                        attendance7d.reduce((s, d) => s + (d.count || 0), 0) /
+                          attendance7d.length
+                      )
                     : 0}
                 </div>
               </div>
@@ -238,10 +240,10 @@ const AdminMotivationWidgets = ({
                 <div className="text-lg font-bold">
                   {paymentSummary?.totalAmount > 0
                     ? Math.round(
-                      (paymentSummary.paidAmount /
-                        paymentSummary.totalAmount) *
-                      100
-                    )
+                        (paymentSummary.paidAmount /
+                          paymentSummary.totalAmount) *
+                          100
+                      )
                     : 0}
                   %
                 </div>
@@ -351,7 +353,9 @@ function HomePage() {
           if (!orderErr && ordered) return ordered;
         }
         return data || [];
-      } catch { }
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     try {
@@ -363,7 +367,9 @@ function HomePage() {
         const list = await supabaseServices.getPaymentsByMemberId(memberId);
         if (Array.isArray(list)) return list;
       }
-    } catch { }
+    } catch (e) {
+      console.error(e);
+    }
     return [];
   };
 
@@ -428,7 +434,7 @@ function HomePage() {
         if (badgeIds.length > 0) {
           const { data: membersData, error: mErr } = await supabase
             .from("members")
-            .select("id, firstName, name, badgeId") // ✅ Sans photo !
+            .select("id, firstName, name, badgeId")
             .in("badgeId", badgeIds);
           if (!mErr && membersData) {
             membersByBadge = membersData.reduce((acc, m) => {
@@ -507,7 +513,7 @@ function HomePage() {
             try {
               const { data: latest, error: latestErr } = await supabase
                 .from("members")
-                .select("id, firstName, name") // ✅ Sans photo !
+                .select("id, firstName, name")
                 .order("id", { ascending: false })
                 .limit(7);
               if (latestErr) {
@@ -566,46 +572,35 @@ function HomePage() {
     const loadPhotosForDisplayedMembers = async () => {
       if (photosLoadingRef.current) return;
 
-      // Collecter tous les IDs de membres affichés
       const memberIds = new Set();
 
-      // Latest members (3)
       latestMembers.forEach((m) => {
         if (m.id) memberIds.add(m.id);
       });
 
-      // Recent presences (jusqu'à 10)
       recentPresences.forEach((r) => {
         if (r.member?.id) memberIds.add(r.member.id);
       });
 
       const idsArray = Array.from(memberIds);
-
-      // Filtrer ceux déjà en cache
       const missingIds = idsArray.filter((id) => !(id in photosCache));
 
       if (missingIds.length === 0) {
-        console.log("✅ Photos déjà en cache pour HomePage");
         return;
       }
 
       try {
         photosLoadingRef.current = true;
         setLoadingPhotos(true);
-        console.log(
-          `📸 Chargement de ${missingIds.length} photos pour HomePage`
-        );
 
         const newPhotos =
           (await supabaseServices.getMemberPhotos(missingIds)) || {};
         const nextCache = { ...photosCache, ...newPhotos };
 
-        // Marquer null pour ceux sans photo
         for (const id of missingIds) {
           if (!(id in newPhotos)) nextCache[id] = null;
         }
 
-        // Update seulement si changement
         let changed = false;
         const keys = new Set([
           ...Object.keys(photosCache),
@@ -618,8 +613,6 @@ function HomePage() {
           }
         }
         if (changed) setPhotosCache(nextCache);
-
-        console.log(`✅ ${Object.keys(newPhotos).length} photos chargées`);
       } catch (err) {
         console.error("Erreur chargement photos:", err);
       } finally {
@@ -628,7 +621,6 @@ function HomePage() {
       }
     };
 
-    // Attendre que les données soient chargées
     if (
       !loading.latestMembers &&
       !loading.presences &&
@@ -710,16 +702,6 @@ function HomePage() {
 
     fetchAdminPersonalStats();
   }, [isAdmin, memberCtx?.badgeId]);
-
-  const isLateOrToday = (ts) => {
-    if (!ts) return false;
-    try {
-      const d = typeof ts === "string" ? parseISO(ts) : ts;
-      return isToday(d) || isBefore(d, new Date());
-    } catch {
-      return false;
-    }
-  };
 
   const getInitials = (firstName, name) => {
     const a = (firstName || "").trim().charAt(0);
@@ -816,7 +798,6 @@ function HomePage() {
 
   return (
     <div className="p-6 bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-      {/* HERO UTILISATEUR */}
       {user && (
         <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-blue-500/10 dark:from-indigo-400/10 dark:via-emerald-400/10 dark:to-blue-400/10" />
@@ -905,7 +886,6 @@ function HomePage() {
         </div>
       )}
 
-      {/* Widgets statistiques avec skeletons */}
       {user && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {loading.stats ? (
@@ -960,7 +940,6 @@ function HomePage() {
         </div>
       )}
 
-      {/* Widgets de motivation admin */}
       {isAdmin && (
         <AdminMotivationWidgets
           stats={stats}
@@ -970,7 +949,6 @@ function HomePage() {
         />
       )}
 
-      {/* Vos paiements (NON-ADMIN) */}
       {user && !isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -1010,7 +988,9 @@ function HomePage() {
                         : new Date(dateRaw);
                     dateStr = format(d, "dd/MM/yyyy");
                   }
-                } catch { }
+                } catch (e) {
+                  console.error(e);
+                }
                 return (
                   <li
                     key={p.id}
@@ -1026,18 +1006,20 @@ function HomePage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span
-                        className={`text-sm font-semibold ${isPaid
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-amber-600 dark:text-amber-400"
-                          }`}
+                        className={`text-sm font-semibold ${
+                          isPaid
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-amber-600 dark:text-amber-400"
+                        }`}
                       >
                         {amount.toFixed(2)} €
                       </span>
                       <span
-                        className={`px-2 py-0.5 text-xs rounded-full ${isPaid
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                          }`}
+                        className={`px-2 py-0.5 text-xs rounded-full ${
+                          isPaid
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                            : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                        }`}
                       >
                         {isPaid ? "Réglé" : "En attente"}
                       </span>
@@ -1054,7 +1036,6 @@ function HomePage() {
         </div>
       )}
 
-      {/* État global des paiements (ADMIN) */}
       {isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -1066,8 +1047,8 @@ function HomePage() {
               {loading.payments
                 ? "Chargement…"
                 : `${totalCount} opérations • ${(totalAmount || 0).toFixed(
-                  2
-                )} €`}
+                    2
+                  )} €`}
             </span>
           </div>
 
@@ -1145,10 +1126,8 @@ function HomePage() {
         </div>
       )}
 
-      {/* Présences 7 derniers jours + Derniers passages (ADMIN) */}
       {isAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Graph 7 derniers jours (inchangé) */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1170,7 +1149,6 @@ function HomePage() {
               )}
             </div>
 
-            {/* Graph présences (code inchangé pour brièveté - gardé intact) */}
             {loading.presences ? (
               <div className="h-60 flex items-end justify-between pl-10 pr-2 pb-2 gap-2">
                 {Array.from({ length: 7 }).map((_, i) => (
@@ -1181,7 +1159,10 @@ function HomePage() {
               <div className="relative h-60">
                 <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-xs text-gray-400 dark:text-gray-500 pr-2">
                   {[...Array(6)].map((_, i) => {
-                    const maxCount = Math.max(...attendance7d.map(d => d.count), 1);
+                    const maxCount = Math.max(
+                      ...attendance7d.map((d) => d.count),
+                      1
+                    );
                     const value = Math.round((maxCount * (5 - i)) / 5);
                     return (
                       <div key={i} className="text-right">
@@ -1193,18 +1174,30 @@ function HomePage() {
 
                 <div className="ml-10 h-full flex items-end justify-between gap-2 pb-8">
                   {attendance7d.map((dayData, index) => {
-                    const maxCount = Math.max(...attendance7d.map(d => d.count), 1);
-                    const heightPercent = maxCount > 0 ? (dayData.count / maxCount) * 100 : 0;
-                    const dayName = format(dayData.date, 'EEE', { locale: require('date-fns/locale/fr') }).substring(0, 3);
-                    const isWeekend = dayData.date.getDay() === 0 || dayData.date.getDay() === 6;
-                    const gradient = dayData.count > maxCount * 0.7
-                      ? 'from-emerald-500 to-teal-400'
-                      : dayData.count > maxCount * 0.4
-                        ? 'from-cyan-500 to-blue-400'
-                        : 'from-indigo-500 to-purple-400';
+                    const maxCount = Math.max(
+                      ...attendance7d.map((d) => d.count),
+                      1
+                    );
+                    const heightPercent =
+                      maxCount > 0 ? (dayData.count / maxCount) * 100 : 0;
+                    const dayName = format(dayData.date, "EEE", {
+                      locale: fr,
+                    }).substring(0, 3);
+                    const isWeekend =
+                      dayData.date.getDay() === 0 ||
+                      dayData.date.getDay() === 6;
+                    const gradient =
+                      dayData.count > maxCount * 0.7
+                        ? "from-emerald-500 to-teal-400"
+                        : dayData.count > maxCount * 0.4
+                        ? "from-cyan-500 to-blue-400"
+                        : "from-indigo-500 to-purple-400";
 
                     return (
-                      <div key={index} className="flex-1 flex flex-col items-center gap-2 group">
+                      <div
+                        key={index}
+                        className="flex-1 flex flex-col items-center gap-2 group"
+                      >
                         <div
                           className={`w-full bg-gradient-to-t ${gradient} rounded-t-xl relative transition-all hover:opacity-80 cursor-pointer shadow-lg`}
                           style={{ height: `${Math.max(heightPercent, 2)}%` }}
@@ -1213,10 +1206,13 @@ function HomePage() {
                             {dayData.count}
                           </div>
                         </div>
-                        <div className={`text-xs font-medium ${isWeekend
-                          ? 'text-blue-600 dark:text-blue-400'
-                          : 'text-gray-600 dark:text-gray-400'
-                          }`}>
+                        <div
+                          className={`text-xs font-medium ${
+                            isWeekend
+                              ? "text-blue-600 dark:text-blue-400"
+                              : "text-gray-600 dark:text-gray-400"
+                          }`}
+                        >
                           {dayName}
                         </div>
                       </div>
@@ -1231,196 +1227,202 @@ function HomePage() {
             )}
           </div>
 
-          {loading.presences ? (
-            <div className="space-y-2">
-              <SkeletonListItem />
-              <SkeletonListItem />
-              <SkeletonListItem />
-              <SkeletonListItem />
-            </div>
-          ) : recentPresences.length > 0 ? (
-            <div className="space-y-1 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-              {recentPresences.map((r, index) => {
-                const m = r.member;
-                const ts =
-                  typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
-                const displayName = m
-                  ? `${m.firstName || ""} ${m.name || ""}`.trim()
-                  : `Badge ${r.badgeId || "?"}`;
-                const getTimeAgo = (date) => {
-                  const now = new Date();
-                  const diffInMinutes = Math.floor(
-                    (now - date) / (1000 * 60)
-                  );
-                  if (diffInMinutes < 1) return "À l'instant";
-                  if (diffInMinutes < 60)
-                    return `Il y a ${diffInMinutes} min`;
-                  const diffInHours = Math.floor(diffInMinutes / 60);
-                  if (diffInHours < 24) return `Il y a ${diffInHours}h`;
-                  const diffInDays = Math.floor(diffInHours / 24);
-                  if (diffInDays < 7) return `Il y a ${diffInDays}j`;
-                  return format(date, "dd/MM/yyyy");
-                };
-                const timeAgo = getTimeAgo(ts);
-                return (
-                  <div
-                    key={r.id}
-                    className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {/* ✅ Utiliser Avatar avec cache photos */}
-                      <Avatar
-                        photo={photosCache[m?.id] || null}
-                        firstName={m?.firstName}
-                        name={m?.name}
-                        size={40}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                          {displayName}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {m?.badgeId && `Badge ${m.badgeId} • `}
-                          {timeAgo}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-3">
-                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {format(ts, "HH:mm")}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {format(ts, "dd/MM")}
-                      </div>
-                    </div>
-                    {index < 3 && (
-                      <div className="ml-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${index === 0
-                            ? "bg-green-400 animate-pulse"
-                            : index === 1
-                              ? "bg-yellow-400"
-                              : "bg-gray-400"
-                            }`}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
-              <div className="text-sm">Aucun passage récent</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ✅ Derniers membres inscrits avec Avatar optimisé */}
-      {
-        isAdmin && (
-          <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Derniers membres inscrits
+                Derniers passages
               </h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                {loading.latestMembers ? "—" : `${latestMembers.length} / `}
-              </span>
+              {!loading.presences && recentPresences.length > 0 && (
+                <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                  {recentPresences.length} récents
+                </span>
+              )}
             </div>
-            {loading.latestMembers ? (
+
+            {loading.presences ? (
               <div className="space-y-2">
                 <SkeletonListItem />
                 <SkeletonListItem />
                 <SkeletonListItem />
+                <SkeletonListItem />
               </div>
-            ) : latestMembers.length > 0 ? (
-              <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                {latestMembers.map((m) => {
-                  const displayName =
-                    `${m.firstName || ""} ${m.name || ""}`.trim() ||
-                    `Membre #${m.id}`;
+            ) : recentPresences.length > 0 ? (
+              <div className="space-y-1 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+                {recentPresences.map((r, index) => {
+                  const m = r.member;
+                  const ts =
+                    typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
+                  const displayName = m
+                    ? `${m.firstName || ""} ${m.name || ""}`.trim()
+                    : `Badge ${r.badgeId || "?"}`;
+                  const getTimeAgo = (date) => {
+                    const now = new Date();
+                    const diffInMinutes = Math.floor(
+                      (now - date) / (1000 * 60)
+                    );
+                    if (diffInMinutes < 1) return "À l'instant";
+                    if (diffInMinutes < 60)
+                      return `Il y a ${diffInMinutes} min`;
+                    const diffInHours = Math.floor(diffInMinutes / 60);
+                    if (diffInHours < 24) return `Il y a ${diffInHours}h`;
+                    const diffInDays = Math.floor(diffInHours / 24);
+                    if (diffInDays < 7) return `Il y a ${diffInDays}j`;
+                    return format(date, "dd/MM/yyyy");
+                  };
+                  const timeAgo = getTimeAgo(ts);
                   return (
-                    <li
-                      key={m.id}
-                      className="py-3 flex items-center justify-between"
+                    <div
+                      key={r.id}
+                      className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* ✅ Utiliser Avatar avec cache photos */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <Avatar
-                          photo={photosCache[m.id] || null}
-                          firstName={m.firstName}
-                          name={m.name}
+                          photo={photosCache[m?.id] || null}
+                          firstName={m?.firstName}
+                          name={m?.name}
                           size={40}
                         />
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {displayName}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            ID #{m.id}
+                            {m?.badgeId && `Badge ${m.badgeId} • `}
+                            {timeAgo}
                           </div>
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                        Nouveau
-                      </span>
-                    </li>
+                      <div className="text-right flex-shrink-0 ml-3">
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {format(ts, "HH:mm")}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {format(ts, "dd/MM")}
+                        </div>
+                      </div>
+                      {index < 3 && (
+                        <div className="ml-2">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              index === 0
+                                ? "bg-green-400 animate-pulse"
+                                : index === 1
+                                ? "bg-yellow-400"
+                                : "bg-gray-400"
+                            }`}
+                          />
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
             ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Aucun membre récent à afficher.
-              </p>
+              <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
+                <div className="text-sm">Aucun passage récent</div>
+              </div>
             )}
           </div>
-        )
-      }
+        </div>
+      )}
 
-      {/* Abonnements échus (ADMIN) - inchangé */}
-      {
-        isAdmin && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-              Abonnements échus
+      {isAdmin && (
+        <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Derniers membres inscrits
             </h2>
-            {stats.membresExpirés?.length > 0 ? (
-              <>
-                <ul className="space-y-2">
-                  {stats.membresExpirés.slice(0, 5).map((membre, idx) => (
-                    <li
-                      key={membre.id ?? idx}
-                      className="flex items-center justify-between text-gray-700 dark:text-gray-300"
-                    >
-                      <span className="truncate">
-                        {membre.firstName} {membre.name}
-                      </span>
-                      <FaExclamationTriangle className="text-red-500 flex-shrink-0 ml-3" />
-                    </li>
-                  ))}
-                </ul>
-                {stats.membresExpirés.length > 5 && (
-                  <div className="mt-4 text-center">
-                    <a
-                      href="/members?filter=expired"
-                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      Voir les {stats.membersExpirés.length - 5} autres...
-                    </a>
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Aucun membre avec un abonnement échu.
-              </p>
-            )}
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+              {loading.latestMembers ? "—" : `${latestMembers.length} / 7`}
+            </span>
           </div>
-        )
-      }
-    </div >
+          {loading.latestMembers ? (
+            <div className="space-y-2">
+              <SkeletonListItem />
+              <SkeletonListItem />
+              <SkeletonListItem />
+            </div>
+          ) : latestMembers.length > 0 ? (
+            <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+              {latestMembers.map((m) => {
+                const displayName =
+                  `${m.firstName || ""} ${m.name || ""}`.trim() ||
+                  `Membre #${m.id}`;
+                return (
+                  <li
+                    key={m.id}
+                    className="py-3 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar
+                        photo={photosCache[m.id] || null}
+                        firstName={m.firstName}
+                        name={m.name}
+                        size={40}
+                      />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {displayName}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          ID #{m.id}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                      Nouveau
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Aucun membre récent à afficher.
+            </p>
+          )}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+            Abonnements échus
+          </h2>
+          {stats.membresExpirés?.length > 0 ? (
+            <>
+              <ul className="space-y-2">
+                {stats.membresExpirés.slice(0, 5).map((membre, idx) => (
+                  <li
+                    key={membre.id ?? idx}
+                    className="flex items-center justify-between text-gray-700 dark:text-gray-300"
+                  >
+                    <span className="truncate">
+                      {membre.firstName} {membre.name}
+                    </span>
+                    <FaExclamationTriangle className="text-red-500 flex-shrink-0 ml-3" />
+                  </li>
+                ))}
+              </ul>
+              {stats.membresExpirés.length > 5 && (
+                <div className="mt-4 text-center">
+                  <a
+                    href="/members?filter=expired"
+                    className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Voir les {stats.membresExpirés.length - 5} autres...
+                  </a>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              Aucun membre avec un abonnement échu.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
