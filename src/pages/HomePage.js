@@ -1027,16 +1027,16 @@ function HomePage() {
                     <div className="flex items-center gap-3">
                       <span
                         className={`text-sm font-semibold ${isPaid
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-amber-600 dark:text-amber-400"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-amber-600 dark:text-amber-400"
                           }`}
                       >
                         {amount.toFixed(2)} €
                       </span>
                       <span
                         className={`px-2 py-0.5 text-xs rounded-full ${isPaid
-                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                            : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
                           }`}
                       >
                         {isPaid ? "Réglé" : "En attente"}
@@ -1214,8 +1214,8 @@ function HomePage() {
                           </div>
                         </div>
                         <div className={`text-xs font-medium ${isWeekend
-                            ? 'text-blue-600 dark:text-blue-400'
-                            : 'text-gray-600 dark:text-gray-400'
+                          ? 'text-blue-600 dark:text-blue-400'
+                          : 'text-gray-600 dark:text-gray-400'
                           }`}>
                           {dayName}
                         </div>
@@ -1297,10 +1297,10 @@ function HomePage() {
                       <div className="ml-2">
                         <div
                           className={`w-2 h-2 rounded-full ${index === 0
-                              ? "bg-green-400 animate-pulse"
-                              : index === 1
-                                ? "bg-yellow-400"
-                                : "bg-gray-400"
+                            ? "bg-green-400 animate-pulse"
+                            : index === 1
+                              ? "bg-yellow-400"
+                              : "bg-gray-400"
                             }`}
                         />
                       </div>
@@ -1315,113 +1315,111 @@ function HomePage() {
             </div>
           )}
         </div>
-        </div>
-  )
-}
-
-{/* ✅ Derniers membres inscrits avec Avatar optimisé */ }
-{
-  isAdmin && (
-    <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Derniers membres inscrits
-        </h2>
-        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-          {loading.latestMembers ? "—" : `${latestMembers.length} / `}
-        </span>
-      </div>
-      {loading.latestMembers ? (
-        <div className="space-y-2">
-          <SkeletonListItem />
-          <SkeletonListItem />
-          <SkeletonListItem />
-        </div>
-      ) : latestMembers.length > 0 ? (
-        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-          {latestMembers.map((m) => {
-            const displayName =
-              `${m.firstName || ""} ${m.name || ""}`.trim() ||
-              `Membre #${m.id}`;
-            return (
-              <li
-                key={m.id}
-                className="py-3 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  {/* ✅ Utiliser Avatar avec cache photos */}
-                  <Avatar
-                    photo={photosCache[m.id] || null}
-                    firstName={m.firstName}
-                    name={m.name}
-                    size={40}
-                  />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {displayName}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      ID #{m.id}
-                    </div>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                  Nouveau
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Aucun membre récent à afficher.
-        </p>
       )}
-    </div>
-  )
-}
 
-{/* Abonnements échus (ADMIN) - inchangé */ }
-{
-  isAdmin && (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
-      <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-        Abonnements échus
-      </h2>
-      {stats.membresExpirés?.length > 0 ? (
-        <>
-          <ul className="space-y-2">
-            {stats.membresExpirés.slice(0, 5).map((membre, idx) => (
-              <li
-                key={membre.id ?? idx}
-                className="flex items-center justify-between text-gray-700 dark:text-gray-300"
-              >
-                <span className="truncate">
-                  {membre.firstName} {membre.name}
-                </span>
-                <FaExclamationTriangle className="text-red-500 flex-shrink-0 ml-3" />
-              </li>
-            ))}
-          </ul>
-          {stats.membresExpirés.length > 5 && (
-            <div className="mt-4 text-center">
-              <a
-                href="/members?filter=expired"
-                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Voir les {stats.membersExpirés.length - 5} autres...
-              </a>
+      {/* ✅ Derniers membres inscrits avec Avatar optimisé */}
+      {
+        isAdmin && (
+          <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Derniers membres inscrits
+              </h2>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                {loading.latestMembers ? "—" : `${latestMembers.length} / `}
+              </span>
             </div>
-          )}
-        </>
-      ) : (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Aucun membre avec un abonnement échu.
-        </p>
-      )}
-    </div>
-  )
-}
+            {loading.latestMembers ? (
+              <div className="space-y-2">
+                <SkeletonListItem />
+                <SkeletonListItem />
+                <SkeletonListItem />
+              </div>
+            ) : latestMembers.length > 0 ? (
+              <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                {latestMembers.map((m) => {
+                  const displayName =
+                    `${m.firstName || ""} ${m.name || ""}`.trim() ||
+                    `Membre #${m.id}`;
+                  return (
+                    <li
+                      key={m.id}
+                      className="py-3 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* ✅ Utiliser Avatar avec cache photos */}
+                        <Avatar
+                          photo={photosCache[m.id] || null}
+                          firstName={m.firstName}
+                          name={m.name}
+                          size={40}
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {displayName}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            ID #{m.id}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                        Nouveau
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Aucun membre récent à afficher.
+              </p>
+            )}
+          </div>
+        )
+      }
+
+      {/* Abonnements échus (ADMIN) - inchangé */}
+      {
+        isAdmin && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+              Abonnements échus
+            </h2>
+            {stats.membresExpirés?.length > 0 ? (
+              <>
+                <ul className="space-y-2">
+                  {stats.membresExpirés.slice(0, 5).map((membre, idx) => (
+                    <li
+                      key={membre.id ?? idx}
+                      className="flex items-center justify-between text-gray-700 dark:text-gray-300"
+                    >
+                      <span className="truncate">
+                        {membre.firstName} {membre.name}
+                      </span>
+                      <FaExclamationTriangle className="text-red-500 flex-shrink-0 ml-3" />
+                    </li>
+                  ))}
+                </ul>
+                {stats.membresExpirés.length > 5 && (
+                  <div className="mt-4 text-center">
+                    <a
+                      href="/members?filter=expired"
+                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Voir les {stats.membersExpirés.length - 5} autres...
+                    </a>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                Aucun membre avec un abonnement échu.
+              </p>
+            )}
+          </div>
+        )
+      }
     </div >
   );
 }
