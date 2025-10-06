@@ -1,0 +1,42 @@
+*** src/pages/HomePage.js
+--- src/pages/HomePage.js
+***************
+*** 0 ****
+--- 0 ----
+*** 1 ****
+- const days = [];
+- for (let i = 0; i < 7; i++) {
+-   const d = new Date(start);
+-   d.setDate(start.getDate() + i);
+-   days.push({ date: d, count: 0 });
+- }
+- setAttendance7d(days);
+--- 1 ----
++ const key = (d) => format(d, "yyyy-MM-dd");
++ const days = [];
++ const countsByKey = {};
++ 
++ // Créer les 7 jours
++ for (let i = 0; i < 7; i++) {
++   const d = new Date(start);
++   d.setDate(start.getDate() + i);
++   days.push({ date: d, count: 0 });
++   countsByKey[key(d)] = 0;
++ }
++ 
++ // Compter les présences par jour
++ (data || []).forEach((row) => {
++   const ts = typeof row.timestamp === "string" ? parseISO(row.timestamp) : new Date(row.timestamp);
++   const k = key(ts);
++   if (countsByKey[k] !== undefined) {
++     countsByKey[k] += 1;
++   }
++ });
++ 
++ // Mettre à jour les counts
++ setAttendance7d(
++   days.map((d) => ({
++     date: d.date,
++     count: countsByKey[key(d.date)] || 0,
++   }))
++ );
