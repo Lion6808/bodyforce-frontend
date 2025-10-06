@@ -1173,23 +1173,65 @@ function HomePage() {
               )}
             </div>
 
-            {/* Graph présences (code inchangé pour brièveté - gardé intact) */}
-            {loading.presences ? (
+           {loading.presences ? (
               <div className="h-60 flex items-end justify-between pl-10 pr-2 pb-2 gap-2">
                 {Array.from({ length: 7 }).map((_, i) => (
                   <SkeletonPulse key={i} className="w-full h-40 rounded" />
                 ))}
               </div>
             ) : attendance7d.length > 0 ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                [Graph présences - code complet conservé]
+              <div className="relative h-60">
+                <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-xs text-gray-400 dark:text-gray-500 pr-2">
+                  {[...Array(6)].map((_, i) => {
+                    const maxCount = Math.max(...attendance7d.map(d => d.count), 1);
+                    const value = Math.round((maxCount * (5 - i)) / 5);
+                    return (
+                      <div key={i} className="text-right">
+                        {value}
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <div className="ml-10 h-full flex items-end justify-between gap-2 pb-8">
+                  {attendance7d.map((dayData, index) => {
+                    const maxCount = Math.max(...attendance7d.map(d => d.count), 1);
+                    const heightPercent = maxCount > 0 ? (dayData.count / maxCount) * 100 : 0;
+                    const dayName = format(dayData.date, 'EEE', { locale: require('date-fns/locale/fr') }).substring(0, 3);
+                    const isWeekend = dayData.date.getDay() === 0 || dayData.date.getDay() === 6;
+                    const gradient = dayData.count > maxCount * 0.7 
+                      ? 'from-emerald-500 to-teal-400'
+                      : dayData.count > maxCount * 0.4
+                      ? 'from-cyan-500 to-blue-400'
+                      : 'from-indigo-500 to-purple-400';
+                    
+                    return (
+                      <div key={index} className="flex-1 flex flex-col items-center gap-2 group">
+                        <div 
+                          className={`w-full bg-gradient-to-t ${gradient} rounded-t-xl relative transition-all hover:opacity-80 cursor-pointer shadow-lg`}
+                          style={{ height: `${Math.max(heightPercent, 2)}%` }}
+                        >
+                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white px-2 py-1 rounded text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl">
+                            {dayData.count}
+                          </div>
+                        </div>
+                        <div className={`text-xs font-medium ${
+                          isWeekend 
+                            ? 'text-blue-600 dark:text-blue-400' 
+                            : 'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {dayName}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
                 <div className="text-sm">Aucune présence</div>
               </div>
             )}
-          </div>
 
           {/* ✅ Derniers passages avec Avatar optimisé */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
