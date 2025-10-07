@@ -2,16 +2,17 @@
 // Nom : MemberForm.js
 // Type : JavaScript (React)
 // Dossier : src/components
-// Date modification : 2025-09-23
+// Date modification : 2025-10-07
 // Résumé modifications :
 // - Ajout helpers dataURLToBlob + resizeImage (redimensionnement 512x512, JPEG qualité ~0.8).
-// - Photo membre : upload dans le bucket "photo" avec cacheControl=31536000, URL publique stockée dans form.photo.
-// - Capture caméra : upload vers Storage (photo) + même cache.
-// - Import de photo (input file) : redimensionnement + upload + URL publique.
-// - Documents : upload avec cacheControl=31536000 (et contentType correct).
+// - ❗️Photo membre : **DB-only** (dataURL dans members.photo) — aucune écriture dans Supabase Storage.
+// - ❗️Capture caméra / import fichier : redimensionnent puis stockent un **dataURL** dans form.photo.
+// - Documents : upload vers le bucket "documents" avec cacheControl=31536000 (contentType correct).
 // - Aucune autre partie du fichier n'a été modifiée (style/structure conservés).
-// 📄 MemberForm.js — Composant principal avec sélecteur caméra — Dossier : components — Date : 2025-07-25
-// 🎯 CORRECTION : Logique de la caméra entièrement revue pour éviter les conflits et assurer la stabilité.
+
+// 📄 MemberForm.js — Composant principal avec sélecteur caméra — Dossier : components
+// 🎯 CORRECTION : Logique de la caméra stabilisée + suppression totale du bucket "photo" pour les portraits.
+
 // 🔹 Partie 1 - Imports et composants utilitaires
 
 import React, { useEffect, useRef, useState } from "react";
@@ -40,13 +41,14 @@ import {
   FaPhone,
   FaEnvelope,
   FaGraduationCap,
-  FaCheck,
+  FaCheck as FaCheckIcon,
   FaTimes,
   FaEye,
   FaChevronLeft,
   FaChevronRight,
 } from "react-icons/fa";
 import { supabase } from "../supabaseClient";
+
 // --- Helpers image (resize + blob) ---
 function dataURLToBlob(dataURL) {
   const [header, data] = dataURL.split(",");
@@ -154,11 +156,9 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       } catch (err) {
         let msg = "Impossible d'accéder à la caméra.";
         if (err.name === "NotReadableError") {
-          msg =
-            "La caméra est déjà utilisée. Fermez les autres applis/onglets qui pourraient l'utiliser.";
+          msg = "La caméra est déjà utilisée. Fermez les autres applis/onglets qui pourraient l'utiliser.";
         } else if (err.name === "NotAllowedError") {
-          msg =
-            "Accès caméra refusé. Autorisez l'accès dans les réglages du navigateur.";
+          msg = "Accès caméra refusé. Autorisez l'accès dans les réglages du navigateur.";
         } else if (err.name === "NotFoundError") {
           msg = `Aucune caméra en mode '${facingMode}' n'a été trouvée.`;
         }
@@ -474,7 +474,6 @@ function StatusBadge({ isExpired, isStudent }) {
 }
 
 // 🔹 Partie 8 - Fonction MemberForm principale avec nouveaux états
-
 function MemberForm({ member, onSave, onCancel }) {
   const [activeTab, setActiveTab] = useState("identity");
   const [form, setForm] = useState({
@@ -734,6 +733,7 @@ function MemberForm({ member, onSave, onCancel }) {
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
 
+  // --- Upload de documents (bucket: documents) ---
   const handleFileUpload = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
@@ -746,7 +746,13 @@ function MemberForm({ member, onSave, onCancel }) {
         const safeName = sanitizeFileName(file.name);
         const filePath = `certificats/${Date.now()}_${safeName}`;
 
-        const { error } = await supabase.storage.from("documents").upload(filePath, file, { upsert: true, cacheControl: "31536000", contentType: file.type || "application/octet-stream" });
+        const { error } = await supabase.storage
+          .from("documents")
+          .upload(filePath, file, {
+            upsert: true,
+            cacheControl: "31536000",
+            contentType: file.type || "application/octet-stream",
+          });
         if (error) throw new Error(`Erreur lors du téléversement : ${error.message}`);
 
         const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
@@ -769,24 +775,23 @@ function MemberForm({ member, onSave, onCancel }) {
     e.target.value = "";
   };
 
+  // --- 📸 PHOTO MEMBRE (DB-only) ---
   const handleCameraCapture = async (imageData) => {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
       const blob = dataURLToBlob(imageData);
-      const resized = await resizeImage(blob, { maxW: 512, maxH: 512, quality: 0.8 });
-      const memberId = form?.id || 'unknown';
-      const fileName = sanitizeFileName(`member_${memberId}_${Date.now()}.jpg`);
-      const path = `photos/${fileName}`;
-      const { error: upErr } = await supabase.storage.from("photo").upload(path, resized, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from("photo").getPublicUrl(path);
-      const publicUrl = data?.publicUrl;
-      setForm((f) => ({ ...f, photo: publicUrl }));
-      setUploadStatus({ loading: false, error: null, success: "Photo capturée avec succès !" });
+      const resizedBlob = await resizeImage(blob, { maxW: 512, maxH: 512, quality: 0.8 });
+      const dataUrlResized = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(resizedBlob);
+      });
+      setForm((f) => ({ ...f, photo: dataUrlResized }));
+      setUploadStatus({ loading: false, error: null, success: "Photo capturée !" });
       setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
     } catch (err) {
-      console.error("Erreur capture/upload photo:", err);
-      setUploadStatus({ loading: false, error: "Erreur lors de l'upload de la photo", success: null });
+      console.error("Erreur capture photo:", err);
+      setUploadStatus({ loading: false, error: "Erreur lors du traitement de la photo", success: null });
     }
   };
 
@@ -799,7 +804,9 @@ function MemberForm({ member, onSave, onCancel }) {
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from("documents").upload(filePath, blob, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, blob, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
       if (uploadError) throw new Error(`Erreur lors du téléversement du document : ${uploadError.message}`);
 
       const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
@@ -953,19 +960,18 @@ function MemberForm({ member, onSave, onCancel }) {
                     (async () => {
                       try {
                         setUploadStatus({ loading: true, error: null, success: null });
-                        const resized = await resizeImage(file, { maxW: 512, maxH: 512, quality: 0.8 });
-                        const memberId = form?.id || 'unknown';
-                        const safeName = sanitizeFileName(`member_${memberId}_${Date.now()}.jpg`);
-                        const path = `photos/${safeName}`;
-                        const { error: upErr } = await supabase.storage.from("photo").upload(path, resized, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
-                        if (upErr) throw upErr;
-                        const { data } = supabase.storage.from("photo").getPublicUrl(path);
-                        setForm((prev) => ({ ...prev, photo: data?.publicUrl }));
+                        const resizedBlob = await resizeImage(file, { maxW: 512, maxH: 512, quality: 0.8 });
+                        const dataUrlResized = await new Promise((resolve) => {
+                          const reader = new FileReader();
+                          reader.onload = () => resolve(reader.result);
+                          reader.readAsDataURL(resizedBlob);
+                        });
+                        setForm((prev) => ({ ...prev, photo: dataUrlResized }));
                         setUploadStatus({ loading: false, error: null, success: "Photo importée !" });
                         setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
                       } catch (err) {
-                        console.error("Erreur upload photo:", err);
-                        setUploadStatus({ loading: false, error: "Erreur lors de l'upload de la photo", success: null });
+                        console.error("Erreur import photo:", err);
+                        setUploadStatus({ loading: false, error: "Erreur lors du traitement de la photo", success: null });
                       }
                     })();
                   }
@@ -1095,7 +1101,7 @@ function MemberForm({ member, onSave, onCancel }) {
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
           <FaFileAlt className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-5 00 dark:text-gray-300 text-lg font-medium">Aucun document</p>
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">Aucun document</p>
           <p className="text-gray-400 dark:text-gray-500 text-sm">Importez des certificats, documents d'identité, etc.</p>
         </div>
       )}
@@ -1163,7 +1169,7 @@ function MemberForm({ member, onSave, onCancel }) {
                   newPayment.is_paid ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-500"
                 }`}
               >
-                {newPayment.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                {newPayment.is_paid && <FaCheckIcon className="w-3 h-3 text-white" />}
               </div>
             </div>
             Paiement déjà encaissé
@@ -1213,7 +1219,7 @@ function MemberForm({ member, onSave, onCancel }) {
                           pay.is_paid ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-500 hover:border-green-400"
                         }`}
                       >
-                        {pay.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                        {pay.is_paid && <FaCheckIcon className="w-3 h-3 text-white" />}
                       </button>
                       <span className={`text-sm font-medium ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"}`}>
                         {pay.is_paid ? "Encaissé" : "En attente"}
@@ -1316,7 +1322,7 @@ function MemberForm({ member, onSave, onCancel }) {
             <button
               type="button"
               onClick={onCancel}
-              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all duration-200 flex-1 sm:flex-none text-sm"
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all durée-200 flex-1 sm:flex-none text-sm"
             >
               <FaTimes className="w-4 h-4" />
               <span className="hidden sm:inline">Annuler</span>
@@ -1326,7 +1332,7 @@ function MemberForm({ member, onSave, onCancel }) {
               onClick={handleSubmit}
               className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition-all duration-200 font-semibold shadow-lg flex-1 sm:flex-none text-sm"
             >
-              <FaCheck className="w-4 h-4" />
+              <FaCheckIcon className="w-4 h-4" />
               Enregistrer
             </button>
           </div>
@@ -1364,7 +1370,7 @@ function MemberForm({ member, onSave, onCancel }) {
             <span className="hidden sm:inline">Précédent</span>
           </button>
 
-          <div className="flex justify-center gap-2">
+          <div className="flex juste-center gap-2">
             {tabs.map((_, index) => (
               <button
                 key={index}
@@ -1417,7 +1423,7 @@ function MemberForm({ member, onSave, onCancel }) {
       {uploadStatus.success && (
         <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-400 dark:border-green-700 p-4">
           <div className="flex items-center">
-            <FaCheck className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
+            <FaCheckIcon className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
             <p className="text-green-700 dark:text-green-100">{uploadStatus.success}</p>
           </div>
         </div>
@@ -1468,11 +1474,10 @@ export default MemberForm;
 
 /*
 Résumé corrections clé :
-- Remplacement de SwitchCamera ➜ RefreshCcw (lucide-react) + utilisation pour le bouton de bascule.
-- Blindage montants/dates côté Paiements (Number(...) avant toFixed, date nullable).
-- Caméra : cycle de vie unique, cleanup strict, bascule avant/arrière stable, reprise fluide.
-- Photo membre conservée en data URL (aucune concat aux URLs Supabase) — évite les GET 400.
-- Documents scannés/uploadés vers bucket "documents" uniquement.
+- Suppression totale de Supabase Storage pour la **photo membre** (plus de bucket "photo").
+- Photo en **dataURL** (512x512 max) stockée dans `form.photo` puis en base via `onSave`.
+- Documents scannés/uploadés vers bucket "documents" uniquement (inchangé).
+- Caméra : cycle de vie strict, bascule avant/arrière stable, reprise fluide.
 */
 
 // ✅ FIN DU FICHIER
