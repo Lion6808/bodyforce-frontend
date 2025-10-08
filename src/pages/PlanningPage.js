@@ -281,54 +281,170 @@ function PlanningPage() {
   const toLocalDate = (timestamp) => parseTimestamp(timestamp);
 
   // Import Excel — passage en UPSERT par chunks (onConflict badgeId,timestamp)
-  const handleImportExcel = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
+// ⬇️ Remplacer intégralement handleImportExcel par ceci
+const handleImportExcel = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
 
-        // Construire le payload
-        const payload = [];
-        for (const row of rows) {
-          const badgeId = row["Qui"]?.toString();
-          const rawDate = row["Quand"];
-          if (!badgeId || !rawDate) continue;
-
-          // "12/03/25 08:17"
-          const m = String(rawDate).match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
-          if (!m) continue;
-          const [, dd, mm, yy, hh, min] = m;
-          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
-          if (isNaN(localDate)) continue;
-          const isoDate = localDate.toISOString();
-          payload.push({ badgeId, timestamp: isoDate });
-        }
-
-        // UPSERT par morceaux
-        const chunkSize = 500;
-        for (let i = 0; i < payload.length; i += chunkSize) {
-          const chunk = payload.slice(i, i + chunkSize);
-          const { error } = await supabase
-            .from("presences")
-            .upsert(chunk, { onConflict: "badgeId,timestamp" })
-            .select("badgeId"); // léger
-          if (error) throw error;
-        }
-
-        alert(`✅ Import terminé : ${payload.length} lignes traitées (doublons ignorés).`);
-        loadData();
-      };
-      reader.readAsArrayBuffer(file);
-    } catch (err) {
-      console.error("Erreur import Excel :", err);
-      alert("❌ Erreur lors de l'import.");
+  // 1) Auth (utile avec RLS)
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      alert("❌ Vous devez être connecté pour importer des présences.");
+      return;
     }
+  } catch (e) {
+    console.error("Auth check error:", e);
+  }
+
+  // 2) Helpers parsing
+  const excelSerialToDate = (serial) => {
+    // Excel serial → JS Date (base 1899-12-30)
+    const base = new Date(Date.UTC(1899, 11, 30));
+    const ms = Math.round(Number(serial) * 86400) * 1000;
+    return new Date(base.getTime() + ms);
   };
+
+  const tryParseFR = (s) => {
+    const str = String(s).trim();
+    // dd/MM/yy HH:mm
+    let m = str.match(/^(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})$/);
+    if (m) {
+      const [, dd, mm, yy, HH, MI] = m;
+      return new Date(`20${yy}-${mm}-${dd}T${HH}:${MI}:00`);
+    }
+    // dd/MM/yyyy HH:mm
+    m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+    if (m) {
+      const [, dd, mm, yyyy, HH, MI] = m;
+      return new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:00`);
+    }
+    const d = new Date(str); // fallback (ISO, etc.)
+    return isNaN(d) ? null : d;
+  };
+
+  const toJsDate = (val) => {
+    if (val instanceof Date) return val;
+    if (typeof val === "number") return excelSerialToDate(val);
+    if (typeof val === "string") return tryParseFR(val);
+    return null;
+  };
+
+  // 3) Lecture + mapping colonnes spécifiques (Quand, Quoi, Qui)
+  try {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array", cellDates: true });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
+
+      // Stats diag
+      let totalRows = 0;
+      let kept = 0;
+      let filteredOtherType = 0;
+      let skippedNoBadge = 0;
+      let skippedNoDate = 0;
+      let unparsableDate = 0;
+
+      const allowedTypes = new Set(["Badges ou Télécommandes", "CleMobil"]);
+      const payload = [];
+
+      for (const row of rows) {
+        totalRows++;
+
+        const quoi = (row["Quoi"] ?? "").toString().trim();
+        const quiRaw = row["Qui"];
+        const quandRaw = row["Quand"];
+
+        // Filtre type (ignore "BP", lignes vides, etc.)
+        if (!allowedTypes.has(quoi)) {
+          filteredOtherType++;
+          continue;
+        }
+
+        // Badge obligatoire
+        const badgeId = (quiRaw ?? "").toString().trim();
+        if (!badgeId) {
+          skippedNoBadge++;
+          continue;
+        }
+
+        // Date obligatoire
+        if (quandRaw == null) {
+          skippedNoDate++;
+          continue;
+        }
+
+        const dt = toJsDate(quandRaw);
+        if (!dt || isNaN(dt)) {
+          unparsableDate++;
+          continue;
+        }
+
+        payload.push({ badgeId, timestamp: dt.toISOString() });
+        kept++;
+      }
+
+      if (payload.length === 0) {
+        alert(
+          [
+            "ℹ️ Aucune ligne importée.",
+            `Lignes totales: ${totalRows}`,
+            `• Gardées: ${kept}`,
+            `• Filtrées (type ≠ 'Badges ou Télécommandes' / 'CleMobil'): ${filteredOtherType}`,
+            `• Sans badge: ${skippedNoBadge}`,
+            `• Sans date: ${skippedNoDate}`,
+            `• Date illisible: ${unparsableDate}`,
+          ].join("\n")
+        );
+        return;
+      }
+
+      // 4) UPSERT par chunks
+      const chunkSize = 500;
+      let affected = 0;
+
+      for (let i = 0; i < payload.length; i += chunkSize) {
+        const chunk = payload.slice(i, i + chunkSize);
+        const { data: upserted, error } = await supabase
+          .from("presences")
+          .upsert(chunk, { onConflict: "badgeId,timestamp" })
+          .select("badgeId"); // lignes touchées (insert + update)
+
+        if (error) {
+          console.error("Upsert error:", error);
+          alert("❌ Erreur lors de l'upsert: " + (error.message || "inconnue"));
+          return;
+        }
+
+        affected += Array.isArray(upserted) ? upserted.length : 0;
+      }
+
+      alert(
+        [
+          "✅ Import terminé.",
+          `Lignes totales lues: ${totalRows}`,
+          `• Retenues pour import: ${kept}`,
+          `• Upsertées (insert+update): ${affected} (doublons ignorés)`,
+          `• Filtrées type: ${filteredOtherType} | Sans badge: ${skippedNoBadge} | Sans date: ${skippedNoDate} | Date illisible: ${unparsableDate}`,
+        ].join("\n")
+      );
+
+      // Recharge l’affichage
+      loadData();
+    };
+
+    reader.readAsArrayBuffer(file);
+  } catch (err) {
+    console.error("Erreur import Excel :", err);
+    alert("❌ Erreur lors de l'import.");
+  } finally {
+    // Permet de réimporter le même fichier sans recharger la page
+    try { event.target.value = ""; } catch {}
+  }
+};
+
 
   // UI: états de chargement / erreur
   const renderConnectionError = () => (
