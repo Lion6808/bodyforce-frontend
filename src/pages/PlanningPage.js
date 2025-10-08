@@ -162,74 +162,118 @@ function PlanningPage() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   // Chargement Supabase (membres paginés + présences de la période pour ces membres)
-  const buildMembersQuery = () => {
-    let q = supabase
+
+
+// 🔄 Remplacer TOUTE la fonction loadData par ceci
+const loadData = async (showRetryIndicator = false) => {
+  try {
+    if (showRetryIndicator) setIsRetrying(true);
+    setLoading(true);
+    setError("");
+
+    // A) Récupère tous les badgeId AYANT AU MOINS UNE PRÉSENCE sur la période
+    //    (en tenant compte du filtre badge si fourni)
+    let presencesQ = supabase
+      .from("presences")
+      .select("badgeId,timestamp")
+      .gte("timestamp", startDate.toISOString())
+      .lte("timestamp", endDate.toISOString());
+
+    if (filterBadge?.trim()) {
+      // Filtrer côté DB réduit l'egress
+      presencesQ = presencesQ.ilike("badgeId", `%${filterBadge.trim()}%`);
+    }
+
+    const { data: presInPeriod, error: prsErr } = await presencesQ;
+    if (prsErr) throw new Error(`Erreur présences (période): ${prsErr.message}`);
+
+    // Distinct badgeIds présents dans la période
+    const badgeIdSet = new Set(
+      (presInPeriod || [])
+        .map((p) => p.badgeId)
+        .filter((b) => !!b)
+    );
+    const allBadgeIdsInPeriod = Array.from(badgeIdSet);
+
+    // Si aucun présent → reset affichage et fin
+    if (allBadgeIdsInPeriod.length === 0) {
+      setMembers([]);
+      setPresences([]);
+      setTotalMembers(0);
+      setRetryCount(0);
+      return;
+    }
+
+    // B) Charger les members correspondants puis appliquer filtre nom (et badge si tu veux double-sécurité)
+    //    NOTE: on pagine SUR CE SET (membres ayant eu ≥1 présence)
+    //       - on ramène tout puis on filtre/pagine en mémoire (volumes jour/semaine OK).
+    const { data: periodMembersAll, error: membersErr } = await supabase
       .from("members")
-      .select("id,name,firstName,badgeId,photo", { count: "exact" });
+      .select("id,name,firstName,badgeId,photo")
+      .in("badgeId", allBadgeIdsInPeriod)
+      .order("name", { ascending: true });
+
+    if (membersErr) throw new Error(`Erreur membres: ${membersErr.message}`);
+
+    let filteredMembers = (periodMembersAll || []);
 
     if (filterName?.trim()) {
-      const s = filterName.trim();
-      // or(name ilike, firstName ilike)
-      q = q.or(`name.ilike.%${s}%,firstName.ilike.%${s}%`);
+      const s = filterName.trim().toLowerCase();
+      filteredMembers = filteredMembers.filter((m) =>
+        `${m.name || ""} ${m.firstName || ""}`.toLowerCase().includes(s)
+      );
     }
     if (filterBadge?.trim()) {
-      q = q.ilike("badgeId", `%${filterBadge.trim()}%`);
-    }
-    return q.order("name", { ascending: true });
-  };
-
-  const loadData = async (showRetryIndicator = false) => {
-    try {
-      if (showRetryIndicator) setIsRetrying(true);
-      setLoading(true);
-      setError("");
-
-      // 1) Compte total des membres (avec filtres) pour pagination
-      const countRes = await buildMembersQuery().range(0, 0); // count rempli
-      const total = countRes.count ?? 0;
-      setTotalMembers(total);
-
-      // 2) Page courante (membres)
-      const from = (page - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      const { data: membersData, error: membersError } = await buildMembersQuery().range(from, to);
-      if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
-      const pageMembers = Array.isArray(membersData) ? membersData : [];
-      setMembers(pageMembers);
-
-      // 3) Présences seulement pour ces membres et sur la période
-      const badgeIds = pageMembers.map(m => m.badgeId).filter(Boolean);
-      let prs = [];
-      if (badgeIds.length) {
-        const { data, error } = await supabase
-          .from("presences")
-          .select("badgeId,timestamp")
-          .gte("timestamp", startDate.toISOString())
-          .lte("timestamp", endDate.toISOString())
-          .in("badgeId", badgeIds)
-          .order("timestamp", { ascending: false });
-
-        if (error) throw new Error(`Erreur présences: ${error.message}`);
-        prs = data || [];
-      }
-
-      setPresences(
-        prs.map((p) => ({
-          badgeId: p.badgeId,
-          timestamp: p.timestamp,
-          parsedDate: parseTimestamp(p.timestamp),
-        }))
+      const s = filterBadge.trim();
+      filteredMembers = filteredMembers.filter((m) =>
+        (m.badgeId || "").includes(s)
       );
-
-      setRetryCount(0);
-    } catch (err) {
-      console.error("Erreur:", err);
-      setError(err.message || "Erreur de connexion à la base de données");
-    } finally {
-      setLoading(false);
-      setIsRetrying(false);
     }
-  };
+
+    // C) Pagination SUR les membres présents dans la période
+    const total = filteredMembers.length;
+    setTotalMembers(total);
+
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE;
+    const pageMembers = filteredMembers.slice(from, to);
+    setMembers(pageMembers);
+
+    // D) Charger les présences UNIQUEMENT pour les membres de la page (et sur la période)
+    const pageBadgeIds = pageMembers.map((m) => m.badgeId).filter(Boolean);
+
+    let prs = [];
+    if (pageBadgeIds.length) {
+      const { data, error } = await supabase
+        .from("presences")
+        .select("badgeId,timestamp")
+        .gte("timestamp", startDate.toISOString())
+        .lte("timestamp", endDate.toISOString())
+        .in("badgeId", pageBadgeIds)
+        .order("timestamp", { ascending: false });
+
+      if (error) throw new Error(`Erreur présences (page): ${error.message}`);
+      prs = data || [];
+    }
+
+    setPresences(
+      prs.map((p) => ({
+        badgeId: p.badgeId,
+        timestamp: p.timestamp,
+        parsedDate: parseTimestamp(p.timestamp),
+      }))
+    );
+
+    setRetryCount(0);
+  } catch (err) {
+    console.error("Erreur:", err);
+    setError(err.message || "Erreur de connexion à la base de données");
+  } finally {
+    setLoading(false);
+    setIsRetrying(false);
+  }
+};
+
 
   useEffect(() => {
     loadData();
@@ -523,16 +567,7 @@ const handleImportExcel = async (event) => {
   const getMemberInfo = (badgeId) =>
     members.find((m) => m.badgeId === badgeId) || {};
 
-  const visibleMembers = Object.keys(groupedByMember)
-    .map((badgeId) => getMemberInfo(badgeId))
-    .filter(
-      (m) =>
-        (!filterName ||
-          `${m.name} ${m.firstName}`
-            .toLowerCase()
-            .includes(filterName.toLowerCase())) &&
-        (!filterBadge || m.badgeId?.includes(filterBadge))
-    );
+const visibleMembers = members;
 
   // Stats (identiques à ta version)
   const stats = (() => {
