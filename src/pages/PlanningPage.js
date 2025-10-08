@@ -153,7 +153,7 @@ function PlanningPage() {
   const [isMobile, setIsMobile] = useState(false);
 
   // Pagination
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 10;
   const [page, setPage] = useState(1); // 1-based
   const [totalMembers, setTotalMembers] = useState(0);
 
