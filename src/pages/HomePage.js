@@ -541,7 +541,7 @@ function HomePage() {
       }
     };
 
-    const timer = setTimeout(loadPhotos, 800);
+    const timer = setTimeout(loadPhotos, 200);
     return () => clearTimeout(timer);
   }, [latestMembers, recentPresences, loading.presences, loading.latestMembers]);
 
