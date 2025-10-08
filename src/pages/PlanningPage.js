@@ -3,7 +3,6 @@
 // ✅ Import Excel : UPSERT par chunks (onConflict badgeId,timestamp) → évite 409
 // ⚠️ Règles BODYFORCE respectées : structure & styles conservés, modifications minimales
 
-// 🔹 Partie 1/4 — Imports, helpers, états, chargement (pagination)
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
