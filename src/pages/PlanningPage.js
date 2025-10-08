@@ -618,7 +618,7 @@ function PlanningPage() {
 
   // Vue Liste (pastilles journalières) — ajout du Pager (haut + bas)
   const ListView = () => (
-    <div className={cn(classes.card, "overflow-hidden")}>
+    <div className={cn(classes.card, "overflow-visible")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
@@ -739,7 +739,7 @@ function PlanningPage() {
 
   // Vue Compacte (tableau rapide) — pager ajouté en bas
   const CompactView = () => (
-    <div className={cn(classes.card, "overflow-hidden")}>
+    <div className={cn(classes.card, "overflow-visible")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
           Vue compacte ({visibleMembers.length} membres)
@@ -1525,7 +1525,7 @@ function PlanningPage() {
           </div>
 
           {/* Navigation période */}
-          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg overflow-visible">
             <button
               onClick={() => navigatePeriod("prev")}
               className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
