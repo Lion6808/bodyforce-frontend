@@ -298,6 +298,19 @@ function HomePage() {
     photos: false,
   });
 
+  // ✅ Réinitialiser les refs si l'utilisateur change
+  useEffect(() => {
+    return () => {
+      // Cleanup lors du démontage
+      loadingRef.current = {
+        stats: false,
+        payments: false,
+        presences: false,
+        photos: false,
+      };
+    };
+  }, [user?.id]); // Réinitialiser si user change
+
   const fetchMemberPayments = useCallback(async (memberId) => {
     if (!memberId) return [];
     const memberCols = ["member_id", "memberId"];
@@ -474,13 +487,37 @@ function HomePage() {
     loadPresences();
   }, [isAdmin, user, loading.payments]);
 
-  // ✅ ÉTAPE 4 : Charger les MEMBRES des presences (lazy)
+  // ✅ ÉTAPE 4 : Charger les MEMBRES des presences (lazy, SANS boucle)
+  const membersLoadedRef = useRef(false);
+  const lastPresencesLoadRef = useRef(0);
+  
+  // Réinitialiser quand les présences sont rechargées
   useEffect(() => {
-    if (!isAdmin || loading.presences || recentPresences.length === 0) return;
+    if (loading.presences) {
+      membersLoadedRef.current = false;
+      lastPresencesLoadRef.current = 0;
+    }
+  }, [loading.presences]);
+  
+  useEffect(() => {
+    if (!isAdmin || loading.presences) return;
+    if (recentPresences.length === 0) return;
+    if (membersLoadedRef.current) return; // ✅ Éviter recharge si déjà fait
+
+    // Vérifier si c'est un nouveau chargement de présences
+    const presencesTimestamp = recentPresences[0]?.id || 0;
+    if (lastPresencesLoadRef.current === presencesTimestamp) return;
 
     const loadMembersForPresences = async () => {
       const badgeIds = Array.from(new Set(recentPresences.map(r => r.badgeId).filter(Boolean)));
       if (badgeIds.length === 0) return;
+
+      // Vérifier quels membres ont déjà été chargés
+      const needsLoading = recentPresences.some(r => r.badgeId && !r.member);
+      if (!needsLoading) {
+        membersLoadedRef.current = true;
+        return;
+      }
 
       try {
         const { data: membersData } = await supabase
@@ -498,6 +535,9 @@ function HomePage() {
             ...r,
             member: membersByBadge[r.badgeId] || null
           })));
+          
+          membersLoadedRef.current = true;
+          lastPresencesLoadRef.current = presencesTimestamp;
         }
       } catch (err) {
         console.error("Members loading error:", err);
@@ -506,44 +546,84 @@ function HomePage() {
 
     const timer = setTimeout(loadMembersForPresences, 300);
     return () => clearTimeout(timer);
-  }, [isAdmin, loading.presences, recentPresences]);
+  }, [isAdmin, loading.presences, recentPresences.length]); // ✅ Dépendance sur LENGTH seulement
 
-  // ✅ ÉTAPE 5 : Charger les PHOTOS (très lazy)
+  // ✅ ÉTAPE 5 : Charger les PHOTOS (optimisé mais rapide, SANS boucle)
+  const photosLoadedIdsRef = useRef(new Set());
+  
+  // Réinitialiser quand les données sont rechargées
+  useEffect(() => {
+    if (loading.presences || loading.latestMembers) {
+      photosLoadedIdsRef.current = new Set();
+      loadingRef.current.photos = false;
+    }
+  }, [loading.presences, loading.latestMembers]);
+  
   useEffect(() => {
     if (loadingRef.current.photos) return;
     if (loading.presences || loading.latestMembers) return;
     if (latestMembers.length === 0 && recentPresences.length === 0) return;
 
     const loadPhotos = async () => {
-      loadingRef.current.photos = true;
-
       const memberIds = new Set();
-      latestMembers.forEach(m => { if (m.id) memberIds.add(m.id); });
-      recentPresences.forEach(r => { if (r.member?.id) memberIds.add(r.member.id); });
+      
+      // Collecter les IDs des membres visibles QUI N'ONT PAS ENCORE ÉTÉ CHARGÉS
+      latestMembers.forEach(m => { 
+        if (m.id && !photosLoadedIdsRef.current.has(m.id)) {
+          memberIds.add(m.id); 
+        }
+      });
+      
+      recentPresences.forEach(r => { 
+        if (r.member?.id && !photosLoadedIdsRef.current.has(r.member.id)) {
+          memberIds.add(r.member.id); 
+        }
+      });
 
       const idsArray = Array.from(memberIds);
-      if (idsArray.length === 0) return;
+      if (idsArray.length === 0) return; // Rien à charger
+
+      loadingRef.current.photos = true;
 
       try {
-        // Charger par batch de 10
-        const batchSize = 10;
-        for (let i = 0; i < idsArray.length; i += batchSize) {
-          const batch = idsArray.slice(i, i + batchSize);
-          const newPhotos = await supabaseServices.getMemberPhotos(batch) || {};
-          
-          setPhotosCache(prev => ({
-            ...prev,
-            ...newPhotos
-          }));
-        }
+        // Charger toutes les photos nécessaires
+        const allPhotos = await supabaseServices.getMemberPhotos(idsArray) || {};
+        
+        // Marquer ces IDs comme chargés
+        idsArray.forEach(id => photosLoadedIdsRef.current.add(id));
+        
+        setPhotosCache(prev => ({
+          ...prev,
+          ...allPhotos
+        }));
       } catch (err) {
         console.error("Photos error:", err);
+        // En cas d'erreur, essayer par batch
+        try {
+          const batchSize = 5;
+          for (let i = 0; i < idsArray.length; i += batchSize) {
+            const batch = idsArray.slice(i, i + batchSize);
+            const newPhotos = await supabaseServices.getMemberPhotos(batch) || {};
+            
+            batch.forEach(id => photosLoadedIdsRef.current.add(id));
+            
+            setPhotosCache(prev => ({
+              ...prev,
+              ...newPhotos
+            }));
+          }
+        } catch (batchErr) {
+          console.error("Photos batch error:", batchErr);
+        }
+      } finally {
+        loadingRef.current.photos = false;
       }
     };
 
+    // Délai réduit à 200ms
     const timer = setTimeout(loadPhotos, 200);
     return () => clearTimeout(timer);
-  }, [latestMembers, recentPresences, loading.presences, loading.latestMembers]);
+  }, [latestMembers.length, recentPresences.length, loading.presences, loading.latestMembers]); // ✅ Dépendance sur LENGTH
 
   // Stats perso admin
   useEffect(() => {
