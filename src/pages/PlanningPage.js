@@ -1,6 +1,9 @@
-// 📄 PlanningPage.js — React — Dossier : src/pages — Date : 2025-09-24
-// ✅ Correction: affichage des photos aligné sur MembersPage (Avatar API unifiée: photo, firstName, name, size)
-// ⚠️ Règles BODYFORCE respectées : structure et styles conservés, modifications minimales et ciblées
+// 📄 PlanningPage.js — React — Dossier : src/pages — Date : 2025-10-08
+// ✅ Ajouts : Pagination 20 membres/page + egress optimisée (requêtes ciblées)
+// ✅ Import Excel : UPSERT par chunks (onConflict badgeId,timestamp) → évite 409
+// ⚠️ Règles BODYFORCE respectées : structure & styles conservés, modifications minimales
+
+// 🔹 Partie 1/4 — Imports, helpers, états, chargement (pagination)
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -128,18 +131,18 @@ const isToday = (d) => d.toDateString() === new Date().toDateString();
 // ───────────────────────────────────────────────────────────────────────────────
 
 function PlanningPage() {
-  const [presences, setPresences] = useState([]);
-  const [members, setMembers] = useState([]);
+  // Données (paginées)
+  const [presences, setPresences] = useState([]); // uniquement pour les membres de la page & la période
+  const [members, setMembers] = useState([]);     // membres de la page courante
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const { role } = useAuth();
 
+  // Période & filtres
   const [period, setPeriod] = useState("week");
-  const [startDate, setStartDate] = useState(
-    startOfDay(subWeeks(new Date(), 1))
-  );
+  const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
 
   const [filterBadge, setFilterBadge] = useState("");
@@ -149,62 +152,70 @@ function PlanningPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  // Pagination
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1); // 1-based
+  const [totalMembers, setTotalMembers] = useState(0);
+
   // Vue mensuelle (tooltip corrigé)
   const [expandedDays, setExpandedDays] = useState(new Set());
   const [hoveredMember, setHoveredMember] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Chargement Supabase (membres + présences de la période)
+  // Chargement Supabase (membres paginés + présences de la période pour ces membres)
+  const buildMembersQuery = () => {
+    let q = supabase
+      .from("members")
+      .select("id,name,firstName,badgeId,photo", { count: "exact" });
+
+    if (filterName?.trim()) {
+      const s = filterName.trim();
+      // or(name ilike, firstName ilike)
+      q = q.or(`name.ilike.%${s}%,firstName.ilike.%${s}%`);
+    }
+    if (filterBadge?.trim()) {
+      q = q.ilike("badgeId", `%${filterBadge.trim()}%`);
+    }
+    return q.order("name", { ascending: true });
+  };
+
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) setIsRetrying(true);
       setLoading(true);
       setError("");
 
-      // 🔍 TEST AUTHENTIFICATION
-      const { data: userData, error: userError } =
-        await supabase.auth.getUser();
-      console.log("👤 Utilisateur authentifié:", userData);
-      console.log("❌ Erreur auth:", userError);
+      // 1) Compte total des membres (avec filtres) pour pagination
+      const countRes = await buildMembersQuery().range(0, 0); // count rempli
+      const total = countRes.count ?? 0;
+      setTotalMembers(total);
 
-      // Membres
-      const { data: membersData, error: membersError } = await supabase
-        .from("members")
-        .select("*");
-      if (membersError)
-        throw new Error(`Erreur membres: ${membersError.message}`);
-      setMembers(Array.isArray(membersData) ? membersData : []);
+      // 2) Page courante (membres)
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data: membersData, error: membersError } = await buildMembersQuery().range(from, to);
+      if (membersError) throw new Error(`Erreur membres: ${membersError.message}`);
+      const pageMembers = Array.isArray(membersData) ? membersData : [];
+      setMembers(pageMembers);
 
-      // Présences - SANS FILTRE DE DATE
-      let allPresences = [];
-      let from = 0;
-      const pageSize = 1000;
-      let done = false;
-
-      while (!done) {
+      // 3) Présences seulement pour ces membres et sur la période
+      const badgeIds = pageMembers.map(m => m.badgeId).filter(Boolean);
+      let prs = [];
+      if (badgeIds.length) {
         const { data, error } = await supabase
           .from("presences")
-          .select("*")
-          .order("timestamp", { ascending: false })
-          .range(from, from + pageSize - 1);
+          .select("badgeId,timestamp")
+          .gte("timestamp", startDate.toISOString())
+          .lte("timestamp", endDate.toISOString())
+          .in("badgeId", badgeIds)
+          .order("timestamp", { ascending: false });
 
         if (error) throw new Error(`Erreur présences: ${error.message}`);
-
-        if (data?.length) {
-          allPresences = [...allPresences, ...data];
-          from += pageSize;
-        }
-
-        if (!data || data.length < pageSize) done = true;
-      }
-
-      console.log(`Total présences récupérées: ${allPresences.length}`);
-      if (allPresences.length > 0) {
-        console.log("Exemple de présence:", allPresences[0]);
+        prs = data || [];
       }
 
       setPresences(
-        allPresences.map((p) => ({
+        prs.map((p) => ({
           badgeId: p.badgeId,
           timestamp: p.timestamp,
           parsedDate: parseTimestamp(p.timestamp),
@@ -223,7 +234,7 @@ function PlanningPage() {
 
   useEffect(() => {
     loadData();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, filterName, filterBadge, page]);
 
   const handleRetry = () => {
     setRetryCount((v) => v + 1);
@@ -237,8 +248,9 @@ function PlanningPage() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ✅ Aligne la période sur les bornes naturelles
+  // ✅ Aligne la période sur les bornes naturelles + reset page
   const updateDateRange = (value, base = new Date()) => {
+    setPage(1);
     if (value === "week") {
       const start = startOfWeek(base, { weekStartsOn: 1 });
       const end = endOfWeek(base, { weekStartsOn: 1 });
@@ -269,7 +281,7 @@ function PlanningPage() {
 
   const toLocalDate = (timestamp) => parseTimestamp(timestamp);
 
-  // Import Excel
+  // Import Excel — passage en UPSERT par chunks (onConflict badgeId,timestamp)
   const handleImportExcel = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -281,25 +293,35 @@ function PlanningPage() {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet);
 
-        let count = 0;
+        // Construire le payload
+        const payload = [];
         for (const row of rows) {
           const badgeId = row["Qui"]?.toString();
           const rawDate = row["Quand"];
           if (!badgeId || !rawDate) continue;
 
           // "12/03/25 08:17"
-          const m = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
+          const m = String(rawDate).match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
           if (!m) continue;
           const [, dd, mm, yy, hh, min] = m;
           const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+          if (isNaN(localDate)) continue;
           const isoDate = localDate.toISOString();
+          payload.push({ badgeId, timestamp: isoDate });
+        }
 
+        // UPSERT par morceaux
+        const chunkSize = 500;
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
           const { error } = await supabase
             .from("presences")
-            .insert([{ badgeId, timestamp: isoDate }]);
-          if (!error) count++;
+            .upsert(chunk, { onConflict: "badgeId,timestamp" })
+            .select("badgeId"); // léger
+          if (error) throw error;
         }
-        alert(`✅ Import terminé : ${count} présences insérées.`);
+
+        alert(`✅ Import terminé : ${payload.length} lignes traitées (doublons ignorés).`);
         loadData();
       };
       reader.readAsArrayBuffer(file);
@@ -366,7 +388,7 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Filtrage local
+  // Filtrage local (présences) — garde la logique d’origine
   const filteredPresences = presences.filter((p) => {
     const presenceDate = toLocalDate(p.timestamp);
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
@@ -397,7 +419,7 @@ function PlanningPage() {
         (!filterBadge || m.badgeId?.includes(filterBadge))
     );
 
-  // Stats
+  // Stats (identiques à ta version)
   const stats = (() => {
     const totalPresences = filteredPresences.length;
     const uniqueMembers = new Set(filteredPresences.map((p) => p.badgeId)).size;
@@ -434,6 +456,74 @@ function PlanningPage() {
     };
   })();
 
+  // ─────────────── Pagination UI (type MembersPage/PaymentsPage) ───────────────
+  const totalPages = Math.max(1, Math.ceil(totalMembers / PAGE_SIZE));
+  const goToPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
+
+  const Pager = () => {
+    const pages = [];
+    const cur = page;
+    const max = totalPages;
+    const push = (n, label = n) =>
+      pages.push(
+        <button
+          key={label}
+          onClick={() => goToPage(n)}
+          className={cn(
+            "px-3 py-1 rounded-md text-sm border",
+            n === cur
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+          )}
+        >
+          {label}
+        </button>
+      );
+
+    if (max <= 7) {
+      for (let i = 1; i <= max; i++) push(i);
+    } else {
+      push(1);
+      if (cur > 4) pages.push(<span key="l" className="px-1">…</span>);
+      const start = Math.max(2, cur - 1);
+      const end = Math.min(max - 1, cur + 1);
+      for (let i = start; i <= end; i++) push(i);
+      if (cur < max - 3) pages.push(<span key="r" className="px-1">…</span>);
+      push(max);
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => goToPage(page - 1)}
+          disabled={page === 1}
+          className={cn(
+            "px-3 py-1 rounded-md text-sm border",
+            page === 1
+              ? "bg-gray-100 dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 cursor-not-allowed"
+              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+          )}
+        >
+          Précédent
+        </button>
+        {pages}
+        <button
+          onClick={() => goToPage(page + 1)}
+          disabled={page === totalPages}
+          className={cn(
+            "px-3 py-1 rounded-md text-sm border",
+            page === totalPages
+              ? "bg-gray-100 dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 cursor-not-allowed"
+              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+          )}
+        >
+          Suivant
+        </button>
+      </div>
+    );
+  };
+// 🔹 Partie 2/4 — StatsResume, ListView (avec pager), CompactView (avec pager)
+
   const StatsResume = () => (
     <div className={cn(classes.card, "p-6 mb-6")}>
       <div className="flex items-center gap-3 mb-6">
@@ -460,7 +550,7 @@ function PlanningPage() {
             </span>
           </div>
           <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-            {stats.uniqueMembers}
+            {visibleMembers.length}
           </div>
         </div>
 
@@ -472,7 +562,7 @@ function PlanningPage() {
             </span>
           </div>
           <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-            {stats.totalPresences}
+            {filteredPresences.length}
           </div>
         </div>
 
@@ -526,16 +616,21 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Liste (pastilles journalières)
+  // Vue Liste (pastilles journalières) — ajout du Pager (haut + bas)
   const ListView = () => (
     <div className={cn(classes.card, "overflow-hidden")}>
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          Planning des présences ({visibleMembers.length} membres)
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          {stats.totalPresences} présences sur {allDays.length} jours
-        </p>
+      <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            Planning des présences ({visibleMembers.length} membres)
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            {filteredPresences.length} présences sur {allDays.length} jours
+          </p>
+        </div>
+        <div className="hidden md:block">
+          <Pager />
+        </div>
       </div>
 
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -634,10 +729,15 @@ function PlanningPage() {
           );
         })}
       </div>
+
+      {/* Pagination footer (mobile + desktop) */}
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center">
+        <Pager />
+      </div>
     </div>
   );
 
-  // Vue Compacte (tableau rapide)
+  // Vue Compacte (tableau rapide) — pager ajouté en bas
   const CompactView = () => (
     <div className={cn(classes.card, "overflow-hidden")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -737,8 +837,13 @@ function PlanningPage() {
           })}
         </div>
       </div>
+
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center">
+        <Pager />
+      </div>
     </div>
   );
+// 🔹 Partie 3/4 — MonthlyView (repris intégralement de ta version)
 
   // Vue Mensuelle - Solution simple avec tooltip qui suit la souris
   const MonthlyView = () => {
@@ -873,8 +978,7 @@ function PlanningPage() {
 
                 {/* Cas standard : 1 passage */}
                 {(() => {
-                  const presences =
-                    presencesByDayAndMember[dayKey]?.[badgeId] || [];
+                  const presences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
                   const multiple = presences.length > 1;
                   if (!multiple) {
                     return (
@@ -1310,11 +1414,12 @@ function PlanningPage() {
           </div>
         </div>
 
-        {/* Tooltip global */}
-        {/* (optionnel) renderTooltip() si tu veux la version "suiveuse" au lieu du tooltip CSS */}
+        {/* Tooltip global (optionnel) */}
+        {/* renderTooltip() */}
       </div>
     );
   };
+// 🔹 Partie 4/4 — En-tête UI, filtres, raccourcis, rendu principal + export
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Rendu principal
@@ -1454,6 +1559,7 @@ function PlanningPage() {
                       setStartDate(startOfDay(s));
                       setEndDate(endOfDay(en));
                     }
+                    setPage(1);
                   }}
                   className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
@@ -1465,6 +1571,7 @@ function PlanningPage() {
                 onChange={(e) => {
                   const value = e.target.value;
                   setPeriod(value);
+                  setPage(1);
                   updateDateRange(value, startDate);
                 }}
               >
@@ -1504,6 +1611,7 @@ function PlanningPage() {
                   const today = new Date();
                   setStartDate(startOfDay(today));
                   setEndDate(endOfDay(today));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1517,6 +1625,7 @@ function PlanningPage() {
                     startOfDay(new Date(today.setDate(today.getDate() - 6)))
                   );
                   setEndDate(endOfDay(new Date()));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1530,6 +1639,7 @@ function PlanningPage() {
                     startOfDay(new Date(today.setDate(today.getDate() - 29)))
                   );
                   setEndDate(endOfDay(new Date()));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1544,6 +1654,7 @@ function PlanningPage() {
                   setEndDate(
                     endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))
                   );
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1554,6 +1665,7 @@ function PlanningPage() {
                 onClick={() => {
                   setStartDate(startOfDay(startOfMonth(new Date())));
                   setEndDate(endOfDay(endOfMonth(new Date())));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1564,6 +1676,7 @@ function PlanningPage() {
                 onClick={() => {
                   setStartDate(startOfDay(startOfYear(new Date())));
                   setEndDate(endOfDay(endOfYear(new Date())));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1585,7 +1698,10 @@ function PlanningPage() {
                   type="text"
                   placeholder="Nom ou prénom..."
                   value={filterName}
-                  onChange={(e) => setFilterName(e.target.value)}
+                  onChange={(e) => {
+                    setFilterName(e.target.value);
+                    setPage(1);
+                  }}
                   className={cn(
                     classes.input,
                     "w-full placeholder-gray-500 dark:placeholder-gray-400"
@@ -1600,7 +1716,10 @@ function PlanningPage() {
                   type="text"
                   placeholder="Numéro de badge..."
                   value={filterBadge}
-                  onChange={(e) => setFilterBadge(e.target.value)}
+                  onChange={(e) => {
+                    setFilterBadge(e.target.value);
+                    setPage(1);
+                  }}
                   className={cn(
                     classes.input,
                     "w-full placeholder-gray-500 dark:placeholder-gray-400"
@@ -1676,4 +1795,4 @@ function PlanningPage() {
 
 export default PlanningPage;
 
-// ✅ FIN DU FICHIER....
+// ✅ FIN DU FICHIER
