@@ -164,115 +164,134 @@ function PlanningPage() {
   // Chargement Supabase (membres paginés + présences de la période pour ces membres)
 
 
-// 🔄 Remplacer TOUTE la fonction loadData par ceci
-const loadData = async (showRetryIndicator = false) => {
-  try {
-    if (showRetryIndicator) setIsRetrying(true);
-    setLoading(true);
-    setError("");
+  // 🔄 Remplacer TOUTE la fonction loadData par ceci
+  const loadData = async (showRetryIndicator = false) => {
+    try {
+      if (showRetryIndicator) setIsRetrying(true);
+      setLoading(true);
+      setError("");
 
-    // A) Récupère tous les badgeId AYANT AU MOINS UNE PRÉSENCE sur la période
-    //    (en tenant compte du filtre badge si fourni)
-    let presencesQ = supabase
-      .from("presences")
-      .select("badgeId,timestamp")
-      .gte("timestamp", startDate.toISOString())
-      .lte("timestamp", endDate.toISOString());
-
-    if (filterBadge?.trim()) {
-      // Filtrer côté DB réduit l'egress
-      presencesQ = presencesQ.ilike("badgeId", `%${filterBadge.trim()}%`);
-    }
-
-    const { data: presInPeriod, error: prsErr } = await presencesQ;
-    if (prsErr) throw new Error(`Erreur présences (période): ${prsErr.message}`);
-
-    // Distinct badgeIds présents dans la période
-    const badgeIdSet = new Set(
-      (presInPeriod || [])
-        .map((p) => p.badgeId)
-        .filter((b) => !!b)
-    );
-    const allBadgeIdsInPeriod = Array.from(badgeIdSet);
-
-    // Si aucun présent → reset affichage et fin
-    if (allBadgeIdsInPeriod.length === 0) {
-      setMembers([]);
-      setPresences([]);
-      setTotalMembers(0);
-      setRetryCount(0);
-      return;
-    }
-
-    // B) Charger les members correspondants puis appliquer filtre nom (et badge si tu veux double-sécurité)
-    //    NOTE: on pagine SUR CE SET (membres ayant eu ≥1 présence)
-    //       - on ramène tout puis on filtre/pagine en mémoire (volumes jour/semaine OK).
-    const { data: periodMembersAll, error: membersErr } = await supabase
-      .from("members")
-      .select("id,name,firstName,badgeId,photo")
-      .in("badgeId", allBadgeIdsInPeriod)
-      .order("name", { ascending: true });
-
-    if (membersErr) throw new Error(`Erreur membres: ${membersErr.message}`);
-
-    let filteredMembers = (periodMembersAll || []);
-
-    if (filterName?.trim()) {
-      const s = filterName.trim().toLowerCase();
-      filteredMembers = filteredMembers.filter((m) =>
-        `${m.name || ""} ${m.firstName || ""}`.toLowerCase().includes(s)
-      );
-    }
-    if (filterBadge?.trim()) {
-      const s = filterBadge.trim();
-      filteredMembers = filteredMembers.filter((m) =>
-        (m.badgeId || "").includes(s)
-      );
-    }
-
-    // C) Pagination SUR les membres présents dans la période
-    const total = filteredMembers.length;
-    setTotalMembers(total);
-
-    const from = (page - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE;
-    const pageMembers = filteredMembers.slice(from, to);
-    setMembers(pageMembers);
-
-    // D) Charger les présences UNIQUEMENT pour les membres de la page (et sur la période)
-    const pageBadgeIds = pageMembers.map((m) => m.badgeId).filter(Boolean);
-
-    let prs = [];
-    if (pageBadgeIds.length) {
-      const { data, error } = await supabase
+      // A) Récupère tous les badgeId AYANT AU MOINS UNE PRÉSENCE sur la période
+      //    (en tenant compte du filtre badge si fourni)
+      let presencesQ = supabase
         .from("presences")
         .select("badgeId,timestamp")
         .gte("timestamp", startDate.toISOString())
-        .lte("timestamp", endDate.toISOString())
-        .in("badgeId", pageBadgeIds)
-        .order("timestamp", { ascending: false });
+        .lte("timestamp", endDate.toISOString());
 
-      if (error) throw new Error(`Erreur présences (page): ${error.message}`);
-      prs = data || [];
+      if (filterBadge?.trim()) {
+        // Filtrer côté DB réduit l'egress
+        presencesQ = presencesQ.ilike("badgeId", `%${filterBadge.trim()}%`);
+      }
+
+      const { data: presInPeriod, error: prsErr } = await presencesQ;
+      if (prsErr) throw new Error(`Erreur présences (période): ${prsErr.message}`);
+
+      // ➕ NEW: map dernier passage par badgeId
+      const lastSeenByBadge = {};
+      (presInPeriod || []).forEach((p) => {
+        if (!p || !p.badgeId || !p.timestamp) return;
+        const t = new Date(p.timestamp).getTime();
+        if (!Number.isFinite(t)) return;
+        if (!lastSeenByBadge[p.badgeId] || t > lastSeenByBadge[p.badgeId]) {
+          lastSeenByBadge[p.badgeId] = t;
+        }
+      });
+
+      // Distinct badgeIds présents dans la période
+      const badgeIdSet = new Set(
+        (presInPeriod || [])
+          .map((p) => p.badgeId)
+          .filter((b) => !!b)
+      );
+      const allBadgeIdsInPeriod = Array.from(badgeIdSet);
+
+      // Si aucun présent → reset affichage et fin
+      if (allBadgeIdsInPeriod.length === 0) {
+        setMembers([]);
+        setPresences([]);
+        setTotalMembers(0);
+        setRetryCount(0);
+        return;
+      }
+
+      // B) Charger les members correspondants puis appliquer filtre nom (et badge si tu veux double-sécurité)
+      //    NOTE: on pagine SUR CE SET (membres ayant eu ≥1 présence)
+      //       - on ramène tout puis on filtre/pagine en mémoire (volumes jour/semaine OK).
+      const { data: periodMembersAll, error: membersErr } = await supabase
+        .from("members")
+        .select("id,name,firstName,badgeId,photo")
+        .in("badgeId", allBadgeIdsInPeriod)
+        .order("name", { ascending: true });
+
+      if (membersErr) throw new Error(`Erreur membres: ${membersErr.message}`);
+
+      let filteredMembers = (periodMembersAll || []);
+
+      filteredMembers.sort((a, b) => {
+        const tb = lastSeenByBadge[b.badgeId] ?? 0;
+        const ta = lastSeenByBadge[a.badgeId] ?? 0;
+        if (tb !== ta) return tb - ta;          // du plus récent au plus ancien
+        // tie-break par nom pour une stabilité d’affichage
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      if (filterName?.trim()) {
+        const s = filterName.trim().toLowerCase();
+        filteredMembers = filteredMembers.filter((m) =>
+          `${m.name || ""} ${m.firstName || ""}`.toLowerCase().includes(s)
+        );
+      }
+      if (filterBadge?.trim()) {
+        const s = filterBadge.trim();
+        filteredMembers = filteredMembers.filter((m) =>
+          (m.badgeId || "").includes(s)
+        );
+      }
+
+      // C) Pagination SUR les membres présents dans la période
+      const total = filteredMembers.length;
+      setTotalMembers(total);
+
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE;
+      const pageMembers = filteredMembers.slice(from, to);
+      setMembers(pageMembers);
+
+      // D) Charger les présences UNIQUEMENT pour les membres de la page (et sur la période)
+      const pageBadgeIds = pageMembers.map((m) => m.badgeId).filter(Boolean);
+
+      let prs = [];
+      if (pageBadgeIds.length) {
+        const { data, error } = await supabase
+          .from("presences")
+          .select("badgeId,timestamp")
+          .gte("timestamp", startDate.toISOString())
+          .lte("timestamp", endDate.toISOString())
+          .in("badgeId", pageBadgeIds)
+          .order("timestamp", { ascending: false });
+
+        if (error) throw new Error(`Erreur présences (page): ${error.message}`);
+        prs = data || [];
+      }
+
+      setPresences(
+        prs.map((p) => ({
+          badgeId: p.badgeId,
+          timestamp: p.timestamp,
+          parsedDate: parseTimestamp(p.timestamp),
+        }))
+      );
+
+      setRetryCount(0);
+    } catch (err) {
+      console.error("Erreur:", err);
+      setError(err.message || "Erreur de connexion à la base de données");
+    } finally {
+      setLoading(false);
+      setIsRetrying(false);
     }
-
-    setPresences(
-      prs.map((p) => ({
-        badgeId: p.badgeId,
-        timestamp: p.timestamp,
-        parsedDate: parseTimestamp(p.timestamp),
-      }))
-    );
-
-    setRetryCount(0);
-  } catch (err) {
-    console.error("Erreur:", err);
-    setError(err.message || "Erreur de connexion à la base de données");
-  } finally {
-    setLoading(false);
-    setIsRetrying(false);
-  }
-};
+  };
 
 
   useEffect(() => {
@@ -325,169 +344,169 @@ const loadData = async (showRetryIndicator = false) => {
   const toLocalDate = (timestamp) => parseTimestamp(timestamp);
 
   // Import Excel — passage en UPSERT par chunks (onConflict badgeId,timestamp)
-// ⬇️ Remplacer intégralement handleImportExcel par ceci
-const handleImportExcel = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
+  // ⬇️ Remplacer intégralement handleImportExcel par ceci
+  const handleImportExcel = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-  // 1) Auth (utile avec RLS)
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      alert("❌ Vous devez être connecté pour importer des présences.");
-      return;
-    }
-  } catch (e) {
-    console.error("Auth check error:", e);
-  }
-
-  // 2) Helpers parsing
-  const excelSerialToDate = (serial) => {
-    // Excel serial → JS Date (base 1899-12-30)
-    const base = new Date(Date.UTC(1899, 11, 30));
-    const ms = Math.round(Number(serial) * 86400) * 1000;
-    return new Date(base.getTime() + ms);
-  };
-
-  const tryParseFR = (s) => {
-    const str = String(s).trim();
-    // dd/MM/yy HH:mm
-    let m = str.match(/^(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})$/);
-    if (m) {
-      const [, dd, mm, yy, HH, MI] = m;
-      return new Date(`20${yy}-${mm}-${dd}T${HH}:${MI}:00`);
-    }
-    // dd/MM/yyyy HH:mm
-    m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
-    if (m) {
-      const [, dd, mm, yyyy, HH, MI] = m;
-      return new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:00`);
-    }
-    const d = new Date(str); // fallback (ISO, etc.)
-    return isNaN(d) ? null : d;
-  };
-
-  const toJsDate = (val) => {
-    if (val instanceof Date) return val;
-    if (typeof val === "number") return excelSerialToDate(val);
-    if (typeof val === "string") return tryParseFR(val);
-    return null;
-  };
-
-  // 3) Lecture + mapping colonnes spécifiques (Quand, Quoi, Qui)
-  try {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: "array", cellDates: true });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
-
-      // Stats diag
-      let totalRows = 0;
-      let kept = 0;
-      let filteredOtherType = 0;
-      let skippedNoBadge = 0;
-      let skippedNoDate = 0;
-      let unparsableDate = 0;
-
-      const allowedTypes = new Set(["Badges ou Télécommandes", "CleMobil"]);
-      const payload = [];
-
-      for (const row of rows) {
-        totalRows++;
-
-        const quoi = (row["Quoi"] ?? "").toString().trim();
-        const quiRaw = row["Qui"];
-        const quandRaw = row["Quand"];
-
-        // Filtre type (ignore "BP", lignes vides, etc.)
-        if (!allowedTypes.has(quoi)) {
-          filteredOtherType++;
-          continue;
-        }
-
-        // Badge obligatoire
-        const badgeId = (quiRaw ?? "").toString().trim();
-        if (!badgeId) {
-          skippedNoBadge++;
-          continue;
-        }
-
-        // Date obligatoire
-        if (quandRaw == null) {
-          skippedNoDate++;
-          continue;
-        }
-
-        const dt = toJsDate(quandRaw);
-        if (!dt || isNaN(dt)) {
-          unparsableDate++;
-          continue;
-        }
-
-        payload.push({ badgeId, timestamp: dt.toISOString() });
-        kept++;
-      }
-
-      if (payload.length === 0) {
-        alert(
-          [
-            "ℹ️ Aucune ligne importée.",
-            `Lignes totales: ${totalRows}`,
-            `• Gardées: ${kept}`,
-            `• Filtrées (type ≠ 'Badges ou Télécommandes' / 'CleMobil'): ${filteredOtherType}`,
-            `• Sans badge: ${skippedNoBadge}`,
-            `• Sans date: ${skippedNoDate}`,
-            `• Date illisible: ${unparsableDate}`,
-          ].join("\n")
-        );
+    // 1) Auth (utile avec RLS)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert("❌ Vous devez être connecté pour importer des présences.");
         return;
       }
+    } catch (e) {
+      console.error("Auth check error:", e);
+    }
 
-      // 4) UPSERT par chunks
-      const chunkSize = 500;
-      let affected = 0;
+    // 2) Helpers parsing
+    const excelSerialToDate = (serial) => {
+      // Excel serial → JS Date (base 1899-12-30)
+      const base = new Date(Date.UTC(1899, 11, 30));
+      const ms = Math.round(Number(serial) * 86400) * 1000;
+      return new Date(base.getTime() + ms);
+    };
 
-      for (let i = 0; i < payload.length; i += chunkSize) {
-        const chunk = payload.slice(i, i + chunkSize);
-        const { data: upserted, error } = await supabase
-          .from("presences")
-          .upsert(chunk, { onConflict: "badgeId,timestamp" })
-          .select("badgeId"); // lignes touchées (insert + update)
+    const tryParseFR = (s) => {
+      const str = String(s).trim();
+      // dd/MM/yy HH:mm
+      let m = str.match(/^(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})$/);
+      if (m) {
+        const [, dd, mm, yy, HH, MI] = m;
+        return new Date(`20${yy}-${mm}-${dd}T${HH}:${MI}:00`);
+      }
+      // dd/MM/yyyy HH:mm
+      m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+      if (m) {
+        const [, dd, mm, yyyy, HH, MI] = m;
+        return new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:00`);
+      }
+      const d = new Date(str); // fallback (ISO, etc.)
+      return isNaN(d) ? null : d;
+    };
 
-        if (error) {
-          console.error("Upsert error:", error);
-          alert("❌ Erreur lors de l'upsert: " + (error.message || "inconnue"));
+    const toJsDate = (val) => {
+      if (val instanceof Date) return val;
+      if (typeof val === "number") return excelSerialToDate(val);
+      if (typeof val === "string") return tryParseFR(val);
+      return null;
+    };
+
+    // 3) Lecture + mapping colonnes spécifiques (Quand, Quoi, Qui)
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
+
+        // Stats diag
+        let totalRows = 0;
+        let kept = 0;
+        let filteredOtherType = 0;
+        let skippedNoBadge = 0;
+        let skippedNoDate = 0;
+        let unparsableDate = 0;
+
+        const allowedTypes = new Set(["Badges ou Télécommandes", "CleMobil"]);
+        const payload = [];
+
+        for (const row of rows) {
+          totalRows++;
+
+          const quoi = (row["Quoi"] ?? "").toString().trim();
+          const quiRaw = row["Qui"];
+          const quandRaw = row["Quand"];
+
+          // Filtre type (ignore "BP", lignes vides, etc.)
+          if (!allowedTypes.has(quoi)) {
+            filteredOtherType++;
+            continue;
+          }
+
+          // Badge obligatoire
+          const badgeId = (quiRaw ?? "").toString().trim();
+          if (!badgeId) {
+            skippedNoBadge++;
+            continue;
+          }
+
+          // Date obligatoire
+          if (quandRaw == null) {
+            skippedNoDate++;
+            continue;
+          }
+
+          const dt = toJsDate(quandRaw);
+          if (!dt || isNaN(dt)) {
+            unparsableDate++;
+            continue;
+          }
+
+          payload.push({ badgeId, timestamp: dt.toISOString() });
+          kept++;
+        }
+
+        if (payload.length === 0) {
+          alert(
+            [
+              "ℹ️ Aucune ligne importée.",
+              `Lignes totales: ${totalRows}`,
+              `• Gardées: ${kept}`,
+              `• Filtrées (type ≠ 'Badges ou Télécommandes' / 'CleMobil'): ${filteredOtherType}`,
+              `• Sans badge: ${skippedNoBadge}`,
+              `• Sans date: ${skippedNoDate}`,
+              `• Date illisible: ${unparsableDate}`,
+            ].join("\n")
+          );
           return;
         }
 
-        affected += Array.isArray(upserted) ? upserted.length : 0;
-      }
+        // 4) UPSERT par chunks
+        const chunkSize = 500;
+        let affected = 0;
 
-      alert(
-        [
-          "✅ Import terminé.",
-          `Lignes totales lues: ${totalRows}`,
-          `• Retenues pour import: ${kept}`,
-          `• Upsertées (insert+update): ${affected} (doublons ignorés)`,
-          `• Filtrées type: ${filteredOtherType} | Sans badge: ${skippedNoBadge} | Sans date: ${skippedNoDate} | Date illisible: ${unparsableDate}`,
-        ].join("\n")
-      );
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          const { data: upserted, error } = await supabase
+            .from("presences")
+            .upsert(chunk, { onConflict: "badgeId,timestamp" })
+            .select("badgeId"); // lignes touchées (insert + update)
 
-      // Recharge l’affichage
-      loadData();
-    };
+          if (error) {
+            console.error("Upsert error:", error);
+            alert("❌ Erreur lors de l'upsert: " + (error.message || "inconnue"));
+            return;
+          }
 
-    reader.readAsArrayBuffer(file);
-  } catch (err) {
-    console.error("Erreur import Excel :", err);
-    alert("❌ Erreur lors de l'import.");
-  } finally {
-    // Permet de réimporter le même fichier sans recharger la page
-    try { event.target.value = ""; } catch {}
-  }
-};
+          affected += Array.isArray(upserted) ? upserted.length : 0;
+        }
+
+        alert(
+          [
+            "✅ Import terminé.",
+            `Lignes totales lues: ${totalRows}`,
+            `• Retenues pour import: ${kept}`,
+            `• Upsertées (insert+update): ${affected} (doublons ignorés)`,
+            `• Filtrées type: ${filteredOtherType} | Sans badge: ${skippedNoBadge} | Sans date: ${skippedNoDate} | Date illisible: ${unparsableDate}`,
+          ].join("\n")
+        );
+
+        // Recharge l’affichage
+        loadData();
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      console.error("Erreur import Excel :", err);
+      alert("❌ Erreur lors de l'import.");
+    } finally {
+      // Permet de réimporter le même fichier sans recharger la page
+      try { event.target.value = ""; } catch { }
+    }
+  };
 
 
   // UI: états de chargement / erreur
@@ -567,7 +586,7 @@ const handleImportExcel = async (event) => {
   const getMemberInfo = (badgeId) =>
     members.find((m) => m.badgeId === badgeId) || {};
 
-const visibleMembers = members;
+  const visibleMembers = members;
 
   // Stats (identiques à ta version)
   const stats = (() => {
@@ -672,7 +691,7 @@ const visibleMembers = members;
       </div>
     );
   };
-// 🔹 Partie 2/4 — StatsResume, ListView (avec pager), CompactView (avec pager)
+  // 🔹 Partie 2/4 — StatsResume, ListView (avec pager), CompactView (avec pager)
 
   const StatsResume = () => (
     <div className={cn(classes.card, "p-6 mb-6")}>
@@ -833,8 +852,8 @@ const visibleMembers = members;
                           has
                             ? "bg-green-500 text-white shadow-sm hover:scale-105"
                             : isWeekend(day)
-                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                              ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                         )}
                       >
                         <div className="leading-none">
@@ -917,8 +936,8 @@ const visibleMembers = members;
                   "p-2 text-center border-r border-b-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700",
                   isToday(day) && "bg-blue-100 dark:bg-blue-900/30",
                   isWeekend(day) &&
-                    !isToday(day) &&
-                    "bg-blue-50 dark:bg-blue-900/10"
+                  !isToday(day) &&
+                  "bg-blue-50 dark:bg-blue-900/10"
                 )}
               >
                 <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -969,13 +988,13 @@ const visibleMembers = members;
                           ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                             : dayTimes.length > 1
-                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : isWeekend(day)
-                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
-                          : idx % 2 === 0
-                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
-                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                            ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                            : idx % 2 === 0
+                              ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                              : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {dayTimes.length > 0 ? dayTimes.length : ""}
@@ -993,7 +1012,7 @@ const visibleMembers = members;
       </div>
     </div>
   );
-// 🔹 Partie 3/4 — MonthlyView (repris intégralement de ta version)
+  // 🔹 Partie 3/4 — MonthlyView (repris intégralement de ta version)
 
   // Vue Mensuelle - Solution simple avec tooltip qui suit la souris
   const MonthlyView = () => {
@@ -1326,11 +1345,10 @@ const visibleMembers = members;
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
-                i >= 5
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-gray-700 dark:text-gray-300"
-              }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-700 dark:text-gray-300"
+                }`}
             >
               {day}
             </div>
@@ -1382,17 +1400,13 @@ const visibleMembers = members;
             return (
               <div
                 key={idx}
-                className={`${
-                  expanded ? "min-h-[200px]" : "min-h-[140px]"
-                } border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
-                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                } ${
-                  weekend
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"
+                  } border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                  } ${weekend
                     ? "bg-blue-50 dark:bg-blue-900/10"
                     : "bg-white dark:bg-gray-800"
-                } ${today ? "ring-2 ring-blue-500 ring-inset" : ""} ${
-                  expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""
-                } hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                  } ${today ? "ring-2 ring-blue-500 ring-inset" : ""} ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""
+                  } hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
@@ -1401,10 +1415,10 @@ const visibleMembers = members;
                       !inMonth
                         ? "text-gray-400 dark:text-gray-500"
                         : today
-                        ? "text-blue-600 dark:text-blue-400"
-                        : weekend
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-gray-900 dark:text-gray-100"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : weekend
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-gray-900 dark:text-gray-100"
                     )}
                   >
                     {day.getDate()}
@@ -1418,8 +1432,8 @@ const visibleMembers = members;
                           memberIds.length > 30
                             ? "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
                             : memberIds.length > 15
-                            ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                              ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                              : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                         )}
                       >
                         {memberIds.length > 99 ? "99+" : memberIds.length}
@@ -1506,8 +1520,8 @@ const visibleMembers = members;
                             expanded
                               ? "bg-blue-500 text-white"
                               : memberIds.length > 30
-                              ? "bg-red-500 text-white animate-pulse"
-                              : "bg-orange-500 text-white"
+                                ? "bg-red-500 text-white animate-pulse"
+                                : "bg-orange-500 text-white"
                           )}
                           title={
                             expanded
@@ -1518,9 +1532,9 @@ const visibleMembers = members;
                           {expanded
                             ? "−"
                             : `+${Math.max(
-                                0,
-                                memberIds.length - visibleMembers.length
-                              )}`}
+                              0,
+                              memberIds.length - visibleMembers.length
+                            )}`}
                         </button>
                       )}
                     </div>
@@ -1569,7 +1583,7 @@ const visibleMembers = members;
       </div>
     );
   };
-// 🔹 Partie 4/4 — En-tête UI, filtres, raccourcis, rendu principal + export
+  // 🔹 Partie 4/4 — En-tête UI, filtres, raccourcis, rendu principal + export
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Rendu principal
