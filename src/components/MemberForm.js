@@ -2,8 +2,9 @@
 // Nom : MemberForm.js
 // Type : JavaScript (React)
 // Dossier : src/components
-// Date modification : 2025-10-07
+// Date modification : 2025-10-09
 // Résumé modifications :
+// - ✅ CORRECTION : useEffect simplifié pour afficher correctement la photo base64 du membre
 // - Ajout helpers dataURLToBlob + resizeImage (redimensionnement 512x512, JPEG qualité ~0.8).
 // - ❗️Photo membre : **DB-only** (dataURL dans members.photo) — aucune écriture dans Supabase Storage.
 // - ❗️Capture caméra / import fichier : redimensionnent puis stockent un **dataURL** dans form.photo.
@@ -539,9 +540,9 @@ function MemberForm({ member, onSave, onCancel }) {
     return () => observer.disconnect();
   }, []);
 
-  // Init form avec member
+  // ✅ CORRECTION : Init form avec member - useEffect simplifié
   useEffect(() => {
-    if (member && !form.name && !form.firstName) {
+    if (member && member.id) {
       setForm({
         ...member,
         files: Array.isArray(member.files)
@@ -550,10 +551,11 @@ function MemberForm({ member, onSave, onCancel }) {
           ? JSON.parse(member.files || "[]")
           : [],
         etudiant: !!member.etudiant,
+        photo: member.photo || null, // ✅ S'assurer que la photo est bien chargée
       });
-      if (member.id) fetchPayments(member.id);
+      fetchPayments(member.id);
     }
-  }, [member?.id, form.name, form.firstName]); // volontairement minimal
+  }, [member?.id]); // ✅ Simplifié : se déclenche uniquement quand l'ID change
 
   // Swipe handlers (mobile)
   const handleTouchStart = (e) => {
@@ -1473,6 +1475,12 @@ function MemberForm({ member, onSave, onCancel }) {
 export default MemberForm;
 
 /*
+✅ CORRECTION APPLIQUÉE :
+- useEffect simplifié : suppression de la condition `!form.name && !form.firstName`
+- Ajout explicite de `photo: member.photo || null`
+- Dépendances réduites à [member?.id] uniquement
+- La photo base64 s'affichera maintenant correctement en haut à gauche et dans l'onglet Identité
+
 Résumé corrections clé :
 - Suppression totale de Supabase Storage pour la **photo membre** (plus de bucket "photo").
 - Photo en **dataURL** (512x512 max) stockée dans `form.photo` puis en base via `onSave`.
