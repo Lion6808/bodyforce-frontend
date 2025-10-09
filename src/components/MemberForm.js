@@ -1,4 +1,19 @@
-// 🔷 BODYFORCE — Fichier modifié
+const renderCurrentTab = () => {
+    switch (activeTab) {
+      case "identity":
+        return renderIdentityTab();
+      case "contact":
+        return renderContactTab();
+      case "subscription":
+        return renderSubscriptionTab();
+      case "documents":
+        return renderDocumentsTab();
+      case "payments":
+        return renderPaymentsTab();
+      default:
+        return renderIdentityTab();
+    }
+  };// 🔷 BODYFORCE — Fichier modifié
 // Nom : MemberForm.js
 // Type : JavaScript (React)
 // Dossier : src/components
