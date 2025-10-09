@@ -460,6 +460,8 @@ function StatusBadge({ isExpired, isStudent }) {
 
 // 🔹 Fonction MemberForm principale
 function MemberForm({ member, onSave, onCancel }) {
+  console.log("🚀 MemberForm chargé - member:", member?.id, "photo:", !!member?.photo);
+  
   const [activeTab, setActiveTab] = useState("identity");
   const [form, setForm] = useState({
     name: "",
@@ -490,6 +492,7 @@ function MemberForm({ member, onSave, onCancel }) {
 
   const [showCamera, setShowCamera] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [photoLoaded, setPhotoLoaded] = useState(false);
 
   const [uploadStatus, setUploadStatus] = useState({
     loading: false,
