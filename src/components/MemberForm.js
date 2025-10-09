@@ -1503,4 +1503,4 @@ Résumé corrections clé :
 - Caméra : cycle de vie strict, bascule avant/arrière stable, reprise fluide.
 */
 
-// ✅ FIN DU FICHIER
+// ✅ FIN DU FICHIER 09/10/2025
