@@ -1,35 +1,6 @@
-const renderCurrentTab = () => {
-    switch (activeTab) {
-      case "identity":
-        return renderIdentityTab();
-      case "contact":
-        return renderContactTab();
-      case "subscription":
-        return renderSubscriptionTab();
-      case "documents":
-        return renderDocumentsTab();
-      case "payments":
-        return renderPaymentsTab();
-      default:
-        return renderIdentityTab();
-    }
-  };// 🔷 BODYFORCE — Fichier modifié
-// Nom : MemberForm.js
-// Type : JavaScript (React)
-// Dossier : src/components
-// Date modification : 2025-10-09
-// Résumé modifications :
-// - ✅ CORRECTION : useEffect simplifié pour afficher correctement la photo base64 du membre
-// - Ajout helpers dataURLToBlob + resizeImage (redimensionnement 512x512, JPEG qualité ~0.8).
-// - ❗️Photo membre : **DB-only** (dataURL dans members.photo) — aucune écriture dans Supabase Storage.
-// - ❗️Capture caméra / import fichier : redimensionnent puis stockent un **dataURL** dans form.photo.
-// - Documents : upload vers le bucket "documents" avec cacheControl=31536000 (contentType correct).
-// - Aucune autre partie du fichier n'a été modifiée (style/structure conservés).
-
-// 📄 MemberForm.js — Composant principal avec sélecteur caméra — Dossier : components
-// 🎯 CORRECTION : Logique de la caméra stabilisée + suppression totale du bucket "photo" pour les portraits.
-
-// 🔹 Partie 1 - Imports et composants utilitaires
+// 🔷 BODYFORCE — MemberForm.js COMPLET
+// Version finale avec chargement automatique de la photo depuis la DB
+// Date : 2025-10-09
 
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -37,7 +8,7 @@ import {
   RotateCcw,
   Check,
   X,
-  RefreshCcw, // ⬅️ remplacement de SwitchCamera
+  RefreshCcw,
   Upload,
   User,
 } from "lucide-react";
@@ -63,7 +34,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
 } from "react-icons/fa";
-import { supabase } from "../supabaseClient";
+import { supabase, supabaseServices } from "../supabaseClient";
 
 // --- Helpers image (resize + blob) ---
 function dataURLToBlob(dataURL) {
@@ -114,7 +85,7 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 
-// ✅ COMPOSANT CAMÉRA ENTIÈREMENT CORRIGÉ ET STABILISÉ
+// ✅ COMPOSANT CAMÉRA
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -123,7 +94,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const [error, setError] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [availableCameras, setAvailableCameras] = useState([]);
-  const [facingMode, setFacingMode] = useState("user"); // 'user' = avant, 'environment' = arrière
+  const [facingMode, setFacingMode] = useState("user");
 
   const cleanupStream = () => {
     if (videoRef.current && videoRef.current.srcObject) {
@@ -218,7 +189,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
     const imageData = canvas.toDataURL("image/jpeg", 0.9);
     setCapturedPhoto(imageData);
-    cleanupStream(); // libère la caméra après capture
+    cleanupStream();
   };
 
   const confirmPhoto = () => {
@@ -254,7 +225,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           isDarkMode ? "bg-gray-800" : "bg-white"
         } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
       >
-        {/* Header */}
         <div
           className={`p-4 border-b ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
@@ -278,7 +248,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           </div>
         </div>
 
-        {/* Contenu principal */}
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           {error && (
             <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
@@ -489,7 +458,7 @@ function StatusBadge({ isExpired, isStudent }) {
   );
 }
 
-// 🔹 Partie 8 - Fonction MemberForm principale avec nouveaux états
+// 🔹 Fonction MemberForm principale
 function MemberForm({ member, onSave, onCancel }) {
   const [activeTab, setActiveTab] = useState("identity");
   const [form, setForm] = useState({
@@ -519,7 +488,7 @@ function MemberForm({ member, onSave, onCancel }) {
     is_paid: false,
   });
 
-  const [showCamera, setShowCamera] = useState(null); // "photo" | "document" | null
+  const [showCamera, setShowCamera] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [uploadStatus, setUploadStatus] = useState({
@@ -555,22 +524,54 @@ function MemberForm({ member, onSave, onCancel }) {
     return () => observer.disconnect();
   }, []);
 
-  // ✅ CORRECTION : Init form avec member - useEffect simplifié
+  // ✅ CORRECTION : Charger le membre complet depuis Supabase avec la photo
   useEffect(() => {
-    if (member && member.id) {
-      setForm({
-        ...member,
-        files: Array.isArray(member.files)
-          ? member.files
-          : typeof member.files === "string"
-          ? JSON.parse(member.files || "[]")
-          : [],
-        etudiant: !!member.etudiant,
-        photo: member.photo || null, // ✅ S'assurer que la photo est bien chargée
-      });
-      fetchPayments(member.id);
-    }
-  }, [member?.id]); // ✅ Simplifié : se déclenche uniquement quand l'ID change
+    const loadMemberData = async () => {
+      if (!member?.id) {
+        // Nouveau membre - formulaire vide
+        return;
+      }
+
+      // ✅ Membre existant - recharger depuis Supabase avec la photo
+      if (!form.name && !form.firstName) {
+        try {
+          console.log("🔍 Chargement membre complet depuis DB:", member.id);
+          const fullMember = await supabaseServices.getMemberById(member.id);
+          
+          if (fullMember) {
+            console.log("✅ Membre chargé:", fullMember.id, "- Photo:", !!fullMember.photo, fullMember.photo?.substring(0, 50));
+            setForm({
+              ...fullMember,
+              files: Array.isArray(fullMember.files)
+                ? fullMember.files
+                : typeof fullMember.files === "string"
+                ? JSON.parse(fullMember.files || "[]")
+                : [],
+              etudiant: !!fullMember.etudiant,
+              photo: fullMember.photo || null, // ✅ Photo complète depuis la DB
+            });
+            fetchPayments(fullMember.id);
+          }
+        } catch (error) {
+          console.error("❌ Erreur chargement membre complet:", error);
+          // Fallback sur les données partielles (sans photo)
+          setForm({
+            ...member,
+            files: Array.isArray(member.files)
+              ? member.files
+              : typeof member.files === "string"
+              ? JSON.parse(member.files || "[]")
+              : [],
+            etudiant: !!member.etudiant,
+            photo: member.photo || null,
+          });
+          if (member.id) fetchPayments(member.id);
+        }
+      }
+    };
+
+    loadMemberData();
+  }, [member?.id, form.name, form.firstName]);
 
   // Swipe handlers (mobile)
   const handleTouchStart = (e) => {
@@ -1488,19 +1489,3 @@ function MemberForm({ member, onSave, onCancel }) {
 }
 
 export default MemberForm;
-
-/*
-✅ CORRECTION APPLIQUÉE :
-- useEffect simplifié : suppression de la condition `!form.name && !form.firstName`
-- Ajout explicite de `photo: member.photo || null`
-- Dépendances réduites à [member?.id] uniquement
-- La photo base64 s'affichera maintenant correctement en haut à gauche et dans l'onglet Identité
-
-Résumé corrections clé :
-- Suppression totale de Supabase Storage pour la **photo membre** (plus de bucket "photo").
-- Photo en **dataURL** (512x512 max) stockée dans `form.photo` puis en base via `onSave`.
-- Documents scannés/uploadés vers bucket "documents" uniquement (inchangé).
-- Caméra : cycle de vie strict, bascule avant/arrière stable, reprise fluide.
-*/
-
-// ✅ FIN DU FICHIER 09/10/2025
