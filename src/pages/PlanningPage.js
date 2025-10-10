@@ -1,6 +1,7 @@
 // 📄 PlanningPage.js — React — Dossier : src/pages — Date : 2025-10-08
 // ✅ Ajouts : Pagination 20 membres/page + egress optimisée (requêtes ciblées)
 // ✅ Import Excel : UPSERT par chunks (onConflict badgeId,timestamp) → évite 409
+// ✅ CORRECTION : Debounce sur les filtres pour éviter le rafraîchissement à chaque caractère
 // ⚠️ Règles BODYFORCE respectées : structure & styles conservés, modifications minimales
 
 
@@ -127,7 +128,7 @@ const addYears = (d, n) => {
 const subWeeks = (d, n) => addWeeks(d, -n);
 const isToday = (d) => d.toDateString() === new Date().toDateString();
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 
 function PlanningPage() {
   // Données (paginées)
@@ -144,8 +145,14 @@ function PlanningPage() {
   const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
 
+  // 🔥 CORRECTION : États séparés pour la saisie immédiate et le filtre debounced
+  const [filterBadgeInput, setFilterBadgeInput] = useState("");
+  const [filterNameInput, setFilterNameInput] = useState("");
+  
+  // États debounced (déclenchent les requêtes après 500ms d'inactivité)
   const [filterBadge, setFilterBadge] = useState("");
   const [filterName, setFilterName] = useState("");
+
   const [showNightHours, setShowNightHours] = useState(false);
   const [viewMode, setViewMode] = useState("list");
   const [showFilters, setShowFilters] = useState(false);
@@ -162,9 +169,6 @@ function PlanningPage() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   // Chargement Supabase (membres paginés + présences de la période pour ces membres)
-
-
-  // 🔄 Remplacer TOUTE la fonction loadData par ceci
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) setIsRetrying(true);
@@ -215,9 +219,7 @@ function PlanningPage() {
         return;
       }
 
-      // B) Charger les members correspondants puis appliquer filtre nom (et badge si tu veux double-sécurité)
-      //    NOTE: on pagine SUR CE SET (membres ayant eu ≥1 présence)
-      //       - on ramène tout puis on filtre/pagine en mémoire (volumes jour/semaine OK).
+      // B) Charger les members correspondants puis appliquer filtre nom
       const { data: periodMembersAll, error: membersErr } = await supabase
         .from("members")
         .select("id,name,firstName,badgeId,photo")
@@ -232,7 +234,7 @@ function PlanningPage() {
         const tb = lastSeenByBadge[b.badgeId] ?? 0;
         const ta = lastSeenByBadge[a.badgeId] ?? 0;
         if (tb !== ta) return tb - ta;          // du plus récent au plus ancien
-        // tie-break par nom pour une stabilité d’affichage
+        // tie-break par nom pour une stabilité d'affichage
         return (a.name || "").localeCompare(b.name || "");
       });
 
@@ -293,10 +295,27 @@ function PlanningPage() {
     }
   };
 
-
   useEffect(() => {
     loadData();
   }, [startDate, endDate, filterName, filterBadge, page]);
+
+  // 🔥 CORRECTION : Debounce pour filterName (attend 500ms après la dernière saisie)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilterName(filterNameInput);
+      setPage(1); // Reset à la page 1 quand on filtre
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterNameInput]);
+
+  // 🔥 CORRECTION : Debounce pour filterBadge (attend 500ms après la dernière saisie)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilterBadge(filterBadgeInput);
+      setPage(1); // Reset à la page 1 quand on filtre
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterBadgeInput]);
 
   const handleRetry = () => {
     setRetryCount((v) => v + 1);
@@ -343,8 +362,7 @@ function PlanningPage() {
 
   const toLocalDate = (timestamp) => parseTimestamp(timestamp);
 
-  // Import Excel — passage en UPSERT par chunks (onConflict badgeId,timestamp)
-  // ⬇️ Remplacer intégralement handleImportExcel par ceci
+  // Import Excel – passage en UPSERT par chunks (onConflict badgeId,timestamp)
   const handleImportExcel = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -494,7 +512,7 @@ function PlanningPage() {
           ].join("\n")
         );
 
-        // Recharge l’affichage
+        // Recharge l'affichage
         loadData();
       };
 
@@ -507,7 +525,6 @@ function PlanningPage() {
       try { event.target.value = ""; } catch { }
     }
   };
-
 
   // UI: états de chargement / erreur
   const renderConnectionError = () => (
@@ -566,7 +583,7 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Filtrage local (présences) — garde la logique d’origine
+  // Filtrage local (présences) – garde la logique d'origine
   const filteredPresences = presences.filter((p) => {
     const presenceDate = toLocalDate(p.timestamp);
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
@@ -691,7 +708,6 @@ function PlanningPage() {
       </div>
     );
   };
-  // 🔹 Partie 2/4 — StatsResume, ListView (avec pager), CompactView (avec pager)
 
   const StatsResume = () => (
     <div className={cn(classes.card, "p-6 mb-6")}>
@@ -785,7 +801,7 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Liste (pastilles journalières) — ajout du Pager (haut + bas)
+  // Vue Liste (pastilles journalières) – ajout du Pager (haut + bas)
   const ListView = () => (
     <div className={cn(classes.card, "overflow-visible")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -816,12 +832,11 @@ function PlanningPage() {
               className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               <div className="flex items-center gap-3 mb-3">
-                {/* ✅ Avatar comme MembersPage */}
                 <Avatar
                   photo={member.photo}
                   firstName={member.firstName}
                   name={member.name}
-                  size={40} // ≈ w-10 h-10
+                  size={40}
                 />
 
                 <div className="min-w-0">
@@ -899,14 +914,13 @@ function PlanningPage() {
         })}
       </div>
 
-      {/* Pagination footer (mobile + desktop) */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center">
         <Pager />
       </div>
     </div>
   );
 
-  // Vue Compacte (tableau rapide) — pager ajouté en bas
+  // Vue Compacte (tableau rapide) – pager ajouté en bas
   const CompactView = () => (
     <div className={cn(classes.card, "overflow-visible")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -958,7 +972,6 @@ function PlanningPage() {
                 }}
               >
                 <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
-                  {/* ✅ Avatar comme MembersPage */}
                   <Avatar
                     photo={member.photo}
                     firstName={member.firstName}
@@ -1012,18 +1025,16 @@ function PlanningPage() {
       </div>
     </div>
   );
-  // 🔹 Partie 3/4 — MonthlyView (repris intégralement de ta version)
 
-  // Vue Mensuelle - Solution simple avec tooltip qui suit la souris
+  // Vue Mensuelle
   const MonthlyView = () => {
     const generateCalendarDays = () => {
       const y = startDate.getFullYear();
       const m = startDate.getMonth();
       const firstDay = new Date(y, m, 1);
       const startCalendar = new Date(firstDay);
-      // Commencer le lundi
-      const dow = firstDay.getDay(); // 0..6 (dim..sam)
-      const shift = dow === 0 ? -5 : 1 - dow; // place au lundi
+      const dow = firstDay.getDay();
+      const shift = dow === 0 ? -5 : 1 - dow;
       startCalendar.setDate(startCalendar.getDate() + shift);
 
       const days = [];
@@ -1037,7 +1048,6 @@ function PlanningPage() {
 
     const calendarDays = generateCalendarDays();
 
-    // Grouper par jour & par membre
     const presencesByDayAndMember = (() => {
       const grouped = {};
       filteredPresences.forEach((presence) => {
@@ -1058,7 +1068,6 @@ function PlanningPage() {
       setExpandedDays(s);
     };
 
-    // Fonctions tooltip simplifiées
     const onAvatarEnter = (badgeId, dayKey, e) => {
       const member = members.find((m) => m.badgeId === badgeId);
       const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
@@ -1088,7 +1097,6 @@ function PlanningPage() {
       const member = members.find((m) => m.badgeId === badgeId);
       if (!member) return null;
 
-      // Z-index unique : jour * 100 + position du membre
       const uniqueZIndex = dayIndex * 100 + memberIndex + 10;
 
       return (
@@ -1100,7 +1108,6 @@ function PlanningPage() {
           onMouseMove={onAvatarMove}
           onMouseLeave={onAvatarLeave}
         >
-          {/* ✅ Avatar comme MembersPage */}
           <Avatar
             photo={member.photo}
             firstName={member.firstName}
@@ -1108,17 +1115,14 @@ function PlanningPage() {
             size={32}
           />
 
-          {/* Badge compteur pour passages multiples */}
           {presenceCount > 1 && (
             <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border border-white dark:border-gray-800 shadow-sm animate-pulse">
               {presenceCount > 99 ? "99+" : presenceCount}
             </div>
           )}
 
-          {/* TOOLTIP CSS complet */}
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-[200]">
             <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
-              {/* En-tête avec photo et nom */}
               <div className="flex items-center gap-3 mb-3">
                 <Avatar
                   photo={member.photo}
@@ -1136,7 +1140,6 @@ function PlanningPage() {
                 </div>
               </div>
 
-              {/* Informations du jour */}
               <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-400" />
@@ -1145,7 +1148,6 @@ function PlanningPage() {
                   </span>
                 </div>
 
-                {/* Cas standard : 1 passage */}
                 {(() => {
                   const presences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
                   const multiple = presences.length > 1;
@@ -1154,7 +1156,7 @@ function PlanningPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-green-400" />
                         <span className="text-sm">
-                          Passage à{" "}
+                          Passage à {" "}
                           {formatDate(presences[0]?.parsedDate, "HH:mm")}
                         </span>
                       </div>
@@ -1169,7 +1171,6 @@ function PlanningPage() {
                         </span>
                       </div>
 
-                      {/* Liste des heures pour les cas multiples */}
                       <div className="mt-2">
                         <div className="text-xs text-gray-300 mb-1">
                           Heures de passage :
@@ -1195,7 +1196,6 @@ function PlanningPage() {
                 })()}
               </div>
 
-              {/* Badge de statut */}
               <div className="flex justify-between items-center">
                 <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
                   Présent(e)
@@ -1207,7 +1207,6 @@ function PlanningPage() {
                 )}
               </div>
 
-              {/* Flèche pointer */}
               <div className="absolute top-full left-1/2 -translate-x-1/2">
                 <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
               </div>
@@ -1217,104 +1216,8 @@ function PlanningPage() {
       );
     };
 
-    const renderTooltip = () => {
-      if (!hoveredMember) return null;
-      const { member, presences, dayKey } = hoveredMember;
-      const day = new Date(dayKey + "T00:00:00");
-      const multiple = presences.length > 1;
-
-      return (
-        <div
-          className="fixed z-[9999] pointer-events-none"
-          style={{
-            left: mousePos.x + 15,
-            top: mousePos.y - 10,
-            transform: "translateY(-50%)",
-          }}
-        >
-          <div className="relative bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
-            <div className="flex items-center gap-3 mb-3">
-              <Avatar
-                photo={member?.photo}
-                firstName={member?.firstName}
-                name={member?.name}
-                size={48}
-              />
-              <div>
-                <h4 className="font-bold text-lg">
-                  {member?.name} {member?.firstName}
-                </h4>
-                <p className="text-blue-300 text-sm">
-                  Badge: {member?.badgeId}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-400" />
-                <span className="text-sm">
-                  {formatDate(day, "EEEE dd MMMM")}
-                </span>
-              </div>
-
-              {!multiple ? (
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-green-400" />
-                  <span className="text-sm">
-                    Passage à {formatDate(presences[0].parsedDate, "HH:mm")}
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-orange-400" />
-                    <span className="text-sm font-semibold text-orange-300">
-                      ⚠️ {presences.length} passages (inhabituel)
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <div className="text-xs text-gray-300 mb-1">
-                      Heures de passage :
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {presences.slice(0, 6).map((presence, i) => (
-                        <div
-                          key={i}
-                          className="bg-orange-600/30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500/30"
-                        >
-                          {formatDate(presence.parsedDate, "HH:mm")}
-                        </div>
-                      ))}
-                      {presences.length > 6 && (
-                        <div className="bg-gray-600/30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500/30">
-                          +{presences.length - 6}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
-                Présent(e)
-              </span>
-              {multiple && (
-                <span className="text-xs text-orange-400 font-medium">
-                  Vérifier badge
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    };
-
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {/* En-tête calendrier */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
           <div className="flex items-center justify-between">
             <button
@@ -1340,7 +1243,6 @@ function PlanningPage() {
           </div>
         </div>
 
-        {/* En-têtes jours */}
         <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-700">
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
@@ -1355,7 +1257,6 @@ function PlanningPage() {
           ))}
         </div>
 
-        {/* Grille des jours */}
         <div className="grid grid-cols-7">
           {calendarDays.map((day, idx) => {
             const dateKey = toDateString(day);
@@ -1551,7 +1452,6 @@ function PlanningPage() {
           })}
         </div>
 
-        {/* Légende */}
         <div className="bg-gray-50 dark:bg-gray-700 p-4 border-t border-gray-200 dark:border-gray-600">
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex items-center gap-2">
@@ -1577,15 +1477,11 @@ function PlanningPage() {
             </div>
           </div>
         </div>
-
-        {/* Tooltip global (optionnel) */}
-        {/* renderTooltip() */}
       </div>
     );
   };
-  // 🔹 Partie 4/4 — En-tête UI, filtres, raccourcis, rendu principal + export
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────────
   // Rendu principal
   return (
     <div className={classes.pageContainer}>
@@ -1620,7 +1516,6 @@ function PlanningPage() {
                 <List className="w-5 h-5" />
               </button>
 
-              {/* VUE MENSUELLE EN DEUXIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => {
@@ -1642,7 +1537,6 @@ function PlanningPage() {
                 </button>
               )}
 
-              {/* VUE COMPACTE EN TROISIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => setViewMode("compact")}
@@ -1672,7 +1566,6 @@ function PlanningPage() {
               </button>
             </div>
 
-            {/* Import Excel (admin) */}
             {role === "admin" && (
               <div className="mt-4">
                 <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition">
@@ -1682,7 +1575,7 @@ function PlanningPage() {
                     onChange={handleImportExcel}
                     className="hidden"
                   />
-                  📁 Importer fichier Excel (.xlsx)
+                  📥 Importer fichier Excel (.xlsx)
                 </label>
               </div>
             )}
@@ -1861,11 +1754,8 @@ function PlanningPage() {
                 <input
                   type="text"
                   placeholder="Nom ou prénom..."
-                  value={filterName}
-                  onChange={(e) => {
-                    setFilterName(e.target.value);
-                    setPage(1);
-                  }}
+                  value={filterNameInput}
+                  onChange={(e) => setFilterNameInput(e.target.value)}
                   className={cn(
                     classes.input,
                     "w-full placeholder-gray-500 dark:placeholder-gray-400"
@@ -1879,11 +1769,8 @@ function PlanningPage() {
                 <input
                   type="text"
                   placeholder="Numéro de badge..."
-                  value={filterBadge}
-                  onChange={(e) => {
-                    setFilterBadge(e.target.value);
-                    setPage(1);
-                  }}
+                  value={filterBadgeInput}
+                  onChange={(e) => setFilterBadgeInput(e.target.value)}
                   className={cn(
                     classes.input,
                     "w-full placeholder-gray-500 dark:placeholder-gray-400"
