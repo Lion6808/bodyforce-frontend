@@ -344,6 +344,8 @@ function MembersPage() {
   // Filtrage liste
   useEffect(() => {
     const compiledClauses = parseSearch(search);
+
+    // Base : appliquer la recherche
     let result = members.filter((m) => matchesSearch(m, compiledClauses));
 
     if (activeFilter === "Homme") {
@@ -362,19 +364,11 @@ function MembersPage() {
         }
       });
     } else if (activeFilter === "Récent") {
-      const now = new Date();
-      result = result.filter((m) => {
-        if (!m.startDate) return false;
-        try {
-          const date = parseISO(m.startDate);
-          return (
-            date.getMonth() === now.getMonth() &&
-            date.getFullYear() === now.getFullYear()
-          );
-        } catch {
-          return false;
-        }
-      });
+      // ✅ NOUVELLE LOGIQUE : 20 derniers inscrits par ID décroissant, IGNORE le tri par nom
+      // On ignore la recherche pour coller au besoin "20 derniers inscrits" global
+      result = [...members]
+        .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
+        .slice(0, 20);
     } else if (activeFilter === "SansCertif") {
       result = result.filter((m) => {
         if (!m.files) return true;
@@ -384,11 +378,14 @@ function MembersPage() {
       });
     }
 
-    result.sort((a, b) => {
-      const nameA = (a.name || "").toLowerCase();
-      const nameB = (b.name || "").toLowerCase();
-      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-    });
+    // ✅ Conserver le tri par nom SAUF pour "Récent" (où on garde l'ordre par ID desc)
+    if (activeFilter !== "Récent") {
+      result.sort((a, b) => {
+        const nameA = (a.name || "").toLowerCase();
+        const nameB = (b.name || "").toLowerCase();
+        return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      });
+    }
 
     setFilteredMembers(result);
     setCurrentPage(1); // reset à la page 1 quand filtres changent
@@ -565,16 +562,8 @@ function MembersPage() {
     return Object.keys(m.files).length === 0;
   }).length;
 
-  const recentCount = filteredMembers.filter((m) => {
-    if (!m.startDate) return false;
-    try {
-      const date = parseISO(m.startDate);
-      const now = new Date();
-      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    } catch {
-      return false;
-    }
-  }).length;
+  // ✅ Le widget "Récents" affiche toujours min(20, total membres)
+  const recentCount = Math.min(20, members.length);
 
   const studentCount = filteredMembers.filter((m) => m.etudiant).length;
 
