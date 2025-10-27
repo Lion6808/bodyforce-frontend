@@ -74,7 +74,7 @@ const SkeletonRing = () => (
 // ====================================================
 const AdminMotivationWidgets = ({
   stats,
-  //paymentSummary,
+  paymentSummary,
   attendance7d,
   latestMembers,
 }) => {
@@ -279,7 +279,7 @@ function HomePage() {
   // Loading flags
   const [loading, setLoading] = useState({
     stats: true,
-    payments: true,
+    payments: False,
     presences: true,
     latestMembers: true,
   });
