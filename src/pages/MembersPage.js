@@ -553,7 +553,7 @@ function MembersPage() {
   const total = filteredMembers.length;
   const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
   const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
-  const expiredCount = filteredMembers.filter((m) => {
+  const expiredCount = Members.filter((m) => {
     if (!m.endDate) return true;
     try {
       return isBefore(parseISO(m.endDate), new Date());
