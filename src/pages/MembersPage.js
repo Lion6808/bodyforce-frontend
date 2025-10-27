@@ -542,8 +542,8 @@ function MembersPage() {
     if (!window.confirm(confirmMsg)) return;
 
     try {
+      // ✅ CORRECTION : Ne mettre à jour QUE les 3 champs nécessaires
       const updatedData = {
-        ...member,
         subscriptionType: "Année civile",
         startDate: `${currentYear}-01-01`,
         endDate: `${currentYear}-12-31`,
