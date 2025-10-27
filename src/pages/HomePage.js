@@ -279,7 +279,7 @@ function HomePage() {
   // Loading flags
   const [loading, setLoading] = useState({
     stats: true,
-    payments: false,
+    payments: true,
     presences: true,
     latestMembers: true,
   });
@@ -1036,7 +1036,7 @@ function HomePage() {
         </div>
       )}
 
-      {isAdmin && (
+      {/* {isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1124,7 +1124,7 @@ function HomePage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {isAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
