@@ -1458,7 +1458,7 @@ return (
       }`}
       title={
         hasUpdate
-          ? "Nouvelle version disponible — cliquer pour mettre à jour"
+          ? "Nouvelle version disponible — cliquer pour la mettre à jour"
           : `Version ${version}`
       }
       aria-label="Version de l'application"
