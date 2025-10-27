@@ -535,6 +535,31 @@ function MembersPage() {
     }
   };
 
+  const handleQuickRenew = async (member) => {
+    const currentYear = new Date().getFullYear();
+    const confirmMsg = `Réabonner ${member.firstName} ${member.name} pour l'année ${currentYear} ?\n\nAbonnement : Année civile\nDu 01/01/${currentYear} au 31/12/${currentYear}`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const updatedData = {
+        ...member,
+        subscriptionType: "Année civile",
+        startDate: `${currentYear}-01-01`,
+        endDate: `${currentYear}-12-31`,
+      };
+
+      await supabaseServices.updateMember(member.id, updatedData);
+      await fetchMembers();
+
+      alert(`✅ ${member.firstName} ${member.name} réabonné(e) avec succès !`);
+      console.log(`✅ Membre ${member.id} réabonné pour ${currentYear}`);
+    } catch (err) {
+      console.error("Erreur réabonnement:", err);
+      alert(`❌ Erreur lors du réabonnement: ${err.message}`);
+    }
+  };
+
   const toggleSelectAll = () => {
     if (selectedIds.length === paginatedMembers.length) {
       setSelectedIds([]);
@@ -929,22 +954,31 @@ function MembersPage() {
                         </td>
 
                         <td className="p-3">
-                          <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            {/* Bouton Réabonner (uniquement si expiré) */}
+                            {isExpired && (
+                              <button
+                                onClick={() => handleQuickRenew(member)}
+                                className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 transition-colors p-2 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"
+                                title="Réabonner pour l'année en cours"
+                              >
+                                <FaSync className="w-4 h-4" />
+                              </button>
+                            )}
+
                             <button
                               onClick={() => handleEditMember(member)}
-                              className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-1 rounded text-sm transition-colors"
-                              title="Modifier ce membre"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                              title="Modifier"
                             >
-                              <FaEdit className="w-3 h-3" />
-                              Modifier
+                              <FaEdit />
                             </button>
                             <button
                               onClick={() => handleDelete(member.id)}
-                              className="flex items-center gap-1 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 px-3 py-1 rounded text-sm transition-colors"
-                              title="Supprimer ce membre"
+                              className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                              title="Supprimer"
                             >
-                              <FaTrash className="w-3 h-3" />
-                              Supprimer
+                              <FaTrash />
                             </button>
                           </div>
                         </td>
@@ -1125,6 +1159,17 @@ function MembersPage() {
                   </div>
 
                   <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
+                    {/* Bouton Réabonner (uniquement si expiré) */}
+                    {isExpired && (
+                      <button
+                        onClick={() => handleQuickRenew(member)}
+                        className="flex-1 bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+                        title="Réabonner"
+                      >
+                        <FaSync className="w-4 h-4" />
+                        Réabonner
+                      </button>
+                    )}
                     <button
                       onClick={() => handleEditMember(member)}
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors"
