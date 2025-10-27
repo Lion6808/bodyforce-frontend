@@ -204,12 +204,12 @@ function MembersPage() {
     const prev = history.scrollRestoration;
     try {
       if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-    } catch {}
+    } catch { }
     return () => {
       try {
         if ("scrollRestoration" in history)
           history.scrollRestoration = prev || "auto";
-      } catch {}
+      } catch { }
     };
   }, []);
 
@@ -225,7 +225,7 @@ function MembersPage() {
       if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
       if (typeof ctx.currentPage === "number") setCurrentPage(ctx.currentPage);
       restoreRef.current = ctx;
-    } catch {}
+    } catch { }
   }, []);
 
   // Repositionnement par memberId (retour depuis edit)
@@ -345,37 +345,44 @@ function MembersPage() {
   useEffect(() => {
     const compiledClauses = parseSearch(search);
 
+    // ✅ Fonction helper pour vérifier si un membre est expiré
+    const isMemberExpired = (m) => {
+      if (!m.endDate) return false;
+      try {
+        return isBefore(parseISO(m.endDate), new Date());
+      } catch {
+        return false;
+      }
+    };
+
     // Base : appliquer la recherche
     let result = members.filter((m) => matchesSearch(m, compiledClauses));
 
     if (activeFilter === "Homme") {
-      result = result.filter((m) => m.gender === "Homme");
+      result = result.filter((m) => m.gender === "Homme" && !isMemberExpired(m));
     } else if (activeFilter === "Femme") {
-      result = result.filter((m) => m.gender === "Femme");
+      result = result.filter((m) => m.gender === "Femme" && !isMemberExpired(m));
     } else if (activeFilter === "Etudiant") {
-      result = result.filter((m) => m.etudiant);
+      result = result.filter((m) => m.etudiant && !isMemberExpired(m));
     } else if (activeFilter === "Expiré") {
-      result = result.filter((m) => {
-        if (!m.endDate) return true;
-        try {
-          return isBefore(parseISO(m.endDate), new Date());
-        } catch {
-          return true;
-        }
-      });
+      result = result.filter((m) => isMemberExpired(m));
     } else if (activeFilter === "Récent") {
-      // ✅ NOUVELLE LOGIQUE : 20 derniers inscrits par ID décroissant, IGNORE le tri par nom
-      // On ignore la recherche pour coller au besoin "20 derniers inscrits" global
+      // ✅ 20 derniers inscrits par ID décroissant, SANS les expirés
       result = [...members]
+        .filter((m) => !isMemberExpired(m))
         .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
         .slice(0, 20);
     } else if (activeFilter === "SansCertif") {
       result = result.filter((m) => {
+        if (isMemberExpired(m)) return false; // ✅ Exclure expirés
         if (!m.files) return true;
         if (Array.isArray(m.files)) return m.files.length === 0;
         if (typeof m.files === "string") return m.files === "[]" || m.files === "";
         return Object.keys(m.files).length === 0;
       });
+    } else if (activeFilter === "Actifs" || !activeFilter) {
+      // ✅ NOUVEAU : Filtre "Total/Actifs" = Tous SAUF expirés
+      result = result.filter((m) => !isMemberExpired(m));
     }
 
     // ✅ Conserver le tri par nom SAUF pour "Récent" (où on garde l'ordre par ID desc)
@@ -637,7 +644,12 @@ function MembersPage() {
 
       {/* Widgets */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-        <Widget title="👥 Total" value={total} onClick={() => setActiveFilter(null)} active={!activeFilter} />
+        <Widget
+          title="👥 Total"
+          value={total - expiredCount}
+          onClick={() => setActiveFilter("Actifs")}
+          active={activeFilter === "Actifs" || !activeFilter}
+        />
         <Widget title="👨 Hommes" value={maleCount} onClick={() => setActiveFilter("Homme")} active={activeFilter === "Homme"} />
         <Widget title="👩 Femmes" value={femaleCount} onClick={() => setActiveFilter("Femme")} active={activeFilter === "Femme"} />
         <Widget title="🎓 Étudiants" value={studentCount} onClick={() => setActiveFilter("Etudiant")} active={activeFilter === "Etudiant"} />
@@ -706,11 +718,10 @@ function MembersPage() {
                     )}
                     <button
                       onClick={() => goToPage(page)}
-                      className={`px-3 py-2 rounded-lg transition-colors ${
-                        page === currentPage
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
-                      }`}
+                      className={`px-3 py-2 rounded-lg transition-colors ${page === currentPage
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                        }`}
                     >
                       {page}
                     </button>
@@ -773,12 +784,12 @@ function MembersPage() {
                   {paginatedMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                          try {
-                            return isBefore(parseISO(member.endDate), new Date());
-                          } catch {
-                            return true;
-                          }
-                        })()
+                        try {
+                          return isBefore(parseISO(member.endDate), new Date());
+                        } catch {
+                          return true;
+                        }
+                      })()
                       : true;
 
                     const hasFiles =
@@ -786,8 +797,8 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                        ? member.files !== "[]" && member.files !== ""
-                        : Object.keys(member.files).length > 0);
+                          ? member.files !== "[]" && member.files !== ""
+                          : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
@@ -834,11 +845,10 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  member.gender === "Femme"
-                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                  }`}
                               >
                                 {member.gender}
                               </span>
@@ -878,11 +888,10 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${
-                                  isExpired
-                                    ? "text-red-600 dark:text-red-400 font-medium"
-                                    : "text-gray-500 dark:text-gray-400"
-                                }`}
+                                className={`text-xs ${isExpired
+                                  ? "text-red-600 dark:text-red-400 font-medium"
+                                  : "text-gray-500 dark:text-gray-400"
+                                  }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -968,12 +977,12 @@ function MembersPage() {
             {paginatedMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                    try {
-                      return isBefore(parseISO(member.endDate), new Date());
-                    } catch {
-                      return true;
-                    }
-                  })()
+                  try {
+                    return isBefore(parseISO(member.endDate), new Date());
+                  } catch {
+                    return true;
+                  }
+                })()
                 : true;
 
               const hasFiles =
@@ -981,8 +990,8 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                  ? member.files !== "[]" && member.files !== ""
-                  : Object.keys(member.files).length > 0);
+                    ? member.files !== "[]" && member.files !== ""
+                    : Object.keys(member.files).length > 0);
 
               return (
                 <div
@@ -1024,11 +1033,10 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          member.gender === "Femme"
-                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                          }`}
                       >
                         {member.gender}
                       </span>
@@ -1075,11 +1083,10 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${
-                              isExpired
-                                ? "text-red-600 dark:text-red-400 font-medium"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}
+                            className={`text-xs ${isExpired
+                              ? "text-red-600 dark:text-red-400 font-medium"
+                              : "text-gray-600 dark:text-gray-400"
+                              }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1248,23 +1255,20 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
-        active
-          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-      }`}
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
+        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+        }`}
     >
       <div
-        className={`text-sm ${
-          active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
-        }`}
+        className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
+          }`}
       >
         {title}
       </div>
       <div
-        className={`text-xl font-bold ${
-          active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
-        }`}
+        className={`text-xl font-bold ${active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
+          }`}
       >
         {value}
       </div>
