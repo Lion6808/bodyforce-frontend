@@ -72,6 +72,10 @@ const fetchUserPhoto = async (userId) => {
   return error ? null : data?.photo || null;
 };
 
+// App version
+const APP_VERSION = "2.0.0";
+
+
 // ✅ Configuration des onglets Bottom Nav - DYNAMIQUE selon le rôle
 const getBottomNavTabs = (isAdmin) => {
   if (isAdmin) {
@@ -713,7 +717,7 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
 
   // Vérifier si on est sur une page du menu "Plus"
   const isMorePageActive = moreItems.some(item => item.path === currentPath);
-  
+
   const handleTabClick = (tab) => {
     if (tab.isMore) {
       setShowMoreMenu(!showMoreMenu);
@@ -740,17 +744,15 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
                 <button
                   key={item.id}
                   onClick={() => handleMoreItemClick(item)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${
-                    currentPath === item.path
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${currentPath === item.path
                       ? 'bg-gray-100 dark:bg-gray-700'
                       : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                  }`}
+                    }`}
                 >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    currentPath === item.path
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${currentPath === item.path
                       ? 'bg-gray-200 dark:bg-gray-600'
                       : 'bg-gray-100 dark:bg-gray-700'
-                  }`}>
+                    }`}>
                     <Icon className={`w-6 h-6 ${item.color}`} />
                   </div>
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -768,25 +770,23 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
         <div className="flex items-center justify-around px-2 py-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            const isActive = tab.isMore 
+            const isActive = tab.isMore
               ? (showMoreMenu || isMorePageActive)
               : currentPath === tab.path;
-            
+
             return (
               <button
                 key={tab.id}
                 onClick={() => handleTabClick(tab)}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 min-w-[60px] ${
-                  isActive
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 min-w-[60px] ${isActive
                     ? 'bg-gray-100 dark:bg-gray-700'
                     : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                }`}
+                  }`}
               >
                 <div className="relative">
                   <Icon
-                    className={`w-6 h-6 transition-all ${
-                      isActive ? tab.color : 'text-gray-400 dark:text-gray-500'
-                    }`}
+                    className={`w-6 h-6 transition-all ${isActive ? tab.color : 'text-gray-400 dark:text-gray-500'
+                      }`}
                   />
                   {/* Badge notification pour Messages */}
                   {tab.id === 'messages' && (
@@ -796,11 +796,10 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
                   )}
                 </div>
                 <span
-                  className={`text-xs font-medium transition-all ${
-                    isActive
+                  className={`text-xs font-medium transition-all ${isActive
                       ? 'text-gray-900 dark:text-white'
                       : 'text-gray-500 dark:text-gray-400'
-                  }`}
+                    }`}
                 >
                   {tab.name}
                 </span>
@@ -835,64 +834,64 @@ function EnhancedSidebar({
     },
     ...(isAdmin
       ? [
-          {
-            name: "Membres",
-            path: "/members",
-            icon: (
-              <FaUserFriends className="text-green-500 dark:text-green-400" />
-            ),
-          },
-          {
-            name: "Planning",
-            path: "/planning",
-            icon: (
-              <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
-            ),
-          },
-          {
-            name: "Paiements",
-            path: "/payments",
-            icon: (
-              <FaCreditCard className="text-purple-500 dark:text-purple-400" />
-            ),
-          },
-          {
-            name: "Statistiques",
-            path: "/statistics",
-            icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
-          },
-          {
-            name: "Messages",
-            path: "/messages",
-            icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
-          },
-          {
-            name: "Invitations",
-            path: "/invitations",
-            icon: (
-              <FaUserPlus className="text-orange-500 dark:text-orange-400" />
-            ),
-          },
-        ]
+        {
+          name: "Membres",
+          path: "/members",
+          icon: (
+            <FaUserFriends className="text-green-500 dark:text-green-400" />
+          ),
+        },
+        {
+          name: "Planning",
+          path: "/planning",
+          icon: (
+            <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
+          ),
+        },
+        {
+          name: "Paiements",
+          path: "/payments",
+          icon: (
+            <FaCreditCard className="text-purple-500 dark:text-purple-400" />
+          ),
+        },
+        {
+          name: "Statistiques",
+          path: "/statistics",
+          icon: <FaChartBar className="text-blue-500 dark:text-blue-400" />,
+        },
+        {
+          name: "Messages",
+          path: "/messages",
+          icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
+        },
+        {
+          name: "Invitations",
+          path: "/invitations",
+          icon: (
+            <FaUserPlus className="text-orange-500 dark:text-orange-400" />
+          ),
+        },
+      ]
       : [
-          {
-            name: "Messages",
-            path: "/messages",
-            icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
-          },
-          {
-            name: "Mon Profil",
-            path: "/profile",
-            icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
-          },
-          {
-            name: "Mes Présences",
-            path: "/my-attendances",
-            icon: (
-              <FaClipboardList className="text-green-500 dark:text-green-400" />
-            ),
-          },
-        ]),
+        {
+          name: "Messages",
+          path: "/messages",
+          icon: <FaEnvelope className="text-sky-500 dark:text-sky-400" />,
+        },
+        {
+          name: "Mon Profil",
+          path: "/profile",
+          icon: <FaUser className="text-blue-500 dark:text-blue-400" />,
+        },
+        {
+          name: "Mes Présences",
+          path: "/my-attendances",
+          icon: (
+            <FaClipboardList className="text-green-500 dark:text-green-400" />
+          ),
+        },
+      ]),
   ];
 
   const toggleSidebar = () => {
@@ -903,9 +902,8 @@ function EnhancedSidebar({
 
   return (
     <aside
-      className={`enhanced-sidebar ${
-        isCollapsed ? "collapsed" : "expanded"
-      } flex-col items-center hidden lg:flex transition-all duration-400 ease-out`}
+      className={`enhanced-sidebar ${isCollapsed ? "collapsed" : "expanded"
+        } flex-col items-center hidden lg:flex transition-all duration-400 ease-out`}
     >
       <button
         className="sidebar-toggle"
@@ -919,9 +917,8 @@ function EnhancedSidebar({
 
       <div className="sidebar-logo sidebar-logo-3d text-center p-4 pb-2">
         <h1
-          className={`sidebar-title text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2 ${
-            isCollapsed ? "opacity-0" : "opacity-100"
-          }`}
+          className={`sidebar-title text-center text-lg font-bold text-red-600 dark:text-red-400 mb-2 ${isCollapsed ? "opacity-0" : "opacity-100"
+            }`}
         >
           CLUB BODY FORCE
         </h1>
@@ -936,9 +933,8 @@ function EnhancedSidebar({
       </div>
 
       <div
-        className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${
-          isCollapsed ? "opacity-0" : "opacity-100"
-        }`}
+        className={`sidebar-user-info mb-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 px-4 ${isCollapsed ? "opacity-0" : "opacity-100"
+          }`}
       >
         {user?.photo ? (
           <img
@@ -970,9 +966,8 @@ function EnhancedSidebar({
         {menu.map((item, index) => (
           <li
             key={item.path}
-            className={`sidebar-menu-item sidebar-item-enter ${
-              location.pathname === item.path ? "active" : ""
-            }`}
+            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === item.path ? "active" : ""
+              }`}
             style={{ animationDelay: `${index * 0.1}s` }}
           >
             <Link to={item.path} className="menu-link">
@@ -985,9 +980,8 @@ function EnhancedSidebar({
 
         {isAdmin && (
           <li
-            className={`sidebar-menu-item sidebar-item-enter ${
-              location.pathname === "/admin/users" ? "active" : ""
-            }`}
+            className={`sidebar-menu-item sidebar-item-enter ${location.pathname === "/admin/users" ? "active" : ""
+              }`}
             style={{ animationDelay: `${menu.length * 0.1}s` }}
           >
             <Link to="/admin/users" className="menu-link">
@@ -1099,14 +1093,12 @@ function AnimatedMobileMenu({
       />
 
       <div
-        className={`mobile-menu-container ${
-          isOpen && !isClosing ? "open" : ""
-        } ${isClosing ? "closing" : ""}`}
+        className={`mobile-menu-container ${isOpen && !isClosing ? "open" : ""
+          } ${isClosing ? "closing" : ""}`}
       >
         <div
-          className={`menu-header ${
-            animate ? "animate" : ""
-          } p-6 border-b border-white/20`}
+          className={`menu-header ${animate ? "animate" : ""
+            } p-6 border-b border-white/20`}
         >
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-3">
@@ -1124,9 +1116,8 @@ function AnimatedMobileMenu({
             </div>
             <button
               onClick={handleOverlayClick}
-              className={`close-button ${
-                animate ? "animate" : ""
-              } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
+              className={`close-button ${animate ? "animate" : ""
+                } text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-lg`}
               aria-label="Fermer le menu"
             >
               <FaTimes className="text-xl" />
@@ -1135,9 +1126,8 @@ function AnimatedMobileMenu({
         </div>
 
         <div
-          className={`user-profile ${
-            animate ? "animate" : ""
-          } p-6 border-b border-white/20`}
+          className={`user-profile ${animate ? "animate" : ""
+            } p-6 border-b border-white/20`}
         >
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
             {user?.photo ? (
@@ -1166,9 +1156,8 @@ function AnimatedMobileMenu({
         <div className="p-6 space-y-3">
           <button
             onClick={toggleDarkMode}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-white hover:bg-white/10 rounded-xl p-4 w-full text-left transition-all duration-200`}
           >
             <div className="text-xl text-gray-300">{getDarkModeIcon()}</div>
             <span className="font-medium">{getDarkModeLabel()}</span>
@@ -1176,9 +1165,8 @@ function AnimatedMobileMenu({
 
           <button
             onClick={handleLogout}
-            className={`menu-item ${
-              animate ? "animate" : ""
-            } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
+            className={`menu-item ${animate ? "animate" : ""
+              } flex items-center gap-4 text-red-300 hover:bg-red-500/20 rounded-xl p-4 w-full text-left transition-all duration-200`}
           >
             <FaSignOutAlt className="text-xl" />
             <span className="font-medium">Déconnexion</span>
@@ -1229,7 +1217,7 @@ function AppRoutes() {
   };
 
   const { toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
-  
+
   const {
     onTouchStart,
     onTouchMove,
@@ -1458,6 +1446,19 @@ function App() {
         draggable
         pauseOnHover
       />
+      {/* Badge de version */}
+      <div
+        className="fixed bottom-3 right-3 z-50 px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg bg-gray-800 dark:bg-gray-700 text-gray-100 cursor-default"
+        title={`Version de l'application : ${APP_VERSION}`}
+      >
+        v{APP_VERSION}
+      </div>{/* Badge de version */}
+      <div
+        className="fixed bottom-3 right-3 z-50 px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg bg-gray-800 dark:bg-gray-700 text-gray-100 cursor-default"
+        title={`Version de l'application : ${APP_VERSION}`}
+      >
+        v{APP_VERSION}
+      </div>
     </Router>
   );
 }
