@@ -38,42 +38,31 @@ import {
   FaEnvelope,
   FaEllipsisH, // Pour le bouton "Plus"
 } from "react-icons/fa";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
+
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
 
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 // Messagerie et notifications
 import MessagesPage from "./pages/MessagesPage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import NotificationBell from "./components/NotificationBell";
 
 // Import des pages
 import HomePage from "./pages/HomePage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import MembersPage from "./pages/MembersPage";
 import PlanningPage from "./pages/PlanningPage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import PaymentsPage from "./pages/PaymentsPage";
 import StatisticsPage from "./pages/StatisticsPage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import UserManagementPage from "./pages/UserManagementPage";
 import UserProfilePage from "./pages/UserProfilePage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import MyAttendancesPage from "./pages/MyAttendancesPage";
 import InvitationsPage from "./pages/InvitationsPage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import InvitationSignupPage from "./pages/InvitationSignupPage";
 import MemberFormPage from "./pages/MemberFormPage";
-
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 // Styles et notifications
 import { ToastContainer } from "react-toastify";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 // Récupération photo de profil
 const fetchUserPhoto = async (userId) => {
   const { data, error } = await supabase
