@@ -73,7 +73,7 @@ const fetchUserPhoto = async (userId) => {
 };
 
 // App version
-const APP_VERSION = "2.0.3";
+const APP_VERSION = "2.0.4";
 
 
 // ✅ Configuration des onglets Bottom Nav - DYNAMIQUE selon le rôle
