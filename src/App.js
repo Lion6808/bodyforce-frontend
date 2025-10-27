@@ -745,13 +745,13 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
                   key={item.id}
                   onClick={() => handleMoreItemClick(item)}
                   className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${currentPath === item.path
-                      ? 'bg-gray-100 dark:bg-gray-700'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                    ? 'bg-gray-100 dark:bg-gray-700'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                     }`}
                 >
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${currentPath === item.path
-                      ? 'bg-gray-200 dark:bg-gray-600'
-                      : 'bg-gray-100 dark:bg-gray-700'
+                    ? 'bg-gray-200 dark:bg-gray-600'
+                    : 'bg-gray-100 dark:bg-gray-700'
                     }`}>
                     <Icon className={`w-6 h-6 ${item.color}`} />
                   </div>
@@ -779,8 +779,8 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
                 key={tab.id}
                 onClick={() => handleTabClick(tab)}
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 min-w-[60px] ${isActive
-                    ? 'bg-gray-100 dark:bg-gray-700'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  ? 'bg-gray-100 dark:bg-gray-700'
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                   }`}
               >
                 <div className="relative">
@@ -797,8 +797,8 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
                 </div>
                 <span
                   className={`text-xs font-medium transition-all ${isActive
-                      ? 'text-gray-900 dark:text-white'
-                      : 'text-gray-500 dark:text-gray-400'
+                    ? 'text-gray-900 dark:text-white'
+                    : 'text-gray-500 dark:text-gray-400'
                     }`}
                 >
                   {tab.name}
@@ -848,13 +848,13 @@ function EnhancedSidebar({
             <FaCalendarAlt className="text-yellow-500 dark:text-yellow-400" />
           ),
         },
-        {
-          name: "Paiements",
-          path: "/payments",
-          icon: (
-            <FaCreditCard className="text-purple-500 dark:text-purple-400" />
-          ),
-        },
+        //{
+        //   name: "Paiements",
+        //  path: "/payments",
+        //  icon: (
+        //     <FaCreditCard className="text-purple-500 dark:text-purple-400" />
+        //   ),
+        //},
         {
           name: "Statistiques",
           path: "/statistics",
