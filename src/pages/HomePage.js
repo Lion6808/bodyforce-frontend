@@ -279,7 +279,7 @@ function HomePage() {
   // Loading flags
   const [loading, setLoading] = useState({
     stats: true,
-    payments: False,
+    payments: false,
     presences: true,
     latestMembers: true,
   });
