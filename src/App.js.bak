@@ -1,8 +1,6 @@
 // ✅ PARTIE 1/7 : IMPORTS ET CONFIGURATIONS
 
 import React, { useState, useEffect } from "react";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
-import useAppVersion from "./hooks/useAppVersion";
 import {
   BrowserRouter as Router,
   Routes,
@@ -38,42 +36,31 @@ import {
   FaEnvelope,
   FaEllipsisH, // Pour le bouton "Plus"
 } from "react-icons/fa";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
 
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 // Messagerie et notifications
 import MessagesPage from "./pages/MessagesPage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import NotificationBell from "./components/NotificationBell";
 
 // Import des pages
 import HomePage from "./pages/HomePage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import MembersPage from "./pages/MembersPage";
 import PlanningPage from "./pages/PlanningPage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import PaymentsPage from "./pages/PaymentsPage";
 import StatisticsPage from "./pages/StatisticsPage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import UserManagementPage from "./pages/UserManagementPage";
 import UserProfilePage from "./pages/UserProfilePage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import MyAttendancesPage from "./pages/MyAttendancesPage";
 import InvitationsPage from "./pages/InvitationsPage";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import InvitationSignupPage from "./pages/InvitationSignupPage";
 import MemberFormPage from "./pages/MemberFormPage";
 
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 // Styles et notifications
 import { ToastContainer } from "react-toastify";
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 
-import useServiceWorkerUpdates from "./hooks/useServiceWorkerUpdates";
 // Récupération photo de profil
 const fetchUserPhoto = async (userId) => {
   const { data, error } = await supabase
@@ -244,8 +231,7 @@ function useDarkMode() {
           applyTheme(shouldBeDark);
         }
       }, AUTO_CHECK_INTERVAL);
-      return (
-) => clearInterval(interval);
+      return () => clearInterval(interval);
     }
   }, [darkMode, actualDarkMode]);
 
@@ -1414,9 +1400,6 @@ function AppRoutes() {
 }
 
 function App() {
-  
-  const { hasUpdate, activateUpdate } = useServiceWorkerUpdates({ checkOnLoad: true });
-  const version = useAppVersion();
   const { user, loading } = useAuth();
 
   const {
@@ -1476,15 +1459,7 @@ function App() {
         pauseOnHover
       />
     </Router>
-  
+  );
+}
 
-      <button
-        onClick={hasUpdate ? activateUpdate : undefined}
-        className={`fixed bottom-3 right-3 z-50 px-3 py-1.5 rounded-md text-xs shadow ${hasUpdate ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-gray-700/80 text-gray-100 cursor-default"}`}
-        title={hasUpdate ? "Nouvelle version disponible — cliquer pour mettre à jour" : `Version ${version}`}
-        aria-label="Version de l'application"
-      >
-        {hasUpdate ? "Mettre à jour" : `v ${version}`}
-      </button>
-);
 export default App;

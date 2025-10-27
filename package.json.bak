@@ -21,8 +21,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build && workbox injectManifest workbox-config.js",
-    "serve": "npx serve -s build",
-    "prebuild": "node scripts/write-version.js"
+    "serve": "npx serve -s build"
   },
   "browserslist": {
     "production": [
