@@ -74,7 +74,7 @@ const SkeletonRing = () => (
 // ====================================================
 const AdminMotivationWidgets = ({
   stats,
-  paymentSummary,
+  //paymentSummary,
   attendance7d,
   latestMembers,
 }) => {
