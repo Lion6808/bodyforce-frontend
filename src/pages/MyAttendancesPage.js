@@ -167,7 +167,16 @@ const calculateMotivationData = (presences, userMemberData) => {
   let maxStreak = 0;
 
   if (uniqueDaysDesc.length > 0) {
-
+    // Calcul de currentStreak (série en cours)
+    currentStreak = 1;
+    for (let i = 0; i < uniqueDaysDesc.length - 1; i++) {
+      const diff = Math.round((uniqueDaysDesc[i] - uniqueDaysDesc[i + 1]) / (1000 * 60 * 60 * 24));
+      if (diff === 1) {
+        currentStreak++;
+      } else {
+        break; // On arrête dès qu'il y a un trou
+      }
+    }
     // Meilleure série (maxStreak) calculée aussi sur jours uniques
     let tmp = 1;
     for (let i = 0; i < uniqueDaysDesc.length - 1; i++) {
