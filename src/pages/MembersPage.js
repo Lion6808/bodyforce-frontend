@@ -366,12 +366,16 @@ function MembersPage() {
       result = result.filter((m) => m.etudiant && !isMemberExpired(m));
     } else if (activeFilter === "Expiré") {
       result = result.filter((m) => isMemberExpired(m));
-    } else if (activeFilter === "Récent") {
-      // ✅ 20 derniers inscrits par ID décroissant, SANS les expirés
-      result = [...members]
-        .filter((m) => !isMemberExpired(m))
-        .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
-        .slice(0, 20);
+} else if (activeFilter === "Récent") {
+  // 20 derniers inscrits/réinscrits par last_subscription_date, SANS les expirés
+  result = [...members]
+    .filter((m) => !isMemberExpired(m))
+    .sort((a, b) => {
+      const dateA = a.last_subscription_date ? new Date(a.last_subscription_date) : new Date(0);
+      const dateB = b.last_subscription_date ? new Date(b.last_subscription_date) : new Date(0);
+      return dateB - dateA; // Plus récent en premier
+    })
+    .slice(0, 20);
     } else if (activeFilter === "SansCertif") {
       result = result.filter((m) => {
         if (isMemberExpired(m)) return false; // ✅ Exclure expirés
@@ -542,11 +546,11 @@ function MembersPage() {
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      // ✅ CORRECTION : Ne mettre à jour QUE les 3 champs nécessaires
       const updatedData = {
         subscriptionType: "Année civile",
         startDate: `${currentYear}-01-01`,
         endDate: `${currentYear}-12-31`,
+        last_subscription_date: new Date().toISOString(), // ✨ LIGNE AJOUTÉE
       };
 
       await supabaseServices.updateMember(member.id, updatedData);
