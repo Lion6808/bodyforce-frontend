@@ -167,19 +167,6 @@ const calculateMotivationData = (presences, userMemberData) => {
   let maxStreak = 0;
 
   if (uniqueDaysDesc.length > 0) {
-    const lastVisitDay = uniqueDaysDesc[0];
-    // 0 si visite aujourd’hui, 1 si hier, >1 si la série est rompue
-    const daysDiff = Math.round((today - lastVisitDay) / (1000 * 60 * 60 * 24));
-
-    if (daysDiff <= 1) {
-      // On compte les jours consécutifs sur les JOURS UNIQUES
-      currentStreak = 1;
-      for (let i = 0; i < uniqueDaysDesc.length - 1; i++) {
-        const diff = Math.round((uniqueDaysDesc[i] - uniqueDaysDesc[i + 1]) / (1000 * 60 * 60 * 24));
-        if (diff === 1) currentStreak++;
-        else break;
-      }
-    }
 
     // Meilleure série (maxStreak) calculée aussi sur jours uniques
     let tmp = 1;
