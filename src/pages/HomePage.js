@@ -29,6 +29,7 @@ import {
 import { supabaseServices, supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
+import MemberForm from "../components/MemberForm";
 
 // ====================================================
 // SKELETONS / LOADERS
@@ -104,8 +105,8 @@ const AdminMotivationWidgets = ({
     const paymentRate =
       paymentSummary?.totalAmount > 0
         ? Math.round(
-            (paymentSummary.paidAmount / paymentSummary.totalAmount) * 100
-          )
+          (paymentSummary.paidAmount / paymentSummary.totalAmount) * 100
+        )
         : 0;
 
     return {
@@ -135,9 +136,8 @@ const AdminMotivationWidgets = ({
       return {
         emoji: "🎯",
         title: "Objectif presque atteint !",
-        desc: `Plus que ${
-          metrics.memberGoal - metrics.currentMembers
-        } membres pour atteindre 250`,
+        desc: `Plus que ${metrics.memberGoal - metrics.currentMembers
+          } membres pour atteindre 250`,
       };
     }
     if (metrics.newMembersThisMonth >= 5) {
@@ -229,9 +229,9 @@ const AdminMotivationWidgets = ({
                 <div className="text-lg font-bold">
                   {attendance7d?.length
                     ? Math.round(
-                        attendance7d.reduce((s, d) => s + (d.count || 0), 0) /
-                          attendance7d.length
-                      )
+                      attendance7d.reduce((s, d) => s + (d.count || 0), 0) /
+                      attendance7d.length
+                    )
                     : 0}
                 </div>
               </div>
@@ -240,10 +240,10 @@ const AdminMotivationWidgets = ({
                 <div className="text-lg font-bold">
                   {paymentSummary?.totalAmount > 0
                     ? Math.round(
-                        (paymentSummary.paidAmount /
-                          paymentSummary.totalAmount) *
-                          100
-                      )
+                      (paymentSummary.paidAmount /
+                        paymentSummary.totalAmount) *
+                      100
+                    )
                     : 0}
                   %
                 </div>
@@ -314,6 +314,33 @@ function HomePage() {
   const [photosCache, setPhotosCache] = useState({});
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const photosLoadingRef = useRef(false);
+
+  // États pour la modal de détail du membre
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const handleEditMember = async (member) => {
+    if (!member || !member.id) return;
+    try {
+      const fullMember = await supabaseServices.getMemberById(member.id);
+      setSelectedMember(fullMember || member);
+      setShowForm(true);
+    } catch (err) {
+      console.error("Erreur chargement membre:", err);
+      setSelectedMember(member);
+      setShowForm(true);
+    }
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setSelectedMember(null);
+  };
+
+  const handleSaveMember = async () => {
+    setShowForm(false);
+    setSelectedMember(null);
+  };
 
   // Stats personnelles admin
   const [adminPersonalStats, setAdminPersonalStats] = useState({
@@ -1006,20 +1033,18 @@ function HomePage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span
-                        className={`text-sm font-semibold ${
-                          isPaid
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-amber-600 dark:text-amber-400"
-                        }`}
+                        className={`text-sm font-semibold ${isPaid
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-amber-600 dark:text-amber-400"
+                          }`}
                       >
                         {amount.toFixed(2)} €
                       </span>
                       <span
-                        className={`px-2 py-0.5 text-xs rounded-full ${
-                          isPaid
-                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                            : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                        }`}
+                        className={`px-2 py-0.5 text-xs rounded-full ${isPaid
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                          }`}
                       >
                         {isPaid ? "Réglé" : "En attente"}
                       </span>
@@ -1190,8 +1215,8 @@ function HomePage() {
                       dayData.count > maxCount * 0.7
                         ? "from-emerald-500 to-teal-400"
                         : dayData.count > maxCount * 0.4
-                        ? "from-cyan-500 to-blue-400"
-                        : "from-indigo-500 to-purple-400";
+                          ? "from-cyan-500 to-blue-400"
+                          : "from-indigo-500 to-purple-400";
 
                     return (
                       <div
@@ -1207,11 +1232,10 @@ function HomePage() {
                           </div>
                         </div>
                         <div
-                          className={`text-xs font-medium ${
-                            isWeekend
-                              ? "text-blue-600 dark:text-blue-400"
-                              : "text-gray-600 dark:text-gray-400"
-                          }`}
+                          className={`text-xs font-medium ${isWeekend
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-gray-600 dark:text-gray-400"
+                            }`}
                         >
                           {dayName}
                         </div>
@@ -1276,12 +1300,14 @@ function HomePage() {
                       className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <Avatar
-                          photo={photosCache[m?.id] || null}
-                          firstName={m?.firstName}
-                          name={m?.name}
-                          size={40}
-                        />
+                        <div onClick={() => m && handleEditMember(m)} className="cursor-pointer hover:opacity-75 hover:scale-105 transition-all" title={m ? "Voir les détails du membre" : "Membre inconnu"}>
+                          <Avatar
+                            photo={photosCache[m?.id] || null}
+                            firstName={m?.firstName}
+                            name={m?.name}
+                            size={40}
+                          />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {displayName}
@@ -1303,13 +1329,12 @@ function HomePage() {
                       {index < 3 && (
                         <div className="ml-2">
                           <div
-                            className={`w-2 h-2 rounded-full ${
-                              index === 0
-                                ? "bg-green-400 animate-pulse"
-                                : index === 1
+                            className={`w-2 h-2 rounded-full ${index === 0
+                              ? "bg-green-400 animate-pulse"
+                              : index === 1
                                 ? "bg-yellow-400"
                                 : "bg-gray-400"
-                            }`}
+                              }`}
                           />
                         </div>
                       )}
@@ -1354,12 +1379,18 @@ function HomePage() {
                     className="py-3 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <Avatar
-                        photo={photosCache[m.id] || null}
-                        firstName={m.firstName}
-                        name={m.name}
-                        size={40}
-                      />
+                      <div
+                        onClick={() => handleEditMember(m)}
+                        className="cursor-pointer hover:opacity-75 hover:scale-105 transition-all"
+                        title="Voir les détails du membre"
+                      >
+                        <Avatar
+                          photo={photosCache[m.id] || null}
+                          firstName={m.firstName}
+                          name={m.name}
+                          size={40}
+                        />
+                      </div>
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                           {displayName}
@@ -1421,6 +1452,14 @@ function HomePage() {
             </p>
           )}
         </div>
+      )}
+      {/* ✅ AJOUTER ICI */}
+      {showForm && selectedMember && (
+        <MemberForm
+          member={selectedMember}
+          onSave={handleSaveMember}
+          onCancel={handleCloseForm}
+        />
       )}
     </div>
   );
