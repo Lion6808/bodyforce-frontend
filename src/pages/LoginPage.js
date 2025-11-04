@@ -53,11 +53,6 @@ function LoginPage() {
               }}
             />
           </div>
-        </div>
-        <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
-          CLUB BODY FORCE
-        </h1>
-        <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Connexion</h2>
       </div>
 
       {/* Affichage des erreurs de connexion */}
