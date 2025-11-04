@@ -35,14 +35,16 @@ function LoginPage() {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-md border border-gray-200 dark:border-gray-700">
         {/* Logo et titres */}
         <div className="text-center mb-6">
-          <img
-            src="/images/logo.png"
-            alt="Logo BodyForce"
-            className="h-24 w-auto mx-auto mb-4"
-            onError={(e) => {
-              e.target.style.display = "none";
-            }}
-          />
+          <div className="sidebar-logo-3d">
+            <img
+              src="/images/logo.png"
+              alt="Logo BodyForce"
+              className="sidebar-logo-pulse h-24 w-auto mx-auto mb-4"
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
+          </div>
           <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">
             CLUB BODY FORCE
           </h1>
