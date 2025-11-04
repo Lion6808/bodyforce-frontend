@@ -1418,7 +1418,10 @@ function HomePage() {
                         />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        <div
+                          className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          onClick={() => handleEditMember(m)}
+                        >
                           {displayName}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
