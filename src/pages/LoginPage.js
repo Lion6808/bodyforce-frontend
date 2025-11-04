@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 // Import du client Supabase pour l'authentification
 import { supabase } from '../supabaseClient';
-import './App.css';
+import '../App.css';
+import '../App.js';
 
 function LoginPage() {
   // États pour gérer l'email, le mot de passe, l'utilisateur connecté et les erreurs
