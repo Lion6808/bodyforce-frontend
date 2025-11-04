@@ -71,9 +71,6 @@ const SkeletonRing = () => (
   </div>
 );
 
-const navigate = useNavigate();
-const [isMobile, setIsMobile] = useState(false);
-
 // ====================================================
 // Widgets de Motivation Admin
 // ====================================================
@@ -279,6 +276,9 @@ const AdminMotivationWidgets = ({
 function HomePage() {
   const { user, role, userMemberData: memberCtx } = useAuth();
   const isAdmin = (role || "").toLowerCase() === "admin";
+
+  const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(false);
 
   // Loading flags
   const [loading, setLoading] = useState({
