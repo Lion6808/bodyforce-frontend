@@ -373,7 +373,14 @@ function MembersPage() {
         .sort((a, b) => {
           const dateA = a.last_subscription_date ? new Date(a.last_subscription_date) : new Date(0);
           const dateB = b.last_subscription_date ? new Date(b.last_subscription_date) : new Date(0);
-          return dateB - dateA; // Plus récent en premier
+
+          // 1er critère : date (plus récent en premier)
+          if (dateB.getTime() !== dateA.getTime()) {
+            return dateB - dateA;
+          }
+
+          // 2ème critère : ID décroissant (si dates égales)
+          return (b.id || 0) - (a.id || 0);
         })
         .slice(0, 20);
     } else if (activeFilter === "SansCertif") {
