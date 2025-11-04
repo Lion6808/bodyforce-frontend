@@ -1306,6 +1306,8 @@ function HomePage() {
                             firstName={m?.firstName}
                             name={m?.name}
                             size={40}
+                            onClick={m ? () => handleEditMember(m) : undefined}
+                            title={m ? "Voir les détails du membre" : "Membre inconnu"}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1389,6 +1391,8 @@ function HomePage() {
                           firstName={m.firstName}
                           name={m.name}
                           size={40}
+                          onClick={() => handleEditMember(m)}
+                          title="Voir les détails du membre"
                         />
                       </div>
                       <div className="min-w-0">
