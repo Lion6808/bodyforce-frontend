@@ -30,6 +30,7 @@ import { supabaseServices, supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
 import MemberForm from "../components/MemberForm";
+import { useNavigate } from "react-router-dom";
 
 // ====================================================
 // SKELETONS / LOADERS
@@ -69,6 +70,9 @@ const SkeletonRing = () => (
     <div className="w-40 h-40 rounded-full border-8 border-gray-200 dark:border-gray-700 animate-pulse" />
   </div>
 );
+
+const navigate = useNavigate();
+const [isMobile, setIsMobile] = useState(false);
 
 // ====================================================
 // Widgets de Motivation Admin
@@ -321,14 +325,23 @@ function HomePage() {
 
   const handleEditMember = async (member) => {
     if (!member || !member.id) return;
-    try {
-      const fullMember = await supabaseServices.getMemberById(member.id);
-      setSelectedMember(fullMember || member);
-      setShowForm(true);
-    } catch (err) {
-      console.error("Erreur chargement membre:", err);
-      setSelectedMember(member);
-      setShowForm(true);
+
+    if (isMobile) {
+      // Mobile : modal
+      try {
+        const fullMember = await supabaseServices.getMemberById(member.id);
+        setSelectedMember(fullMember || member);
+        setShowForm(true);
+      } catch (err) {
+        console.error("Erreur chargement membre:", err);
+        setSelectedMember(member);
+        setShowForm(true);
+      }
+    } else {
+      // Desktop : navigate
+      navigate("/members/edit", {
+        state: { member, returnPath: "/", memberId: member.id },
+      });
     }
   };
 
@@ -729,6 +742,15 @@ function HomePage() {
 
     fetchAdminPersonalStats();
   }, [isAdmin, memberCtx?.badgeId]);
+
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
 
   const getInitials = (firstName, name) => {
     const a = (firstName || "").trim().charAt(0);
