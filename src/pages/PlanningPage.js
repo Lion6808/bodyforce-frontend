@@ -9,6 +9,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
 import { supabase } from "../supabaseClient";
+import { useNavigate } from "react-router-dom";
 
 import {
   Calendar,
@@ -148,7 +149,7 @@ function PlanningPage() {
   // 🔥 CORRECTION : États séparés pour la saisie immédiate et le filtre debounced
   const [filterBadgeInput, setFilterBadgeInput] = useState("");
   const [filterNameInput, setFilterNameInput] = useState("");
-  
+
   // États debounced (déclenchent les requêtes après 500ms d'inactivité)
   const [filterBadge, setFilterBadge] = useState("");
   const [filterName, setFilterName] = useState("");
@@ -157,6 +158,28 @@ function PlanningPage() {
   const [viewMode, setViewMode] = useState("list");
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  const navigate = useNavigate();
+
+  const handleEditMember = (member) => {
+    if (!member || !member.id) return;
+
+    if (isMobile) {
+      // Mobile : tu peux implémenter une modal si besoin
+      // Pour l'instant, on navigate aussi
+      navigate("/members/edit", {
+        state: { member, returnPath: "/planning", memberId: member.id },
+      });
+    } else {
+      // Desktop : navigate
+      navigate("/members/edit", {
+        state: { member, returnPath: "/planning", memberId: member.id },
+      });
+    }
+  };
+
+
+
 
   // Pagination
   const PAGE_SIZE = 10;
@@ -837,10 +860,15 @@ function PlanningPage() {
                   firstName={member.firstName}
                   name={member.name}
                   size={40}
+                  onClick={() => handleEditMember(member)}
+                  title="Cliquer pour voir le détail"
                 />
 
                 <div className="min-w-0">
-                  <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  <div
+                    className="font-semibold text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    onClick={() => handleEditMember(member)}
+                  >
                     {member.name} {member.firstName}
                   </div>
                   <div className="flex items-center gap-2 text-xs mt-0.5">
@@ -979,7 +1007,7 @@ function PlanningPage() {
                     size={32}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
+                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                       {member.name}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
