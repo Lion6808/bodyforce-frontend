@@ -366,16 +366,16 @@ function MembersPage() {
       result = result.filter((m) => m.etudiant && !isMemberExpired(m));
     } else if (activeFilter === "Expiré") {
       result = result.filter((m) => isMemberExpired(m));
-} else if (activeFilter === "Récent") {
-  // 20 derniers inscrits/réinscrits par last_subscription_date, SANS les expirés
-  result = [...members]
-    .filter((m) => !isMemberExpired(m))
-    .sort((a, b) => {
-      const dateA = a.last_subscription_date ? new Date(a.last_subscription_date) : new Date(0);
-      const dateB = b.last_subscription_date ? new Date(b.last_subscription_date) : new Date(0);
-      return dateB - dateA; // Plus récent en premier
-    })
-    .slice(0, 20);
+    } else if (activeFilter === "Récent") {
+      // 20 derniers inscrits/réinscrits par last_subscription_date, SANS les expirés
+      result = [...members]
+        .filter((m) => !isMemberExpired(m))
+        .sort((a, b) => {
+          const dateA = a.last_subscription_date ? new Date(a.last_subscription_date) : new Date(0);
+          const dateB = b.last_subscription_date ? new Date(b.last_subscription_date) : new Date(0);
+          return dateB - dateA; // Plus récent en premier
+        })
+        .slice(0, 20);
     } else if (activeFilter === "SansCertif") {
       result = result.filter((m) => {
         if (isMemberExpired(m)) return false; // ✅ Exclure expirés
@@ -853,6 +853,8 @@ function MembersPage() {
                             firstName={member.firstName}
                             name={member.name}
                             size={48}
+                            onClick={() => handleEditMember(member)}
+                            title="Cliquer pour modifier"
                           />
                         </td>
 
@@ -1053,6 +1055,8 @@ function MembersPage() {
                         firstName={member.firstName}
                         name={member.name}
                         size={48}
+                        onClick={() => handleEditMember(member)}
+                        title="Cliquer pour modifier"
                       />
 
                       <div className="flex-1">
