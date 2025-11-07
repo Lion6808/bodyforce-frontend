@@ -374,12 +374,12 @@ export const supabaseServices = {
   },
 
   /* ---------------- Stats ---------------- */
-  
+
   // ✅ VERSION LIGHT : Pour HomePage (stats agrégées seulement via RPC)
   async getStatisticsLight() {
     try {
       const { data, error } = await supabase.rpc('get_statistics');
-      
+
       if (error) {
         console.error("Erreur getStatisticsLight RPC:", error);
         throw error;
@@ -388,6 +388,23 @@ export const supabaseServices = {
       return data;
     } catch (error) {
       console.error("Erreur getStatisticsLight:", error);
+      throw error;
+    }
+  },
+
+  // ✅ VERSION DÉTAILLÉE : Pour StatisticsPage (avec graphiques optimisés via RPC)
+  async getDetailedStatistics() {
+    try {
+      const { data, error } = await supabase.rpc('get_detailed_statistics');
+
+      if (error) {
+        console.error("Erreur getDetailedStatistics RPC:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Erreur getDetailedStatistics:", error);
       throw error;
     }
   },
