@@ -374,17 +374,102 @@ export const supabaseServices = {
   },
 
   /* ---------------- Stats ---------------- */
-  // ✅ MODIFIÉ : Utilise maintenant la fonction RPC
-  async getStatistics() {
+  
+  // ✅ VERSION LIGHT : Pour HomePage (stats agrégées seulement via RPC)
+  async getStatisticsLight() {
     try {
       const { data, error } = await supabase.rpc('get_statistics');
       
       if (error) {
-        console.error("Erreur getStatistics RPC:", error);
+        console.error("Erreur getStatisticsLight RPC:", error);
         throw error;
       }
 
       return data;
+    } catch (error) {
+      console.error("Erreur getStatisticsLight:", error);
+      throw error;
+    }
+  },
+
+  // ✅ VERSION COMPLETE : Pour StatisticsPage (toutes les données)
+  async getStatistics() {
+    try {
+      // Pagination Supabase (par 1000)
+      const pageSize = 1000;
+      const fetchAll = async (table) => {
+        let allData = [];
+        let from = 0;
+        let to = pageSize - 1;
+        while (true) {
+          const { data, error } = await supabase
+            .from(table)
+            .select("*")
+            .range(from, to);
+          if (error) throw error;
+          allData = [...allData, ...data];
+          if (data.length < pageSize) break;
+          from += pageSize;
+          to += pageSize;
+        }
+        return allData;
+      };
+
+      const [members, presences, payments] = await Promise.all([
+        fetchAll("members"),
+        fetchAll("presences"),
+        fetchAll("payments"),
+      ]);
+
+      const today = new Date();
+      const stats = {
+        total: members.length,
+        actifs: 0,
+        expirés: 0,
+        hommes: 0,
+        femmes: 0,
+        etudiants: 0,
+        membresExpirés: [],
+      };
+
+      members.forEach((member) => {
+        if (member.endDate) {
+          try {
+            const endDate = new Date(member.endDate);
+            if (endDate > today) stats.actifs++;
+            else {
+              stats.expirés++;
+              stats.membresExpirés.push({
+                id: member.id,
+                name: member.name,
+                firstName: member.firstName,
+                endDate: member.endDate,
+              });
+            }
+          } catch {
+            stats.expirés++;
+          }
+        } else {
+          stats.expirés++;
+        }
+
+        if (member.gender === "Homme") stats.hommes++;
+        else if (member.gender === "Femme") stats.femmes++;
+        if (member.etudiant) stats.etudiants++;
+      });
+
+      return {
+        stats,
+        members,
+        presences,
+        payments,
+        totalPresences: presences.length,
+        totalPayments: payments.reduce(
+          (sum, p) => sum + parseFloat(p.amount || 0),
+          0
+        ),
+        unpaidPayments: payments.filter((p) => !p.is_paid).length,
+      };
     } catch (error) {
       console.error("Erreur getStatistics:", error);
       throw error;

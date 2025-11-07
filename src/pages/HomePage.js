@@ -505,8 +505,7 @@ function HomePage() {
       try {
         if (user) {
           try {
-            const { stats: calculatedStats } =
-              await supabaseServices.getStatistics();
+            const { stats: calculatedStats } = await supabaseServices.getStatisticsLight();
             setStats(
               calculatedStats || {
                 total: 0,
