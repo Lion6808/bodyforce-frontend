@@ -72,7 +72,6 @@ export const uploadPhoto = (path, file, opts) =>
 export const supabaseServices = {
   /* ---------------- Members ---------------- */
 
-  // ✅ NOUVEAU CODE ICI - LIGNES 72 à 109
   async getMembersWithoutPhotos() {
     const { data, error } = await supabase
       .from("members")
@@ -116,7 +115,6 @@ export const supabaseServices = {
 
     return photosMap;
   },
-  // FIN DU NOUVEAU CODE
 
   async getMembers() {
     const { data, error } = await supabase
@@ -236,18 +234,19 @@ export const supabaseServices = {
     return data || [];
   },
 
+  // ✅ MODIFIÉ : Utilise maintenant la fonction RPC
   async getPresencesWithMembers(startDate = null, endDate = null) {
-    const presences = await this.getPresences(startDate, endDate);
-    const members = await this.getMembers();
-    const membersMap = {};
-    members.forEach((m) => {
-      if (m.badgeId) membersMap[m.badgeId] = m;
+    const { data, error } = await supabase.rpc('get_presences_with_members', {
+      p_start_date: startDate ? startDate.toISOString() : null,
+      p_end_date: endDate ? endDate.toISOString() : null
     });
 
-    return presences.map((presence) => ({
-      ...presence,
-      member: membersMap[presence.badgeId] || null,
-    }));
+    if (error) {
+      console.error("Erreur getPresencesWithMembers:", error);
+      throw error;
+    }
+
+    return data || [];
   },
 
   async createPresence(badgeId, timestamp = new Date()) {
@@ -352,7 +351,7 @@ export const supabaseServices = {
   },
 
   /* ---------------- Files (documents/certificats) ---------------- */
-  // ✅ Upload fichiers (utilise cache long + renvoie l’URL via le cache)
+  // ✅ Upload fichiers (utilise cache long + renvoie l'URL via le cache)
   async uploadFile(bucket, path, file) {
     const uploaded = await uploadWithCacheControl(bucket, path, file);
     const publicUrl = getPublicUrlCached(bucket, uploaded.path);
@@ -375,85 +374,40 @@ export const supabaseServices = {
   },
 
   /* ---------------- Stats ---------------- */
+  // ✅ MODIFIÉ : Utilise maintenant la fonction RPC
   async getStatistics() {
     try {
-      // Pagination Supabase (par 1000)
-      const pageSize = 1000;
-      const fetchAll = async (table) => {
-        let allData = [];
-        let from = 0;
-        let to = pageSize - 1;
-        while (true) {
-          const { data, error } = await supabase
-            .from(table)
-            .select("*")
-            .range(from, to);
-          if (error) throw error;
-          allData = [...allData, ...data];
-          if (data.length < pageSize) break;
-          from += pageSize;
-          to += pageSize;
-        }
-        return allData;
-      };
+      const { data, error } = await supabase.rpc('get_statistics');
+      
+      if (error) {
+        console.error("Erreur getStatistics RPC:", error);
+        throw error;
+      }
 
-      const [members, presences, payments] = await Promise.all([
-        fetchAll("members"),
-        fetchAll("presences"),
-        fetchAll("payments"),
-      ]);
-
-      const today = new Date();
-      const stats = {
-        total: members.length,
-        actifs: 0,
-        expirés: 0,
-        hommes: 0,
-        femmes: 0,
-        etudiants: 0,
-        membresExpirés: [],
-      };
-
-      members.forEach((member) => {
-        if (member.endDate) {
-          try {
-            const endDate = new Date(member.endDate);
-            if (endDate > today) stats.actifs++;
-            else {
-              stats.expirés++;
-              stats.membresExpirés.push({
-                id: member.id,
-                name: member.name,
-                firstName: member.firstName,
-                endDate: member.endDate,
-              });
-            }
-          } catch {
-            stats.expirés++;
-          }
-        } else {
-          stats.expirés++;
-        }
-
-        if (member.gender === "Homme") stats.hommes++;
-        else if (member.gender === "Femme") stats.femmes++;
-        if (member.etudiant) stats.etudiants++;
-      });
-
-      return {
-        stats,
-        members,
-        presences,
-        payments,
-        totalPresences: presences.length,
-        totalPayments: payments.reduce(
-          (sum, p) => sum + parseFloat(p.amount || 0),
-          0
-        ),
-        unpaidPayments: payments.filter((p) => !p.is_paid).length,
-      };
+      return data;
     } catch (error) {
       console.error("Erreur getStatistics:", error);
+      throw error;
+    }
+  },
+
+  // ✅ NOUVEAU : Statistiques de présences pour un membre
+  async getMemberPresenceStats(memberId, startDate = null, endDate = null) {
+    try {
+      const { data, error } = await supabase.rpc('get_member_presence_stats', {
+        p_member_id: memberId,
+        p_start_date: startDate ? startDate.toISOString() : null,
+        p_end_date: endDate ? endDate.toISOString() : null
+      });
+
+      if (error) {
+        console.error("Erreur getMemberPresenceStats:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Erreur getMemberPresenceStats:", error);
       throw error;
     }
   },
