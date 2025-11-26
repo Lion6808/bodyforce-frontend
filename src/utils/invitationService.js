@@ -32,7 +32,7 @@ export const inviteMember = async (memberId, email = null) => {
     const invitationToken = 'inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
     // 5. Mettre à jour le membre avec les données d'invitation
-    const { error: updateError } = await supabase
+    const { data: updatedMember, error: updateError } = await supabase
       .from('members')
       .update({
         email: memberEmail,
@@ -40,7 +40,9 @@ export const inviteMember = async (memberId, email = null) => {
         invitation_token: invitationToken,
         invited_at: new Date().toISOString()
       })
-      .eq('id', memberId);
+      .eq('id', memberId)
+      .select()
+      .single();
 
     if (updateError) throw updateError;
 
@@ -57,15 +59,6 @@ export const inviteMember = async (memberId, email = null) => {
     });
 
     if (emailError) throw emailError;
-
-    // Créer l'objet updatedMember avec les nouvelles valeurs
-    const updatedMember = {
-      ...member,
-      email: memberEmail,
-      invitation_status: 'pending',
-      invitation_token: invitationToken,
-      invited_at: new Date().toISOString()
-    };
 
     return {
       success: true,
@@ -120,12 +113,10 @@ export const resendInvitation = async (memberId) => {
     if (emailError) throw emailError;
 
     // Mettre à jour la date d'envoi
-    const { error: updateError } = await supabase
+    await supabase
       .from('members')
       .update({ invited_at: new Date().toISOString() })
       .eq('id', memberId);
-
-    if (updateError) throw updateError;
 
     return {
       success: true,
