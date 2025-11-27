@@ -9,7 +9,7 @@ const supabase = createClient(
 export const inviteMember = async (memberId, email = null) => {
   try {
     console.log('🚀 Début invitation pour membre:', memberId);
-    
+
     // 1. Récupérer les données du membre
     const { data: member, error: fetchError } = await supabase
       .from('members')
@@ -39,21 +39,22 @@ export const inviteMember = async (memberId, email = null) => {
     console.log('🎫 Token généré:', invitationToken);
 
     // 5. Mettre à jour le membre avec les données d'invitation
-    console.log('💾 Tentative UPDATE...');
-    const { error: updateError } = await supabase
-      .from('members')
-      .update({
-        email: memberEmail,
-        invitation_status: 'pending',
-        invitation_token: invitationToken,
-        invited_at: new Date().toISOString()
-      })
-      .eq('id', memberId);
+    // 5. Mettre à jour le membre avec les données d'invitation
+    console.log('💾 Tentative UPDATE via RPC...');
 
-    console.log('✅ UPDATE terminé, erreur?', updateError);
-    
+    const { data: updateResult, error: updateError } = await supabase
+      .rpc('update_member_invitation', {
+        p_member_id: memberId,
+        p_email: memberEmail,
+        p_invitation_token: invitationToken,
+        p_invited_at: new Date().toISOString()
+      });
+
+    console.log('✅ UPDATE RPC terminé, résultat:', updateResult);
+    console.log('✅ UPDATE RPC erreur?', updateError);
+
     if (updateError) {
-      console.error('❌ Erreur UPDATE:', updateError);
+      console.error('❌ Erreur UPDATE RPC:', updateError);
       throw updateError;
     }
 
@@ -71,7 +72,7 @@ export const inviteMember = async (memberId, email = null) => {
     });
 
     console.log('📬 Email envoyé, erreur?', emailError);
-    
+
     if (emailError) throw emailError;
 
     // Créer l'objet updatedMember avec les nouvelles valeurs
