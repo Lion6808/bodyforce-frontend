@@ -8,8 +8,9 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
-import { supabase } from "../supabaseClient";
+import { supabase, supabaseServices } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import MemberForm from "../components/MemberForm";
 
 import {
   Calendar,
@@ -161,21 +162,38 @@ function PlanningPage() {
 
   const navigate = useNavigate();
 
-  const handleEditMember = (member) => {
+  const handleEditMember = async (member) => {
     if (!member || !member.id) return;
 
     if (isMobile) {
-      // Mobile : tu peux implémenter une modal si besoin
-      // Pour l'instant, on navigate aussi
-      navigate("/members/edit", {
-        state: { member, returnPath: "/planning", memberId: member.id },
-      });
+      // Mobile : modal
+      try {
+        const fullMember = await supabaseServices.getMemberById(member.id);
+        setSelectedMember(fullMember || member);
+        setShowForm(true);
+      } catch (err) {
+        console.error("Erreur chargement membre:", err);
+        setSelectedMember(member);
+        setShowForm(true);
+      }
     } else {
       // Desktop : navigate
       navigate("/members/edit", {
         state: { member, returnPath: "/planning", memberId: member.id },
       });
     }
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setSelectedMember(null);
+  };
+
+  const handleSaveMember = async () => {
+    setShowForm(false);
+    setSelectedMember(null);
+    // Recharger les données pour afficher les modifications
+    await loadData();
   };
 
 
@@ -186,6 +204,10 @@ function PlanningPage() {
   const [page, setPage] = useState(1); // 1-based
   const [totalMembers, setTotalMembers] = useState(0);
 
+
+  // États pour la modal de détail du membre
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
   // Vue mensuelle (tooltip corrigé)
   const [expandedDays, setExpandedDays] = useState(new Set());
   const [hoveredMember, setHoveredMember] = useState(null);
@@ -1866,6 +1888,15 @@ function PlanningPage() {
             {viewMode === "compact" && !isMobile && <CompactView />}
             {viewMode === "monthly" && !isMobile && <MonthlyView />}
           </>
+        )}
+
+        {/* Modal pour afficher/éditer le membre sur mobile */}
+        {showForm && selectedMember && (
+          <MemberForm
+            member={selectedMember}
+            onSave={handleSaveMember}
+            onCancel={handleCloseForm}
+          />
         )}
       </div>
     </div>
