@@ -154,6 +154,23 @@ function SearchHints({ search }) {
   );
 }
 
+// 🎯 CONFIGURATION DES DATES DE FIN D'ABONNEMENT
+const SUBSCRIPTION_END_DATES = {
+  2025: "2026-01-01", // ← Modifiez cette date selon vos besoins
+  2026: "2027-01-10", 
+  2027: "2028-01-15",
+};
+
+const getSubscriptionEndDate = (year) => {
+  if (SUBSCRIPTION_END_DATES[year]) {
+    return SUBSCRIPTION_END_DATES[year];
+  }
+  console.warn(`⚠️ Pas de date configurée pour ${year}`);
+  return `${year}-12-31`; // Fallback
+};
+
+
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Composant principal
 // ───────────────────────────────────────────────────────────────────────────────
@@ -556,7 +573,8 @@ function MembersPage() {
       const updatedData = {
         subscriptionType: "Année civile",
         startDate: `${currentYear}-01-01`,
-        endDate: `${currentYear}-12-31`,
+        //endDate: `${currentYear}-12-31`,
+        endDate: getSubscriptionEndDate(currentYear),
         last_subscription_date: new Date().toISOString(), // ✨ LIGNE AJOUTÉE
       };
 
