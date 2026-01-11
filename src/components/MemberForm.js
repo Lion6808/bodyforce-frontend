@@ -2,7 +2,7 @@
 // Nom : MemberForm.js
 // Type : JavaScript (React)
 // Dossier : src/components
-// Date modification : 2025-09-23
+// Date modification : 2026
 // Résumé modifications :
 // - Ajout helpers dataURLToBlob + resizeImage (redimensionnement 512x512, JPEG qualité ~0.8).
 // - Photo membre : upload dans le bucket "photo" avec cacheControl=31536000, URL publique stockée dans form.photo.
@@ -57,12 +57,21 @@ function dataURLToBlob(dataURL) {
   return new Blob([array], { type: mime });
 }
 
-async function resizeImage(fileOrBlob, { maxW = 512, maxH = 512, quality = 0.8 } = {}) {
+async function resizeImage(
+  fileOrBlob,
+  { maxW = 512, maxH = 512, quality = 0.8 } = {}
+) {
   const img = document.createElement("img");
   const reader = new FileReader();
   const loaded = new Promise((res) => (img.onload = res));
   reader.readAsDataURL(fileOrBlob);
-  await new Promise((res) => (reader.onload = () => { img.src = reader.result; res(); }));
+  await new Promise(
+    (res) =>
+      (reader.onload = () => {
+        img.src = reader.result;
+        res();
+      })
+  );
   await loaded;
 
   const canvas = document.createElement("canvas");
@@ -85,7 +94,7 @@ const subscriptionDurations = {
   Trimestriel: 3,
   Semestriel: 6,
   Annuel: 12,
-  "Année civile": 12,
+  // "Année civile" géré séparément dans le useEffect
 };
 
 function sanitizeFileName(name) {
@@ -145,7 +154,9 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           audio: false,
         };
 
-        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const newStream = await navigator.mediaDevices.getUserMedia(
+          constraints
+        );
         if (isMounted && videoRef.current) {
           videoRef.current.srcObject = newStream;
           await videoRef.current.play();
@@ -244,11 +255,19 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
             isDarkMode ? "border-gray-700" : "border-gray-200"
           } flex items-center justify-between`}
         >
-          <h3 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+          <h3
+            className={`text-lg font-semibold ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
             📸 Prendre une photo
           </h3>
           <div className="flex items-center gap-2">
-            <span className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
+            <span
+              className={`text-sm ${
+                isDarkMode ? "text-gray-300" : "text-gray-600"
+              }`}
+            >
               {getCurrentCameraLabel()}
             </span>
             <button
@@ -269,7 +288,11 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
               <p className="font-medium mb-2">❌ Erreur caméra</p>
               <p className="text-sm">{error}</p>
               <button
-                onClick={() => setFacingMode((fm) => (fm === "user" ? "environment" : "user"))}
+                onClick={() =>
+                  setFacingMode((fm) =>
+                    fm === "user" ? "environment" : "user"
+                  )
+                }
                 className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
               >
                 Essayer une autre caméra
@@ -297,12 +320,18 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                   className={`w-full h-full object-cover transition-opacity duration-300 ${
                     isLoading ? "opacity-0" : "opacity-100"
                   }`}
-                  style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
+                  style={{
+                    transform: facingMode === "user" ? "scaleX(-1)" : "none",
+                  }}
                 />
               )}
 
               {capturedPhoto && (
-                <img src={capturedPhoto} alt="Photo capturée" className="w-full h-full object-cover" />
+                <img
+                  src={capturedPhoto}
+                  alt="Photo capturée"
+                  className="w-full h-full object-cover"
+                />
               )}
 
               <canvas ref={canvasRef} className="hidden" />
@@ -322,7 +351,9 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                           : "border-gray-300 text-gray-600 hover:bg-gray-100"
                       } transition-colors flex items-center justify-center`}
                       title={`Basculer vers ${
-                        facingMode === "user" ? "caméra arrière" : "caméra avant"
+                        facingMode === "user"
+                          ? "caméra arrière"
+                          : "caméra avant"
                       }`}
                     >
                       <RefreshCcw className="w-6 h-6" />
@@ -523,8 +554,18 @@ function MemberForm({ member, onSave, onCancel }) {
     { id: "identity", label: "Identité", icon: FaUser },
     { id: "contact", label: "Contact", icon: FaHome },
     { id: "subscription", label: "Abonnement", icon: FaCreditCard },
-    { id: "documents", label: "Documents", icon: FaFileAlt, count: form.files.length },
-    { id: "payments", label: "Paiements", icon: FaEuroSign, count: payments.length },
+    {
+      id: "documents",
+      label: "Documents",
+      icon: FaFileAlt,
+      count: form.files.length,
+    },
+    {
+      id: "payments",
+      label: "Paiements",
+      icon: FaEuroSign,
+      count: payments.length,
+    },
   ];
 
   const currentTabIndex = tabs.findIndex((tab) => tab.id === activeTab);
@@ -536,7 +577,10 @@ function MemberForm({ member, onSave, onCancel }) {
     };
     checkDarkMode();
     const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   }, []);
 
@@ -574,7 +618,10 @@ function MemberForm({ member, onSave, onCancel }) {
     const absX = Math.abs(dx);
     const absY = Math.abs(dy);
 
-    if (containerRef.current.isSwipeHorizontal === null && (absX > 10 || absY > 10)) {
+    if (
+      containerRef.current.isSwipeHorizontal === null &&
+      (absX > 10 || absY > 10)
+    ) {
       containerRef.current.isSwipeHorizontal = absX > absY;
       containerRef.current.hasMoved = true;
     }
@@ -584,7 +631,8 @@ function MemberForm({ member, onSave, onCancel }) {
       e.stopPropagation();
       let clamped = dx;
       if (currentTabIndex === 0 && dx > 0) clamped = Math.min(dx * 0.3, 50);
-      else if (currentTabIndex === tabs.length - 1 && dx < 0) clamped = Math.max(dx * 0.3, -50);
+      else if (currentTabIndex === tabs.length - 1 && dx < 0)
+        clamped = Math.max(dx * 0.3, -50);
       else clamped = Math.max(-150, Math.min(150, dx));
       setTranslateX(clamped);
       isDraggingRef.current = true;
@@ -592,7 +640,10 @@ function MemberForm({ member, onSave, onCancel }) {
   };
 
   const handleTouchEnd = () => {
-    if (!containerRef.current.hasMoved || !containerRef.current.isSwipeHorizontal) {
+    if (
+      !containerRef.current.hasMoved ||
+      !containerRef.current.isSwipeHorizontal
+    ) {
       setTranslateX(0);
       isDraggingRef.current = false;
       return;
@@ -688,9 +739,15 @@ function MemberForm({ member, onSave, onCancel }) {
   };
 
   const togglePaymentStatus = async (paymentId, newStatus) => {
-    const { error } = await supabase.from("payments").update({ is_paid: newStatus }).eq("id", paymentId);
+    const { error } = await supabase
+      .from("payments")
+      .update({ is_paid: newStatus })
+      .eq("id", paymentId);
     if (error) {
-      console.error("Erreur mise à jour du statut de paiement :", error.message);
+      console.error(
+        "Erreur mise à jour du statut de paiement :",
+        error.message
+      );
       return;
     }
     fetchPayments(member.id);
@@ -698,13 +755,21 @@ function MemberForm({ member, onSave, onCancel }) {
 
   useEffect(() => {
     if (!form.startDate) return;
+
     if (form.subscriptionType === "Année civile") {
-      const year = new Date(form.startDate).getFullYear();
-      setForm((f) => ({
-        ...f,
-        startDate: `${year}-01-01`,
-        endDate: `${year}-12-31`,
-      }));
+      // Extraire l'année directement de la chaîne pour éviter les problèmes de timezone
+      const year = parseInt(form.startDate.split("-")[0], 10);
+      const newStart = `${year}-01-01`;
+      const newEnd = `${year}-12-31`;
+
+      // Évite la boucle infinie en ne mettant à jour que si nécessaire
+      if (form.startDate !== newStart || form.endDate !== newEnd) {
+        setForm((f) => ({
+          ...f,
+          startDate: newStart,
+          endDate: newEnd,
+        }));
+      }
     } else {
       const start = new Date(form.startDate);
       const months = subscriptionDurations[form.subscriptionType] || 1;
@@ -724,7 +789,9 @@ function MemberForm({ member, onSave, onCancel }) {
   };
 
   const age = form.birthdate
-    ? Math.floor((new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000))
+    ? Math.floor(
+        (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
+      )
     : null;
 
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
@@ -746,10 +813,19 @@ function MemberForm({ member, onSave, onCancel }) {
         const safeName = sanitizeFileName(file.name);
         const filePath = `certificats/${Date.now()}_${safeName}`;
 
-        const { error } = await supabase.storage.from("documents").upload(filePath, file, { upsert: true, cacheControl: "31536000", contentType: file.type || "application/octet-stream" });
-        if (error) throw new Error(`Erreur lors du téléversement : ${error.message}`);
+        const { error } = await supabase.storage
+          .from("documents")
+          .upload(filePath, file, {
+            upsert: true,
+            cacheControl: "31536000",
+            contentType: file.type || "application/octet-stream",
+          });
+        if (error)
+          throw new Error(`Erreur lors du téléversement : ${error.message}`);
 
-        const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+        const { data } = supabase.storage
+          .from("documents")
+          .getPublicUrl(filePath);
         newFiles.push({ name: safeName, url: data.publicUrl });
       }
 
@@ -761,7 +837,10 @@ function MemberForm({ member, onSave, onCancel }) {
         error: null,
         success: `${newFiles.length} fichier(s) ajouté(s) ! Cliquez "Enregistrer" pour sauvegarder.`,
       });
-      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
     } catch (err) {
       console.error("Erreur lors du téléversement :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
@@ -773,20 +852,41 @@ function MemberForm({ member, onSave, onCancel }) {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
       const blob = dataURLToBlob(imageData);
-      const resized = await resizeImage(blob, { maxW: 512, maxH: 512, quality: 0.8 });
-      const memberId = form?.id || 'unknown';
+      const resized = await resizeImage(blob, {
+        maxW: 512,
+        maxH: 512,
+        quality: 0.8,
+      });
+      const memberId = form?.id || "unknown";
       const fileName = sanitizeFileName(`member_${memberId}_${Date.now()}.jpg`);
       const path = `photos/${fileName}`;
-      const { error: upErr } = await supabase.storage.from("photo").upload(path, resized, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
+      const { error: upErr } = await supabase.storage
+        .from("photo")
+        .upload(path, resized, {
+          upsert: true,
+          cacheControl: "31536000",
+          contentType: "image/jpeg",
+        });
       if (upErr) throw upErr;
       const { data } = supabase.storage.from("photo").getPublicUrl(path);
       const publicUrl = data?.publicUrl;
       setForm((f) => ({ ...f, photo: publicUrl }));
-      setUploadStatus({ loading: false, error: null, success: "Photo capturée avec succès !" });
-      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+      setUploadStatus({
+        loading: false,
+        error: null,
+        success: "Photo capturée avec succès !",
+      });
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
     } catch (err) {
       console.error("Erreur capture/upload photo:", err);
-      setUploadStatus({ loading: false, error: "Erreur lors de l'upload de la photo", success: null });
+      setUploadStatus({
+        loading: false,
+        error: "Erreur lors de l'upload de la photo",
+        success: null,
+      });
     }
   };
 
@@ -799,10 +899,21 @@ function MemberForm({ member, onSave, onCancel }) {
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from("documents").upload(filePath, blob, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
-      if (uploadError) throw new Error(`Erreur lors du téléversement du document : ${uploadError.message}`);
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, blob, {
+          upsert: true,
+          cacheControl: "31536000",
+          contentType: "image/jpeg",
+        });
+      if (uploadError)
+        throw new Error(
+          `Erreur lors du téléversement du document : ${uploadError.message}`
+        );
 
-      const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+      const { data } = supabase.storage
+        .from("documents")
+        .getPublicUrl(filePath);
       const newFile = { name: fileName, url: data.publicUrl };
       const updatedFiles = [...form.files, newFile];
       setForm((f) => ({ ...f, files: updatedFiles }));
@@ -812,7 +923,10 @@ function MemberForm({ member, onSave, onCancel }) {
         error: null,
         success: 'Document capturé ! Cliquez "Enregistrer" pour sauvegarder.',
       });
-      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
     } catch (err) {
       console.error("Erreur lors de la capture du document :", err);
       setUploadStatus({
@@ -837,8 +951,11 @@ function MemberForm({ member, onSave, onCancel }) {
       const [bucket, ...pathParts] = afterPrefix.split("/");
       const path = pathParts.join("/");
 
-      const { error: storageError } = await supabase.storage.from(bucket).remove([path]);
-      if (storageError) throw new Error(`Erreur de suppression : ${storageError.message}`);
+      const { error: storageError } = await supabase.storage
+        .from(bucket)
+        .remove([path]);
+      if (storageError)
+        throw new Error(`Erreur de suppression : ${storageError.message}`);
 
       const newFiles = form.files.filter((f) => f.url !== fileToRemove.url);
       setForm((f) => ({ ...f, files: newFiles }));
@@ -848,7 +965,10 @@ function MemberForm({ member, onSave, onCancel }) {
         error: null,
         success: 'Fichier supprimé ! Cliquez "Enregistrer" pour sauvegarder.',
       });
-      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+      setTimeout(
+        () => setUploadStatus({ loading: false, error: null, success: null }),
+        3000
+      );
     } catch (err) {
       console.error("Erreur suppression fichier :", err);
       setUploadStatus({ loading: false, error: err.message, success: null });
@@ -861,13 +981,41 @@ function MemberForm({ member, onSave, onCancel }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField label="Nom" name="name" value={form.name} onChange={handleChange} icon={FaUser} placeholder="Nom de famille" />
-            <InputField label="Prénom" name="firstName" value={form.firstName} onChange={handleChange} icon={FaUser} placeholder="Prénom" />
+            <InputField
+              label="Nom"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              icon={FaUser}
+              placeholder="Nom de famille"
+            />
+            <InputField
+              label="Prénom"
+              name="firstName"
+              value={form.firstName}
+              onChange={handleChange}
+              icon={FaUser}
+              placeholder="Prénom"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField type="date" label="Date de naissance" name="birthdate" value={form.birthdate} onChange={handleChange} icon={FaCalendarAlt} />
-            <SelectField label="Sexe" name="gender" value={form.gender} onChange={handleChange} options={["Homme", "Femme"]} icon={FaUser} />
+            <InputField
+              type="date"
+              label="Date de naissance"
+              name="birthdate"
+              value={form.birthdate}
+              onChange={handleChange}
+              icon={FaCalendarAlt}
+            />
+            <SelectField
+              label="Sexe"
+              name="gender"
+              value={form.gender}
+              onChange={handleChange}
+              options={["Homme", "Femme"]}
+              icon={FaUser}
+            />
           </div>
 
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 p-6 rounded-xl border border-blue-200 dark:border-gray-600">
@@ -877,15 +1025,23 @@ function MemberForm({ member, onSave, onCancel }) {
                   <FaGraduationCap className="w-5 h-5 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-800 dark:text-white">Statut étudiant</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Bénéficiez de tarifs préférentiels</p>
+                  <h3 className="font-semibold text-gray-800 dark:text-white">
+                    Statut étudiant
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Bénéficiez de tarifs préférentiels
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setForm((f) => ({ ...f, etudiant: !f.etudiant }))}
+                onClick={() =>
+                  setForm((f) => ({ ...f, etudiant: !f.etudiant }))
+                }
                 className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  form.etudiant ? "bg-gradient-to-r from-blue-500 to-purple-600" : "bg-gray-300 dark:bg-gray-600"
+                  form.etudiant
+                    ? "bg-gradient-to-r from-blue-500 to-purple-600"
+                    : "bg-gray-300 dark:bg-gray-600"
                 }`}
               >
                 <span
@@ -901,7 +1057,9 @@ function MemberForm({ member, onSave, onCancel }) {
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
               <div className="flex items-center gap-3">
                 <FaCalendarAlt className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                <span className="text-gray-700 dark:text-gray-200 font-medium">Âge : {age} ans</span>
+                <span className="text-gray-700 dark:text-gray-200 font-medium">
+                  Âge : {age} ans
+                </span>
               </div>
             </div>
           )}
@@ -912,7 +1070,11 @@ function MemberForm({ member, onSave, onCancel }) {
           <div className="relative">
             {form.photo ? (
               <div className="relative">
-                <img src={form.photo} alt="Photo du membre" className="w-40 h-40 object-cover rounded-2xl border-4 border-white shadow-lg" />
+                <img
+                  src={form.photo}
+                  alt="Photo du membre"
+                  className="w-40 h-40 object-cover rounded-2xl border-4 border-white shadow-lg"
+                />
                 <button
                   type="button"
                   onClick={() => setForm((prev) => ({ ...prev, photo: null }))}
@@ -952,20 +1114,57 @@ function MemberForm({ member, onSave, onCancel }) {
                   if (file) {
                     (async () => {
                       try {
-                        setUploadStatus({ loading: true, error: null, success: null });
-                        const resized = await resizeImage(file, { maxW: 512, maxH: 512, quality: 0.8 });
-                        const memberId = form?.id || 'unknown';
-                        const safeName = sanitizeFileName(`member_${memberId}_${Date.now()}.jpg`);
+                        setUploadStatus({
+                          loading: true,
+                          error: null,
+                          success: null,
+                        });
+                        const resized = await resizeImage(file, {
+                          maxW: 512,
+                          maxH: 512,
+                          quality: 0.8,
+                        });
+                        const memberId = form?.id || "unknown";
+                        const safeName = sanitizeFileName(
+                          `member_${memberId}_${Date.now()}.jpg`
+                        );
                         const path = `photos/${safeName}`;
-                        const { error: upErr } = await supabase.storage.from("photo").upload(path, resized, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
+                        const { error: upErr } = await supabase.storage
+                          .from("photo")
+                          .upload(path, resized, {
+                            upsert: true,
+                            cacheControl: "31536000",
+                            contentType: "image/jpeg",
+                          });
                         if (upErr) throw upErr;
-                        const { data } = supabase.storage.from("photo").getPublicUrl(path);
-                        setForm((prev) => ({ ...prev, photo: data?.publicUrl }));
-                        setUploadStatus({ loading: false, error: null, success: "Photo importée !" });
-                        setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+                        const { data } = supabase.storage
+                          .from("photo")
+                          .getPublicUrl(path);
+                        setForm((prev) => ({
+                          ...prev,
+                          photo: data?.publicUrl,
+                        }));
+                        setUploadStatus({
+                          loading: false,
+                          error: null,
+                          success: "Photo importée !",
+                        });
+                        setTimeout(
+                          () =>
+                            setUploadStatus({
+                              loading: false,
+                              error: null,
+                              success: null,
+                            }),
+                          3000
+                        );
                       } catch (err) {
                         console.error("Erreur upload photo:", err);
-                        setUploadStatus({ loading: false, error: "Erreur lors de l'upload de la photo", success: null });
+                        setUploadStatus({
+                          loading: false,
+                          error: "Erreur lors de l'upload de la photo",
+                          success: null,
+                        });
                       }
                     })();
                   }
@@ -977,7 +1176,8 @@ function MemberForm({ member, onSave, onCancel }) {
 
           <div className="text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
-              📸 Utilisez le bouton caméra pour choisir entre caméra avant (selfie) et arrière
+              📸 Utilisez le bouton caméra pour choisir entre caméra avant
+              (selfie) et arrière
             </p>
           </div>
         </div>
@@ -988,10 +1188,39 @@ function MemberForm({ member, onSave, onCancel }) {
   const renderContactTab = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <InputField label="Adresse complète" name="address" value={form.address} onChange={handleChange} icon={FaHome} placeholder="Numéro, rue, ville, code postal" />
-        <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} icon={FaEnvelope} placeholder="exemple@email.com" />
-        <InputField label="Téléphone fixe" name="phone" value={form.phone} onChange={handleChange} icon={FaPhone} placeholder="01 23 45 67 89" />
-        <InputField label="Téléphone portable" name="mobile" value={form.mobile} onChange={handleChange} icon={FaPhone} placeholder="06 12 34 56 78" />
+        <InputField
+          label="Adresse complète"
+          name="address"
+          value={form.address}
+          onChange={handleChange}
+          icon={FaHome}
+          placeholder="Numéro, rue, ville, code postal"
+        />
+        <InputField
+          label="Email"
+          name="email"
+          type="email"
+          value={form.email}
+          onChange={handleChange}
+          icon={FaEnvelope}
+          placeholder="exemple@email.com"
+        />
+        <InputField
+          label="Téléphone fixe"
+          name="phone"
+          value={form.phone}
+          onChange={handleChange}
+          icon={FaPhone}
+          placeholder="01 23 45 67 89"
+        />
+        <InputField
+          label="Téléphone portable"
+          name="mobile"
+          value={form.mobile}
+          onChange={handleChange}
+          icon={FaPhone}
+          placeholder="06 12 34 56 78"
+        />
       </div>
     </div>
   );
@@ -1007,9 +1236,30 @@ function MemberForm({ member, onSave, onCancel }) {
           options={Object.keys(subscriptionDurations)}
           icon={FaCreditCard}
         />
-        <InputField label="ID Badge" name="badgeId" value={form.badgeId} onChange={handleChange} icon={FaIdCard} placeholder="Numéro du badge d'accès" />
-        <InputField type="date" label="Date de début" name="startDate" value={form.startDate} onChange={handleChange} icon={FaCalendarAlt} />
-        <InputField type="date" label="Date de fin" name="endDate" value={form.endDate} readOnly icon={FaCalendarAlt} />
+        <InputField
+          label="ID Badge"
+          name="badgeId"
+          value={form.badgeId}
+          onChange={handleChange}
+          icon={FaIdCard}
+          placeholder="Numéro du badge d'accès"
+        />
+        <InputField
+          type="date"
+          label="Date de début"
+          name="startDate"
+          value={form.startDate}
+          onChange={handleChange}
+          icon={FaCalendarAlt}
+        />
+        <InputField
+          type="date"
+          label="Date de fin"
+          name="endDate"
+          value={form.endDate}
+          readOnly
+          icon={FaCalendarAlt}
+        />
       </div>
 
       {isExpired && (
@@ -1017,7 +1267,8 @@ function MemberForm({ member, onSave, onCancel }) {
           <div className="flex items-center">
             <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
             <p className="text-red-800 dark:text-red-200 font-medium">
-              Abonnement expiré le {form.endDate ? new Date(form.endDate).toLocaleDateString() : "—"}
+              Abonnement expiré le{" "}
+              {form.endDate ? new Date(form.endDate).toLocaleDateString() : "—"}
             </p>
           </div>
         </div>
@@ -1035,7 +1286,14 @@ function MemberForm({ member, onSave, onCancel }) {
           <FaFileUpload className="w-4 h-4" />
           Importer des fichiers
         </label>
-        <input type="file" id="fileUpload" className="hidden" multiple onChange={handleFileUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+        <input
+          type="file"
+          id="fileUpload"
+          className="hidden"
+          multiple
+          onChange={handleFileUpload}
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+        />
 
         <button
           type="button"
@@ -1050,13 +1308,18 @@ function MemberForm({ member, onSave, onCancel }) {
       {form.files.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {form.files.map((file) => (
-            <div key={file.name} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow">
+            <div
+              key={file.name}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow"
+            >
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
                   <FaFileAlt className="w-6 h-6 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-gray-800 dark:text-white truncate">{file.name}</h4>
+                  <h4 className="font-medium text-gray-800 dark:text-white truncate">
+                    {file.name}
+                  </h4>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {file.url && (
                       <>
@@ -1095,8 +1358,12 @@ function MemberForm({ member, onSave, onCancel }) {
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
           <FaFileAlt className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-5 00 dark:text-gray-300 text-lg font-medium">Aucun document</p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm">Importez des certificats, documents d'identité, etc.</p>
+          <p className="text-gray-5 00 dark:text-gray-300 text-lg font-medium">
+            Aucun document
+          </p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
+            Importez des certificats, documents d'identité, etc.
+          </p>
         </div>
       )}
     </div>
@@ -1116,7 +1383,9 @@ function MemberForm({ member, onSave, onCancel }) {
             type="number"
             name="amount"
             value={newPayment.amount}
-            onChange={(e) => setNewPayment((p) => ({ ...p, amount: e.target.value }))}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, amount: e.target.value }))
+            }
             icon={FaEuroSign}
             placeholder="0.00"
             step="0.01"
@@ -1125,7 +1394,9 @@ function MemberForm({ member, onSave, onCancel }) {
             label="Méthode de paiement"
             name="method"
             value={newPayment.method}
-            onChange={(e) => setNewPayment((p) => ({ ...p, method: e.target.value }))}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, method: e.target.value }))
+            }
             options={["espèces", "chèque", "carte", "virement", "autre"]}
             icon={FaCreditCard}
           />
@@ -1134,7 +1405,12 @@ function MemberForm({ member, onSave, onCancel }) {
             type="date"
             name="encaissement_prevu"
             value={newPayment.encaissement_prevu}
-            onChange={(e) => setNewPayment((p) => ({ ...p, encaissement_prevu: e.target.value }))}
+            onChange={(e) =>
+              setNewPayment((p) => ({
+                ...p,
+                encaissement_prevu: e.target.value,
+              }))
+            }
             icon={FaCalendarAlt}
           />
         </div>
@@ -1144,7 +1420,9 @@ function MemberForm({ member, onSave, onCancel }) {
             label="Commentaire"
             name="commentaire"
             value={newPayment.commentaire}
-            onChange={(e) => setNewPayment((p) => ({ ...p, commentaire: e.target.value }))}
+            onChange={(e) =>
+              setNewPayment((p) => ({ ...p, commentaire: e.target.value }))
+            }
             placeholder="Note ou commentaire sur ce paiement"
           />
         </div>
@@ -1155,15 +1433,21 @@ function MemberForm({ member, onSave, onCancel }) {
               <input
                 type="checkbox"
                 checked={newPayment.is_paid}
-                onChange={(e) => setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))}
+                onChange={(e) =>
+                  setNewPayment((p) => ({ ...p, is_paid: e.target.checked }))
+                }
                 className="sr-only"
               />
               <div
                 className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                  newPayment.is_paid ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-500"
+                  newPayment.is_paid
+                    ? "bg-green-500 border-green-500"
+                    : "border-gray-300 dark:border-gray-500"
                 }`}
               >
-                {newPayment.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                {newPayment.is_paid && (
+                  <FaCheck className="w-3 h-3 text-white" />
+                )}
               </div>
             </div>
             Paiement déjà encaissé
@@ -1183,47 +1467,97 @@ function MemberForm({ member, onSave, onCancel }) {
 
       {payments.length > 0 ? (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Historique des paiements</h3>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+            Historique des paiements
+          </h3>
           {payments.map((pay) => {
             const amount = (Number(pay.amount) || 0).toFixed(2);
-            const paidDate = pay?.date_paiement ? new Date(pay.date_paiement).toLocaleDateString() : "—";
-            const encPrev = pay?.encaissement_prevu ? new Date(pay.encaissement_prevu).toLocaleDateString() : null;
+            const paidDate = pay?.date_paiement
+              ? new Date(pay.date_paiement).toLocaleDateString()
+              : "—";
+            const encPrev = pay?.encaissement_prevu
+              ? new Date(pay.encaissement_prevu).toLocaleDateString()
+              : null;
 
             return (
-              <div key={pay.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow">
+              <div
+                key={pay.id}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-4 hover:shadow-md transition-shadow"
+              >
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1 w-full sm:w-auto">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className={`p-2 rounded-lg ${pay.is_paid ? "bg-green-100 dark:bg-green-900" : "bg-orange-100 dark:bg-orange-900"}`}>
+                      <div
+                        className={`p-2 rounded-lg ${
+                          pay.is_paid
+                            ? "bg-green-100 dark:bg-green-900"
+                            : "bg-orange-100 dark:bg-orange-900"
+                        }`}
+                      >
                         <FaEuroSign
-                          className={`w-4 h-4 ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"}`}
+                          className={`w-4 h-4 ${
+                            pay.is_paid
+                              ? "text-green-600 dark:text-green-300"
+                              : "text-orange-600 dark:text-orange-300"
+                          }`}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-lg text-gray-800 dark:text-white">{amount} €</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">{pay.method}</p>
+                        <h4 className="font-semibold text-lg text-gray-800 dark:text-white">
+                          {amount} €
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
+                          {pay.method}
+                        </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3 mb-3">
-                      <input type="checkbox" checked={pay.is_paid} onChange={() => togglePaymentStatus(pay.id, !pay.is_paid)} className="sr-only" />
+                      <input
+                        type="checkbox"
+                        checked={pay.is_paid}
+                        onChange={() =>
+                          togglePaymentStatus(pay.id, !pay.is_paid)
+                        }
+                        className="sr-only"
+                      />
                       <button
-                        onClick={() => togglePaymentStatus(pay.id, !pay.is_paid)}
+                        onClick={() =>
+                          togglePaymentStatus(pay.id, !pay.is_paid)
+                        }
                         className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                          pay.is_paid ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-500 hover:border-green-400"
+                          pay.is_paid
+                            ? "bg-green-500 border-green-500"
+                            : "border-gray-300 dark:border-gray-500 hover:border-green-400"
                         }`}
                       >
-                        {pay.is_paid && <FaCheck className="w-3 h-3 text-white" />}
+                        {pay.is_paid && (
+                          <FaCheck className="w-3 h-3 text-white" />
+                        )}
                       </button>
-                      <span className={`text-sm font-medium ${pay.is_paid ? "text-green-600 dark:text-green-300" : "text-orange-600 dark:text-orange-300"}`}>
+                      <span
+                        className={`text-sm font-medium ${
+                          pay.is_paid
+                            ? "text-green-600 dark:text-green-300"
+                            : "text-orange-600 dark:text-orange-300"
+                        }`}
+                      >
                         {pay.is_paid ? "Encaissé" : "En attente"}
                       </span>
                     </div>
 
                     <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                       <p>Payé le {paidDate}</p>
-                      {encPrev && <p className="text-blue-600 dark:text-blue-300">Encaissement prévu : {encPrev}</p>}
-                      {pay.commentaire && <p className="italic text-gray-500 dark:text-gray-400">{pay.commentaire}</p>}
+                      {encPrev && (
+                        <p className="text-blue-600 dark:text-blue-300">
+                          Encaissement prévu : {encPrev}
+                        </p>
+                      )}
+                      {pay.commentaire && (
+                        <p className="italic text-gray-500 dark:text-gray-400">
+                          {pay.commentaire}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1241,9 +1575,14 @@ function MemberForm({ member, onSave, onCancel }) {
 
           <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-gray-700 dark:text-gray-300">Total des paiements :</span>
+              <span className="font-medium text-gray-700 dark:text-gray-300">
+                Total des paiements :
+              </span>
               <span className="text-2xl font-bold text-green-600 dark:text-green-300">
-                {payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toFixed(2)} €
+                {payments
+                  .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+                  .toFixed(2)}{" "}
+                €
               </span>
             </div>
           </div>
@@ -1251,8 +1590,12 @@ function MemberForm({ member, onSave, onCancel }) {
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
           <FaEuroSign className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">Aucun paiement enregistré</p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm">Ajoutez le premier paiement ci-dessus</p>
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">
+            Aucun paiement enregistré
+          </p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
+            Ajoutez le premier paiement ci-dessus
+          </p>
         </div>
       )}
     </div>
@@ -1291,14 +1634,20 @@ function MemberForm({ member, onSave, onCancel }) {
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white bg-opacity-20 flex items-center justify-center flex-shrink-0">
               {form.photo ? (
-                <img src={form.photo} alt="Avatar" className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover" />
+                <img
+                  src={form.photo}
+                  alt="Avatar"
+                  className="w-10 h-10 sm:w-14 sm:h-14 rounded-full object-cover"
+                />
               ) : (
                 <FaUser className="w-6 h-6 sm:w-8 h-8 text-white" />
               )}
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-lg sm:text-2xl font-bold truncate">
-                {form.firstName || form.name ? `${form.firstName} ${form.name}` : "Nouveau membre"}
+                {form.firstName || form.name
+                  ? `${form.firstName} ${form.name}`
+                  : "Nouveau membre"}
               </h1>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1">
                 {form.badgeId && (
@@ -1370,7 +1719,9 @@ function MemberForm({ member, onSave, onCancel }) {
                 key={index}
                 onClick={() => goToTab(index)}
                 className={`w-2 h-2 rounded-full transition-colors ${
-                  currentTabIndex === index ? "bg-white" : "bg-white bg-opacity-40"
+                  currentTabIndex === index
+                    ? "bg-white"
+                    : "bg-white bg-opacity-40"
                 }`}
               />
             ))}
@@ -1400,7 +1751,9 @@ function MemberForm({ member, onSave, onCancel }) {
         <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
           <div className="flex items-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" />
-            <p className="text-blue-700 dark:text-blue-300">Téléversement en cours...</p>
+            <p className="text-blue-700 dark:text-blue-300">
+              Téléversement en cours...
+            </p>
           </div>
         </div>
       )}
@@ -1409,7 +1762,9 @@ function MemberForm({ member, onSave, onCancel }) {
         <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4">
           <div className="flex items-center">
             <FaTimes className="w-4 h-4 text-red-400 dark:text-red-300 mr-3" />
-            <p className="text-red-700 dark:text-red-200">{uploadStatus.error}</p>
+            <p className="text-red-700 dark:text-red-200">
+              {uploadStatus.error}
+            </p>
           </div>
         </div>
       )}
@@ -1418,7 +1773,9 @@ function MemberForm({ member, onSave, onCancel }) {
         <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-400 dark:border-green-700 p-4">
           <div className="flex items-center">
             <FaCheck className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
-            <p className="text-green-700 dark:text-green-100">{uploadStatus.success}</p>
+            <p className="text-green-700 dark:text-green-100">
+              {uploadStatus.success}
+            </p>
           </div>
         </div>
       )}
@@ -1434,7 +1791,9 @@ function MemberForm({ member, onSave, onCancel }) {
           onMouseDown={handleMouseDown}
           style={{
             transform: `translateX(${translateX}px)`,
-            transition: isDraggingRef.current ? "none" : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            transition: isDraggingRef.current
+              ? "none"
+              : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
           <div className="p-4 md:p-6 min-h-full">
