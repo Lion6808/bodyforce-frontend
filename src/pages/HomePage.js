@@ -7,6 +7,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { isToday, isBefore, parseISO, format } from "date-fns";
+import { fr } from "date-fns/locale";
 import {
   FaUsers,
   FaUserCheck,
@@ -28,6 +29,8 @@ import {
 import { supabaseServices, supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
+import MemberForm from "../components/MemberForm";
+import { useNavigate } from "react-router-dom";
 
 // ====================================================
 // SKELETONS / LOADERS
@@ -103,8 +106,8 @@ const AdminMotivationWidgets = ({
     const paymentRate =
       paymentSummary?.totalAmount > 0
         ? Math.round(
-            (paymentSummary.paidAmount / paymentSummary.totalAmount) * 100
-          )
+          (paymentSummary.paidAmount / paymentSummary.totalAmount) * 100
+        )
         : 0;
 
     return {
@@ -134,9 +137,8 @@ const AdminMotivationWidgets = ({
       return {
         emoji: "🎯",
         title: "Objectif presque atteint !",
-        desc: `Plus que ${
-          metrics.memberGoal - metrics.currentMembers
-        } membres pour atteindre 250`,
+        desc: `Plus que ${metrics.memberGoal - metrics.currentMembers
+          } membres pour atteindre 250`,
       };
     }
     if (metrics.newMembersThisMonth >= 5) {
@@ -228,9 +230,9 @@ const AdminMotivationWidgets = ({
                 <div className="text-lg font-bold">
                   {attendance7d?.length
                     ? Math.round(
-                        attendance7d.reduce((s, d) => s + (d.count || 0), 0) /
-                          attendance7d.length
-                      )
+                      attendance7d.reduce((s, d) => s + (d.count || 0), 0) /
+                      attendance7d.length
+                    )
                     : 0}
                 </div>
               </div>
@@ -239,10 +241,10 @@ const AdminMotivationWidgets = ({
                 <div className="text-lg font-bold">
                   {paymentSummary?.totalAmount > 0
                     ? Math.round(
-                        (paymentSummary.paidAmount /
-                          paymentSummary.totalAmount) *
-                          100
-                      )
+                      (paymentSummary.paidAmount /
+                        paymentSummary.totalAmount) *
+                      100
+                    )
                     : 0}
                   %
                 </div>
@@ -274,6 +276,9 @@ const AdminMotivationWidgets = ({
 function HomePage() {
   const { user, role, userMemberData: memberCtx } = useAuth();
   const isAdmin = (role || "").toLowerCase() === "admin";
+
+  const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(false);
 
   // Loading flags
   const [loading, setLoading] = useState({
@@ -314,6 +319,42 @@ function HomePage() {
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const photosLoadingRef = useRef(false);
 
+  // États pour la modal de détail du membre
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const handleEditMember = async (member) => {
+    if (!member || !member.id) return;
+
+    if (isMobile) {
+      // Mobile : modal
+      try {
+        const fullMember = await supabaseServices.getMemberById(member.id);
+        setSelectedMember(fullMember || member);
+        setShowForm(true);
+      } catch (err) {
+        console.error("Erreur chargement membre:", err);
+        setSelectedMember(member);
+        setShowForm(true);
+      }
+    } else {
+      // Desktop : navigate
+      navigate("/members/edit", {
+        state: { member, returnPath: "/", memberId: member.id },
+      });
+    }
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setSelectedMember(null);
+  };
+
+  const handleSaveMember = async () => {
+    setShowForm(false);
+    setSelectedMember(null);
+  };
+
   // Stats personnelles admin
   const [adminPersonalStats, setAdminPersonalStats] = useState({
     currentStreak: 0,
@@ -352,7 +393,9 @@ function HomePage() {
           if (!orderErr && ordered) return ordered;
         }
         return data || [];
-      } catch {}
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     try {
@@ -364,7 +407,9 @@ function HomePage() {
         const list = await supabaseServices.getPaymentsByMemberId(memberId);
         if (Array.isArray(list)) return list;
       }
-    } catch {}
+    } catch (e) {
+      console.error(e);
+    }
     return [];
   };
 
@@ -429,7 +474,7 @@ function HomePage() {
         if (badgeIds.length > 0) {
           const { data: membersData, error: mErr } = await supabase
             .from("members")
-            .select("id, firstName, name, badgeId") // ✅ Sans photo !
+            .select("id, firstName, name, badgeId")
             .in("badgeId", badgeIds);
           if (!mErr && membersData) {
             membersByBadge = membersData.reduce((acc, m) => {
@@ -460,8 +505,7 @@ function HomePage() {
       try {
         if (user) {
           try {
-            const { stats: calculatedStats } =
-              await supabaseServices.getStatistics();
+            const { stats: calculatedStats } = await supabaseServices.getStatisticsLight();
             setStats(
               calculatedStats || {
                 total: 0,
@@ -508,7 +552,7 @@ function HomePage() {
             try {
               const { data: latest, error: latestErr } = await supabase
                 .from("members")
-                .select("id, firstName, name") // ✅ Sans photo !
+                .select("id, firstName, name")
                 .order("id", { ascending: false })
                 .limit(7);
               if (latestErr) {
@@ -567,46 +611,35 @@ function HomePage() {
     const loadPhotosForDisplayedMembers = async () => {
       if (photosLoadingRef.current) return;
 
-      // Collecter tous les IDs de membres affichés
       const memberIds = new Set();
 
-      // Latest members (3)
       latestMembers.forEach((m) => {
         if (m.id) memberIds.add(m.id);
       });
 
-      // Recent presences (jusqu'à 10)
       recentPresences.forEach((r) => {
         if (r.member?.id) memberIds.add(r.member.id);
       });
 
       const idsArray = Array.from(memberIds);
-
-      // Filtrer ceux déjà en cache
       const missingIds = idsArray.filter((id) => !(id in photosCache));
 
       if (missingIds.length === 0) {
-        console.log("✅ Photos déjà en cache pour HomePage");
         return;
       }
 
       try {
         photosLoadingRef.current = true;
         setLoadingPhotos(true);
-        console.log(
-          `📸 Chargement de ${missingIds.length} photos pour HomePage`
-        );
 
         const newPhotos =
           (await supabaseServices.getMemberPhotos(missingIds)) || {};
         const nextCache = { ...photosCache, ...newPhotos };
 
-        // Marquer null pour ceux sans photo
         for (const id of missingIds) {
           if (!(id in newPhotos)) nextCache[id] = null;
         }
 
-        // Update seulement si changement
         let changed = false;
         const keys = new Set([
           ...Object.keys(photosCache),
@@ -619,8 +652,6 @@ function HomePage() {
           }
         }
         if (changed) setPhotosCache(nextCache);
-
-        console.log(`✅ ${Object.keys(newPhotos).length} photos chargées`);
       } catch (err) {
         console.error("Erreur chargement photos:", err);
       } finally {
@@ -629,7 +660,6 @@ function HomePage() {
       }
     };
 
-    // Attendre que les données soient chargées
     if (
       !loading.latestMembers &&
       !loading.presences &&
@@ -712,15 +742,14 @@ function HomePage() {
     fetchAdminPersonalStats();
   }, [isAdmin, memberCtx?.badgeId]);
 
-  const isLateOrToday = (ts) => {
-    if (!ts) return false;
-    try {
-      const d = typeof ts === "string" ? parseISO(ts) : ts;
-      return isToday(d) || isBefore(d, new Date());
-    } catch {
-      return false;
-    }
-  };
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
 
   const getInitials = (firstName, name) => {
     const a = (firstName || "").trim().charAt(0);
@@ -817,7 +846,6 @@ function HomePage() {
 
   return (
     <div className="p-6 bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
-      {/* HERO UTILISATEUR */}
       {user && (
         <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-blue-500/10 dark:from-indigo-400/10 dark:via-emerald-400/10 dark:to-blue-400/10" />
@@ -906,7 +934,6 @@ function HomePage() {
         </div>
       )}
 
-      {/* Widgets statistiques avec skeletons */}
       {user && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {loading.stats ? (
@@ -961,7 +988,6 @@ function HomePage() {
         </div>
       )}
 
-      {/* Widgets de motivation admin */}
       {isAdmin && (
         <AdminMotivationWidgets
           stats={stats}
@@ -971,7 +997,6 @@ function HomePage() {
         />
       )}
 
-      {/* Vos paiements (NON-ADMIN) */}
       {user && !isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -1011,7 +1036,9 @@ function HomePage() {
                         : new Date(dateRaw);
                     dateStr = format(d, "dd/MM/yyyy");
                   }
-                } catch {}
+                } catch (e) {
+                  console.error(e);
+                }
                 return (
                   <li
                     key={p.id}
@@ -1027,20 +1054,18 @@ function HomePage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span
-                        className={`text-sm font-semibold ${
-                          isPaid
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-amber-600 dark:text-amber-400"
-                        }`}
+                        className={`text-sm font-semibold ${isPaid
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-amber-600 dark:text-amber-400"
+                          }`}
                       >
                         {amount.toFixed(2)} €
                       </span>
                       <span
-                        className={`px-2 py-0.5 text-xs rounded-full ${
-                          isPaid
-                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                            : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                        }`}
+                        className={`px-2 py-0.5 text-xs rounded-full ${isPaid
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                          }`}
                       >
                         {isPaid ? "Réglé" : "En attente"}
                       </span>
@@ -1057,8 +1082,7 @@ function HomePage() {
         </div>
       )}
 
-      {/* État global des paiements (ADMIN) */}
-      {isAdmin && (
+      {/* {isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1146,12 +1170,10 @@ function HomePage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
-      {/* Présences 7 derniers jours + Derniers passages (ADMIN) */}
       {isAdmin && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Graph 7 derniers jours (inchangé) */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1173,7 +1195,6 @@ function HomePage() {
               )}
             </div>
 
-            {/* Graph présences (code inchangé pour brièveté - gardé intact) */}
             {loading.presences ? (
               <div className="h-60 flex items-end justify-between pl-10 pr-2 pb-2 gap-2">
                 {Array.from({ length: 7 }).map((_, i) => (
@@ -1181,8 +1202,68 @@ function HomePage() {
                 ))}
               </div>
             ) : attendance7d.length > 0 ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                [Graph présences - code complet conservé]
+              <div className="relative h-60">
+                <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-xs text-gray-400 dark:text-gray-500 pr-2">
+                  {[...Array(6)].map((_, i) => {
+                    const maxCount = Math.max(
+                      ...attendance7d.map((d) => d.count),
+                      1
+                    );
+                    const value = Math.round((maxCount * (5 - i)) / 5);
+                    return (
+                      <div key={i} className="text-right">
+                        {value}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="ml-10 h-full flex items-end justify-between gap-2 pb-8">
+                  {attendance7d.map((dayData, index) => {
+                    const maxCount = Math.max(
+                      ...attendance7d.map((d) => d.count),
+                      1
+                    );
+                    const heightPercent =
+                      maxCount > 0 ? (dayData.count / maxCount) * 100 : 0;
+                    const dayName = format(dayData.date, "EEE", {
+                      locale: fr,
+                    }).substring(0, 3);
+                    const isWeekend =
+                      dayData.date.getDay() === 0 ||
+                      dayData.date.getDay() === 6;
+                    const gradient =
+                      dayData.count > maxCount * 0.7
+                        ? "from-emerald-500 to-teal-400"
+                        : dayData.count > maxCount * 0.4
+                          ? "from-cyan-500 to-blue-400"
+                          : "from-indigo-500 to-purple-400";
+
+                    return (
+                      <div
+                        key={index}
+                        className="flex-1 h-full flex flex-col items-center justify-end gap-2 group"
+                      >
+                        <div
+                          className={`w-full bg-gradient-to-t ${gradient} rounded-t-xl relative transition-all hover:opacity-80 cursor-pointer shadow-lg`}
+                          style={{ height: `${Math.max(heightPercent, 2)}%` }}
+                        >
+                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white px-2 py-1 rounded text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl">
+                            {dayData.count}
+                          </div>
+                        </div>
+                        <div
+                          className={`text-xs font-medium ${isWeekend
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-gray-600 dark:text-gray-400"
+                            }`}
+                        >
+                          {dayName}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
@@ -1191,7 +1272,6 @@ function HomePage() {
             )}
           </div>
 
-          {/* ✅ Derniers passages avec Avatar optimisé */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1241,13 +1321,16 @@ function HomePage() {
                       className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {/* ✅ Utiliser Avatar avec cache photos */}
-                        <Avatar
-                          photo={photosCache[m?.id] || null}
-                          firstName={m?.firstName}
-                          name={m?.name}
-                          size={40}
-                        />
+                        <div onClick={() => m && handleEditMember(m)} className="cursor-pointer hover:opacity-75 hover:scale-105 transition-all" title={m ? "Voir les détails du membre" : "Membre inconnu"}>
+                          <Avatar
+                            photo={photosCache[m?.id] || null}
+                            firstName={m?.firstName}
+                            name={m?.name}
+                            size={40}
+                            onClick={m ? () => handleEditMember(m) : undefined}
+                            title={m ? "Voir les détails du membre" : "Membre inconnu"}
+                          />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {displayName}
@@ -1269,13 +1352,12 @@ function HomePage() {
                       {index < 3 && (
                         <div className="ml-2">
                           <div
-                            className={`w-2 h-2 rounded-full ${
-                              index === 0
-                                ? "bg-green-400 animate-pulse"
-                                : index === 1
+                            className={`w-2 h-2 rounded-full ${index === 0
+                              ? "bg-green-400 animate-pulse"
+                              : index === 1
                                 ? "bg-yellow-400"
                                 : "bg-gray-400"
-                            }`}
+                              }`}
                           />
                         </div>
                       )}
@@ -1292,7 +1374,6 @@ function HomePage() {
         </div>
       )}
 
-      {/* ✅ Derniers membres inscrits avec Avatar optimisé */}
       {isAdmin && (
         <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
@@ -1300,7 +1381,7 @@ function HomePage() {
               Derniers membres inscrits
             </h2>
             <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-              {loading.latestMembers ? "—" : `${latestMembers.length} / 3`}
+              {loading.latestMembers ? "—" : `${latestMembers.length} / 7`}
             </span>
           </div>
           {loading.latestMembers ? (
@@ -1321,15 +1402,25 @@ function HomePage() {
                     className="py-3 flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* ✅ Utiliser Avatar avec cache photos */}
-                      <Avatar
-                        photo={photosCache[m.id] || null}
-                        firstName={m.firstName}
-                        name={m.name}
-                        size={40}
-                      />
+                      <div
+                        onClick={() => handleEditMember(m)}
+                        className="cursor-pointer hover:opacity-75 hover:scale-105 transition-all"
+                        title="Voir les détails du membre"
+                      >
+                        <Avatar
+                          photo={photosCache[m.id] || null}
+                          firstName={m.firstName}
+                          name={m.name}
+                          size={40}
+                          onClick={() => handleEditMember(m)}
+                          title="Voir les détails du membre"
+                        />
+                      </div>
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        <div
+                          className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          onClick={() => handleEditMember(m)}
+                        >
                           {displayName}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1352,7 +1443,6 @@ function HomePage() {
         </div>
       )}
 
-      {/* Abonnements échus (ADMIN) - inchangé */}
       {isAdmin && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
@@ -1379,7 +1469,7 @@ function HomePage() {
                     href="/members?filter=expired"
                     className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    Voir les {stats.membersExpirés.length - 5} autres...
+                    Voir les {stats.membresExpirés.length - 5} autres...
                   </a>
                 </div>
               )}
@@ -1390,6 +1480,14 @@ function HomePage() {
             </p>
           )}
         </div>
+      )}
+      {/* ✅ AJOUTER ICI */}
+      {showForm && selectedMember && (
+        <MemberForm
+          member={selectedMember}
+          onSave={handleSaveMember}
+          onCancel={handleCloseForm}
+        />
       )}
     </div>
   );

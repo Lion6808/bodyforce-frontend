@@ -1,7 +1,7 @@
-// 📁 StatisticsPage.js — BODYFORCE (optimisé)
-// 🎨 Mode sombre (classes `dark:`), calculs mémoïsés, matching presences->members O(1)
+// 📁 StatisticsPage.js — BODYFORCE (optimisé RPC)
+// 🎯 Utilise get_detailed_statistics() pour tous les calculs côté serveur
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabaseServices } from "../supabaseClient";
 import {
   FaUser, FaClock, FaUsers, FaStar, FaExclamationTriangle,
@@ -20,12 +20,7 @@ const COLORS = ["#3182ce", "#38a169", "#e53e3e", "#d69e2e", "#805ad5", "#dd6b20"
 export default function StatisticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Données brutes
-  const [stats, setStats] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [presences, setPresences] = useState([]);
-  const [payments, setPayments] = useState([]);
+  const [data, setData] = useState(null);
 
   useEffect(() => {
     fetchAllData();
@@ -35,14 +30,11 @@ export default function StatisticsPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await supabaseServices.getStatistics();
-      setStats(data?.stats || {});
-      setMembers(Array.isArray(data?.members) ? data.members : []);
-      setPresences(Array.isArray(data?.presences) ? data.presences : []);
-      setPayments(Array.isArray(data?.payments) ? data.payments : []);
-      console.log(
-        `✅ Statistiques chargées: ${data?.members?.length || 0} membres, ${data?.presences?.length || 0} présences`
-      );
+      
+      const result = await supabaseServices.getDetailedStatistics();
+      setData(result);
+      
+      console.log("✅ Statistiques détaillées chargées via RPC");
     } catch (err) {
       console.error("❌ Erreur chargement statistiques:", err);
       setError(err?.message || "Erreur lors du chargement des données");
@@ -51,128 +43,6 @@ export default function StatisticsPage() {
     }
   };
 
-  // ========= Calculs dérivés (mémoïsés) =========
-  const {
-    topMembers,
-    topHours,
-    dailyStats,
-    monthlyStats,
-    genderStats,
-    paymentStats,
-    revenueTotal,
-  } = useMemo(() => {
-    // Map pour lookups O(1) par badgeId
-    const membersByBadge = new Map();
-    for (const m of members) {
-      if (m?.badgeId != null) membersByBadge.set(m.badgeId, m);
-    }
-
-    const memberCount = new Map(); // badgeId -> {member, count}
-    const hourCount = new Map();   // hour -> count
-    const dailyCount = new Map();  // "dd/mm/yyyy" -> count
-    const monthlyCount = new Map();// "mmm yyyy" -> count
-
-    for (const p of presences) {
-      const ts = p?.timestamp ? new Date(p.timestamp) : null;
-      if (!ts || Number.isNaN(ts.getTime())) continue;
-      const member = membersByBadge.get(p.badgeId);
-      if (!member) continue;
-
-      // Compteur membre
-      const existing = memberCount.get(member.badgeId) || { ...member, count: 0 };
-      existing.count += 1;
-      memberCount.set(member.badgeId, existing);
-
-      // Heures
-      const h = ts.getHours();
-      hourCount.set(h, (hourCount.get(h) || 0) + 1);
-
-      // Jours (fr-FR)
-      const dayKey = ts.toLocaleDateString("fr-FR");
-      dailyCount.set(dayKey, (dailyCount.get(dayKey) || 0) + 1);
-
-      // Mois (fr-FR short)
-      const monthKey = ts.toLocaleDateString("fr-FR", { year: "numeric", month: "short" });
-      monthlyCount.set(monthKey, (monthlyCount.get(monthKey) || 0) + 1);
-    }
-
-    // Top 10 membres
-    const topMembersArr = Array.from(memberCount.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    // Heures triées 0..23
-    const topHoursArr = Array.from(hourCount.entries())
-      .map(([hourNum, count]) => ({
-        hour: `${hourNum}h-${(hourNum + 1)}h`,
-        hourNum,
-        count,
-      }))
-      .sort((a, b) => a.hourNum - b.hourNum);
-
-    // 7 derniers jours (chronologique)
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (6 - i)); // il y a 6..0 jours
-      return d.toLocaleDateString("fr-FR");
-    });
-
-    const dailyStatsArr = last7Days.map((k) => ({
-      date: k,
-      count: dailyCount.get(k) || 0,
-    }));
-
-    // 6 derniers mois (chronologique)
-    const last6Months = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date();
-      d.setMonth(d.getMonth() - (5 - i));
-      return d.toLocaleDateString("fr-FR", { year: "numeric", month: "short" });
-    });
-
-    const monthlyStatsArr = last6Months.map((k) => ({
-      month: k,
-      count: monthlyCount.get(k) || 0,
-    }));
-
-    // Genres
-    const g = { Homme: 0, Femme: 0, Autre: 0 };
-    for (const m of members) {
-      if (m?.gender === "Homme") g.Homme += 1;
-      else if (m?.gender === "Femme") g.Femme += 1;
-      else g.Autre += 1;
-    }
-    const genderStatsArr = [
-      { name: "Hommes", value: g.Homme, color: "#3182ce" },
-      { name: "Femmes", value: g.Femme, color: "#e53e3e" },
-      { name: "Autre", value: g.Autre, color: "#d69e2e" },
-    ].filter((x) => x.value > 0);
-
-    // Paiements
-    let paidAmount = 0;
-    let unpaidAmount = 0;
-    for (const p of payments) {
-      const val = Number(p?.amount) || 0;
-      if (p?.is_paid) paidAmount += val;
-      else unpaidAmount += val;
-    }
-    const paymentStatsArr = [
-      { name: "Payé", value: paidAmount, color: "#38a169" },
-      { name: "En attente", value: unpaidAmount, color: "#e53e3e" },
-    ];
-    const revenueTotalVal = paidAmount + unpaidAmount;
-
-    return {
-      topMembers: topMembersArr,
-      topHours: topHoursArr,
-      dailyStats: dailyStatsArr,
-      monthlyStats: monthlyStatsArr,
-      genderStats: genderStatsArr,
-      paymentStats: paymentStatsArr,
-      revenueTotal: revenueTotalVal,
-    };
-  }, [members, presences, payments]);
-
-  // ========= Rendu =========
   if (loading) {
     return (
       <div className="p-4">
@@ -202,6 +72,27 @@ export default function StatisticsPage() {
     );
   }
 
+  const stats = data?.stats || {};
+  const topMembers = data?.topMembers || [];
+  const hourlyStats = data?.hourlyStats || [];
+  const dailyStats = data?.dailyStats || [];
+  const monthlyStats = data?.monthlyStats || [];
+  const genderStats = data?.genderStats || [];
+  const paymentStats = data?.paymentStats || {};
+  const totalPresences = data?.totalPresences || 0;
+
+  // Formater les heures pour l'affichage
+  const formattedHourlyStats = hourlyStats.map(h => ({
+    hour: `${Math.floor(h.hour)}h-${Math.floor(h.hour) + 1}h`,
+    count: h.count
+  }));
+
+  // Formater les stats de paiement pour le graphique
+  const paymentChartData = [
+    paymentStats.paid || { name: 'Payé', value: 0, color: '#38a169' },
+    paymentStats.unpaid || { name: 'En attente', value: 0, color: '#e53e3e' }
+  ].filter(p => p.value > 0);
+
   return (
     <div className="p-4 bg-gray-50 min-h-screen dark:bg-gray-900 dark:text-gray-100">
       <div className="flex justify-between items-center mb-6">
@@ -227,25 +118,25 @@ export default function StatisticsPage() {
         <StatCard
           icon={<FaUsers className="text-blue-500 text-3xl" />}
           label="Total Membres"
-          value={stats?.total || 0}
+          value={stats.total || 0}
           subtitle="membres inscrits"
         />
         <StatCard
           icon={<FaUserCheck className="text-green-500 text-3xl" />}
           label="Abonnements Actifs"
-          value={stats?.actifs || 0}
+          value={stats.actifs || 0}
           subtitle="en cours de validité"
         />
         <StatCard
           icon={<FaUserTimes className="text-red-500 text-3xl" />}
           label="Expirés"
-          value={stats?.expirés || 0}
+          value={stats.expirés || 0}
           subtitle="à renouveler"
         />
         <StatCard
           icon={<FaClock className="text-purple-500 text-3xl" />}
           label="Présences"
-          value={presences.length}
+          value={totalPresences}
           subtitle="cette année"
         />
       </div>
@@ -255,26 +146,26 @@ export default function StatisticsPage() {
         <StatCard
           icon={<FaGraduationCap className="text-yellow-500 text-3xl" />}
           label="Étudiants"
-          value={stats?.etudiants || 0}
+          value={stats.etudiants || 0}
           subtitle="tarif réduit"
         />
         <StatCard
           icon={<FaMars className="text-blue-600 text-3xl" />}
           label="Hommes"
-          value={stats?.hommes || 0}
-          subtitle={`${stats?.total ? ((stats.hommes / stats.total) * 100).toFixed(0) : 0}%`}
+          value={stats.hommes || 0}
+          subtitle={`${stats.total ? ((stats.hommes / stats.total) * 100).toFixed(0) : 0}%`}
         />
         <StatCard
           icon={<FaVenus className="text-pink-500 text-3xl" />}
           label="Femmes"
-          value={stats?.femmes || 0}
-          subtitle={`${stats?.total ? ((stats.femmes / stats.total) * 100).toFixed(0) : 0}%`}
+          value={stats.femmes || 0}
+          subtitle={`${stats.total ? ((stats.femmes / stats.total) * 100).toFixed(0) : 0}%`}
         />
         <StatCard
-          icon={<FaEuroSign className="text-green-600 text-3xl" />}
-          label="Revenus"
-          value={`${(revenueTotal || 0).toFixed(0)}€`}
-          subtitle="total des paiements"
+          icon={<FaEuroSign className="text-green-500 text-3xl" />}
+          label="Revenus totaux"
+          value={`${(paymentStats.total || 0).toFixed(0)}€`}
+          subtitle="encaissés + en attente"
         />
       </div>
 
@@ -352,9 +243,9 @@ export default function StatisticsPage() {
       {/* 🔹 Graphiques : Fréquentation / Mensuel */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Section title="Fréquentation par heure" icon={<FaClock />}>
-          {topHours.length > 0 ? (
+          {formattedHourlyStats.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topHours}>
+              <BarChart data={formattedHourlyStats}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="hour" />
                 <YAxis />
@@ -435,7 +326,7 @@ export default function StatisticsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-blue-600">{member.count}</div>
+                    <div className="font-bold text-blue-600">{member.visit_count}</div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">passages</div>
                   </div>
                 </div>

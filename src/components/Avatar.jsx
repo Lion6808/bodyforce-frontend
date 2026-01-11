@@ -4,31 +4,22 @@
 // ✅ Fallback initiales fiable si l'image échoue
 // ✅ API identique : { photo, photo_path, photo_url, name, firstName, size, className, rounded }
 
+// 📄 components/Avatar.jsx — MODIFIÉ — Supporte onClick
 import React, { useMemo, useState } from "react";
 
-// Helpers
 function isHttpUrl(value) {
   return typeof value === "string" && /^https?:\/\//i.test(value);
 }
+
 function isDataUrl(value) {
   return typeof value === "string" && /^data:/i.test(value);
 }
 
 function resolveAvatarSrc(value) {
   if (!value || typeof value !== "string") return null;
-
-  // 1) data-URL -> direct
   if (isDataUrl(value)) return value;
-
-  // 2) URL absolue -> direct
   if (isHttpUrl(value)) return value;
-
-  // 3) Legacy path (documents/certificats) : on n'essaie plus pour 'photo'
-  if (value.startsWith("certificats/") || value.startsWith("documents/")) {
-    // Dans ce cas tu peux brancher un helper si besoin, sinon null
-    return null;
-  }
-
+  if (value.startsWith("certificats/") || value.startsWith("documents/")) return null;
   return null;
 }
 
@@ -41,17 +32,17 @@ function initialsOf(name = "", firstName = "") {
 }
 
 export default function Avatar({
-  photo, // peut être data-URL ou http(s)
-  photo_path, // (legacy, inutile pour les membres désormais)
-  photo_url, // URL externe, si utilisée
+  photo,
+  photo_path,
+  photo_url,
   name,
   firstName,
   size = 48,
   className = "",
   rounded = true,
   title,
+  onClick, // 👈 NOUVEAU
 }) {
-  // priorité: path -> url -> legacy photo
   const raw = photo_path || photo_url || photo || null;
   const src = useMemo(() => resolveAvatarSrc(raw), [raw]);
   const fallback = initialsOf(name, firstName);
@@ -60,12 +51,23 @@ export default function Avatar({
   const dim = { width: size, height: size };
   const shape = rounded ? "rounded-full" : "rounded-lg";
   const alt = `${firstName || ""} ${name || ""}`.trim() || "Avatar";
+  
+  const clickClasses = onClick ? "cursor-pointer hover:opacity-75 hover:scale-105 transition-all" : "";
 
-  // Si pas de source ou déjà en erreur -> Initiales
+  const wrapContent = (content) => {
+    if (onClick) {
+      return (
+        <div onClick={onClick} className={clickClasses} title={title || alt}>
+          {content}
+        </div>
+      );
+    }
+    return content;
+  };
+
   if (!src || imgError) {
-    return (
+    return wrapContent(
       <div
-        title={title || alt}
         style={dim}
         className={`${shape} flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold select-none border border-gray-300 dark:border-gray-600 ${className}`}
       >
@@ -74,12 +76,10 @@ export default function Avatar({
     );
   }
 
-  // Image (avec fallback fiable via état)
-  return (
+  return wrapContent(
     <img
       src={src}
       alt={alt}
-      title={title || alt}
       style={dim}
       loading="eager"
       crossOrigin="anonymous"

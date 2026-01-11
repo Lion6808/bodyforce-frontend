@@ -91,6 +91,21 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 
+// 🎯 CONFIGURATION DES DATES DE FIN D'ABONNEMENT
+const SUBSCRIPTION_END_DATES = {
+  2025: "2026-01-01", // ← Modifiez cette date selon vos besoins
+  2026: "2027-01-10",
+  2027: "2028-01-15",
+};
+
+const getSubscriptionEndDate = (year) => {
+  if (SUBSCRIPTION_END_DATES[year]) {
+    return SUBSCRIPTION_END_DATES[year];
+  }
+  console.warn(`⚠️ Pas de date configurée pour ${year}`);
+  return `${year}-12-31`; // Fallback
+};
+
 // ✅ NOUVELLE FONCTION : Compression d'image optimisée egress
 const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
   return new Promise((resolve, reject) => {
@@ -662,19 +677,13 @@ function MemberFormPage() {
     if (!form.startDate) return;
 
     if (form.subscriptionType === "Année civile") {
-      // Extraire l'année directement de la chaîne pour éviter les problèmes de timezone
-      const year = parseInt(form.startDate.split("-")[0], 10);
-      const newStart = `${year}-01-01`;
-      const newEnd = `${year}-12-31`;
-
-      // Évite la boucle infinie en ne mettant à jour que si nécessaire
-      if (form.startDate !== newStart || form.endDate !== newEnd) {
-        setForm((f) => ({
-          ...f,
-          startDate: newStart,
-          endDate: newEnd,
-        }));
-      }
+      const year = new Date(form.startDate).getFullYear();
+      setForm((f) => ({
+        ...f,
+        startDate: `${year}-01-01`,
+        //endDate: `${year}-12-31`,
+        endDate: getSubscriptionEndDate(year),
+      }));
     } else {
       const start = new Date(form.startDate);
       const months = subscriptionDurations[form.subscriptionType] || 1;

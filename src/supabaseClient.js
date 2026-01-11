@@ -72,7 +72,6 @@ export const uploadPhoto = (path, file, opts) =>
 export const supabaseServices = {
   /* ---------------- Members ---------------- */
 
-  // ✅ NOUVEAU CODE ICI - LIGNES 72 à 109
   async getMembersWithoutPhotos() {
     const { data, error } = await supabase
       .from("members")
@@ -116,7 +115,6 @@ export const supabaseServices = {
 
     return photosMap;
   },
-  // FIN DU NOUVEAU CODE
 
   async getMembers() {
     const { data, error } = await supabase
@@ -236,18 +234,19 @@ export const supabaseServices = {
     return data || [];
   },
 
+  // ✅ MODIFIÉ : Utilise maintenant la fonction RPC
   async getPresencesWithMembers(startDate = null, endDate = null) {
-    const presences = await this.getPresences(startDate, endDate);
-    const members = await this.getMembers();
-    const membersMap = {};
-    members.forEach((m) => {
-      if (m.badgeId) membersMap[m.badgeId] = m;
+    const { data, error } = await supabase.rpc('get_presences_with_members', {
+      p_start_date: startDate ? startDate.toISOString() : null,
+      p_end_date: endDate ? endDate.toISOString() : null
     });
 
-    return presences.map((presence) => ({
-      ...presence,
-      member: membersMap[presence.badgeId] || null,
-    }));
+    if (error) {
+      console.error("Erreur getPresencesWithMembers:", error);
+      throw error;
+    }
+
+    return data || [];
   },
 
   async createPresence(badgeId, timestamp = new Date()) {
@@ -352,7 +351,7 @@ export const supabaseServices = {
   },
 
   /* ---------------- Files (documents/certificats) ---------------- */
-  // ✅ Upload fichiers (utilise cache long + renvoie l’URL via le cache)
+  // ✅ Upload fichiers (utilise cache long + renvoie l'URL via le cache)
   async uploadFile(bucket, path, file) {
     const uploaded = await uploadWithCacheControl(bucket, path, file);
     const publicUrl = getPublicUrlCached(bucket, uploaded.path);
@@ -375,6 +374,42 @@ export const supabaseServices = {
   },
 
   /* ---------------- Stats ---------------- */
+
+  // ✅ VERSION LIGHT : Pour HomePage (stats agrégées seulement via RPC)
+  async getStatisticsLight() {
+    try {
+      const { data, error } = await supabase.rpc('get_statistics');
+
+      if (error) {
+        console.error("Erreur getStatisticsLight RPC:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Erreur getStatisticsLight:", error);
+      throw error;
+    }
+  },
+
+  // ✅ VERSION DÉTAILLÉE : Pour StatisticsPage (avec graphiques optimisés via RPC)
+  async getDetailedStatistics() {
+    try {
+      const { data, error } = await supabase.rpc('get_detailed_statistics');
+
+      if (error) {
+        console.error("Erreur getDetailedStatistics RPC:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Erreur getDetailedStatistics:", error);
+      throw error;
+    }
+  },
+
+  // ✅ VERSION COMPLETE : Pour StatisticsPage (toutes les données)
   async getStatistics() {
     try {
       // Pagination Supabase (par 1000)
@@ -454,6 +489,27 @@ export const supabaseServices = {
       };
     } catch (error) {
       console.error("Erreur getStatistics:", error);
+      throw error;
+    }
+  },
+
+  // ✅ NOUVEAU : Statistiques de présences pour un membre
+  async getMemberPresenceStats(memberId, startDate = null, endDate = null) {
+    try {
+      const { data, error } = await supabase.rpc('get_member_presence_stats', {
+        p_member_id: memberId,
+        p_start_date: startDate ? startDate.toISOString() : null,
+        p_end_date: endDate ? endDate.toISOString() : null
+      });
+
+      if (error) {
+        console.error("Erreur getMemberPresenceStats:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Erreur getMemberPresenceStats:", error);
       throw error;
     }
   },

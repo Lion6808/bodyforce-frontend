@@ -1,11 +1,16 @@
-// 📄 PlanningPage.js — React — Dossier : src/pages — Date : 2025-09-24
-// ✅ Correction: affichage des photos aligné sur MembersPage (Avatar API unifiée: photo, firstName, name, size)
-// ⚠️ Règles BODYFORCE respectées : structure et styles conservés, modifications minimales et ciblées
+// 📄 PlanningPage.js — React — Dossier : src/pages — Date : 2025-10-08
+// ✅ Ajouts : Pagination 20 membres/page + egress optimisée (requêtes ciblées)
+// ✅ Import Excel : UPSERT par chunks (onConflict badgeId,timestamp) → évite 409
+// ✅ CORRECTION : Debounce sur les filtres pour éviter le rafraîchissement à chaque caractère
+// ⚠️ Règles BODYFORCE respectées : structure & styles conservés, modifications minimales
+
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
-import { supabase } from "../supabaseClient";
+import { supabase, supabaseServices } from "../supabaseClient";
+import { useNavigate } from "react-router-dom";
+import MemberForm from "../components/MemberForm";
 
 import {
   Calendar,
@@ -125,86 +130,200 @@ const addYears = (d, n) => {
 const subWeeks = (d, n) => addWeeks(d, -n);
 const isToday = (d) => d.toDateString() === new Date().toDateString();
 
-// ───────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 
 function PlanningPage() {
-  const [presences, setPresences] = useState([]);
-  const [members, setMembers] = useState([]);
+  // Données (paginées)
+  const [presences, setPresences] = useState([]); // uniquement pour les membres de la page & la période
+  const [members, setMembers] = useState([]);     // membres de la page courante
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const { role } = useAuth();
 
+  // Période & filtres
   const [period, setPeriod] = useState("week");
-  const [startDate, setStartDate] = useState(
-    startOfDay(subWeeks(new Date(), 1))
-  );
+  const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
 
+  // 🔥 CORRECTION : États séparés pour la saisie immédiate et le filtre debounced
+  const [filterBadgeInput, setFilterBadgeInput] = useState("");
+  const [filterNameInput, setFilterNameInput] = useState("");
+
+  // États debounced (déclenchent les requêtes après 500ms d'inactivité)
   const [filterBadge, setFilterBadge] = useState("");
   const [filterName, setFilterName] = useState("");
+
   const [showNightHours, setShowNightHours] = useState(false);
   const [viewMode, setViewMode] = useState("list");
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  const navigate = useNavigate();
+
+  const handleEditMember = async (member) => {
+    if (!member || !member.id) return;
+
+    if (isMobile) {
+      // Mobile : modal
+      try {
+        const fullMember = await supabaseServices.getMemberById(member.id);
+        setSelectedMember(fullMember || member);
+        setShowForm(true);
+      } catch (err) {
+        console.error("Erreur chargement membre:", err);
+        setSelectedMember(member);
+        setShowForm(true);
+      }
+    } else {
+      // Desktop : navigate
+      navigate("/members/edit", {
+        state: { member, returnPath: "/planning", memberId: member.id },
+      });
+    }
+  };
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setSelectedMember(null);
+  };
+
+  const handleSaveMember = async () => {
+    setShowForm(false);
+    setSelectedMember(null);
+    // Recharger les données pour afficher les modifications
+    await loadData();
+  };
+
+
+
+
+  // Pagination
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1); // 1-based
+  const [totalMembers, setTotalMembers] = useState(0);
+
+
+  // États pour la modal de détail du membre
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
   // Vue mensuelle (tooltip corrigé)
   const [expandedDays, setExpandedDays] = useState(new Set());
   const [hoveredMember, setHoveredMember] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Chargement Supabase (membres + présences de la période)
+  // Chargement Supabase (membres paginés + présences de la période pour ces membres)
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) setIsRetrying(true);
       setLoading(true);
       setError("");
 
-      // 🔍 TEST AUTHENTIFICATION
-      const { data: userData, error: userError } =
-        await supabase.auth.getUser();
-      console.log("👤 Utilisateur authentifié:", userData);
-      console.log("❌ Erreur auth:", userError);
+      // A) Récupère tous les badgeId AYANT AU MOINS UNE PRÉSENCE sur la période
+      //    (en tenant compte du filtre badge si fourni)
+      let presencesQ = supabase
+        .from("presences")
+        .select("badgeId,timestamp")
+        .gte("timestamp", startDate.toISOString())
+        .lte("timestamp", endDate.toISOString());
 
-      // Membres
-      const { data: membersData, error: membersError } = await supabase
-        .from("members")
-        .select("*");
-      if (membersError)
-        throw new Error(`Erreur membres: ${membersError.message}`);
-      setMembers(Array.isArray(membersData) ? membersData : []);
-
-      // Présences - SANS FILTRE DE DATE
-      let allPresences = [];
-      let from = 0;
-      const pageSize = 1000;
-      let done = false;
-
-      while (!done) {
-        const { data, error } = await supabase
-          .from("presences")
-          .select("*")
-          .order("timestamp", { ascending: false })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw new Error(`Erreur présences: ${error.message}`);
-
-        if (data?.length) {
-          allPresences = [...allPresences, ...data];
-          from += pageSize;
-        }
-
-        if (!data || data.length < pageSize) done = true;
+      if (filterBadge?.trim()) {
+        // Filtrer côté DB réduit l'egress
+        presencesQ = presencesQ.ilike("badgeId", `%${filterBadge.trim()}%`);
       }
 
-      console.log(`Total présences récupérées: ${allPresences.length}`);
-      if (allPresences.length > 0) {
-        console.log("Exemple de présence:", allPresences[0]);
+      const { data: presInPeriod, error: prsErr } = await presencesQ;
+      if (prsErr) throw new Error(`Erreur présences (période): ${prsErr.message}`);
+
+      // ➕ NEW: map dernier passage par badgeId
+      const lastSeenByBadge = {};
+      (presInPeriod || []).forEach((p) => {
+        if (!p || !p.badgeId || !p.timestamp) return;
+        const t = new Date(p.timestamp).getTime();
+        if (!Number.isFinite(t)) return;
+        if (!lastSeenByBadge[p.badgeId] || t > lastSeenByBadge[p.badgeId]) {
+          lastSeenByBadge[p.badgeId] = t;
+        }
+      });
+
+      // Distinct badgeIds présents dans la période
+      const badgeIdSet = new Set(
+        (presInPeriod || [])
+          .map((p) => p.badgeId)
+          .filter((b) => !!b)
+      );
+      const allBadgeIdsInPeriod = Array.from(badgeIdSet);
+
+      // Si aucun présent → reset affichage et fin
+      if (allBadgeIdsInPeriod.length === 0) {
+        setMembers([]);
+        setPresences([]);
+        setTotalMembers(0);
+        setRetryCount(0);
+        return;
+      }
+
+      // B) Charger les members correspondants puis appliquer filtre nom
+      const { data: periodMembersAll, error: membersErr } = await supabase
+        .from("members")
+        .select("id,name,firstName,badgeId,photo")
+        .in("badgeId", allBadgeIdsInPeriod)
+        .order("name", { ascending: true });
+
+      if (membersErr) throw new Error(`Erreur membres: ${membersErr.message}`);
+
+      let filteredMembers = (periodMembersAll || []);
+
+      filteredMembers.sort((a, b) => {
+        const tb = lastSeenByBadge[b.badgeId] ?? 0;
+        const ta = lastSeenByBadge[a.badgeId] ?? 0;
+        if (tb !== ta) return tb - ta;          // du plus récent au plus ancien
+        // tie-break par nom pour une stabilité d'affichage
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      if (filterName?.trim()) {
+        const s = filterName.trim().toLowerCase();
+        filteredMembers = filteredMembers.filter((m) =>
+          `${m.name || ""} ${m.firstName || ""}`.toLowerCase().includes(s)
+        );
+      }
+      if (filterBadge?.trim()) {
+        const s = filterBadge.trim();
+        filteredMembers = filteredMembers.filter((m) =>
+          (m.badgeId || "").includes(s)
+        );
+      }
+
+      // C) Pagination SUR les membres présents dans la période
+      const total = filteredMembers.length;
+      setTotalMembers(total);
+
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE;
+      const pageMembers = filteredMembers.slice(from, to);
+      setMembers(pageMembers);
+
+      // D) Charger les présences UNIQUEMENT pour les membres de la page (et sur la période)
+      const pageBadgeIds = pageMembers.map((m) => m.badgeId).filter(Boolean);
+
+      let prs = [];
+      if (pageBadgeIds.length) {
+        const { data, error } = await supabase
+          .from("presences")
+          .select("badgeId,timestamp")
+          .gte("timestamp", startDate.toISOString())
+          .lte("timestamp", endDate.toISOString())
+          .in("badgeId", pageBadgeIds)
+          .order("timestamp", { ascending: false });
+
+        if (error) throw new Error(`Erreur présences (page): ${error.message}`);
+        prs = data || [];
       }
 
       setPresences(
-        allPresences.map((p) => ({
+        prs.map((p) => ({
           badgeId: p.badgeId,
           timestamp: p.timestamp,
           parsedDate: parseTimestamp(p.timestamp),
@@ -223,7 +342,25 @@ function PlanningPage() {
 
   useEffect(() => {
     loadData();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, filterName, filterBadge, page]);
+
+  // 🔥 CORRECTION : Debounce pour filterName (attend 500ms après la dernière saisie)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilterName(filterNameInput);
+      setPage(1); // Reset à la page 1 quand on filtre
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterNameInput]);
+
+  // 🔥 CORRECTION : Debounce pour filterBadge (attend 500ms après la dernière saisie)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilterBadge(filterBadgeInput);
+      setPage(1); // Reset à la page 1 quand on filtre
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterBadgeInput]);
 
   const handleRetry = () => {
     setRetryCount((v) => v + 1);
@@ -237,8 +374,9 @@ function PlanningPage() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ✅ Aligne la période sur les bornes naturelles
+  // ✅ Aligne la période sur les bornes naturelles + reset page
   const updateDateRange = (value, base = new Date()) => {
+    setPage(1);
     if (value === "week") {
       const start = startOfWeek(base, { weekStartsOn: 1 });
       const end = endOfWeek(base, { weekStartsOn: 1 });
@@ -269,43 +407,167 @@ function PlanningPage() {
 
   const toLocalDate = (timestamp) => parseTimestamp(timestamp);
 
-  // Import Excel
+  // Import Excel – passage en UPSERT par chunks (onConflict badgeId,timestamp)
   const handleImportExcel = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
+
+    // 1) Auth (utile avec RLS)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert("❌ Vous devez être connecté pour importer des présences.");
+        return;
+      }
+    } catch (e) {
+      console.error("Auth check error:", e);
+    }
+
+    // 2) Helpers parsing
+    const excelSerialToDate = (serial) => {
+      // Excel serial → JS Date (base 1899-12-30)
+      const base = new Date(Date.UTC(1899, 11, 30));
+      const ms = Math.round(Number(serial) * 86400) * 1000;
+      return new Date(base.getTime() + ms);
+    };
+
+    const tryParseFR = (s) => {
+      const str = String(s).trim();
+      // dd/MM/yy HH:mm
+      let m = str.match(/^(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})$/);
+      if (m) {
+        const [, dd, mm, yy, HH, MI] = m;
+        return new Date(`20${yy}-${mm}-${dd}T${HH}:${MI}:00`);
+      }
+      // dd/MM/yyyy HH:mm
+      m = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+      if (m) {
+        const [, dd, mm, yyyy, HH, MI] = m;
+        return new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:00`);
+      }
+      const d = new Date(str); // fallback (ISO, etc.)
+      return isNaN(d) ? null : d;
+    };
+
+    const toJsDate = (val) => {
+      if (val instanceof Date) return val;
+      if (typeof val === "number") return excelSerialToDate(val);
+      if (typeof val === "string") return tryParseFR(val);
+      return null;
+    };
+
+    // 3) Lecture + mapping colonnes spécifiques (Quand, Quoi, Qui)
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
 
-        let count = 0;
+        // Stats diag
+        let totalRows = 0;
+        let kept = 0;
+        let filteredOtherType = 0;
+        let skippedNoBadge = 0;
+        let skippedNoDate = 0;
+        let unparsableDate = 0;
+
+        const allowedTypes = new Set(["Badges ou Télécommandes", "CleMobil"]);
+        const payload = [];
+
         for (const row of rows) {
-          const badgeId = row["Qui"]?.toString();
-          const rawDate = row["Quand"];
-          if (!badgeId || !rawDate) continue;
+          totalRows++;
 
-          // "12/03/25 08:17"
-          const m = rawDate.match(/(\d{2})\/(\d{2})\/(\d{2})\s(\d{2}):(\d{2})/);
-          if (!m) continue;
-          const [, dd, mm, yy, hh, min] = m;
-          const localDate = new Date(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
-          const isoDate = localDate.toISOString();
+          const quoi = (row["Quoi"] ?? "").toString().trim();
+          const quiRaw = row["Qui"];
+          const quandRaw = row["Quand"];
 
-          const { error } = await supabase
-            .from("presences")
-            .insert([{ badgeId, timestamp: isoDate }]);
-          if (!error) count++;
+          // Filtre type (ignore "BP", lignes vides, etc.)
+          if (!allowedTypes.has(quoi)) {
+            filteredOtherType++;
+            continue;
+          }
+
+          // Badge obligatoire
+          const badgeId = (quiRaw ?? "").toString().trim();
+          if (!badgeId) {
+            skippedNoBadge++;
+            continue;
+          }
+
+          // Date obligatoire
+          if (quandRaw == null) {
+            skippedNoDate++;
+            continue;
+          }
+
+          const dt = toJsDate(quandRaw);
+          if (!dt || isNaN(dt)) {
+            unparsableDate++;
+            continue;
+          }
+
+          payload.push({ badgeId, timestamp: dt.toISOString() });
+          kept++;
         }
-        alert(`✅ Import terminé : ${count} présences insérées.`);
+
+        if (payload.length === 0) {
+          alert(
+            [
+              "ℹ️ Aucune ligne importée.",
+              `Lignes totales: ${totalRows}`,
+              `• Gardées: ${kept}`,
+              `• Filtrées (type ≠ 'Badges ou Télécommandes' / 'CleMobil'): ${filteredOtherType}`,
+              `• Sans badge: ${skippedNoBadge}`,
+              `• Sans date: ${skippedNoDate}`,
+              `• Date illisible: ${unparsableDate}`,
+            ].join("\n")
+          );
+          return;
+        }
+
+        // 4) UPSERT par chunks
+        const chunkSize = 500;
+        let affected = 0;
+
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.slice(i, i + chunkSize);
+          const { data: upserted, error } = await supabase
+            .from("presences")
+            .upsert(chunk, { onConflict: "badgeId,timestamp" })
+            .select("badgeId"); // lignes touchées (insert + update)
+
+          if (error) {
+            console.error("Upsert error:", error);
+            alert("❌ Erreur lors de l'upsert: " + (error.message || "inconnue"));
+            return;
+          }
+
+          affected += Array.isArray(upserted) ? upserted.length : 0;
+        }
+
+        alert(
+          [
+            "✅ Import terminé.",
+            `Lignes totales lues: ${totalRows}`,
+            `• Retenues pour import: ${kept}`,
+            `• Upsertées (insert+update): ${affected} (doublons ignorés)`,
+            `• Filtrées type: ${filteredOtherType} | Sans badge: ${skippedNoBadge} | Sans date: ${skippedNoDate} | Date illisible: ${unparsableDate}`,
+          ].join("\n")
+        );
+
+        // Recharge l'affichage
         loadData();
       };
+
       reader.readAsArrayBuffer(file);
     } catch (err) {
       console.error("Erreur import Excel :", err);
       alert("❌ Erreur lors de l'import.");
+    } finally {
+      // Permet de réimporter le même fichier sans recharger la page
+      try { event.target.value = ""; } catch { }
     }
   };
 
@@ -366,7 +628,7 @@ function PlanningPage() {
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Filtrage local
+  // Filtrage local (présences) – garde la logique d'origine
   const filteredPresences = presences.filter((p) => {
     const presenceDate = toLocalDate(p.timestamp);
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
@@ -386,18 +648,9 @@ function PlanningPage() {
   const getMemberInfo = (badgeId) =>
     members.find((m) => m.badgeId === badgeId) || {};
 
-  const visibleMembers = Object.keys(groupedByMember)
-    .map((badgeId) => getMemberInfo(badgeId))
-    .filter(
-      (m) =>
-        (!filterName ||
-          `${m.name} ${m.firstName}`
-            .toLowerCase()
-            .includes(filterName.toLowerCase())) &&
-        (!filterBadge || m.badgeId?.includes(filterBadge))
-    );
+  const visibleMembers = members;
 
-  // Stats
+  // Stats (identiques à ta version)
   const stats = (() => {
     const totalPresences = filteredPresences.length;
     const uniqueMembers = new Set(filteredPresences.map((p) => p.badgeId)).size;
@@ -434,6 +687,73 @@ function PlanningPage() {
     };
   })();
 
+  // ─────────────── Pagination UI (type MembersPage/PaymentsPage) ───────────────
+  const totalPages = Math.max(1, Math.ceil(totalMembers / PAGE_SIZE));
+  const goToPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
+
+  const Pager = () => {
+    const pages = [];
+    const cur = page;
+    const max = totalPages;
+    const push = (n, label = n) =>
+      pages.push(
+        <button
+          key={label}
+          onClick={() => goToPage(n)}
+          className={cn(
+            "px-3 py-1 rounded-md text-sm border",
+            n === cur
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+          )}
+        >
+          {label}
+        </button>
+      );
+
+    if (max <= 7) {
+      for (let i = 1; i <= max; i++) push(i);
+    } else {
+      push(1);
+      if (cur > 4) pages.push(<span key="l" className="px-1">…</span>);
+      const start = Math.max(2, cur - 1);
+      const end = Math.min(max - 1, cur + 1);
+      for (let i = start; i <= end; i++) push(i);
+      if (cur < max - 3) pages.push(<span key="r" className="px-1">…</span>);
+      push(max);
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => goToPage(page - 1)}
+          disabled={page === 1}
+          className={cn(
+            "px-3 py-1 rounded-md text-sm border",
+            page === 1
+              ? "bg-gray-100 dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 cursor-not-allowed"
+              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+          )}
+        >
+          Précédent
+        </button>
+        {pages}
+        <button
+          onClick={() => goToPage(page + 1)}
+          disabled={page === totalPages}
+          className={cn(
+            "px-3 py-1 rounded-md text-sm border",
+            page === totalPages
+              ? "bg-gray-100 dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 cursor-not-allowed"
+              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+          )}
+        >
+          Suivant
+        </button>
+      </div>
+    );
+  };
+
   const StatsResume = () => (
     <div className={cn(classes.card, "p-6 mb-6")}>
       <div className="flex items-center gap-3 mb-6">
@@ -460,7 +780,7 @@ function PlanningPage() {
             </span>
           </div>
           <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-            {stats.uniqueMembers}
+            {visibleMembers.length}
           </div>
         </div>
 
@@ -472,7 +792,7 @@ function PlanningPage() {
             </span>
           </div>
           <div className="text-2xl font-bold text-green-900 dark:text-green-100">
-            {stats.totalPresences}
+            {filteredPresences.length}
           </div>
         </div>
 
@@ -526,16 +846,21 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Liste (pastilles journalières)
+  // Vue Liste (pastilles journalières) – ajout du Pager (haut + bas)
   const ListView = () => (
-    <div className={cn(classes.card, "overflow-hidden")}>
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-          Planning des présences ({visibleMembers.length} membres)
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          {stats.totalPresences} présences sur {allDays.length} jours
-        </p>
+    <div className={cn(classes.card, "overflow-visible")}>
+      <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            Planning des présences ({visibleMembers.length} membres)
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            {filteredPresences.length} présences sur {allDays.length} jours
+          </p>
+        </div>
+        <div className="hidden md:block">
+          <Pager />
+        </div>
       </div>
 
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -552,16 +877,20 @@ function PlanningPage() {
               className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               <div className="flex items-center gap-3 mb-3">
-                {/* ✅ Avatar comme MembersPage */}
                 <Avatar
                   photo={member.photo}
                   firstName={member.firstName}
                   name={member.name}
-                  size={40} // ≈ w-10 h-10
+                  size={40}
+                  onClick={() => handleEditMember(member)}
+                  title="Cliquer pour voir le détail"
                 />
 
                 <div className="min-w-0">
-                  <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                  <div
+                    className="font-semibold text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    onClick={() => handleEditMember(member)}
+                  >
                     {member.name} {member.firstName}
                   </div>
                   <div className="flex items-center gap-2 text-xs mt-0.5">
@@ -588,8 +917,8 @@ function PlanningPage() {
                           has
                             ? "bg-green-500 text-white shadow-sm hover:scale-105"
                             : isWeekend(day)
-                            ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                              ? "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                         )}
                       >
                         <div className="leading-none">
@@ -634,12 +963,16 @@ function PlanningPage() {
           );
         })}
       </div>
+
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center">
+        <Pager />
+      </div>
     </div>
   );
 
-  // Vue Compacte (tableau rapide)
+  // Vue Compacte (tableau rapide) – pager ajouté en bas
   const CompactView = () => (
-    <div className={cn(classes.card, "overflow-hidden")}>
+    <div className={cn(classes.card, "overflow-visible")}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
           Vue compacte ({visibleMembers.length} membres)
@@ -667,8 +1000,8 @@ function PlanningPage() {
                   "p-2 text-center border-r border-b-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700",
                   isToday(day) && "bg-blue-100 dark:bg-blue-900/30",
                   isWeekend(day) &&
-                    !isToday(day) &&
-                    "bg-blue-50 dark:bg-blue-900/10"
+                  !isToday(day) &&
+                  "bg-blue-50 dark:bg-blue-900/10"
                 )}
               >
                 <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -689,7 +1022,6 @@ function PlanningPage() {
                 }}
               >
                 <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
-                  {/* ✅ Avatar comme MembersPage */}
                   <Avatar
                     photo={member.photo}
                     firstName={member.firstName}
@@ -697,7 +1029,7 @@ function PlanningPage() {
                     size={32}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
+                    <div className="text-sm font-semibold truncate text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                       {member.name}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
@@ -719,13 +1051,13 @@ function PlanningPage() {
                           ? dayTimes.length > 3
                             ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                             : dayTimes.length > 1
-                            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-                            : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : isWeekend(day)
-                          ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
-                          : idx % 2 === 0
-                          ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
-                          : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
+                            ? "bg-blue-50 dark:bg-blue-900/10 text-gray-400 dark:text-gray-500"
+                            : idx % 2 === 0
+                              ? "bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500"
+                              : "bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500"
                       )}
                     >
                       {dayTimes.length > 0 ? dayTimes.length : ""}
@@ -737,19 +1069,22 @@ function PlanningPage() {
           })}
         </div>
       </div>
+
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center">
+        <Pager />
+      </div>
     </div>
   );
 
-  // Vue Mensuelle - Solution simple avec tooltip qui suit la souris
+  // Vue Mensuelle
   const MonthlyView = () => {
     const generateCalendarDays = () => {
       const y = startDate.getFullYear();
       const m = startDate.getMonth();
       const firstDay = new Date(y, m, 1);
       const startCalendar = new Date(firstDay);
-      // Commencer le lundi
-      const dow = firstDay.getDay(); // 0..6 (dim..sam)
-      const shift = dow === 0 ? -5 : 1 - dow; // place au lundi
+      const dow = firstDay.getDay();
+      const shift = dow === 0 ? -5 : 1 - dow;
       startCalendar.setDate(startCalendar.getDate() + shift);
 
       const days = [];
@@ -763,7 +1098,6 @@ function PlanningPage() {
 
     const calendarDays = generateCalendarDays();
 
-    // Grouper par jour & par membre
     const presencesByDayAndMember = (() => {
       const grouped = {};
       filteredPresences.forEach((presence) => {
@@ -784,7 +1118,6 @@ function PlanningPage() {
       setExpandedDays(s);
     };
 
-    // Fonctions tooltip simplifiées
     const onAvatarEnter = (badgeId, dayKey, e) => {
       const member = members.find((m) => m.badgeId === badgeId);
       const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
@@ -814,7 +1147,6 @@ function PlanningPage() {
       const member = members.find((m) => m.badgeId === badgeId);
       if (!member) return null;
 
-      // Z-index unique : jour * 100 + position du membre
       const uniqueZIndex = dayIndex * 100 + memberIndex + 10;
 
       return (
@@ -826,7 +1158,6 @@ function PlanningPage() {
           onMouseMove={onAvatarMove}
           onMouseLeave={onAvatarLeave}
         >
-          {/* ✅ Avatar comme MembersPage */}
           <Avatar
             photo={member.photo}
             firstName={member.firstName}
@@ -834,17 +1165,14 @@ function PlanningPage() {
             size={32}
           />
 
-          {/* Badge compteur pour passages multiples */}
           {presenceCount > 1 && (
             <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border border-white dark:border-gray-800 shadow-sm animate-pulse">
               {presenceCount > 99 ? "99+" : presenceCount}
             </div>
           )}
 
-          {/* TOOLTIP CSS complet */}
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-[200]">
             <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
-              {/* En-tête avec photo et nom */}
               <div className="flex items-center gap-3 mb-3">
                 <Avatar
                   photo={member.photo}
@@ -862,7 +1190,6 @@ function PlanningPage() {
                 </div>
               </div>
 
-              {/* Informations du jour */}
               <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-400" />
@@ -871,17 +1198,15 @@ function PlanningPage() {
                   </span>
                 </div>
 
-                {/* Cas standard : 1 passage */}
                 {(() => {
-                  const presences =
-                    presencesByDayAndMember[dayKey]?.[badgeId] || [];
+                  const presences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
                   const multiple = presences.length > 1;
                   if (!multiple) {
                     return (
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-green-400" />
                         <span className="text-sm">
-                          Passage à{" "}
+                          Passage à {" "}
                           {formatDate(presences[0]?.parsedDate, "HH:mm")}
                         </span>
                       </div>
@@ -896,7 +1221,6 @@ function PlanningPage() {
                         </span>
                       </div>
 
-                      {/* Liste des heures pour les cas multiples */}
                       <div className="mt-2">
                         <div className="text-xs text-gray-300 mb-1">
                           Heures de passage :
@@ -922,7 +1246,6 @@ function PlanningPage() {
                 })()}
               </div>
 
-              {/* Badge de statut */}
               <div className="flex justify-between items-center">
                 <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
                   Présent(e)
@@ -934,7 +1257,6 @@ function PlanningPage() {
                 )}
               </div>
 
-              {/* Flèche pointer */}
               <div className="absolute top-full left-1/2 -translate-x-1/2">
                 <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
               </div>
@@ -944,104 +1266,8 @@ function PlanningPage() {
       );
     };
 
-    const renderTooltip = () => {
-      if (!hoveredMember) return null;
-      const { member, presences, dayKey } = hoveredMember;
-      const day = new Date(dayKey + "T00:00:00");
-      const multiple = presences.length > 1;
-
-      return (
-        <div
-          className="fixed z-[9999] pointer-events-none"
-          style={{
-            left: mousePos.x + 15,
-            top: mousePos.y - 10,
-            transform: "translateY(-50%)",
-          }}
-        >
-          <div className="relative bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
-            <div className="flex items-center gap-3 mb-3">
-              <Avatar
-                photo={member?.photo}
-                firstName={member?.firstName}
-                name={member?.name}
-                size={48}
-              />
-              <div>
-                <h4 className="font-bold text-lg">
-                  {member?.name} {member?.firstName}
-                </h4>
-                <p className="text-blue-300 text-sm">
-                  Badge: {member?.badgeId}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-400" />
-                <span className="text-sm">
-                  {formatDate(day, "EEEE dd MMMM")}
-                </span>
-              </div>
-
-              {!multiple ? (
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-green-400" />
-                  <span className="text-sm">
-                    Passage à {formatDate(presences[0].parsedDate, "HH:mm")}
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-orange-400" />
-                    <span className="text-sm font-semibold text-orange-300">
-                      ⚠️ {presences.length} passages (inhabituel)
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <div className="text-xs text-gray-300 mb-1">
-                      Heures de passage :
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {presences.slice(0, 6).map((presence, i) => (
-                        <div
-                          key={i}
-                          className="bg-orange-600/30 text-orange-300 px-2 py-1 rounded text-xs border border-orange-500/30"
-                        >
-                          {formatDate(presence.parsedDate, "HH:mm")}
-                        </div>
-                      ))}
-                      {presences.length > 6 && (
-                        <div className="bg-gray-600/30 text-gray-300 px-2 py-1 rounded text-xs border border-gray-500/30">
-                          +{presences.length - 6}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
-                Présent(e)
-              </span>
-              {multiple && (
-                <span className="text-xs text-orange-400 font-medium">
-                  Vérifier badge
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    };
-
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {/* En-tête calendrier */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
           <div className="flex items-center justify-between">
             <button
@@ -1067,23 +1293,20 @@ function PlanningPage() {
           </div>
         </div>
 
-        {/* En-têtes jours */}
         <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-700">
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
               key={day}
-              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${
-                i >= 5
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-gray-700 dark:text-gray-300"
-              }`}
+              className={`p-4 text-center font-semibold text-sm border-r border-gray-200 dark:border-gray-600 last:border-r-0 ${i >= 5
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-700 dark:text-gray-300"
+                }`}
             >
               {day}
             </div>
           ))}
         </div>
 
-        {/* Grille des jours */}
         <div className="grid grid-cols-7">
           {calendarDays.map((day, idx) => {
             const dateKey = toDateString(day);
@@ -1128,17 +1351,13 @@ function PlanningPage() {
             return (
               <div
                 key={idx}
-                className={`${
-                  expanded ? "min-h-[200px]" : "min-h-[140px]"
-                } border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${
-                  !inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
-                } ${
-                  weekend
+                className={`${expanded ? "min-h-[200px]" : "min-h-[140px]"
+                  } border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 p-2 relative ${!inMonth ? "bg-gray-50 dark:bg-gray-700 opacity-50" : ""
+                  } ${weekend
                     ? "bg-blue-50 dark:bg-blue-900/10"
                     : "bg-white dark:bg-gray-800"
-                } ${today ? "ring-2 ring-blue-500 ring-inset" : ""} ${
-                  expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""
-                } hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
+                  } ${today ? "ring-2 ring-blue-500 ring-inset" : ""} ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""
+                  } hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <span
@@ -1147,10 +1366,10 @@ function PlanningPage() {
                       !inMonth
                         ? "text-gray-400 dark:text-gray-500"
                         : today
-                        ? "text-blue-600 dark:text-blue-400"
-                        : weekend
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-gray-900 dark:text-gray-100"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : weekend
+                            ? "text-blue-600 dark:text-blue-400"
+                            : "text-gray-900 dark:text-gray-100"
                     )}
                   >
                     {day.getDate()}
@@ -1164,8 +1383,8 @@ function PlanningPage() {
                           memberIds.length > 30
                             ? "bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400"
                             : memberIds.length > 15
-                            ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                            : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                              ? "bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                              : "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                         )}
                       >
                         {memberIds.length > 99 ? "99+" : memberIds.length}
@@ -1252,8 +1471,8 @@ function PlanningPage() {
                             expanded
                               ? "bg-blue-500 text-white"
                               : memberIds.length > 30
-                              ? "bg-red-500 text-white animate-pulse"
-                              : "bg-orange-500 text-white"
+                                ? "bg-red-500 text-white animate-pulse"
+                                : "bg-orange-500 text-white"
                           )}
                           title={
                             expanded
@@ -1264,9 +1483,9 @@ function PlanningPage() {
                           {expanded
                             ? "−"
                             : `+${Math.max(
-                                0,
-                                memberIds.length - visibleMembers.length
-                              )}`}
+                              0,
+                              memberIds.length - visibleMembers.length
+                            )}`}
                         </button>
                       )}
                     </div>
@@ -1283,7 +1502,6 @@ function PlanningPage() {
           })}
         </div>
 
-        {/* Légende */}
         <div className="bg-gray-50 dark:bg-gray-700 p-4 border-t border-gray-200 dark:border-gray-600">
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex items-center gap-2">
@@ -1309,14 +1527,11 @@ function PlanningPage() {
             </div>
           </div>
         </div>
-
-        {/* Tooltip global */}
-        {/* (optionnel) renderTooltip() si tu veux la version "suiveuse" au lieu du tooltip CSS */}
       </div>
     );
   };
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────────
   // Rendu principal
   return (
     <div className={classes.pageContainer}>
@@ -1351,7 +1566,6 @@ function PlanningPage() {
                 <List className="w-5 h-5" />
               </button>
 
-              {/* VUE MENSUELLE EN DEUXIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => {
@@ -1373,7 +1587,6 @@ function PlanningPage() {
                 </button>
               )}
 
-              {/* VUE COMPACTE EN TROISIÈME POSITION */}
               {!isMobile && (
                 <button
                   onClick={() => setViewMode("compact")}
@@ -1403,7 +1616,6 @@ function PlanningPage() {
               </button>
             </div>
 
-            {/* Import Excel (admin) */}
             {role === "admin" && (
               <div className="mt-4">
                 <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition">
@@ -1413,14 +1625,14 @@ function PlanningPage() {
                     onChange={handleImportExcel}
                     className="hidden"
                   />
-                  📁 Importer fichier Excel (.xlsx)
+                  📥 Importer fichier Excel (.xlsx)
                 </label>
               </div>
             )}
           </div>
 
           {/* Navigation période */}
-          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg overflow-visible">
             <button
               onClick={() => navigatePeriod("prev")}
               className="p-2 hover:bg-white dark:hover:bg-gray-600 rounded-lg transition-colors shadow-sm flex-shrink-0"
@@ -1454,6 +1666,7 @@ function PlanningPage() {
                       setStartDate(startOfDay(s));
                       setEndDate(endOfDay(en));
                     }
+                    setPage(1);
                   }}
                   className="border-2 border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
@@ -1465,6 +1678,7 @@ function PlanningPage() {
                 onChange={(e) => {
                   const value = e.target.value;
                   setPeriod(value);
+                  setPage(1);
                   updateDateRange(value, startDate);
                 }}
               >
@@ -1504,6 +1718,7 @@ function PlanningPage() {
                   const today = new Date();
                   setStartDate(startOfDay(today));
                   setEndDate(endOfDay(today));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1517,6 +1732,7 @@ function PlanningPage() {
                     startOfDay(new Date(today.setDate(today.getDate() - 6)))
                   );
                   setEndDate(endOfDay(new Date()));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1530,6 +1746,7 @@ function PlanningPage() {
                     startOfDay(new Date(today.setDate(today.getDate() - 29)))
                   );
                   setEndDate(endOfDay(new Date()));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1544,6 +1761,7 @@ function PlanningPage() {
                   setEndDate(
                     endOfDay(endOfWeek(new Date(), { weekStartsOn: 1 }))
                   );
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1554,6 +1772,7 @@ function PlanningPage() {
                 onClick={() => {
                   setStartDate(startOfDay(startOfMonth(new Date())));
                   setEndDate(endOfDay(endOfMonth(new Date())));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1564,6 +1783,7 @@ function PlanningPage() {
                 onClick={() => {
                   setStartDate(startOfDay(startOfYear(new Date())));
                   setEndDate(endOfDay(endOfYear(new Date())));
+                  setPage(1);
                 }}
                 className={classes.presetButton}
               >
@@ -1584,8 +1804,8 @@ function PlanningPage() {
                 <input
                   type="text"
                   placeholder="Nom ou prénom..."
-                  value={filterName}
-                  onChange={(e) => setFilterName(e.target.value)}
+                  value={filterNameInput}
+                  onChange={(e) => setFilterNameInput(e.target.value)}
                   className={cn(
                     classes.input,
                     "w-full placeholder-gray-500 dark:placeholder-gray-400"
@@ -1599,8 +1819,8 @@ function PlanningPage() {
                 <input
                   type="text"
                   placeholder="Numéro de badge..."
-                  value={filterBadge}
-                  onChange={(e) => setFilterBadge(e.target.value)}
+                  value={filterBadgeInput}
+                  onChange={(e) => setFilterBadgeInput(e.target.value)}
                   className={cn(
                     classes.input,
                     "w-full placeholder-gray-500 dark:placeholder-gray-400"
@@ -1669,6 +1889,15 @@ function PlanningPage() {
             {viewMode === "monthly" && !isMobile && <MonthlyView />}
           </>
         )}
+
+        {/* Modal pour afficher/éditer le membre sur mobile */}
+        {showForm && selectedMember && (
+          <MemberForm
+            member={selectedMember}
+            onSave={handleSaveMember}
+            onCancel={handleCloseForm}
+          />
+        )}
       </div>
     </div>
   );
@@ -1676,4 +1905,4 @@ function PlanningPage() {
 
 export default PlanningPage;
 
-// ✅ FIN DU FICHIER....
+// ✅ FIN DU FICHIER

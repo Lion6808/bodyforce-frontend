@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // 🔷 BODYFORCE — Fichier modifié
 // Nom : MemberForm.js
 // Type : JavaScript (React)
@@ -13,6 +14,11 @@
 // 📄 MemberForm.js — Composant principal avec sélecteur caméra — Dossier : components — Date : 2025-07-25
 // 🎯 CORRECTION : Logique de la caméra entièrement revue pour éviter les conflits et assurer la stabilité.
 // 🔹 Partie 1 - Imports et composants utilitaires
+=======
+// 🔷 BODYFORCE — MemberForm.js COMPLET
+// Version finale avec chargement automatique de la photo depuis la DB
+// Date : 2025-10-09
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
 
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -20,7 +26,7 @@ import {
   RotateCcw,
   Check,
   X,
-  RefreshCcw, // ⬅️ remplacement de SwitchCamera
+  RefreshCcw,
   Upload,
   User,
 } from "lucide-react";
@@ -40,13 +46,14 @@ import {
   FaPhone,
   FaEnvelope,
   FaGraduationCap,
-  FaCheck,
+  FaCheck as FaCheckIcon,
   FaTimes,
   FaEye,
   FaChevronLeft,
   FaChevronRight,
 } from "react-icons/fa";
-import { supabase } from "../supabaseClient";
+import { supabase, supabaseServices } from "../supabaseClient";
+
 // --- Helpers image (resize + blob) ---
 function dataURLToBlob(dataURL) {
   const [header, data] = dataURL.split(",");
@@ -105,7 +112,7 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 
-// ✅ COMPOSANT CAMÉRA ENTIÈREMENT CORRIGÉ ET STABILISÉ
+// ✅ COMPOSANT CAMÉRA
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -114,7 +121,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const [error, setError] = useState(null);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [availableCameras, setAvailableCameras] = useState([]);
-  const [facingMode, setFacingMode] = useState("user"); // 'user' = avant, 'environment' = arrière
+  const [facingMode, setFacingMode] = useState("user");
 
   const cleanupStream = () => {
     if (videoRef.current && videoRef.current.srcObject) {
@@ -165,11 +172,9 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       } catch (err) {
         let msg = "Impossible d'accéder à la caméra.";
         if (err.name === "NotReadableError") {
-          msg =
-            "La caméra est déjà utilisée. Fermez les autres applis/onglets qui pourraient l'utiliser.";
+          msg = "La caméra est déjà utilisée. Fermez les autres applis/onglets qui pourraient l'utiliser.";
         } else if (err.name === "NotAllowedError") {
-          msg =
-            "Accès caméra refusé. Autorisez l'accès dans les réglages du navigateur.";
+          msg = "Accès caméra refusé. Autorisez l'accès dans les réglages du navigateur.";
         } else if (err.name === "NotFoundError") {
           msg = `Aucune caméra en mode '${facingMode}' n'a été trouvée.`;
         }
@@ -213,7 +218,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
     const imageData = canvas.toDataURL("image/jpeg", 0.9);
     setCapturedPhoto(imageData);
-    cleanupStream(); // libère la caméra après capture
+    cleanupStream();
   };
 
   const confirmPhoto = () => {
@@ -249,7 +254,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           isDarkMode ? "bg-gray-800" : "bg-white"
         } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
       >
-        {/* Header */}
         <div
           className={`p-4 border-b ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
@@ -281,7 +285,6 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           </div>
         </div>
 
-        {/* Contenu principal */}
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           {error && (
             <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
@@ -504,9 +507,10 @@ function StatusBadge({ isExpired, isStudent }) {
   );
 }
 
-// 🔹 Partie 8 - Fonction MemberForm principale avec nouveaux états
-
+// 🔹 Fonction MemberForm principale
 function MemberForm({ member, onSave, onCancel }) {
+  console.log("🚀 MemberForm chargé - member:", member?.id, "photo:", !!member?.photo);
+  
   const [activeTab, setActiveTab] = useState("identity");
   const [form, setForm] = useState({
     name: "",
@@ -535,8 +539,9 @@ function MemberForm({ member, onSave, onCancel }) {
     is_paid: false,
   });
 
-  const [showCamera, setShowCamera] = useState(null); // "photo" | "document" | null
+  const [showCamera, setShowCamera] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [photoLoaded, setPhotoLoaded] = useState(false);
 
   const [uploadStatus, setUploadStatus] = useState({
     loading: false,
@@ -584,21 +589,54 @@ function MemberForm({ member, onSave, onCancel }) {
     return () => observer.disconnect();
   }, []);
 
-  // Init form avec member
+  // ✅ CORRECTION : Charger le membre complet depuis Supabase avec la photo
   useEffect(() => {
-    if (member && !form.name && !form.firstName) {
-      setForm({
-        ...member,
-        files: Array.isArray(member.files)
-          ? member.files
-          : typeof member.files === "string"
-          ? JSON.parse(member.files || "[]")
-          : [],
-        etudiant: !!member.etudiant,
-      });
-      if (member.id) fetchPayments(member.id);
-    }
-  }, [member?.id, form.name, form.firstName]); // volontairement minimal
+    const loadMemberData = async () => {
+      if (!member?.id) {
+        // Nouveau membre - formulaire vide
+        return;
+      }
+
+      // ✅ Membre existant - recharger depuis Supabase avec la photo
+      if (!form.name && !form.firstName) {
+        try {
+          console.log("🔍 Chargement membre complet depuis DB:", member.id);
+          const fullMember = await supabaseServices.getMemberById(member.id);
+          
+          if (fullMember) {
+            console.log("✅ Membre chargé:", fullMember.id, "- Photo:", !!fullMember.photo, fullMember.photo?.substring(0, 50));
+            setForm({
+              ...fullMember,
+              files: Array.isArray(fullMember.files)
+                ? fullMember.files
+                : typeof fullMember.files === "string"
+                ? JSON.parse(fullMember.files || "[]")
+                : [],
+              etudiant: !!fullMember.etudiant,
+              photo: fullMember.photo || null, // ✅ Photo complète depuis la DB
+            });
+            fetchPayments(fullMember.id);
+          }
+        } catch (error) {
+          console.error("❌ Erreur chargement membre complet:", error);
+          // Fallback sur les données partielles (sans photo)
+          setForm({
+            ...member,
+            files: Array.isArray(member.files)
+              ? member.files
+              : typeof member.files === "string"
+              ? JSON.parse(member.files || "[]")
+              : [],
+            etudiant: !!member.etudiant,
+            photo: member.photo || null,
+          });
+          if (member.id) fetchPayments(member.id);
+        }
+      }
+    };
+
+    loadMemberData();
+  }, [member?.id, form.name, form.firstName]);
 
   // Swipe handlers (mobile)
   const handleTouchStart = (e) => {
@@ -801,6 +839,7 @@ function MemberForm({ member, onSave, onCancel }) {
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
 
+  // --- Upload de documents (bucket: documents) ---
   const handleFileUpload = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
@@ -820,8 +859,12 @@ function MemberForm({ member, onSave, onCancel }) {
             cacheControl: "31536000",
             contentType: file.type || "application/octet-stream",
           });
+<<<<<<< HEAD
         if (error)
           throw new Error(`Erreur lors du téléversement : ${error.message}`);
+=======
+        if (error) throw new Error(`Erreur lors du téléversement : ${error.message}`);
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
 
         const { data } = supabase.storage
           .from("documents")
@@ -848,10 +891,12 @@ function MemberForm({ member, onSave, onCancel }) {
     e.target.value = "";
   };
 
+  // --- 📸 PHOTO MEMBRE (DB-only) ---
   const handleCameraCapture = async (imageData) => {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
       const blob = dataURLToBlob(imageData);
+<<<<<<< HEAD
       const resized = await resizeImage(blob, {
         maxW: 512,
         maxH: 512,
@@ -887,6 +932,20 @@ function MemberForm({ member, onSave, onCancel }) {
         error: "Erreur lors de l'upload de la photo",
         success: null,
       });
+=======
+      const resizedBlob = await resizeImage(blob, { maxW: 512, maxH: 512, quality: 0.8 });
+      const dataUrlResized = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(resizedBlob);
+      });
+      setForm((f) => ({ ...f, photo: dataUrlResized }));
+      setUploadStatus({ loading: false, error: null, success: "Photo capturée !" });
+      setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+    } catch (err) {
+      console.error("Erreur capture photo:", err);
+      setUploadStatus({ loading: false, error: "Erreur lors du traitement de la photo", success: null });
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
     }
   };
 
@@ -901,6 +960,7 @@ function MemberForm({ member, onSave, onCancel }) {
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
+<<<<<<< HEAD
         .upload(filePath, blob, {
           upsert: true,
           cacheControl: "31536000",
@@ -910,6 +970,10 @@ function MemberForm({ member, onSave, onCancel }) {
         throw new Error(
           `Erreur lors du téléversement du document : ${uploadError.message}`
         );
+=======
+        .upload(filePath, blob, { upsert: true, cacheControl: "31536000", contentType: "image/jpeg" });
+      if (uploadError) throw new Error(`Erreur lors du téléversement du document : ${uploadError.message}`);
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
 
       const { data } = supabase.storage
         .from("documents")
@@ -1114,6 +1178,7 @@ function MemberForm({ member, onSave, onCancel }) {
                   if (file) {
                     (async () => {
                       try {
+<<<<<<< HEAD
                         setUploadStatus({
                           loading: true,
                           error: null,
@@ -1165,6 +1230,21 @@ function MemberForm({ member, onSave, onCancel }) {
                           error: "Erreur lors de l'upload de la photo",
                           success: null,
                         });
+=======
+                        setUploadStatus({ loading: true, error: null, success: null });
+                        const resizedBlob = await resizeImage(file, { maxW: 512, maxH: 512, quality: 0.8 });
+                        const dataUrlResized = await new Promise((resolve) => {
+                          const reader = new FileReader();
+                          reader.onload = () => resolve(reader.result);
+                          reader.readAsDataURL(resizedBlob);
+                        });
+                        setForm((prev) => ({ ...prev, photo: dataUrlResized }));
+                        setUploadStatus({ loading: false, error: null, success: "Photo importée !" });
+                        setTimeout(() => setUploadStatus({ loading: false, error: null, success: null }), 3000);
+                      } catch (err) {
+                        console.error("Erreur import photo:", err);
+                        setUploadStatus({ loading: false, error: "Erreur lors du traitement de la photo", success: null });
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
                       }
                     })();
                   }
@@ -1358,12 +1438,17 @@ function MemberForm({ member, onSave, onCancel }) {
       ) : (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
           <FaFileAlt className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+<<<<<<< HEAD
           <p className="text-gray-5 00 dark:text-gray-300 text-lg font-medium">
             Aucun document
           </p>
           <p className="text-gray-400 dark:text-gray-500 text-sm">
             Importez des certificats, documents d'identité, etc.
           </p>
+=======
+          <p className="text-gray-500 dark:text-gray-300 text-lg font-medium">Aucun document</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">Importez des certificats, documents d'identité, etc.</p>
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
         </div>
       )}
     </div>
@@ -1445,9 +1530,13 @@ function MemberForm({ member, onSave, onCancel }) {
                     : "border-gray-300 dark:border-gray-500"
                 }`}
               >
+<<<<<<< HEAD
                 {newPayment.is_paid && (
                   <FaCheck className="w-3 h-3 text-white" />
                 )}
+=======
+                {newPayment.is_paid && <FaCheckIcon className="w-3 h-3 text-white" />}
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
               </div>
             </div>
             Paiement déjà encaissé
@@ -1531,9 +1620,13 @@ function MemberForm({ member, onSave, onCancel }) {
                             : "border-gray-300 dark:border-gray-500 hover:border-green-400"
                         }`}
                       >
+<<<<<<< HEAD
                         {pay.is_paid && (
                           <FaCheck className="w-3 h-3 text-white" />
                         )}
+=======
+                        {pay.is_paid && <FaCheckIcon className="w-3 h-3 text-white" />}
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
                       </button>
                       <span
                         className={`text-sm font-medium ${
@@ -1665,7 +1758,7 @@ function MemberForm({ member, onSave, onCancel }) {
             <button
               type="button"
               onClick={onCancel}
-              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all duration-200 flex-1 sm:flex-none text-sm"
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white bg-opacity-20 text-white rounded-xl hover:bg-opacity-30 transition-all durée-200 flex-1 sm:flex-none text-sm"
             >
               <FaTimes className="w-4 h-4" />
               <span className="hidden sm:inline">Annuler</span>
@@ -1675,7 +1768,7 @@ function MemberForm({ member, onSave, onCancel }) {
               onClick={handleSubmit}
               className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition-all duration-200 font-semibold shadow-lg flex-1 sm:flex-none text-sm"
             >
-              <FaCheck className="w-4 h-4" />
+              <FaCheckIcon className="w-4 h-4" />
               Enregistrer
             </button>
           </div>
@@ -1713,7 +1806,7 @@ function MemberForm({ member, onSave, onCancel }) {
             <span className="hidden sm:inline">Précédent</span>
           </button>
 
-          <div className="flex justify-center gap-2">
+          <div className="flex juste-center gap-2">
             {tabs.map((_, index) => (
               <button
                 key={index}
@@ -1772,10 +1865,15 @@ function MemberForm({ member, onSave, onCancel }) {
       {uploadStatus.success && (
         <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-400 dark:border-green-700 p-4">
           <div className="flex items-center">
+<<<<<<< HEAD
             <FaCheck className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
             <p className="text-green-700 dark:text-green-100">
               {uploadStatus.success}
             </p>
+=======
+            <FaCheckIcon className="w-4 h-4 text-green-400 dark:text-green-200 mr-3" />
+            <p className="text-green-700 dark:text-green-100">{uploadStatus.success}</p>
+>>>>>>> 558506baedf5ec1b0f91bf26865b5f0e13c12059
           </div>
         </div>
       )}
@@ -1824,14 +1922,3 @@ function MemberForm({ member, onSave, onCancel }) {
 }
 
 export default MemberForm;
-
-/*
-Résumé corrections clé :
-- Remplacement de SwitchCamera ➜ RefreshCcw (lucide-react) + utilisation pour le bouton de bascule.
-- Blindage montants/dates côté Paiements (Number(...) avant toFixed, date nullable).
-- Caméra : cycle de vie unique, cleanup strict, bascule avant/arrière stable, reprise fluide.
-- Photo membre conservée en data URL (aucune concat aux URLs Supabase) — évite les GET 400.
-- Documents scannés/uploadés vers bucket "documents" uniquement.
-*/
-
-// ✅ FIN DU FICHIER

@@ -154,6 +154,23 @@ function SearchHints({ search }) {
   );
 }
 
+// 🎯 CONFIGURATION DES DATES DE FIN D'ABONNEMENT
+const SUBSCRIPTION_END_DATES = {
+  2025: "2026-01-01", // ← Modifiez cette date selon vos besoins
+  2026: "2027-01-10", 
+  2027: "2028-01-15",
+};
+
+const getSubscriptionEndDate = (year) => {
+  if (SUBSCRIPTION_END_DATES[year]) {
+    return SUBSCRIPTION_END_DATES[year];
+  }
+  console.warn(`⚠️ Pas de date configurée pour ${year}`);
+  return `${year}-12-31`; // Fallback
+};
+
+
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Composant principal
 // ───────────────────────────────────────────────────────────────────────────────
@@ -204,12 +221,12 @@ function MembersPage() {
     const prev = history.scrollRestoration;
     try {
       if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-    } catch {}
+    } catch { }
     return () => {
       try {
         if ("scrollRestoration" in history)
           history.scrollRestoration = prev || "auto";
-      } catch {}
+      } catch { }
     };
   }, []);
 
@@ -225,7 +242,7 @@ function MembersPage() {
       if (Array.isArray(ctx.selectedIds)) setSelectedIds(ctx.selectedIds);
       if (typeof ctx.currentPage === "number") setCurrentPage(ctx.currentPage);
       restoreRef.current = ctx;
-    } catch {}
+    } catch { }
   }, []);
 
   // Repositionnement par memberId (retour depuis edit)
@@ -344,51 +361,66 @@ function MembersPage() {
   // Filtrage liste
   useEffect(() => {
     const compiledClauses = parseSearch(search);
+
+    // ✅ Fonction helper pour vérifier si un membre est expiré
+    const isMemberExpired = (m) => {
+      if (!m.endDate) return false;
+      try {
+        return isBefore(parseISO(m.endDate), new Date());
+      } catch {
+        return false;
+      }
+    };
+
+    // Base : appliquer la recherche
     let result = members.filter((m) => matchesSearch(m, compiledClauses));
 
     if (activeFilter === "Homme") {
-      result = result.filter((m) => m.gender === "Homme");
+      result = result.filter((m) => m.gender === "Homme" && !isMemberExpired(m));
     } else if (activeFilter === "Femme") {
-      result = result.filter((m) => m.gender === "Femme");
+      result = result.filter((m) => m.gender === "Femme" && !isMemberExpired(m));
     } else if (activeFilter === "Etudiant") {
-      result = result.filter((m) => m.etudiant);
+      result = result.filter((m) => m.etudiant && !isMemberExpired(m));
     } else if (activeFilter === "Expiré") {
-      result = result.filter((m) => {
-        if (!m.endDate) return true;
-        try {
-          return isBefore(parseISO(m.endDate), new Date());
-        } catch {
-          return true;
-        }
-      });
+      result = result.filter((m) => isMemberExpired(m));
     } else if (activeFilter === "Récent") {
-      const now = new Date();
-      result = result.filter((m) => {
-        if (!m.startDate) return false;
-        try {
-          const date = parseISO(m.startDate);
-          return (
-            date.getMonth() === now.getMonth() &&
-            date.getFullYear() === now.getFullYear()
-          );
-        } catch {
-          return false;
-        }
-      });
+      // 20 derniers inscrits/réinscrits par last_subscription_date, SANS les expirés
+      result = [...members]
+        .filter((m) => !isMemberExpired(m))
+        .sort((a, b) => {
+          const dateA = a.last_subscription_date ? new Date(a.last_subscription_date) : new Date(0);
+          const dateB = b.last_subscription_date ? new Date(b.last_subscription_date) : new Date(0);
+
+          // 1er critère : date (plus récent en premier)
+          if (dateB.getTime() !== dateA.getTime()) {
+            return dateB - dateA;
+          }
+
+          // 2ème critère : ID décroissant (si dates égales)
+          return (b.id || 0) - (a.id || 0);
+        })
+        .slice(0, 20);
     } else if (activeFilter === "SansCertif") {
       result = result.filter((m) => {
+        if (isMemberExpired(m)) return false; // ✅ Exclure expirés
         if (!m.files) return true;
         if (Array.isArray(m.files)) return m.files.length === 0;
         if (typeof m.files === "string") return m.files === "[]" || m.files === "";
         return Object.keys(m.files).length === 0;
       });
+    } else if (activeFilter === "Actifs" || !activeFilter) {
+      // ✅ NOUVEAU : Filtre "Total/Actifs" = Tous SAUF expirés
+      result = result.filter((m) => !isMemberExpired(m));
     }
 
-    result.sort((a, b) => {
-      const nameA = (a.name || "").toLowerCase();
-      const nameB = (b.name || "").toLowerCase();
-      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-    });
+    // ✅ Conserver le tri par nom SAUF pour "Récent" (où on garde l'ordre par ID desc)
+    if (activeFilter !== "Récent") {
+      result.sort((a, b) => {
+        const nameA = (a.name || "").toLowerCase();
+        const nameB = (b.name || "").toLowerCase();
+        return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      });
+    }
 
     setFilteredMembers(result);
     setCurrentPage(1); // reset à la page 1 quand filtres changent
@@ -531,6 +563,32 @@ function MembersPage() {
     }
   };
 
+  const handleQuickRenew = async (member) => {
+    const currentYear = new Date().getFullYear();
+    const confirmMsg = `Réabonner ${member.firstName} ${member.name} pour l'année ${currentYear} ?\n\nAbonnement : Année civile\nDu 01/01/${currentYear} au 31/12/${currentYear}`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const updatedData = {
+        subscriptionType: "Année civile",
+        startDate: `${currentYear}-01-01`,
+        //endDate: `${currentYear}-12-31`,
+        endDate: getSubscriptionEndDate(currentYear),
+        last_subscription_date: new Date().toISOString(), // ✨ LIGNE AJOUTÉE
+      };
+
+      await supabaseServices.updateMember(member.id, updatedData);
+      await fetchMembers();
+
+      alert(`✅ ${member.firstName} ${member.name} réabonné(e) avec succès !`);
+      console.log(`✅ Membre ${member.id} réabonné pour ${currentYear}`);
+    } catch (err) {
+      console.error("Erreur réabonnement:", err);
+      alert(`❌ Erreur lors du réabonnement: ${err.message}`);
+    }
+  };
+
   const toggleSelectAll = () => {
     if (selectedIds.length === paginatedMembers.length) {
       setSelectedIds([]);
@@ -549,7 +607,7 @@ function MembersPage() {
   const total = filteredMembers.length;
   const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
   const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
-  const expiredCount = filteredMembers.filter((m) => {
+  const expiredCount = members.filter((m) => {
     if (!m.endDate) return true;
     try {
       return isBefore(parseISO(m.endDate), new Date());
@@ -565,16 +623,8 @@ function MembersPage() {
     return Object.keys(m.files).length === 0;
   }).length;
 
-  const recentCount = filteredMembers.filter((m) => {
-    if (!m.startDate) return false;
-    try {
-      const date = parseISO(m.startDate);
-      const now = new Date();
-      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    } catch {
-      return false;
-    }
-  }).length;
+  // ✅ Le widget "Récents" affiche toujours min(20, total membres)
+  const recentCount = Math.min(20, members.length);
 
   const studentCount = filteredMembers.filter((m) => m.etudiant).length;
 
@@ -648,7 +698,12 @@ function MembersPage() {
 
       {/* Widgets */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
-        <Widget title="👥 Total" value={total} onClick={() => setActiveFilter(null)} active={!activeFilter} />
+        <Widget
+          title="👥 Total"
+          value={total - expiredCount}
+          onClick={() => setActiveFilter("Actifs")}
+          active={activeFilter === "Actifs" || !activeFilter}
+        />
         <Widget title="👨 Hommes" value={maleCount} onClick={() => setActiveFilter("Homme")} active={activeFilter === "Homme"} />
         <Widget title="👩 Femmes" value={femaleCount} onClick={() => setActiveFilter("Femme")} active={activeFilter === "Femme"} />
         <Widget title="🎓 Étudiants" value={studentCount} onClick={() => setActiveFilter("Etudiant")} active={activeFilter === "Etudiant"} />
@@ -717,11 +772,10 @@ function MembersPage() {
                     )}
                     <button
                       onClick={() => goToPage(page)}
-                      className={`px-3 py-2 rounded-lg transition-colors ${
-                        page === currentPage
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
-                      }`}
+                      className={`px-3 py-2 rounded-lg transition-colors ${page === currentPage
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                        }`}
                     >
                       {page}
                     </button>
@@ -784,12 +838,12 @@ function MembersPage() {
                   {paginatedMembers.map((member) => {
                     const isExpired = member.endDate
                       ? (() => {
-                          try {
-                            return isBefore(parseISO(member.endDate), new Date());
-                          } catch {
-                            return true;
-                          }
-                        })()
+                        try {
+                          return isBefore(parseISO(member.endDate), new Date());
+                        } catch {
+                          return true;
+                        }
+                      })()
                       : true;
 
                     const hasFiles =
@@ -797,8 +851,8 @@ function MembersPage() {
                       (Array.isArray(member.files)
                         ? member.files.length > 0
                         : typeof member.files === "string"
-                        ? member.files !== "[]" && member.files !== ""
-                        : Object.keys(member.files).length > 0);
+                          ? member.files !== "[]" && member.files !== ""
+                          : Object.keys(member.files).length > 0);
 
                     return (
                       <tr
@@ -824,6 +878,8 @@ function MembersPage() {
                             firstName={member.firstName}
                             name={member.name}
                             size={48}
+                            onClick={() => handleEditMember(member)}
+                            title="Cliquer pour modifier"
                           />
                         </td>
 
@@ -845,11 +901,10 @@ function MembersPage() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  member.gender === "Femme"
-                                    ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                }`}
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                                  ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                  }`}
                               >
                                 {member.gender}
                               </span>
@@ -889,11 +944,10 @@ function MembersPage() {
                             )}
                             {member.endDate && (
                               <div
-                                className={`text-xs ${
-                                  isExpired
-                                    ? "text-red-600 dark:text-red-400 font-medium"
-                                    : "text-gray-500 dark:text-gray-400"
-                                }`}
+                                className={`text-xs ${isExpired
+                                  ? "text-red-600 dark:text-red-400 font-medium"
+                                  : "text-gray-500 dark:text-gray-400"
+                                  }`}
                               >
                                 Fin: {member.endDate}
                               </div>
@@ -931,22 +985,31 @@ function MembersPage() {
                         </td>
 
                         <td className="p-3">
-                          <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            {/* Bouton Réabonner (uniquement si expiré) */}
+                            {isExpired && (
+                              <button
+                                onClick={() => handleQuickRenew(member)}
+                                className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 transition-colors p-2 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"
+                                title="Réabonner pour l'année en cours"
+                              >
+                                <FaSync className="w-4 h-4" />
+                              </button>
+                            )}
+
                             <button
                               onClick={() => handleEditMember(member)}
-                              className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-1 rounded text-sm transition-colors"
-                              title="Modifier ce membre"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                              title="Modifier"
                             >
-                              <FaEdit className="w-3 h-3" />
-                              Modifier
+                              <FaEdit />
                             </button>
                             <button
                               onClick={() => handleDelete(member.id)}
-                              className="flex items-center gap-1 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 px-3 py-1 rounded text-sm transition-colors"
-                              title="Supprimer ce membre"
+                              className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                              title="Supprimer"
                             >
-                              <FaTrash className="w-3 h-3" />
-                              Supprimer
+                              <FaTrash />
                             </button>
                           </div>
                         </td>
@@ -979,12 +1042,12 @@ function MembersPage() {
             {paginatedMembers.map((member) => {
               const isExpired = member.endDate
                 ? (() => {
-                    try {
-                      return isBefore(parseISO(member.endDate), new Date());
-                    } catch {
-                      return true;
-                    }
-                  })()
+                  try {
+                    return isBefore(parseISO(member.endDate), new Date());
+                  } catch {
+                    return true;
+                  }
+                })()
                 : true;
 
               const hasFiles =
@@ -992,8 +1055,8 @@ function MembersPage() {
                 (Array.isArray(member.files)
                   ? member.files.length > 0
                   : typeof member.files === "string"
-                  ? member.files !== "[]" && member.files !== ""
-                  : Object.keys(member.files).length > 0);
+                    ? member.files !== "[]" && member.files !== ""
+                    : Object.keys(member.files).length > 0);
 
               return (
                 <div
@@ -1017,6 +1080,8 @@ function MembersPage() {
                         firstName={member.firstName}
                         name={member.name}
                         size={48}
+                        onClick={() => handleEditMember(member)}
+                        title="Cliquer pour modifier"
                       />
 
                       <div className="flex-1">
@@ -1035,11 +1100,10 @@ function MembersPage() {
                   <div className="mb-3">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          member.gender === "Femme"
-                            ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
-                            : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${member.gender === "Femme"
+                          ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300"
+                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                          }`}
                       >
                         {member.gender}
                       </span>
@@ -1086,11 +1150,10 @@ function MembersPage() {
                         )}
                         {member.endDate && (
                           <div
-                            className={`text-xs ${
-                              isExpired
-                                ? "text-red-600 dark:text-red-400 font-medium"
-                                : "text-gray-600 dark:text-gray-400"
-                            }`}
+                            className={`text-xs ${isExpired
+                              ? "text-red-600 dark:text-red-400 font-medium"
+                              : "text-gray-600 dark:text-gray-400"
+                              }`}
                           >
                             Fin: {member.endDate}
                           </div>
@@ -1128,21 +1191,36 @@ function MembersPage() {
                     )}
                   </div>
 
-                  <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-600">
-                    <button
-                      onClick={() => handleEditMember(member)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg text-sm transition-colors"
-                    >
-                      <FaEdit className="w-3 h-3" />
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => handleDelete(member.id)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm transition-colors"
-                    >
-                      <FaTrash className="w-3 h-3" />
-                      Supprimer
-                    </button>
+                  <div className="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                    {/* Bouton Réabonner - Pleine largeur en haut (si expiré) */}
+                    {isExpired && (
+                      <button
+                        onClick={() => handleQuickRenew(member)}
+                        className="w-full bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white px-3 py-2.5 rounded-lg inline-flex items-center justify-center gap-2 transition-colors font-medium"
+                        title="Réabonner pour l'année en cours"
+                      >
+                        <FaSync className="w-4 h-4" />
+                        🔄 Réabonner pour {new Date().getFullYear()}
+                      </button>
+                    )}
+
+                    {/* Boutons Modifier et Supprimer - Côte à côte en dessous */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditMember(member)}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <FaEdit />
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDelete(member.id)}
+                        className="flex-1 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <FaTrash />
+                        Supprimer
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1259,23 +1337,20 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
-        active
-          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-      }`}
+      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
+        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+        }`}
     >
       <div
-        className={`text-sm ${
-          active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
-        }`}
+        className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
+          }`}
       >
         {title}
       </div>
       <div
-        className={`text-xl font-bold ${
-          active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
-        }`}
+        className={`text-xl font-bold ${active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
+          }`}
       >
         {value}
       </div>

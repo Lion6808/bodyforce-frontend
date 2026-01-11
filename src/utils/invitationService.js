@@ -8,6 +8,8 @@ const supabase = createClient(
 
 export const inviteMember = async (memberId, email = null) => {
   try {
+    console.log('🚀 Début invitation pour membre:', memberId);
+
     // 1. Récupérer les données du membre
     const { data: member, error: fetchError } = await supabase
       .from('members')
@@ -15,7 +17,11 @@ export const inviteMember = async (memberId, email = null) => {
       .eq('id', memberId)
       .single();
 
-    if (fetchError) throw fetchError;
+    console.log('📥 Membre récupéré:', member);
+    if (fetchError) {
+      console.error('❌ Erreur fetch:', fetchError);
+      throw fetchError;
+    }
 
     // 2. Vérifier si un email est fourni
     const memberEmail = email || member.email;
@@ -30,23 +36,30 @@ export const inviteMember = async (memberId, email = null) => {
 
     // 4. Générer un token unique
     const invitationToken = 'inv-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    console.log('🎫 Token généré:', invitationToken);
 
     // 5. Mettre à jour le membre avec les données d'invitation
-    const { data: updatedMember, error: updateError } = await supabase
-      .from('members')
-      .update({
-        email: memberEmail,
-        invitation_status: 'pending',
-        invitation_token: invitationToken,
-        invited_at: new Date().toISOString()
-      })
-      .eq('id', memberId)
-      .select()
-      .single();
+    // 5. Mettre à jour le membre avec les données d'invitation
+    console.log('💾 Tentative UPDATE via RPC...');
 
-    if (updateError) throw updateError;
+    const { data: updateResult, error: updateError } = await supabase
+      .rpc('update_member_invitation', {
+        p_member_id: memberId,
+        p_email: memberEmail,
+        p_invitation_token: invitationToken,
+        p_invited_at: new Date().toISOString()
+      });
+
+    console.log('✅ UPDATE RPC terminé, résultat:', updateResult);
+    console.log('✅ UPDATE RPC erreur?', updateError);
+
+    if (updateError) {
+      console.error('❌ Erreur UPDATE RPC:', updateError);
+      throw updateError;
+    }
 
     // 6. Envoyer l'invitation via votre Edge Function
+    console.log('📧 Envoi email...');
     const { data, error: emailError } = await supabase.functions.invoke('invitation-sender', {
       body: {
         email: memberEmail,
@@ -58,8 +71,20 @@ export const inviteMember = async (memberId, email = null) => {
       }
     });
 
+    console.log('📬 Email envoyé, erreur?', emailError);
+
     if (emailError) throw emailError;
 
+    // Créer l'objet updatedMember avec les nouvelles valeurs
+    const updatedMember = {
+      ...member,
+      email: memberEmail,
+      invitation_status: 'pending',
+      invitation_token: invitationToken,
+      invited_at: new Date().toISOString()
+    };
+
+    console.log('✅ Invitation réussie !');
     return {
       success: true,
       member: updatedMember,
@@ -67,7 +92,7 @@ export const inviteMember = async (memberId, email = null) => {
     };
 
   } catch (error) {
-    console.error('Erreur invitation:', error);
+    console.error('💥 Erreur invitation:', error);
     return {
       success: false,
       error: error.message
@@ -113,10 +138,12 @@ export const resendInvitation = async (memberId) => {
     if (emailError) throw emailError;
 
     // Mettre à jour la date d'envoi
-    await supabase
+    const { error: updateError } = await supabase
       .from('members')
       .update({ invited_at: new Date().toISOString() })
       .eq('id', memberId);
+
+    if (updateError) throw updateError;
 
     return {
       success: true,
