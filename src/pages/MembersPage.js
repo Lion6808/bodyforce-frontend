@@ -16,6 +16,7 @@ import {
 } from "react-icons/fa";
 
 import Avatar from "../components/Avatar";
+import * as XLSX from "xlsx";
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Utils recherche avancée (inchangés)
@@ -524,6 +525,107 @@ function MembersPage() {
       navigate("/members/new", { state: { member: null, returnPath: "/members" } });
     }
   };
+
+  // 🎯 Import des badges depuis Excel
+  const handleImportBadges = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          // 1. Lire le fichier Excel
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+          console.log("📖 Fichier Excel lu:", rows.length, "lignes");
+
+          // 2. Parser les données
+          const badges = [];
+          let skipped = 0;
+
+          for (const row of rows) {
+            const appartement = row["Appartement"];
+            const badgeRealId = row["Badges ou Télécommandes"];
+
+            // Extraire le numéro depuis "adhérentXXX"
+            if (appartement && badgeRealId) {
+              const match = String(appartement).match(/adhérent(\d+)/i);
+              if (match) {
+                const badgeNumber = parseInt(match[1], 10);
+                badges.push({
+                  badge_number: badgeNumber,
+                  badge_real_id: String(badgeRealId).trim(),
+                });
+              } else {
+                skipped++;
+              }
+            } else {
+              skipped++;
+            }
+          }
+
+          console.log("✅ Badges extraits:", badges.length);
+          console.log("⚠️ Lignes ignorées:", skipped);
+
+          if (badges.length === 0) {
+            alert("❌ Aucun badge trouvé dans le fichier.\n\nVérifiez que le fichier contient les colonnes:\n- Appartement (adhérent001, adhérent002, ...)\n- Badges ou Télécommandes");
+            return;
+          }
+
+          // 3. Insérer dans Supabase (upsert par batch de 100)
+          const BATCH_SIZE = 100;
+          let inserted = 0;
+          let updated = 0;
+
+          for (let i = 0; i < badges.length; i += BATCH_SIZE) {
+            const batch = badges.slice(i, i + BATCH_SIZE);
+
+            const { error } = await supabase
+              .from("badge_mapping")
+              .upsert(batch, {
+                onConflict: "badge_number",
+                ignoreDuplicates: false,
+              });
+
+            if (error) {
+              console.error("Erreur lors de l'insert:", error);
+              throw error;
+            }
+
+            inserted += batch.length;
+          }
+
+          // 4. Message de succès
+          alert(
+            `✅ Import terminé avec succès !\n\n` +
+            `• Total badges: ${badges.length}\n` +
+            `• Lignes ignorées: ${skipped}\n\n` +
+            `Les badges sont maintenant disponibles dans les formulaires.`
+          );
+
+          console.log("🎉 Import badges terminé:", badges.length, "badges");
+
+        } catch (err) {
+          console.error("❌ Erreur lors du traitement du fichier:", err);
+          alert(`❌ Erreur lors du traitement du fichier:\n${err.message}`);
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (err) {
+      console.error("❌ Erreur lors de la lecture du fichier:", err);
+      alert(`❌ Erreur lors de la lecture du fichier:\n${err.message}`);
+    }
+
+    // Réinitialiser l'input pour permettre de réimporter le même fichier
+    event.target.value = "";
+  };
+
+
 
   const handleCloseForm = () => {
     setShowForm(false);
