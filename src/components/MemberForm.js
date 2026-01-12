@@ -514,6 +514,7 @@ function MemberForm({ member, onSave, onCancel }) {
     startDate: "",
     endDate: "",
     badgeId: "",
+    badge_number: "",
     files: [],
     photo: null,
     etudiant: false,
@@ -602,6 +603,7 @@ function MemberForm({ member, onSave, onCancel }) {
             );
             setForm({
               ...fullMember,
+              badge_number: fullMember.badge_number || "",
               files: Array.isArray(fullMember.files)
                 ? fullMember.files
                 : typeof fullMember.files === "string"
@@ -617,6 +619,7 @@ function MemberForm({ member, onSave, onCancel }) {
           // Fallback sur les données partielles (sans photo)
           setForm({
             ...member,
+            badge_number: member.badge_number || "",
             files: Array.isArray(member.files)
               ? member.files
               : typeof member.files === "string"
@@ -820,6 +823,40 @@ function MemberForm({ member, onSave, onCancel }) {
       ...f,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  // 🎯 Recherche automatique du badge_real_id
+  const handleBadgeNumberChange = async (e) => {
+    const badgeNumber = e.target.value;
+    
+    setForm((f) => ({ ...f, badge_number: badgeNumber }));
+    
+    if (!badgeNumber || badgeNumber === "") {
+      setForm((f) => ({ ...f, badgeId: "" }));
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from("badge_mapping")
+        .select("badge_real_id")
+        .eq("badge_number", parseInt(badgeNumber))
+        .single();
+      
+      if (error) {
+        console.log("Badge non trouvé:", badgeNumber);
+        setForm((f) => ({ ...f, badgeId: "" }));
+        return;
+      }
+      
+      if (data) {
+        console.log("✅ Badge trouvé:", data.badge_real_id);
+        setForm((f) => ({ ...f, badgeId: data.badge_real_id }));
+      }
+    } catch (err) {
+      console.error("Erreur recherche badge:", err);
+      setForm((f) => ({ ...f, badgeId: "" }));
+    }
   };
 
   const age = form.birthdate
@@ -1272,14 +1309,34 @@ function MemberForm({ member, onSave, onCancel }) {
           options={Object.keys(subscriptionDurations)}
           icon={FaCreditCard}
         />
-        <InputField
-          label="ID Badge"
-          name="badgeId"
-          value={form.badgeId}
-          onChange={handleChange}
-          icon={FaIdCard}
-          placeholder="Numéro du badge d'accès"
-        />
+        <div>
+          <InputField
+            label="Numéro de Badge"
+            name="badge_number"
+            type="number"
+            value={form.badge_number}
+            onChange={handleBadgeNumberChange}
+            icon={FaIdCard}
+            placeholder="Ex: 16"
+          />
+          
+          {form.badgeId && (
+            <div className="mt-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+              <div className="text-xs text-green-600 dark:text-green-400 mb-1">
+                Badge ID (automatique)
+              </div>
+              <div className="font-mono text-sm font-semibold text-green-700 dark:text-green-300">
+                {form.badgeId}
+              </div>
+            </div>
+          )}
+          
+          {form.badge_number && !form.badgeId && (
+            <div className="mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-xs text-yellow-700 dark:text-yellow-300">
+              ⚠️ Badge non trouvé dans la base
+            </div>
+          )}
+        </div>
         <InputField
           type="date"
           label="Date de début"
