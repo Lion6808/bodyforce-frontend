@@ -919,7 +919,7 @@ function AnimatedMobileMenu({
             </nav>
           </div>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+            <div className="p-4 pb-24 border-t border-gray-200 dark:border-gray-700 space-y-2"></div>
             <button
               onClick={toggleDarkMode}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
