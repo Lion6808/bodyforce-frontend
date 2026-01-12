@@ -867,8 +867,38 @@ function MemberForm({ member, onSave, onCancel }) {
 
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // 🎯 Détecter si le badge a changé
+    if (member?.id && form.badgeId && form.badgeId !== member.badgeId) {
+      console.log(`🔄 Badge modifié: ${member.badgeId} → ${form.badgeId}`);
+
+      // Si supabaseServices est disponible, utiliser reassignBadge
+      if (
+        typeof supabaseServices !== "undefined" &&
+        supabaseServices.reassignBadge
+      ) {
+        try {
+          await supabaseServices.reassignBadge(form.badgeId, member.id);
+          // Appeler onSave sans le badgeId (déjà géré)
+          const { badgeId, ...formWithoutBadge } = form;
+          onSave(
+            {
+              ...formWithoutBadge,
+              files: JSON.stringify(formWithoutBadge.files),
+            },
+            true
+          );
+          return;
+        } catch (error) {
+          console.error("Erreur réattribution badge:", error);
+          // Continuer avec la sauvegarde normale en cas d'erreur
+        }
+      }
+    }
+
+    // Sauvegarde normale
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
 

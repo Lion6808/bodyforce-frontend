@@ -780,10 +780,29 @@ function MemberFormPage() {
       let savedMemberId;
 
       if (member?.id) {
-        await supabaseServices.updateMember(member.id, {
-          ...form,
-          files: JSON.stringify(form.files),
-        });
+        // 🎯 Vérifier si le badge a changé
+        if (form.badgeId && form.badgeId !== member.badgeId) {
+          console.log(
+            `🔄 Réattribution du badge ${form.badgeId} au membre ${member.id}`
+          );
+
+          // Appeler la fonction de réattribution
+          await supabaseServices.reassignBadge(form.badgeId, member.id);
+
+          // Mettre à jour les autres champs SANS le badgeId
+          const { badgeId, ...formWithoutBadge } = form;
+          await supabaseServices.updateMember(member.id, {
+            ...formWithoutBadge,
+            files: JSON.stringify(formWithoutBadge.files),
+          });
+        } else {
+          // Badge inchangé ou vide - update normal
+          await supabaseServices.updateMember(member.id, {
+            ...form,
+            files: JSON.stringify(form.files),
+          });
+        }
+
         savedMemberId = member.id;
         setUploadStatus({
           loading: false,
