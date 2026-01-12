@@ -125,7 +125,7 @@ const StatsReportGenerator = () => {
       yPos += 10;
 
       // Tableau des statistiques globales
-      doc.autoTable({
+      autoTable(doc, {
         startY: yPos,
         head: [['Indicateur', 'Valeur']],
         body: [
@@ -161,7 +161,7 @@ const StatsReportGenerator = () => {
           item.presences.toString()
         ]);
 
-        doc.autoTable({
+        autoTable(doc, {
           startY: yPos,
           head: [['Rang', 'Membre', 'Présences']],
           body: topMembersData,
