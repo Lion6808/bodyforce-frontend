@@ -157,7 +157,7 @@ function SearchHints({ search }) {
 // 🎯 CONFIGURATION DES DATES DE FIN D'ABONNEMENT
 const SUBSCRIPTION_END_DATES = {
   2025: "2026-01-01", // ← Modifiez cette date selon vos besoins
-  2026: "2027-01-10", 
+  2026: "2027-01-10",
   2027: "2028-01-15",
 };
 
@@ -722,6 +722,22 @@ function MembersPage() {
             <FaPlus />
             Ajouter un membre
           </button>
+
+          {/* NOUVEAU : Bouton Import Badges */}
+          <button
+            className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
+            onClick={() => document.getElementById('badge-import-input').click()}
+          >
+            📥 Importer badges (.xlsx)
+          </button>
+          <input
+            id="badge-import-input"
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleImportBadges}
+            style={{ display: 'none' }}
+          />
+
           {selectedIds.length > 0 && (
             <button
               onClick={handleBulkDelete}
