@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabaseServices } from "../supabaseClient";
+import { supabase, supabaseServices } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 import { isBefore, parseISO } from "date-fns";
 import {
