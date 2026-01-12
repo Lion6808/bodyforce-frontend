@@ -80,8 +80,7 @@ const subscriptionDurations = {
   Trimestriel: 3,
   Semestriel: 6,
   Annuel: 12,
-  // "Année civile" géré séparément dans le useEffect
-  "Année civile": 0, // ← AJOUTER cette ligne (0 car géré séparément)
+  "Année civile": 0,
 };
 
 function sanitizeFileName(name) {

@@ -77,7 +77,6 @@ const fetchUserPhoto = async (userId) => {
 // App version
 const APP_VERSION = "2.3.0"; // ← NOUVEAU : Version mise à jour
 
-
 // ✅ Configuration des onglets Bottom Nav - DYNAMIQUE selon le rôle
 const getBottomNavTabs = (isAdmin) => {
   if (isAdmin) {
@@ -428,7 +427,9 @@ function LoginPage() {
 
       if (roleData?.is_disabled) {
         await supabase.auth.signOut();
-        throw new Error("Votre compte a été désactivé. Contactez l'administrateur.");
+        throw new Error(
+          "Votre compte a été désactivé. Contactez l'administrateur."
+        );
       }
 
       const photoUrl = await fetchUserPhoto(email);
@@ -730,9 +731,10 @@ function EnhancedSidebar({
         <div className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = item.path === "/"
-              ? location.pathname === "/"
-              : location.pathname.startsWith(item.path);
+            const isActive =
+              item.path === "/"
+                ? location.pathname === "/"
+                : location.pathname.startsWith(item.path);
 
             return (
               <Link
@@ -896,9 +898,10 @@ function AnimatedMobileMenu({
             <nav className="space-y-2">
               {menuItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = item.path === "/"
-                  ? location.pathname === "/"
-                  : location.pathname.startsWith(item.path);
+                const isActive =
+                  item.path === "/"
+                    ? location.pathname === "/"
+                    : location.pathname.startsWith(item.path);
 
                 return (
                   <Link
@@ -919,7 +922,7 @@ function AnimatedMobileMenu({
             </nav>
           </div>
 
-            <div className="p-4 pb-24 border-t border-gray-200 dark:border-gray-700 space-y-2"></div>
+          <div className="p-4 pb-24 border-t border-gray-200 dark:border-gray-700 space-y-2">
             <button
               onClick={toggleDarkMode}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -1299,7 +1302,8 @@ function AppRoutes() {
                   <Route path="/planning" element={<PlanningPage />} />
                   <Route path="/payments" element={<PaymentsPage />} />
                   <Route path="/statistics" element={<StatisticsPage />} />
-                  <Route path="/reports" element={<ReportsPage />} /> {/* ← NOUVEAU : Route rapports */}
+                  <Route path="/reports" element={<ReportsPage />} />{" "}
+                  {/* ← NOUVEAU : Route rapports */}
                   <Route path="/admin/users" element={<UserManagementPage />} />
                   <Route path="/invitations" element={<InvitationsPage />} />
                 </>
@@ -1318,7 +1322,10 @@ function AppRoutes() {
       {/* Bottom Navigation Bar FIXED en bas (mobile uniquement) */}
       {isMobile && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
-          <BottomNavigationBar isAdmin={isAdmin} currentPath={location.pathname} />
+          <BottomNavigationBar
+            isAdmin={isAdmin}
+            currentPath={location.pathname}
+          />
         </div>
       )}
     </div>
