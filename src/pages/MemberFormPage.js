@@ -1073,10 +1073,10 @@ function MemberFormPage() {
     setAttendanceData((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
+      // 🎯 Utilise get_member_presences pour récupérer TOUTES les présences
+      // (tous les badges que le membre a eus dans l'historique)
       const { data, error } = await supabase
-        .from("presences")
-        .select("*")
-        .eq("badgeId", form.badgeId || memberId)
+        .rpc("get_member_presences", { p_member_id: memberId })
         .gte("timestamp", attendanceFilters.startDate + "T00:00:00")
         .lte("timestamp", attendanceFilters.endDate + "T23:59:59")
         .order("timestamp", { ascending: false });
