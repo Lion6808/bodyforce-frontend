@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Chart } from 'chart.js/auto';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 const StatsReportGenerator = () => {
   const [startDate, setStartDate] = useState('2025-01-01');
@@ -35,13 +36,21 @@ const StatsReportGenerator = () => {
           responsive: false,
           plugins: {
             title: { display: true, text: title, font: { size: 16, weight: 'bold' } },
-            legend: { display: type === 'pie', position: 'bottom' }
+            legend: { display: type === 'pie', position: 'bottom' },
+            datalabels: {
+              anchor: type === 'horizontalBar' ? 'end' : 'end',
+              align: type === 'horizontalBar' ? 'end' : 'top',
+              formatter: (value) => value,
+              font: { weight: 'bold', size: 11 },
+              color: '#000'
+            }
           },
           scales: type !== 'pie' ? {
             x: type === 'horizontalBar' ? { beginAtZero: true } : {},
             y: type !== 'horizontalBar' ? { beginAtZero: true } : {}
           } : {}
-        }
+        },
+        plugins: [ChartDataLabels]
       });
 
       setTimeout(() => {
@@ -67,7 +76,6 @@ const StatsReportGenerator = () => {
 
       const statsData = stats[0];
 
-      // Récupérer TOUS les membres
       const { data: allMembers, error: membersError } = await supabase.rpc('get_all_members_presences', {
         p_start_date: startDate,
         p_end_date: endDate
@@ -114,7 +122,7 @@ const StatsReportGenerator = () => {
         startY: yPos,
         head: [['Indicateur', 'Valeur']],
         body: [
-          ['Total des presences', statsData.total_presences?.toLocaleString() || '0'],
+          ['Total des presences', statsData.total_presences?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') || '0'],
           ['Membres actifs', statsData.membres_actifs?.toString() || '0'],
           ['Total membres inscrits', statsData.total_membres?.toString() || '0'],
           ['Taux d\'activation', `${statsData.taux_activation || 0}%`],
@@ -168,7 +176,7 @@ const StatsReportGenerator = () => {
         doc.addImage(topChartImg, 'PNG', 10, yPos, 190, 142);
       }
 
-      // TOUS LES MEMBRES (sur plusieurs pages si nécessaire)
+      // TOUS LES MEMBRES
       if (allMembers && allMembers.length > 0) {
         doc.addPage();
         yPos = 20;
