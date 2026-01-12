@@ -84,6 +84,7 @@ const subscriptionDurations = {
   Semestriel: 6,
   Annuel: 12,
   // "Année civile" géré séparément dans le useEffect
+  "Année civile": 0, // ← AJOUTER cette ligne (0 car géré séparément)
 };
 
 function sanitizeFileName(name) {
@@ -828,27 +829,27 @@ function MemberForm({ member, onSave, onCancel }) {
   // 🎯 Recherche automatique du badge_real_id
   const handleBadgeNumberChange = async (e) => {
     const badgeNumber = e.target.value;
-    
+
     setForm((f) => ({ ...f, badge_number: badgeNumber }));
-    
+
     if (!badgeNumber || badgeNumber === "") {
       setForm((f) => ({ ...f, badgeId: "" }));
       return;
     }
-    
+
     try {
       const { data, error } = await supabase
         .from("badge_mapping")
         .select("badge_real_id")
         .eq("badge_number", parseInt(badgeNumber))
         .single();
-      
+
       if (error) {
         console.log("Badge non trouvé:", badgeNumber);
         setForm((f) => ({ ...f, badgeId: "" }));
         return;
       }
-      
+
       if (data) {
         console.log("✅ Badge trouvé:", data.badge_real_id);
         setForm((f) => ({ ...f, badgeId: data.badge_real_id }));
@@ -1319,7 +1320,7 @@ function MemberForm({ member, onSave, onCancel }) {
             icon={FaIdCard}
             placeholder="Ex: 16"
           />
-          
+
           {form.badgeId && (
             <div className="mt-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
               <div className="text-xs text-green-600 dark:text-green-400 mb-1">
@@ -1330,7 +1331,7 @@ function MemberForm({ member, onSave, onCancel }) {
               </div>
             </div>
           )}
-          
+
           {form.badge_number && !form.badgeId && (
             <div className="mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-xs text-yellow-700 dark:text-yellow-300">
               ⚠️ Badge non trouvé dans la base
