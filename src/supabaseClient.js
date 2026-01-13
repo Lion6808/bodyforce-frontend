@@ -538,3 +538,17 @@ export const supabaseServices = {
     }
   },
 };
+/* ---------------- Réattribution de badges ---------------- */
+export const reassignBadge = async (badgeRealId, newMemberId) => {
+  const { data, error } = await supabase.rpc('reassign_badge', {
+    p_badge_real_id: badgeRealId,
+    p_new_member_id: newMemberId
+  });
+
+  if (error) {
+    console.error('Erreur lors de la réattribution du badge:', error);
+    throw error;
+  }
+
+  return data;
+};
