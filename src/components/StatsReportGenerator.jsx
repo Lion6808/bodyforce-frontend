@@ -209,7 +209,7 @@ const StatsReportGenerator = () => {
       doc.setFontSize(16);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(255, 255, 255);
-      doc.text('📊  VUE D\'ENSEMBLE', 20, yPos + 3);
+      doc.text('VUE D\'ENSEMBLE', 20, yPos + 3);
       yPos += 15;
 
       // Calculs pour les statistiques avancées
@@ -233,11 +233,11 @@ const StatsReportGenerator = () => {
         startY: yPos,
         head: [['Indicateur', 'Valeur']],
         body: [
-          ['📈 Total des présences', totalPresences.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')],
-          ['✅ Membres actifs', `${membresActifs} membres`],
-          ['👥 Total membres inscrits', `${totalMembres} membres`],
-          ['🎯 Taux d\'activation', `${tauxActivation}%`],
-          ['📊 Moyenne présences/membre actif', `${moyennePresences} visites`]
+          ['Total des présences', totalPresences.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')],
+          ['Membres actifs', `${membresActifs} membres`],
+          ['Total membres inscrits', `${totalMembres} membres`],
+          ['Taux d\'activation', `${tauxActivation}%`],
+          ['Moyenne présences/membre actif', `${moyennePresences} visites`]
         ],
         theme: 'striped',
         headStyles: { fillColor: [52, 152, 219], fontSize: 11, fontStyle: 'bold', textColor: [255, 255, 255] },
@@ -254,17 +254,17 @@ const StatsReportGenerator = () => {
       doc.setFontSize(16);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(255, 255, 255);
-      doc.text('👥  RÉPARTITION DÉMOGRAPHIQUE', 20, yPos + 3);
+      doc.text('RÉPARTITION DÉMOGRAPHIQUE', 20, yPos + 3);
       yPos += 15;
 
       autoTable(doc, {
         startY: yPos,
         head: [['Catégorie', 'Nombre', 'Pourcentage']],
         body: [
-          ['👨 Hommes', (repartitionGenre['Homme'] || 0).toString(), `${pourcentageHommes}%`],
-          ['👩 Femmes', (repartitionGenre['Femme'] || 0).toString(), `${pourcentageFemmes}%`],
-          ['🎓 Étudiants', (repartitionEtudiant[true] || 0).toString(), `${pourcentageEtudiant}%`],
-          ['💼 Non-étudiants', (repartitionEtudiant[false] || 0).toString(), `${(100 - pourcentageEtudiant).toFixed(1)}%`]
+          ['Hommes', (repartitionGenre['Homme'] || 0).toString(), `${pourcentageHommes}%`],
+          ['Femmes', (repartitionGenre['Femme'] || 0).toString(), `${pourcentageFemmes}%`],
+          ['Étudiants', (repartitionEtudiant[true] || 0).toString(), `${pourcentageEtudiant}%`],
+          ['Non-étudiants', (repartitionEtudiant[false] || 0).toString(), `${(100 - pourcentageEtudiant).toFixed(1)}%`]
         ],
         theme: 'striped',
         headStyles: { fillColor: [46, 204, 113], fontSize: 11, fontStyle: 'bold', textColor: [255, 255, 255] },
@@ -287,7 +287,7 @@ const StatsReportGenerator = () => {
       doc.setFontSize(16);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(255, 255, 255);
-      doc.text('🏆  TOP 10 - MEMBRES LES PLUS ASSIDUS', 20, yPos + 3);
+      doc.text('TOP 10 - MEMBRES LES PLUS ASSIDUS', 20, yPos + 3);
       yPos += 15;
 
       if (statsData.top_10_assidus && statsData.top_10_assidus.length > 0) {
@@ -333,7 +333,7 @@ const StatsReportGenerator = () => {
         doc.setFontSize(16);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
-        doc.text(`📋  DÉTAIL DE TOUS LES MEMBRES (${allMembers.length})`, 20, yPos + 3);
+        doc.text(`  DÉTAIL DE TOUS LES MEMBRES (${allMembers.length})`, 20, yPos + 3);
         yPos += 15;
 
         const allMembersData = allMembers.map((item, idx) => [
@@ -369,7 +369,7 @@ const StatsReportGenerator = () => {
         doc.setFontSize(16);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
-        doc.text('👥  RÉPARTITION PAR GENRE', 20, yPos + 3);
+        doc.text('RÉPARTITION PAR GENRE', 20, yPos + 3);
         yPos += 15;
 
         const genderLabels = Object.keys(statsData.repartition_genre);
@@ -387,7 +387,7 @@ const StatsReportGenerator = () => {
         doc.setFontSize(16);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
-        doc.text('🎓  RÉPARTITION ÉTUDIANTS', 20, yPos + 3);
+        doc.text('RÉPARTITION ÉTUDIANTS', 20, yPos + 3);
         yPos += 15;
 
         const studentLabels = Object.keys(statsData.repartition_etudiant).map(k => k === 'true' ? 'Étudiant' : 'Non-étudiant');
@@ -407,7 +407,7 @@ const StatsReportGenerator = () => {
         doc.setFontSize(16);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
-        doc.text('📅  FRÉQUENTATION PAR JOUR', 20, yPos + 3);
+        doc.text('FRÉQUENTATION PAR JOUR', 20, yPos + 3);
         yPos += 15;
 
         const dayLabels = statsData.frequentation_jours.map(item => item.jour.trim());
@@ -427,7 +427,7 @@ const StatsReportGenerator = () => {
         doc.setFontSize(16);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
-        doc.text('⏰  FRÉQUENTATION PAR PLAGE HORAIRE', 20, yPos + 3);
+        doc.text('FRÉQUENTATION PAR PLAGE HORAIRE', 20, yPos + 3);
         yPos += 15;
 
         const timeOrder = [
@@ -451,7 +451,7 @@ const StatsReportGenerator = () => {
         doc.setFontSize(16);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
-        doc.text('📈  ÉVOLUTION MENSUELLE DES PRÉSENCES', 20, yPos + 3);
+        doc.text('ÉVOLUTION MENSUELLE DES PRÉSENCES', 20, yPos + 3);
         yPos += 15;
 
         const monthLabels = Object.keys(statsData.evolution_mensuelle).sort();
@@ -467,7 +467,7 @@ const StatsReportGenerator = () => {
       const fileName = `BodyForce_Rapport_${startDate}_${endDate}.pdf`;
       doc.save(fileName);
 
-      alert('✅ Rapport PDF généré avec succès !');
+      alert(' Rapport PDF généré avec succès !');
 
     } catch (err) {
       console.error('Erreur:', err);
@@ -480,7 +480,7 @@ const StatsReportGenerator = () => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto dark:bg-gray-800">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 dark:text-white">
-        📊 Générer un Rapport Statistique
+         Générer un Rapport Statistique
       </h2>
 
       <div className="space-y-4">
@@ -550,16 +550,16 @@ const StatsReportGenerator = () => {
 
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-md p-4 dark:from-blue-900/20 dark:to-cyan-900/20 dark:border-blue-800">
           <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2 dark:text-blue-300">
-            <span className="text-xl">📋</span>
+            <span className="text-xl"></span>
             Contenu du rapport professionnel :
           </h3>
           <ul className="text-sm text-blue-800 space-y-2 dark:text-blue-400">
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">✅</span>
+              <span className="mt-0.5"></span>
               <span><strong>Page de garde</strong> avec logo BodyForce et période analysée</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">📊</span>
+              <span className="mt-0.5"></span>
               <span><strong>Vue d'ensemble</strong> avec statistiques clés et moyenne présences/membre</span>
             </li>
             <li className="flex items-start gap-2">
@@ -571,11 +571,11 @@ const StatsReportGenerator = () => {
               <span><strong>Top 10</strong> des membres les plus assidus avec graphique</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">📋</span>
+              <span className="mt-0.5"></span>
               <span><strong>Détail de TOUS les membres</strong> avec leur nombre de présences</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">📊</span>
+              <span className="mt-0.5"></span>
               <span><strong>Graphiques en camembert</strong> pour la répartition genre et étudiants</span>
             </li>
             <li className="flex items-start gap-2">
@@ -587,7 +587,7 @@ const StatsReportGenerator = () => {
               <span><strong>Évolution mensuelle</strong> des présences (graphique ligne)</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="mt-0.5">📄</span>
+              <span className="mt-0.5"></span>
               <span><strong>Numérotation des pages</strong> et pied de page professionnel</span>
             </li>
           </ul>
@@ -619,7 +619,7 @@ const StatsReportGenerator = () => {
             </span>
           ) : (
             <>
-              <span className="text-lg">📄</span> Générer le rapport PDF professionnel
+              <span className="text-lg"></span> Générer le rapport PDF professionnel
             </>
           )}
         </button>
