@@ -217,7 +217,6 @@ const StatsReportGenerator = () => {
       const membresActifs = statsData.membres_actifs || 0;
       const totalMembres = statsData.total_membres || 0;
       const moyennePresences = membresActifs > 0 ? (totalPresences / membresActifs).toFixed(1) : 0;
-      const tauxActivation = statsData.taux_activation || 0;
 
       // Calcul des pourcentages H/F/Étudiants
       const repartitionGenre = statsData.repartition_genre || {};
@@ -236,7 +235,6 @@ const StatsReportGenerator = () => {
           ['Total des présences', totalPresences.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')],
           ['Membres actifs', `${membresActifs} membres`],
           ['Total membres inscrits', `${totalMembres} membres`],
-          ['Taux d\'activation', `${tauxActivation}%`],
           ['Moyenne présences/membre actif', `${moyennePresences} visites`]
         ],
         theme: 'striped',
@@ -291,11 +289,11 @@ const StatsReportGenerator = () => {
       yPos += 15;
 
       if (statsData.top_10_assidus && statsData.top_10_assidus.length > 0) {
-        const topMembersData = statsData.top_10_assidus.map((item, idx) => {
-          const medals = ['🥇', '🥈', '🥉'];
-          const rank = idx < 3 ? medals[idx] : `${idx + 1}`;
-          return [rank, item.membre, item.presences.toString()];
-        });
+        const topMembersData = statsData.top_10_assidus.map((item, idx) => [
+          (idx + 1).toString(),
+          item.membre,
+          item.presences.toString()
+        ]);
 
         autoTable(doc, {
           startY: yPos,
@@ -333,26 +331,32 @@ const StatsReportGenerator = () => {
         doc.setFontSize(16);
         doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 255, 255);
-        doc.text(`  DÉTAIL DE TOUS LES MEMBRES (${allMembers.length})`, 20, yPos + 3);
+        doc.text(`DÉTAIL DE TOUS LES MEMBRES (${allMembers.length})`, 20, yPos + 3);
         yPos += 15;
 
         const allMembersData = allMembers.map((item, idx) => [
           (idx + 1).toString(),
           item.member_name,
+          item.badge_id || '-',
+          item.phone || '-',
+          item.gender || '-',
           item.presences.toString()
         ]);
 
         autoTable(doc, {
           startY: yPos,
-          head: [['#', 'Membre', 'Présences']],
+          head: [['#', 'Membre', 'Badge', 'Téléphone', 'Sexe', 'Présences']],
           body: allMembersData,
           theme: 'grid',
-          headStyles: { fillColor: [155, 89, 182], fontSize: 10, fontStyle: 'bold', textColor: [255, 255, 255] },
-          styles: { fontSize: 9, cellPadding: 3 },
+          headStyles: { fillColor: [155, 89, 182], fontSize: 9, fontStyle: 'bold', textColor: [255, 255, 255] },
+          styles: { fontSize: 8, cellPadding: 2 },
           columnStyles: {
-            0: { cellWidth: 15, halign: 'center' },
-            1: { cellWidth: 120 },
-            2: { cellWidth: 30, halign: 'center' }
+            0: { cellWidth: 10, halign: 'center' },
+            1: { cellWidth: 60 },
+            2: { cellWidth: 30, halign: 'center' },
+            3: { cellWidth: 35 },
+            4: { cellWidth: 20, halign: 'center' },
+            5: { cellWidth: 20, halign: 'center' }
           },
           margin: { left: 20, right: 20 },
           alternateRowStyles: { fillColor: [245, 245, 250] }
