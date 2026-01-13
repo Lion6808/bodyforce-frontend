@@ -83,7 +83,7 @@ const subscriptionDurations = {
   Trimestriel: 3,
   Semestriel: 6,
   Annuel: 12,
-  // "Année civile" géré séparément dans le useEffect
+  "Année civile": 0,
 };
 
 function sanitizeFileName(name) {
@@ -828,27 +828,27 @@ function MemberForm({ member, onSave, onCancel }) {
   // 🎯 Recherche automatique du badge_real_id
   const handleBadgeNumberChange = async (e) => {
     const badgeNumber = e.target.value;
-    
+
     setForm((f) => ({ ...f, badge_number: badgeNumber }));
-    
+
     if (!badgeNumber || badgeNumber === "") {
       setForm((f) => ({ ...f, badgeId: "" }));
       return;
     }
-    
+
     try {
       const { data, error } = await supabase
         .from("badge_mapping")
         .select("badge_real_id")
         .eq("badge_number", parseInt(badgeNumber))
         .single();
-      
+
       if (error) {
         console.log("Badge non trouvé:", badgeNumber);
         setForm((f) => ({ ...f, badgeId: "" }));
         return;
       }
-      
+
       if (data) {
         console.log("✅ Badge trouvé:", data.badge_real_id);
         setForm((f) => ({ ...f, badgeId: data.badge_real_id }));
@@ -867,8 +867,38 @@ function MemberForm({ member, onSave, onCancel }) {
 
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // 🎯 Détecter si le badge a changé
+    if (member?.id && form.badgeId && form.badgeId !== member.badgeId) {
+      console.log(`🔄 Badge modifié: ${member.badgeId} → ${form.badgeId}`);
+
+      // Si supabaseServices est disponible, utiliser reassignBadge
+      if (
+        typeof supabaseServices !== "undefined" &&
+        supabaseServices.reassignBadge
+      ) {
+        try {
+          await supabaseServices.reassignBadge(form.badgeId, member.id);
+          // Appeler onSave sans le badgeId (déjà géré)
+          const { badgeId, ...formWithoutBadge } = form;
+          onSave(
+            {
+              ...formWithoutBadge,
+              files: JSON.stringify(formWithoutBadge.files),
+            },
+            true
+          );
+          return;
+        } catch (error) {
+          console.error("Erreur réattribution badge:", error);
+          // Continuer avec la sauvegarde normale en cas d'erreur
+        }
+      }
+    }
+
+    // Sauvegarde normale
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
 
@@ -1319,7 +1349,7 @@ function MemberForm({ member, onSave, onCancel }) {
             icon={FaIdCard}
             placeholder="Ex: 16"
           />
-          
+
           {form.badgeId && (
             <div className="mt-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
               <div className="text-xs text-green-600 dark:text-green-400 mb-1">
@@ -1330,7 +1360,7 @@ function MemberForm({ member, onSave, onCancel }) {
               </div>
             </div>
           )}
-          
+
           {form.badge_number && !form.badgeId && (
             <div className="mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-xs text-yellow-700 dark:text-yellow-300">
               ⚠️ Badge non trouvé dans la base

@@ -80,7 +80,7 @@ const subscriptionDurations = {
   Trimestriel: 3,
   Semestriel: 6,
   Annuel: 12,
-  // "Année civile" géré séparément dans le useEffect
+  "Année civile": 0,
 };
 
 function sanitizeFileName(name) {
@@ -94,8 +94,10 @@ function sanitizeFileName(name) {
 // 🎯 CONFIGURATION DES DATES DE FIN D'ABONNEMENT
 const SUBSCRIPTION_END_DATES = {
   2025: "2026-01-01", // ← Modifiez cette date selon vos besoins
-  2026: "2027-01-10",
-  2027: "2028-01-15",
+  2026: "2027-01-01",
+  2027: "2028-01-01",
+  2028: "2029-01-01",
+  2029: "2030-01-01",
 };
 
 const getSubscriptionEndDate = (year) => {
@@ -723,27 +725,27 @@ function MemberFormPage() {
   // 🎯 Recherche automatique du badge_real_id
   const handleBadgeNumberChange = async (e) => {
     const badgeNumber = e.target.value;
-    
+
     setForm((f) => ({ ...f, badge_number: badgeNumber }));
-    
+
     if (!badgeNumber || badgeNumber === "") {
       setForm((f) => ({ ...f, badgeId: "" }));
       return;
     }
-    
+
     try {
       const { data, error } = await supabase
         .from("badge_mapping")
         .select("badge_real_id")
         .eq("badge_number", parseInt(badgeNumber))
         .single();
-      
+
       if (error) {
         console.log("Badge non trouvé:", badgeNumber);
         setForm((f) => ({ ...f, badgeId: "" }));
         return;
       }
-      
+
       if (data) {
         console.log("✅ Badge trouvé:", data.badge_real_id);
         setForm((f) => ({ ...f, badgeId: data.badge_real_id }));
@@ -778,10 +780,29 @@ function MemberFormPage() {
       let savedMemberId;
 
       if (member?.id) {
-        await supabaseServices.updateMember(member.id, {
-          ...form,
-          files: JSON.stringify(form.files),
-        });
+        // 🎯 Vérifier si le badge a changé
+        if (form.badgeId && form.badgeId !== member.badgeId) {
+          console.log(
+            `🔄 Réattribution du badge ${form.badgeId} au membre ${member.id}`
+          );
+
+          // Appeler la fonction de réattribution
+          await supabaseServices.reassignBadge(form.badgeId, member.id);
+
+          // Mettre à jour les autres champs SANS le badgeId
+          const { badgeId, ...formWithoutBadge } = form;
+          await supabaseServices.updateMember(member.id, {
+            ...formWithoutBadge,
+            files: JSON.stringify(formWithoutBadge.files),
+          });
+        } else {
+          // Badge inchangé ou vide - update normal
+          await supabaseServices.updateMember(member.id, {
+            ...form,
+            files: JSON.stringify(form.files),
+          });
+        }
+
         savedMemberId = member.id;
         setUploadStatus({
           loading: false,
@@ -1434,7 +1455,7 @@ function MemberFormPage() {
               icon={FaIdCard}
               placeholder="Ex: 16"
             />
-            
+
             {form.badgeId && (
               <div className="mt-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
                 <div className="text-xs text-green-600 dark:text-green-400 mb-1">
@@ -1445,7 +1466,7 @@ function MemberFormPage() {
                 </div>
               </div>
             )}
-            
+
             {form.badge_number && !form.badgeId && (
               <div className="mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-xs text-yellow-700 dark:text-yellow-300">
                 ⚠️ Badge non trouvé dans la base
