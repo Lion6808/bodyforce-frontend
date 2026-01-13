@@ -11,8 +11,32 @@ const StatsReportGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Logo BodyForce en base64 (haltère stylisé)
-  const LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAGGklEQVR4nO2da4hVVRTHf2NqauZjLB+ZD8xHPjIfqZVlZj4qM7UyK8ssyw+lH4qyD2VFH4qioiKjXhQVPSiKHhQVFRX1oKKiB0VFRQ+Koqj+sQ4cxuGec/c5d599zp3zA4uZe8/aa6+z9t5rr7X2HgiCIAiCIAiCIAiCIAiCoCUYDSwGPgW+Bb4BPgMWAaOaOK4gZwYCy4F9QE/KZx+wDLik0YMMsuNi4FtqE6LHVX8ucElDRxpkwhhgO/UJsR14GFgBvAy8BvwI7Ad+B44A/wA/AZuBV4HngLuAi+qpPB0zgMM5CHEUWABMqKPuScBi4HAOdR/Nsu5MuBH4KydB9gL3A2MzamcscF+ks466TwBfAVuAo8Ap4F/nUaeBn4FDwIdABzAVGJR23ZOBfTnU/VfWdWfCdP0I0xbiH2CDPvR5Mgx4TZ/uSmMYrWezp+6twCxgQNp1D8+h7llZ150JK3IS4jNgWgPamuq8h2p1v+rVPTOnujPjjhyE+B2Y36C25gPHUtq83qs7q3pzY2IOQmwChjawvWHA2yntvpNT3ZkxOQchXm1we68ktLspp7oz5cIchHi2we09k9Du+JzqzpRxOQjxcIPbezCh3VE51Z0pk3IQYnWD23swoV1fm3nUnSmTchDi/Qa390FCuwty6JfP8+hXdePNQYiPG9zeOwntzs6hXz7Po1/VvZCDEO80uL13Etqdm0O/fJ5Hv6p7JQchtjW4vW0J7S7OoV8+z6Nf1W3MQYiPGtze+wntzsmhXz7Po1/VbchBiC8a3N7nCe3ekEO/fJ5Hv6r7KAch9jW4vb0J7V6dQ798nke/qtuTgxDHGtzescR2e3vZSu6fpPavz6HutOuekkO/vNuZlUO/fJ5Hv3yex68gax6XA1cBk9S/ycAU7Qmc0jpX6PeDgTHA5cBNwFzgCd3feQ/Ypf7Cz/rXelz/VNdH7ufOhL5lQdo/LGvyFqQdL4MK6Z8Quq8k6c/BXwgXwl8IwQUhvIUQXBDCWwjBBSG8hRBcEMJbCMEFIbyFEFwQwlsIwQUhvIUQXBDCWwjBBSG8hRBcEMJbCMEFIbyFEFwQwlsIwQUhvIUQXBDCWwjBBSG8hRBcEMJbCMEFIbyFEFwQoqBCuDpvzNB5Y0H+zlsZce25Q+epFeTvvLlc0+n+GdNO54kV5O+8ucKp86bUdVJV540dVce9q5w6b2/med7cgJNpdz2NqBj6HfAScCuwAPgY+wDTLj+6yw0NdN66gT3vdeCGPMd4PkgSxJ03V7HukwWdpO28O3O5jQZ9LnSP7wJ+0+9jVU4j0lSY89Yj6A53yjcBG4HrgQnASOBy4FpgGXaW22iMc+ea/lBgp05oC4LzxnjsDt2K5CzlOuBG4AHgSyrnb0e7w3eMdepWVKJO1b0xKnShVxjOa/pax49+2OmHAU9ju40+w7Z4Hcae7Xyf0tYjOqenFq7SoMtygjOUTaSnJRwAPsEE+ww4BvyCbdfagz3adaQfa85uJnM8MK+G8b2JdXIk8BVwm1f/FP18a+xfgdNprMEqvxvbRDtOeVA/AdYC95pnZ8y82n2/VKM5QblLRg7A1uITOrtP6e/1crVXZp53/0zgR/17M3CuVzZP929x7k+ibY7FzqWrxDyguSp/rE5fM+5RO/t03zuee+PyWi1vsZyo1eMVTZQPvPs+ljq+6fX2rNvU7r2xewtw2i+TN9dqrV7itfsQ9iytxk1e+R7v+36v3FpcF8Uu2l3jZ4CXvev3vfs+lsK++HB/0Ct7DnvF2+OVfdUr/xR4ybs+zzv+y/Oie/1O4K/YvfHuTeKjWsNEh2rIAkf6O+VL1GkHYxs5fX5LKX9Pxz/ilf/t5We0uO97x0edZcfHNYrBqDRCXUqldezLUspv08/T2H7K96eUzwSe9O4fc/4e7pTv1J+qvNLOPn2+Zk+lnKDc6V3vS2m/M6V8p/73Uv95qsL5scA67A03fxb1ec55bnYOebd2J0/V7l1YdPGTytdj58OdxM5XPKH/Xcn5+8VN62y9F0EQBEEQBEEQBEEQBEHQf/kfOe92ijdEVbYAAAAASUVORK5CYII=';
+  // Fonction pour charger le logo depuis le projet
+  const loadLogo = () => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        try {
+          const dataURL = canvas.toDataURL('image/png');
+          resolve(dataURL);
+        } catch (err) {
+          console.warn('Impossible de charger le logo:', err);
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        console.warn('Logo non trouvé, PDF sans logo');
+        resolve(null);
+      };
+      img.src = '/images/logo.png';
+    });
+  };
 
   const generateChartImage = (type, labels, data, title) => {
     return new Promise((resolve) => {
@@ -97,6 +121,9 @@ const StatsReportGenerator = () => {
     setError(null);
 
     try {
+      // Charger le logo en premier
+      const logoData = await loadLogo();
+      
       const { data: stats, error: rpcError } = await supabase.rpc('generate_stats_report', {
         p_start_date: startDate,
         p_end_date: endDate
@@ -117,14 +144,17 @@ const StatsReportGenerator = () => {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      let yPos = 40;
+      let yPos = 20;
 
       // ============= PAGE DE GARDE =============
-      // Logo centré en haut
-      const logoSize = 30;
-      doc.addImage(LOGO_BASE64, 'PNG', (pageWidth - logoSize) / 2, 20, logoSize, logoSize);
-      
-      yPos = 60;
+      // Logo centré en haut (si chargé avec succès)
+      if (logoData) {
+        const logoSize = 30;
+        doc.addImage(logoData, 'PNG', (pageWidth - logoSize) / 2, yPos, logoSize, logoSize);
+        yPos += 40;
+      } else {
+        yPos += 20;
+      }
       
       // Titre principal
       doc.setFontSize(32);
@@ -526,7 +556,7 @@ const StatsReportGenerator = () => {
           <ul className="text-sm text-blue-800 space-y-2 dark:text-blue-400">
             <li className="flex items-start gap-2">
               <span className="mt-0.5">✅</span>
-              <span><strong>Page de garde</strong> avec logo et période analysée</span>
+              <span><strong>Page de garde</strong> avec logo BodyForce et période analysée</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-0.5">📊</span>
