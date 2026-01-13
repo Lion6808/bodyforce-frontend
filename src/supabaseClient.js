@@ -537,18 +537,18 @@ export const supabaseServices = {
       throw error;
     }
   },
-};
-/* ---------------- Réattribution de badges ---------------- */
-export const reassignBadge = async (badgeRealId, newMemberId) => {
-  const { data, error } = await supabase.rpc('reassign_badge', {
-    p_badge_real_id: badgeRealId,
-    p_new_member_id: newMemberId
-  });
+  /* ---------------- Réattribution de badges ---------------- */
+  async reassignBadge(badgeRealId, newMemberId) {
+    const { data, error } = await supabase.rpc('reassign_badge', {
+      p_badge_real_id: badgeRealId,
+      p_new_member_id: newMemberId
+    });
 
-  if (error) {
-    console.error('Erreur lors de la réattribution du badge:', error);
-    throw error;
-  }
+    if (error) {
+      console.error('Erreur lors de la réattribution du badge:', error);
+      throw error;
+    }
 
-  return data;
+    return data;
+  },
 };
