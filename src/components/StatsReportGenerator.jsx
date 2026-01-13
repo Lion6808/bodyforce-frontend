@@ -139,7 +139,12 @@ const StatsReportGenerator = () => {
         p_end_date: endDate
       });
 
-      if (membersError) console.error('Erreur membres:', membersError);
+      if (membersError) {
+        console.error('❌ Erreur get_all_members_presences:', membersError);
+        throw new Error(`Erreur lors de la récupération des membres: ${membersError.message}`);
+      }
+      
+      console.log('✅ Membres récupérés:', allMembers?.length || 0);
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -322,7 +327,9 @@ const StatsReportGenerator = () => {
       }
 
       // ============= TOUS LES MEMBRES =============
+      console.log('🔍 Génération tableau membres, longueur:', allMembers?.length);
       if (allMembers && allMembers.length > 0) {
+        console.log('✅ Génération du tableau avec', allMembers.length, 'membres');
         doc.addPage();
         yPos = 20;
         
@@ -361,6 +368,8 @@ const StatsReportGenerator = () => {
           margin: { left: 20, right: 20 },
           alternateRowStyles: { fillColor: [245, 245, 250] }
         });
+      } else {
+        console.warn('⚠️ ATTENTION: allMembers est vide ou undefined!', allMembers);
       }
 
       // ============= RÉPARTITION PAR GENRE (GRAPHIQUE) =============
