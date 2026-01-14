@@ -341,12 +341,13 @@ function MembersPage() {
 
   // Chargement membres (sans photos)
   const fetchMembers = async () => {
+     console.log("🚀 DÉBUT fetchMembers"); // ← AJOUTE CETTE LIGNE
     try {
       setLoading(true);
       setError(null);
       const data = await supabaseServices.getMembersWithoutPhotos();
-      setMembers(data || []);
       console.log(`✅ ${data?.length ?? 0} membres chargés (sans photos)`);
+      setMembers(data || []);
     } catch (err) {
       console.error("Erreur récupération membres :", err);
       setError(`Erreur lors du chargement: ${err.message}`);
