@@ -267,7 +267,7 @@ function PlanningPage() {
       // B) Charger les members correspondants puis appliquer filtre nom
       const { data: periodMembersAll, error: membersErr } = await supabase
         .from("members")
-        .select("id,name,firstName,badgeId,photo")
+        .select("id,name,firstName,badgeId,badge_number,photo")
         .in("badgeId", allBadgeIdsInPeriod)
         .order("name", { ascending: true });
 
@@ -895,7 +895,7 @@ function PlanningPage() {
                   </div>
                   <div className="flex items-center gap-2 text-xs mt-0.5">
                     <span className="text-gray-500 dark:text-gray-400">
-                      Badge {member.badgeId}
+                      Badge: {member?.badgeId}{member?.badge_number ? ` (${member.badge_number})` : ''}
                     </span>
                     <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">
                       {times.length} présence(s)
@@ -1185,7 +1185,7 @@ function PlanningPage() {
                     {member?.name} {member?.firstName}
                   </h4>
                   <p className="text-blue-300 text-sm">
-                    Badge: {member?.badge_number}
+                    Badge: {member?.badgeId}
                   </p>
                 </div>
               </div>
