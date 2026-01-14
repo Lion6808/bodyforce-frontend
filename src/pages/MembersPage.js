@@ -1074,9 +1074,16 @@ function MembersPage() {
                         </td>
 
                         <td className="p-3">
-                          <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
-                            {member.badgeId || "—"}
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
+                              {member.badgeId || "—"}
+                            </span>
+                            {member.shortBadgeId && (
+                              <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs font-mono">
+                                {member.shortBadgeId}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         <td className="p-3">
