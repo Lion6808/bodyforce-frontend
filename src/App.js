@@ -587,25 +587,22 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
                   <button
                     key={item.id}
                     onClick={() => handleMoreItemClick(item)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                      isActive(item.path)
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive(item.path)
                         ? "bg-blue-50 dark:bg-blue-900/20"
                         : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    }`}
+                      }`}
                   >
                     <Icon
-                      className={`text-xl ${
-                        isActive(item.path)
+                      className={`text-xl ${isActive(item.path)
                           ? "text-blue-600 dark:text-blue-400"
                           : item.color
-                      }`}
+                        }`}
                     />
                     <span
-                      className={`font-medium ${
-                        isActive(item.path)
+                      className={`font-medium ${isActive(item.path)
                           ? "text-blue-600 dark:text-blue-400"
                           : "text-gray-700 dark:text-gray-300"
-                      }`}
+                        }`}
                     >
                       {item.name}
                     </span>
@@ -627,21 +624,18 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
               <button
                 key={tab.id}
                 onClick={() => handleTabClick(tab)}
-                className={`flex flex-col items-center justify-center flex-1 h-full transition-all ${
-                  active ? "scale-110" : "scale-100"
-                }`}
+                className={`flex flex-col items-center justify-center flex-1 h-full transition-all ${active ? "scale-110" : "scale-100"
+                  }`}
               >
                 <Icon
-                  className={`text-2xl mb-1 transition-colors ${
-                    active ? "text-blue-600 dark:text-blue-400" : tab.color
-                  }`}
+                  className={`text-2xl mb-1 transition-colors ${active ? "text-blue-600 dark:text-blue-400" : tab.color
+                    }`}
                 />
                 <span
-                  className={`text-xs font-medium transition-colors ${
-                    active
+                  className={`text-xs font-medium transition-colors ${active
                       ? "text-blue-600 dark:text-blue-400"
                       : "text-gray-600 dark:text-gray-400"
-                  }`}
+                    }`}
                 >
                   {tab.name}
                 </span>
@@ -671,30 +665,29 @@ function EnhancedSidebar({
     { path: "/", icon: FaHome, label: "Accueil" },
     ...(isAdmin
       ? [
-          { path: "/members", icon: FaUserFriends, label: "Membres" },
-          { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
-          { path: "/payments", icon: FaCreditCard, label: "Paiements" },
-          { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
-          { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" }, // ← NOUVEAU dans le menu desktop
-          { path: "/messages", icon: FaEnvelope, label: "Messages" },
-          { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
-        ]
+        { path: "/members", icon: FaUserFriends, label: "Membres" },
+        { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
+        { path: "/payments", icon: FaCreditCard, label: "Paiements" },
+        { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
+        { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" }, // ← NOUVEAU dans le menu desktop
+        { path: "/messages", icon: FaEnvelope, label: "Messages" },
+        { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
+      ]
       : [
-          { path: "/messages", icon: FaEnvelope, label: "Messages" },
-          {
-            path: "/my-attendances",
-            icon: FaClipboardList,
-            label: "Mes présences",
-          },
-          { path: "/profile", icon: FaUser, label: "Mon profil" },
-        ]),
+        { path: "/messages", icon: FaEnvelope, label: "Messages" },
+        {
+          path: "/my-attendances",
+          icon: FaClipboardList,
+          label: "Mes présences",
+        },
+        { path: "/profile", icon: FaUser, label: "Mon profil" },
+      ]),
   ];
 
   return (
     <aside
-      className={`hidden lg:flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
-        isCollapsed ? "w-20" : "w-64"
-      }`}
+      className={`hidden lg:flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${isCollapsed ? "w-20" : "w-64"
+        }`}
     >
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
@@ -740,11 +733,10 @@ function EnhancedSidebar({
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
                     ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
+                  }`}
                 title={isCollapsed ? item.label : ""}
               >
                 <Icon className="text-xl flex-shrink-0" />
@@ -759,9 +751,8 @@ function EnhancedSidebar({
 
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <div
-          className={`flex items-center gap-3 mb-4 ${
-            isCollapsed ? "justify-center" : ""
-          }`}
+          className={`flex items-center gap-3 mb-4 ${isCollapsed ? "justify-center" : ""
+            }`}
         >
           {user?.photo ? (
             <img
@@ -827,23 +818,23 @@ function AnimatedMobileMenu({
     { path: "/", icon: FaHome, label: "Accueil" },
     ...(isAdmin
       ? [
-          { path: "/members", icon: FaUserFriends, label: "Membres" },
-          { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
-          { path: "/payments", icon: FaCreditCard, label: "Paiements" },
-          { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
-          { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" }, // ← NOUVEAU dans le menu mobile
-          { path: "/messages", icon: FaEnvelope, label: "Messages" },
-          { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
-        ]
+        { path: "/members", icon: FaUserFriends, label: "Membres" },
+        { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
+        { path: "/payments", icon: FaCreditCard, label: "Paiements" },
+        { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
+        { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" }, // ← NOUVEAU dans le menu mobile
+        { path: "/messages", icon: FaEnvelope, label: "Messages" },
+        { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
+      ]
       : [
-          { path: "/messages", icon: FaEnvelope, label: "Messages" },
-          {
-            path: "/my-attendances",
-            icon: FaClipboardList,
-            label: "Mes présences",
-          },
-          { path: "/profile", icon: FaUser, label: "Mon profil" },
-        ]),
+        { path: "/messages", icon: FaEnvelope, label: "Messages" },
+        {
+          path: "/my-attendances",
+          icon: FaClipboardList,
+          label: "Mes présences",
+        },
+        { path: "/profile", icon: FaUser, label: "Mon profil" },
+      ]),
   ];
 
   return (
@@ -856,9 +847,8 @@ function AnimatedMobileMenu({
       )}
 
       <div
-        className={`lg:hidden fixed top-0 right-0 h-full w-80 max-w-full bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`lg:hidden fixed top-0 right-0 h-full w-80 max-w-full bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ${isOpen ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -908,11 +898,10 @@ function AnimatedMobileMenu({
                     key={item.path}
                     to={item.path}
                     onClick={onClose}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                      isActive
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
                         ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
+                      }`}
                   >
                     <Icon className="text-xl" />
                     <span className="font-medium">{item.label}</span>

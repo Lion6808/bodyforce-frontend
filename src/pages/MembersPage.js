@@ -1286,6 +1286,7 @@ function MembersPage() {
                       </div>
                     </div>
                     <div>
+                      </div>
                       <div className="flex items-center gap-2 mb-3">
                         <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">
                           BADGE
