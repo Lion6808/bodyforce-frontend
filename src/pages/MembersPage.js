@@ -1079,7 +1079,7 @@ function MembersPage() {
                             <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
                               {member.badgeId || "—"}
                             </span>
-                            {member.shortBadgeId && (
+                            {member.badge_number && (
                               <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs font-mono">
                                 {member.badge_number}
                               </span>
