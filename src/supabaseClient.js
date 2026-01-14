@@ -76,7 +76,7 @@ export const supabaseServices = {
     const { data, error } = await supabase
       .from("members")
       .select(
-        "id, name, firstName, birthdate, gender, address, phone, mobile, email, subscriptionType, startDate, endDate, badgeId, files, etudiant,badge_number"
+        "id, name, firstName, birthdate, gender, address, phone, mobile, email, subscriptionType, startDate, endDate, badgeId, files, etudiant, badge_number"
       )
       .order("name", { ascending: true });
 
@@ -292,7 +292,7 @@ export const supabaseServices = {
   async getPayments(memberId = null) {
     let query = supabase
       .from("payments")
-      .select(`*, member:members(id, name, firstName, badgeId)`)
+      .select(`*, member:members(id, name, firstName, badgeId, badge_number)`)
       .order("date_paiement", { ascending: false });
 
     if (memberId) query = query.eq("member_id", memberId);
@@ -311,7 +311,7 @@ export const supabaseServices = {
     const { data, error } = await supabase
       .from("payments")
       .insert([paymentData])
-      .select(`*, member:members(id, name, firstName, badgeId)`)
+      .select(`*, member:members(id, name, firstName, badgeId, badge_number)`)
       .single();
 
     if (error) {
@@ -327,7 +327,7 @@ export const supabaseServices = {
       .from("payments")
       .update(paymentData)
       .eq("id", id)
-      .select(`*, member:members(id, name, firstName, badgeId)`)
+      .select(`*, member:members(id, name, firstName, badgeId, badge_number)`)
       .single();
 
     if (error) {
