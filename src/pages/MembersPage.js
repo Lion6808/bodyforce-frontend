@@ -1286,77 +1286,76 @@ function MembersPage() {
                       </div>
                     </div>
                     <div>
+                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        BADGE
                       </div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">
-                          BADGE
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
-                            {member.badgeId || "—"}
-                          </span>
-                          {member.badge_number && (
-                            <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs font-mono">
-                              {member.badge_number}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {isExpired ? (
-                          <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                            ⚠️ Expiré
-                          </span>
-                        ) : (
-                          <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                            ✅ Actif
+                      <div className="flex flex-col gap-1 mb-3">
+                        <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
+                          {member.badgeId || "—"}
+                        </span>
+                        {member.badge_number && (
+                          <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs font-mono">
+                            {member.badge_number}
                           </span>
                         )}
-                        {hasFiles ? (
-                          <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                            📄 Docs OK
-                          </span>
-                        ) : (
-                          <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
-                            📄 Manquant
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
-                        {/* Bouton Réabonner - Pleine largeur en haut (si expiré) */}
-                        {isExpired && (
-                          <button
-                            onClick={() => handleQuickRenew(member)}
-                            className="w-full bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white px-3 py-2.5 rounded-lg inline-flex items-center justify-center gap-2 transition-colors font-medium"
-                            title="Réabonner pour l'année en cours"
-                          >
-                            <FaSync className="w-4 h-4" />
-                            🔄 Réabonner pour {new Date().getFullYear()}
-                          </button>
-                        )}
-
-                        {/* Boutons Modifier et Supprimer - Côte à côte en dessous */}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEditMember(member)}
-                            className="flex-1 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
-                          >
-                            <FaEdit />
-                            Modifier
-                          </button>
-                          <button
-                            onClick={() => handleDelete(member.id)}
-                            className="flex-1 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
-                          >
-                            <FaTrash />
-                            Supprimer
-                          </button>
-                        </div>
                       </div>
                     </div>
-                    );
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {isExpired ? (
+                      <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
+                        ⚠️ Expiré
+                      </span>
+                    ) : (
+                      <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
+                        ✅ Actif
+                      </span>
+                    )}
+                    {hasFiles ? (
+                      <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
+                        📄 Docs OK
+                      </span>
+                    ) : (
+                      <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
+                        📄 Manquant
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                    {/* Bouton Réabonner - Pleine largeur en haut (si expiré) */}
+                    {isExpired && (
+                      <button
+                        onClick={() => handleQuickRenew(member)}
+                        className="w-full bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white px-3 py-2.5 rounded-lg inline-flex items-center justify-center gap-2 transition-colors font-medium"
+                        title="Réabonner pour l'année en cours"
+                      >
+                        <FaSync className="w-4 h-4" />
+                        🔄 Réabonner pour {new Date().getFullYear()}
+                      </button>
+                    )}
+
+                    {/* Boutons Modifier et Supprimer - Côte à côte en dessous */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditMember(member)}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <FaEdit />
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDelete(member.id)}
+                        className="flex-1 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <FaTrash />
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
             })}
                   </div>
                 </>
