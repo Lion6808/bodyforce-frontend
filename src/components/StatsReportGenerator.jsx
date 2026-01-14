@@ -347,11 +347,11 @@ const StatsReportGenerator = () => {
 
         const allMembersData = allMembers.map((item, idx) => [
           (idx + 1).toString(),
-          `${item.firstname || ''} ${item.name || ''}`.trim(),  // ← CORRIGÉ
-          item.badge_number?.toString() || '-',                 // ← CORRIGÉ
-          '-',                                                   // Phone non disponible
-          '-',                                                   // Gender non disponible
-          (item.total_presences || 0).toString()                // ← CORRIGÉ
+          `${item.firstname || ''} ${item.name || ''}`.trim(),
+          item.badge_number?.toString() || '-',
+          item.phone || item.mobile || '-',  // ← Affiche phone OU mobile
+          item.gender || '-',                 // ← Affiche le genre
+          (item.total_presences || 0).toString()
         ]);
 
         autoTable(doc, {
@@ -362,12 +362,12 @@ const StatsReportGenerator = () => {
           headStyles: { fillColor: [155, 89, 182], fontSize: 9, fontStyle: 'bold', textColor: [255, 255, 255] },
           styles: { fontSize: 8, cellPadding: 2 },
           columnStyles: {
-            0: { cellWidth: 10, halign: 'center' },
-            1: { cellWidth: 60 },
-            2: { cellWidth: 30, halign: 'center' },
-            3: { cellWidth: 35 },
-            4: { cellWidth: 20, halign: 'center' },
-            5: { cellWidth: 20, halign: 'center' }
+            0: { cellWidth: 10, halign: 'center' },   // #
+            1: { cellWidth: 50 },                      // Membre (réduit)
+            2: { cellWidth: 20, halign: 'center' },   // Badge (réduit)
+            3: { cellWidth: 30 },                      // Téléphone
+            4: { cellWidth: 15, halign: 'center' },   // Sexe
+            5: { cellWidth: 20, halign: 'center' }    // Présences
           },
           margin: { left: 20, right: 20 },
           alternateRowStyles: { fillColor: [245, 245, 250] }
