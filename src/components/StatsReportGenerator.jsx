@@ -270,8 +270,8 @@ const StatsReportGenerator = () => {
         body: [
           ['Hommes', (repartitionGenre['Homme'] || 0).toString(), `${pourcentageHommes}%`],
           ['Femmes', (repartitionGenre['Femme'] || 0).toString(), `${pourcentageFemmes}%`],
-          ['Étudiants', (repartitionEtudiant[true] || 0).toString(), `${pourcentageEtudiant}%`],
-          ['Non-étudiants', (repartitionEtudiant[false] || 0).toString(), `${(100 - pourcentageEtudiant).toFixed(1)}%`]
+          ['Étudiants', (repartitionEtudiant['Étudiant'] || 0).toString(), `${pourcentageEtudiant}%`],
+          ['Non-étudiants', (repartitionEtudiant['Non-étudiant'] || 0).toString(), `${(100 - pourcentageEtudiant).toFixed(1)}%`]
         ],
         theme: 'striped',
         headStyles: { fillColor: [46, 204, 113], fontSize: 11, fontStyle: 'bold', textColor: [255, 255, 255] },
