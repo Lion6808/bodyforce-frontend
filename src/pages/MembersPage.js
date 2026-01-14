@@ -1081,7 +1081,7 @@ function MembersPage() {
                             </span>
                             {member.shortBadgeId && (
                               <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs font-mono">
-                                {member.shortBadgeId}
+                                {member.badge_number}
                               </span>
                             )}
                           </div>
