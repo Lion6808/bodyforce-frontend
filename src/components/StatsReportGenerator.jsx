@@ -347,11 +347,11 @@ const StatsReportGenerator = () => {
 
         const allMembersData = allMembers.map((item, idx) => [
           (idx + 1).toString(),
-          item.member_name,
-          item.badge_id || '-',
-          item.phone || '-',
-          item.gender || '-',
-          item.presences.toString()
+          `${item.firstname || ''} ${item.name || ''}`.trim(),  // ← CORRIGÉ
+          item.badge_number?.toString() || '-',                 // ← CORRIGÉ
+          '-',                                                   // Phone non disponible
+          '-',                                                   // Gender non disponible
+          (item.total_presences || 0).toString()                // ← CORRIGÉ
         ]);
 
         autoTable(doc, {
