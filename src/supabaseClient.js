@@ -76,7 +76,7 @@ export const supabaseServices = {
     const { data, error } = await supabase
       .from("members")
       .select(
-        "id, name, firstName, birthdate, gender, address, phone, mobile, email, subscriptionType, startDate, endDate, badgeId, files, etudiant"
+        "id, name, firstName, birthdate, gender, address, phone, mobile, email, subscriptionType, startDate, endDate, badgeId, files, etudiant,badge_number"
       )
       .order("name", { ascending: true });
 
