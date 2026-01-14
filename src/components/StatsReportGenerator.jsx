@@ -16,7 +16,7 @@ const StatsReportGenerator = () => {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = 'Anonymous';
-      img.onload = function() {
+      img.onload = function () {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
@@ -44,7 +44,7 @@ const StatsReportGenerator = () => {
       canvas.width = 800;
       canvas.height = type === 'horizontalBar' ? 600 : 400;
       const ctx = canvas.getContext('2d');
-      
+
       const chart = new Chart(ctx, {
         type: type === 'horizontalBar' ? 'bar' : type,
         data: {
@@ -52,8 +52,8 @@ const StatsReportGenerator = () => {
           datasets: [{
             label: title,
             data: data,
-            backgroundColor: type === 'pie' ? 
-              ['#3498DB', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'] : 
+            backgroundColor: type === 'pie' ?
+              ['#3498DB', '#E74C3C', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'] :
               type === 'line' ? 'rgba(52, 152, 219, 0.2)' : '#3498DB',
             borderColor: type === 'line' ? '#3498DB' : '#2C3E50',
             borderWidth: type === 'line' ? 3 : 1,
@@ -93,22 +93,22 @@ const StatsReportGenerator = () => {
 
   const addFooter = (doc) => {
     const pageCount = doc.internal.getNumberOfPages();
-    
+
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       const pageHeight = doc.internal.pageSize.getHeight();
       const pageWidth = doc.internal.pageSize.getWidth();
-      
+
       // Ligne de séparation
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.5);
       doc.line(20, pageHeight - 15, pageWidth - 20, pageHeight - 15);
-      
+
       // Numéro de page
       doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);
       doc.text(`Page ${i} / ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-      
+
       // Informations
       doc.setFontSize(8);
       doc.text('Club BodyForce', 20, pageHeight - 10);
@@ -123,7 +123,7 @@ const StatsReportGenerator = () => {
     try {
       // Charger le logo en premier
       const logoData = await loadLogo();
-      
+
       const { data: stats, error: rpcError } = await supabase.rpc('generate_stats_report', {
         p_start_date: startDate,
         p_end_date: endDate
@@ -134,6 +134,10 @@ const StatsReportGenerator = () => {
 
       const statsData = stats[0];
 
+      // DEBUG - Ajoute ces 2 lignes
+      console.log('📊 statsData:', statsData);
+      console.log('📊 Clés:', Object.keys(statsData));
+
       const { data: allMembers, error: membersError } = await supabase.rpc('get_all_members_presences', {
         p_start_date: startDate,
         p_end_date: endDate
@@ -143,7 +147,7 @@ const StatsReportGenerator = () => {
         console.error('❌ Erreur get_all_members_presences:', membersError);
         throw new Error(`Erreur lors de la récupération des membres: ${membersError.message}`);
       }
-      
+
       console.log('✅ Membres récupérés:', allMembers?.length || 0);
 
       const doc = new jsPDF();
@@ -160,33 +164,33 @@ const StatsReportGenerator = () => {
       } else {
         yPos += 20;
       }
-      
+
       // Titre principal
       doc.setFontSize(32);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(41, 128, 185);
       doc.text('BODYFORCE', pageWidth / 2, yPos, { align: 'center' });
-      
+
       yPos += 20;
       doc.setFontSize(20);
       doc.setTextColor(52, 73, 94);
       doc.text('Rapport Statistique', pageWidth / 2, yPos, { align: 'center' });
-      
+
       yPos += 10;
       doc.setFontSize(16);
       doc.text('de Fréquentation', pageWidth / 2, yPos, { align: 'center' });
-      
+
       // Cadre avec période
       yPos += 30;
       doc.setDrawColor(52, 152, 219);
       doc.setLineWidth(0.5);
       doc.roundedRect(30, yPos - 10, pageWidth - 60, 30, 3, 3);
-      
+
       doc.setFontSize(14);
       doc.setFont(undefined, 'bold');
       doc.setTextColor(52, 152, 219);
       doc.text('PÉRIODE ANALYSÉE', pageWidth / 2, yPos, { align: 'center' });
-      
+
       yPos += 10;
       doc.setFontSize(16);
       doc.setFont(undefined, 'normal');
@@ -194,7 +198,7 @@ const StatsReportGenerator = () => {
       const startFormatted = new Date(startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
       const endFormatted = new Date(endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
       doc.text(`Du ${startFormatted} au ${endFormatted}`, pageWidth / 2, yPos, { align: 'center' });
-      
+
       // Date de génération
       yPos = pageHeight - 40;
       doc.setFontSize(10);
@@ -207,7 +211,7 @@ const StatsReportGenerator = () => {
       // ============= VUE D'ENSEMBLE =============
       doc.addPage();
       yPos = 20;
-      
+
       // En-tête de section
       doc.setFillColor(52, 152, 219);
       doc.roundedRect(15, yPos - 5, pageWidth - 30, 12, 2, 2, 'F');
@@ -228,7 +232,7 @@ const StatsReportGenerator = () => {
       const totalGenre = Object.values(repartitionGenre).reduce((a, b) => a + b, 0);
       const pourcentageHommes = totalGenre > 0 ? ((repartitionGenre['Homme'] || 0) / totalGenre * 100).toFixed(1) : 0;
       const pourcentageFemmes = totalGenre > 0 ? ((repartitionGenre['Femme'] || 0) / totalGenre * 100).toFixed(1) : 0;
-      
+
       const repartitionEtudiant = statsData.repartition_etudiant || {};
       const totalEtudiants = Object.values(repartitionEtudiant).reduce((a, b) => a + b, 0);
       const pourcentageEtudiant = totalEtudiants > 0 ? ((repartitionEtudiant[true] || 0) / totalEtudiants * 100).toFixed(1) : 0;
@@ -284,7 +288,7 @@ const StatsReportGenerator = () => {
       // ============= TOP 10 MEMBRES =============
       doc.addPage();
       yPos = 20;
-      
+
       doc.setFillColor(241, 196, 15);
       doc.roundedRect(15, yPos - 5, pageWidth - 30, 12, 2, 2, 'F');
       doc.setFontSize(16);
@@ -318,11 +322,11 @@ const StatsReportGenerator = () => {
 
         doc.addPage();
         yPos = 20;
-        
+
         const topLabels = statsData.top_10_assidus.map(item => item.membre);
         const topData = statsData.top_10_assidus.map(item => item.presences);
-        const topChartImg = await generateChartImage('horizontalBar', topLabels, topData, 
-                                                      'Top 10 des membres les plus assidus');
+        const topChartImg = await generateChartImage('horizontalBar', topLabels, topData,
+          'Top 10 des membres les plus assidus');
         doc.addImage(topChartImg, 'PNG', 10, yPos, 190, 142);
       }
 
@@ -332,7 +336,7 @@ const StatsReportGenerator = () => {
         console.log('✅ Génération du tableau avec', allMembers.length, 'membres');
         doc.addPage();
         yPos = 20;
-        
+
         doc.setFillColor(155, 89, 182);
         doc.roundedRect(15, yPos - 5, pageWidth - 30, 12, 2, 2, 'F');
         doc.setFontSize(16);
@@ -387,8 +391,8 @@ const StatsReportGenerator = () => {
 
         const genderLabels = Object.keys(statsData.repartition_genre);
         const genderData = Object.values(statsData.repartition_genre);
-        const genderChartImg = await generateChartImage('pie', genderLabels, genderData, 
-                                                        'Répartition Hommes / Femmes');
+        const genderChartImg = await generateChartImage('pie', genderLabels, genderData,
+          'Répartition Hommes / Femmes');
         doc.addImage(genderChartImg, 'PNG', 30, yPos, 150, 100);
         yPos += 110;
       }
@@ -405,8 +409,8 @@ const StatsReportGenerator = () => {
 
         const studentLabels = Object.keys(statsData.repartition_etudiant).map(k => k === 'true' ? 'Étudiant' : 'Non-étudiant');
         const studentData = Object.values(statsData.repartition_etudiant);
-        const studentChartImg = await generateChartImage('pie', studentLabels, studentData, 
-                                                         'Répartition Étudiants');
+        const studentChartImg = await generateChartImage('pie', studentLabels, studentData,
+          'Répartition Étudiants');
         doc.addImage(studentChartImg, 'PNG', 30, yPos, 150, 100);
       }
 
@@ -425,8 +429,8 @@ const StatsReportGenerator = () => {
 
         const dayLabels = statsData.frequentation_jours.map(item => item.jour.trim());
         const dayData = statsData.frequentation_jours.map(item => item.presences);
-        const dayChartImg = await generateChartImage('bar', dayLabels, dayData, 
-                                                     'Fréquentation par jour de la semaine');
+        const dayChartImg = await generateChartImage('bar', dayLabels, dayData,
+          'Fréquentation par jour de la semaine');
         doc.addImage(dayChartImg, 'PNG', 10, yPos, 190, 113);
       }
 
@@ -444,13 +448,13 @@ const StatsReportGenerator = () => {
         yPos += 15;
 
         const timeOrder = [
-          'Matin (5h-9h)', 'Matinée (9h-12h)', 'Midi (12h-14h)', 
+          'Matin (5h-9h)', 'Matinée (9h-12h)', 'Midi (12h-14h)',
           'Après-midi (14h-18h)', 'Soirée (18h-22h)', 'Nuit (22h-5h)'
         ];
         const timeLabels = timeOrder.filter(slot => statsData.frequentation_plages[slot]);
         const timeData = timeLabels.map(slot => statsData.frequentation_plages[slot]);
-        const timeChartImg = await generateChartImage('bar', timeLabels, timeData, 
-                                                      'Fréquentation par plage horaire');
+        const timeChartImg = await generateChartImage('bar', timeLabels, timeData,
+          'Fréquentation par plage horaire');
         doc.addImage(timeChartImg, 'PNG', 10, yPos, 190, 113);
       }
 
@@ -469,8 +473,8 @@ const StatsReportGenerator = () => {
 
         const monthLabels = Object.keys(statsData.evolution_mensuelle).sort();
         const monthData = monthLabels.map(month => statsData.evolution_mensuelle[month]);
-        const monthChartImg = await generateChartImage('line', monthLabels, monthData, 
-                                                       'Évolution mensuelle des présences');
+        const monthChartImg = await generateChartImage('line', monthLabels, monthData,
+          'Évolution mensuelle des présences');
         doc.addImage(monthChartImg, 'PNG', 10, yPos, 190, 113);
       }
 
@@ -493,7 +497,7 @@ const StatsReportGenerator = () => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto dark:bg-gray-800">
       <h2 className="text-2xl font-bold text-gray-800 mb-6 dark:text-white">
-         Générer un Rapport Statistique
+        Générer un Rapport Statistique
       </h2>
 
       <div className="space-y-4">
@@ -509,7 +513,7 @@ const StatsReportGenerator = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
               Date de fin
@@ -534,7 +538,7 @@ const StatsReportGenerator = () => {
           >
             Année en cours
           </button>
-          
+
           <button
             onClick={() => {
               const now = new Date();
@@ -546,7 +550,7 @@ const StatsReportGenerator = () => {
           >
             Année dernière
           </button>
-          
+
           <button
             onClick={() => {
               const now = new Date();
@@ -623,10 +627,10 @@ const StatsReportGenerator = () => {
           {loading ? (
             <span className="flex items-center justify-center">
               <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" 
-                        stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" 
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                <circle className="opacity-25" cx="12" cy="12" r="10"
+                  stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
               Génération en cours...
             </span>
