@@ -1286,201 +1286,209 @@ function MembersPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        BADGE
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">
+                          BADGE
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
+                            {member.badgeId || "—"}
+                          </span>
+                          {member.badge_number && (
+                            <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded text-xs font-mono">
+                              {member.badge_number}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-2 py-1 rounded text-sm font-mono">
-                        {member.badgeId || "—"}
-                      </span>
+
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {isExpired ? (
+                          <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
+                            ⚠️ Expiré
+                          </span>
+                        ) : (
+                          <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
+                            ✅ Actif
+                          </span>
+                        )}
+                        {hasFiles ? (
+                          <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
+                            📄 Docs OK
+                          </span>
+                        ) : (
+                          <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
+                            📄 Manquant
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                        {/* Bouton Réabonner - Pleine largeur en haut (si expiré) */}
+                        {isExpired && (
+                          <button
+                            onClick={() => handleQuickRenew(member)}
+                            className="w-full bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white px-3 py-2.5 rounded-lg inline-flex items-center justify-center gap-2 transition-colors font-medium"
+                            title="Réabonner pour l'année en cours"
+                          >
+                            <FaSync className="w-4 h-4" />
+                            🔄 Réabonner pour {new Date().getFullYear()}
+                          </button>
+                        )}
+
+                        {/* Boutons Modifier et Supprimer - Côte à côte en dessous */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditMember(member)}
+                            className="flex-1 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+                          >
+                            <FaEdit />
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => handleDelete(member.id)}
+                            className="flex-1 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
+                          >
+                            <FaTrash />
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
                     </div>
+                    );
+            })}
+                  </div>
+                </>
+              )
+            }
+
+      {/* Pagination bottom */ }
+      { totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Page {currentPage} sur {totalPages}
                   </div>
 
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {isExpired ? (
-                      <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                        ⚠️ Expiré
-                      </span>
-                    ) : (
-                      <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                        ✅ Actif
-                      </span>
-                    )}
-                    {hasFiles ? (
-                      <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                        📄 Docs OK
-                      </span>
-                    ) : (
-                      <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
-                        📄 Manquant
-                      </span>
-                    )}
-                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
+                    >
+                      <FaChevronLeft className="w-3 h-3" />
+                      <span className="hidden sm:inline">Précédent</span>
+                    </button>
 
-                  <div className="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
-                    {/* Bouton Réabonner - Pleine largeur en haut (si expiré) */}
-                    {isExpired && (
-                      <button
-                        onClick={() => handleQuickRenew(member)}
-                        className="w-full bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white px-3 py-2.5 rounded-lg inline-flex items-center justify-center gap-2 transition-colors font-medium"
-                        title="Réabonner pour l'année en cours"
-                      >
-                        <FaSync className="w-4 h-4" />
-                        🔄 Réabonner pour {new Date().getFullYear()}
-                      </button>
-                    )}
+                    <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">
+                      {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length}
+                    </span>
 
-                    {/* Boutons Modifier et Supprimer - Côte à côte en dessous */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditMember(member)}
-                        className="flex-1 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <FaEdit />
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() => handleDelete(member.id)}
-                        className="flex-1 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-3 py-2 rounded-lg inline-flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <FaTrash />
-                        Supprimer
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
+                    >
+                      <span className="hidden sm:inline">Suivant</span>
+                      <FaChevronRight className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </>
-      )}
+              )}
 
-      {/* Pagination bottom */}
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage} sur {totalPages}
-          </div>
+            {/* Résumé */}
+            {filteredMembers.length > 0 && (
+              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex items-center justify-between">
+                  <div>
+                    Affichage de {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membre
+                    {filteredMembers.length !== 1 ? "s" : ""} filtrés • {members.length} total
+                  </div>
+                  {loadingPhotos && (
+                    <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                      Chargement photos...
+                    </div>
+                  )}
+                </div>
+                {selectedIds.length > 0 && (
+                  <div className="mt-2 text-blue-600 dark:text-blue-400 font-medium">
+                    {selectedIds.length} sélectionné{selectedIds.length !== 1 ? "s" : ""}
+                  </div>
+                )}
+              </div>
+            )}
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
-            >
-              <FaChevronLeft className="w-3 h-3" />
-              <span className="hidden sm:inline">Précédent</span>
-            </button>
+            {/* Modal mobile */}
+            {showForm && isMobile && (
+              <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
+                <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
+                  <MemberForm
+                    member={selectedMember}
+                    onSave={async (memberData, closeModal) => {
+                      try {
+                        console.log(
+                          "💾 Sauvegarde membre:",
+                          selectedMember ? "Modification" : "Création"
+                        );
 
-            <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">
-              {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length}
-            </span>
+                        let memberId;
+                        if (selectedMember?.id) {
+                          await supabaseServices.updateMember(selectedMember.id, memberData);
+                          memberId = selectedMember.id;
+                          console.log("✅ Membre modifié:", selectedMember.id);
+                        } else {
+                          const newMember = await supabaseServices.createMember(memberData);
+                          memberId = newMember.id;
+                          console.log("✅ Nouveau membre créé:", newMember.id);
+                        }
 
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
-            >
-              <span className="hidden sm:inline">Suivant</span>
-              <FaChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      )}
+                        if (closeModal) {
+                          setShowForm(false);
+                          setSelectedMember(null);
+                        }
 
-      {/* Résumé */}
-      {filteredMembers.length > 0 && (
-        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400">
-          <div className="flex items-center justify-between">
-            <div>
-              Affichage de {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membre
-              {filteredMembers.length !== 1 ? "s" : ""} filtrés • {members.length} total
-            </div>
-            {loadingPhotos && (
-              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                Chargement photos...
+                        await fetchMembers();
+
+                        if (memberId) {
+                          setTimeout(() => scrollToMember(memberId), 200);
+                        }
+                      } catch (error) {
+                        console.error("❌ Erreur sauvegarde membre:", error);
+                        alert(`Erreur lors de la sauvegarde: ${error.message}`);
+                      }
+                    }}
+                    onCancel={handleCloseForm}
+                  />
+                </div>
               </div>
             )}
           </div>
-          {selectedIds.length > 0 && (
-            <div className="mt-2 text-blue-600 dark:text-blue-400 font-medium">
-              {selectedIds.length} sélectionné{selectedIds.length !== 1 ? "s" : ""}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modal mobile */}
-      {showForm && isMobile && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
-            <MemberForm
-              member={selectedMember}
-              onSave={async (memberData, closeModal) => {
-                try {
-                  console.log(
-                    "💾 Sauvegarde membre:",
-                    selectedMember ? "Modification" : "Création"
-                  );
-
-                  let memberId;
-                  if (selectedMember?.id) {
-                    await supabaseServices.updateMember(selectedMember.id, memberData);
-                    memberId = selectedMember.id;
-                    console.log("✅ Membre modifié:", selectedMember.id);
-                  } else {
-                    const newMember = await supabaseServices.createMember(memberData);
-                    memberId = newMember.id;
-                    console.log("✅ Nouveau membre créé:", newMember.id);
-                  }
-
-                  if (closeModal) {
-                    setShowForm(false);
-                    setSelectedMember(null);
-                  }
-
-                  await fetchMembers();
-
-                  if (memberId) {
-                    setTimeout(() => scrollToMember(memberId), 200);
-                  }
-                } catch (error) {
-                  console.error("❌ Erreur sauvegarde membre:", error);
-                  alert(`Erreur lors de la sauvegarde: ${error.message}`);
-                }
-              }}
-              onCancel={handleCloseForm}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
+          );
 }
 
-function Widget({ title, value, onClick, active = false }) {
+          function Widget({title, value, onClick, active = false}) {
   return (
-    <div
-      onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
-        ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-        : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-        }`}
-    >
-      <div
-        className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
-          }`}
-      >
-        {title}
-      </div>
-      <div
-        className={`text-xl font-bold ${active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
-          }`}
-      >
-        {value}
-      </div>
-    </div>
-  );
+          <div
+            onClick={onClick}
+            className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${active
+              ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
+              : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
+              }`}
+          >
+            <div
+              className={`text-sm ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-500 dark:text-gray-400"
+                }`}
+            >
+              {title}
+            </div>
+            <div
+              className={`text-xl font-bold ${active ? "text-blue-800 dark:text-blue-200" : "text-gray-800 dark:text-gray-200"
+                }`}
+            >
+              {value}
+            </div>
+          </div>
+          );
 }
 
-export default MembersPage;
+          export default MembersPage;
