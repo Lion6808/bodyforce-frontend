@@ -1185,7 +1185,7 @@ function PlanningPage() {
                     {member?.name} {member?.firstName}
                   </h4>
                   <p className="text-blue-300 text-sm">
-                    Badge: {member?.badgeId}
+                    Badge: {member?.badge_number}
                   </p>
                 </div>
               </div>
