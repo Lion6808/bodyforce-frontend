@@ -300,7 +300,7 @@ const StatsReportGenerator = () => {
       if (statsData.top_10_assidus && statsData.top_10_assidus.length > 0) {
         const topMembersData = statsData.top_10_assidus.map((item, idx) => [
           (idx + 1).toString(),
-          item.membre,
+          item.nom,
           item.presences.toString()
         ]);
 
@@ -323,7 +323,7 @@ const StatsReportGenerator = () => {
         doc.addPage();
         yPos = 20;
 
-        const topLabels = statsData.top_10_assidus.map(item => item.membre);
+        const topLabels = statsData.top_10_assidus.map(item => item.nom);
         const topData = statsData.top_10_assidus.map(item => item.presences);
         const topChartImg = await generateChartImage('horizontalBar', topLabels, topData,
           'Top 10 des membres les plus assidus');
@@ -448,8 +448,8 @@ const StatsReportGenerator = () => {
         yPos += 15;
 
         const timeOrder = [
-          'Matin (5h-9h)', 'Matinée (9h-12h)', 'Midi (12h-14h)',
-          'Après-midi (14h-18h)', 'Soirée (18h-22h)', 'Nuit (22h-5h)'
+          '6h-10h (Matin)', '10h-14h (Midi)',
+          '14h-18h (Après-midi)', '18h-22h (Soirée)', '22h-6h (Nuit)'
         ];
         const timeLabels = timeOrder.filter(slot => statsData.frequentation_plages[slot]);
         const timeData = timeLabels.map(slot => statsData.frequentation_plages[slot]);
@@ -471,8 +471,8 @@ const StatsReportGenerator = () => {
         doc.text('ÉVOLUTION MENSUELLE DES PRÉSENCES', 20, yPos + 3);
         yPos += 15;
 
-        const monthLabels = Object.keys(statsData.evolution_mensuelle).sort();
-        const monthData = monthLabels.map(month => statsData.evolution_mensuelle[month]);
+        const monthLabels = statsData.evolution_mensuelle.map(m => m.mois);
+        const monthData = statsData.evolution_mensuelle.map(m => m.presences);
         const monthChartImg = await generateChartImage('line', monthLabels, monthData,
           'Évolution mensuelle des présences');
         doc.addImage(monthChartImg, 'PNG', 10, yPos, 190, 113);
