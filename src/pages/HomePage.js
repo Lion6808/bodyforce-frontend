@@ -555,7 +555,7 @@ function HomePage() {
                 .select("id, firstName, name, badge_number")
                 .not("badge_number", "is", null)
                 .order("badge_number", { ascending: false })
-                .limit(7);
+                .limit(10);
               if (latestErr) {
                 console.error("Error fetching latest members:", latestErr);
                 setLatestMembers([]);

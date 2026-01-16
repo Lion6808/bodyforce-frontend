@@ -75,7 +75,7 @@ const fetchUserPhoto = async (userId) => {
 };
 
 // App version
-const APP_VERSION = "2.3.3"; // ← NOUVEAU : Version mise à jour
+const APP_VERSION = "2.3.4"; // ← NOUVEAU : Version mise à jour
 
 // ✅ Configuration des onglets Bottom Nav - DYNAMIQUE selon le rôle
 const getBottomNavTabs = (isAdmin) => {
