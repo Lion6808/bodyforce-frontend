@@ -386,20 +386,12 @@ function MembersPage() {
     } else if (activeFilter === "Expiré") {
       result = result.filter((m) => isMemberExpired(m));
     } else if (activeFilter === "Récent") {
-      // 20 derniers inscrits/réinscrits par last_subscription_date, SANS les expirés
+      // 20 derniers badges attribués par badge_number décroissant
       result = [...members]
-        .filter((m) => !isMemberExpired(m))
+        .filter((m) => m.badge_number != null) // Uniquement ceux avec badge_number
         .sort((a, b) => {
-          const dateA = a.last_subscription_date ? new Date(a.last_subscription_date) : new Date(0);
-          const dateB = b.last_subscription_date ? new Date(b.last_subscription_date) : new Date(0);
-
-          // 1er critère : date (plus récent en premier)
-          if (dateB.getTime() !== dateA.getTime()) {
-            return dateB - dateA;
-          }
-
-          // 2ème critère : ID décroissant (si dates égales)
-          return (b.id || 0) - (a.id || 0);
+          // Tri par badge_number décroissant (les plus grands en premier)
+          return (b.badge_number || 0) - (a.badge_number || 0);
         })
         .slice(0, 20);
     } else if (activeFilter === "SansCertif") {
@@ -726,8 +718,9 @@ function MembersPage() {
     return Object.keys(m.files).length === 0;
   }).length;
 
-  // ✅ Le widget "Récents" affiche toujours min(20, total membres)
-  const recentCount = Math.min(20, members.length);
+  // ✅ Le widget "Récents" affiche le nombre de membres avec badge_number (max 20)
+  const membersWithBadge = members.filter((m) => m.badge_number != null).length;
+  const recentCount = Math.min(20, membersWithBadge);
 
   const studentCount = filteredMembers.filter((m) => m.etudiant).length;
 
@@ -811,7 +804,7 @@ function MembersPage() {
         <Widget title="👩 Femmes" value={femaleCount} onClick={() => setActiveFilter("Femme")} active={activeFilter === "Femme"} />
         <Widget title="🎓 Étudiants" value={studentCount} onClick={() => setActiveFilter("Etudiant")} active={activeFilter === "Etudiant"} />
         <Widget title="📅 Expirés" value={expiredCount} onClick={() => setActiveFilter("Expiré")} active={activeFilter === "Expiré"} />
-        <Widget title="✅ Récents" value={recentCount} onClick={() => setActiveFilter("Récent")} active={activeFilter === "Récent"} />
+        <Widget title="🆔 Badges récents" value={recentCount} onClick={() => setActiveFilter("Récent")} active={activeFilter === "Récent"} />
         <Widget title="📂 Sans certif" value={noCertCount} onClick={() => setActiveFilter("SansCertif")} active={activeFilter === "SansCertif"} />
       </div>
 
