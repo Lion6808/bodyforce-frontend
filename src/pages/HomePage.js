@@ -552,9 +552,9 @@ function HomePage() {
             try {
               const { data: latest, error: latestErr } = await supabase
                 .from("members")
-                .select("id, firstName, name")
-                .order("id", { ascending: false })
-                .limit(7);
+                .select("id, firstName, name, badge_number")
+                .order("badge_number", { ascending: false, nullsLast: true })
+                .limit(10);
               if (latestErr) {
                 console.error("Error fetching latest members:", latestErr);
                 setLatestMembers([]);
@@ -1378,10 +1378,10 @@ function HomePage() {
         <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Derniers membres inscrits
+              Derniers badges attribués
             </h2>
             <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-              {loading.latestMembers ? "—" : `${latestMembers.length} / 7`}
+              {loading.latestMembers ? "—" : `${latestMembers.length} / 10`}
             </span>
           </div>
           {loading.latestMembers ? (
