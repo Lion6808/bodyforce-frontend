@@ -553,8 +553,9 @@ function HomePage() {
               const { data: latest, error: latestErr } = await supabase
                 .from("members")
                 .select("id, firstName, name, badge_number")
-                .order("badge_number", { ascending: false, nullsLast: true })
-                .limit(10);
+                .not("badge_number", "is", null)
+                .order("badge_number", { ascending: false })
+                .limit(7);
               if (latestErr) {
                 console.error("Error fetching latest members:", latestErr);
                 setLatestMembers([]);
@@ -1424,7 +1425,7 @@ function HomePage() {
                           {displayName}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          ID #{m.id}
+                          {m.badge_number ? `Badge ${m.badge_number}` : `ID #${m.id}`}
                         </div>
                       </div>
                     </div>
