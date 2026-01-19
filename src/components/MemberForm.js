@@ -1,6 +1,6 @@
-// 🔷 BODYFORCE — MemberForm.js COMPLET
-// Version avec upload Storage Supabase + corrections date année civile
-// Date : 2026-01-11
+// 🔷 BODYFORCE — MemberForm.js CORRIGÉ
+// Version avec stockage photo en base64 dans la DB (aligné sur MemberFormPage.js)
+// Date : 2026-01-19
 
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -36,48 +36,6 @@ import {
 } from "react-icons/fa";
 import { supabase, supabaseServices } from "../supabaseClient";
 
-// --- Helpers image (resize + blob) ---
-function dataURLToBlob(dataURL) {
-  const [header, data] = dataURL.split(",");
-  const mime = header.match(/:(.*?);/)[1] || "image/jpeg";
-  const binary = atob(data);
-  const array = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
-  return new Blob([array], { type: mime });
-}
-
-async function resizeImage(
-  fileOrBlob,
-  { maxW = 512, maxH = 512, quality = 0.8 } = {}
-) {
-  const img = document.createElement("img");
-  const reader = new FileReader();
-  const loaded = new Promise((res) => (img.onload = res));
-  reader.readAsDataURL(fileOrBlob);
-  await new Promise(
-    (res) =>
-      (reader.onload = () => {
-        img.src = reader.result;
-        res();
-      })
-  );
-  await loaded;
-
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  let { width, height } = img;
-
-  const ratio = Math.min(maxW / width, maxH / height, 1);
-  width = Math.round(width * ratio);
-  height = Math.round(height * ratio);
-  canvas.width = width;
-  canvas.height = height;
-  ctx.drawImage(img, 0, 0, width, height);
-
-  const dataURL = canvas.toDataURL("image/jpeg", quality);
-  return dataURLToBlob(dataURL);
-}
-
 const subscriptionDurations = {
   Mensuel: 1,
   Trimestriel: 3,
@@ -93,6 +51,37 @@ function sanitizeFileName(name) {
     .replace(/\s+/g, "_")
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
+
+// ✅ FONCTION COMPRESSION (alignée sur MemberFormPage.js ligne 112)
+const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = maxSize;
+      canvas.height = maxSize;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, maxSize, maxSize);
+
+      const compressed = canvas.toDataURL("image/jpeg", quality);
+
+      // Log pour monitoring egress
+      const sizeKB = Math.round((compressed.length * 0.75) / 1024);
+      console.log(
+        `📸 Photo optimisée: ${sizeKB} KB (${maxSize}x${maxSize} @ ${
+          quality * 100
+        }%)`
+      );
+
+      resolve(compressed);
+    };
+
+    img.onerror = reject;
+    img.src = imageData;
+  });
+};
 
 // ✅ COMPOSANT CAMÉRA
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
@@ -181,15 +170,16 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     }
   };
 
+  // ✅ CORRECTION : Taille fixe 256px (aligné sur MemberFormPage ligne 234)
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    const targetSize = 256;
+    canvas.width = targetSize;
+    canvas.height = targetSize;
 
     if (facingMode === "user") {
       context.save();
@@ -200,7 +190,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
     }
 
-    const imageData = canvas.toDataURL("image/jpeg", 0.9);
+    const imageData = canvas.toDataURL("image/jpeg", 0.6);
     setCapturedPhoto(imageData);
     cleanupStream();
   };
@@ -579,15 +569,13 @@ function MemberForm({ member, onSave, onCancel }) {
     return () => observer.disconnect();
   }, []);
 
-  // ✅ CORRECTION : Charger le membre complet depuis Supabase avec la photo
+  // ✅ Charger le membre complet depuis Supabase avec la photo
   useEffect(() => {
     const loadMemberData = async () => {
       if (!member?.id) {
-        // Nouveau membre - formulaire vide
         return;
       }
 
-      // ✅ Membre existant - recharger depuis Supabase avec la photo
       if (!form.name && !form.firstName) {
         try {
           console.log("🔍 Chargement membre complet depuis DB:", member.id);
@@ -610,13 +598,12 @@ function MemberForm({ member, onSave, onCancel }) {
                 ? JSON.parse(fullMember.files || "[]")
                 : [],
               etudiant: !!fullMember.etudiant,
-              photo: fullMember.photo || null, // ✅ Photo complète depuis la DB
+              photo: fullMember.photo || null,
             });
             fetchPayments(fullMember.id);
           }
         } catch (error) {
           console.error("❌ Erreur chargement membre complet:", error);
-          // Fallback sur les données partielles (sans photo)
           setForm({
             ...member,
             badge_number: member.badge_number || "",
@@ -794,12 +781,10 @@ function MemberForm({ member, onSave, onCancel }) {
     if (!form.startDate) return;
 
     if (form.subscriptionType === "Année civile") {
-      // Extraire l'année directement de la chaîne pour éviter les problèmes de timezone
       const year = parseInt(form.startDate.split("-")[0], 10);
       const newStart = `${year}-01-01`;
       const newEnd = `${year}-12-31`;
 
-      // Évite la boucle infinie en ne mettant à jour que si nécessaire
       if (form.startDate !== newStart || form.endDate !== newEnd) {
         setForm((f) => ({
           ...f,
@@ -874,14 +859,12 @@ function MemberForm({ member, onSave, onCancel }) {
     if (member?.id && form.badgeId && form.badgeId !== member.badgeId) {
       console.log(`🔄 Badge modifié: ${member.badgeId} → ${form.badgeId}`);
 
-      // Si supabaseServices est disponible, utiliser reassignBadge
       if (
         typeof supabaseServices !== "undefined" &&
         supabaseServices.reassignBadge
       ) {
         try {
           await supabaseServices.reassignBadge(form.badgeId, member.id);
-          // Appeler onSave sans le badgeId (déjà géré)
           const { badgeId, ...formWithoutBadge } = form;
           onSave(
             {
@@ -893,12 +876,10 @@ function MemberForm({ member, onSave, onCancel }) {
           return;
         } catch (error) {
           console.error("Erreur réattribution badge:", error);
-          // Continuer avec la sauvegarde normale en cas d'erreur
         }
       }
     }
 
-    // Sauvegarde normale
     onSave({ ...form, files: JSON.stringify(form.files) }, true);
   };
 
@@ -950,65 +931,45 @@ function MemberForm({ member, onSave, onCancel }) {
     e.target.value = "";
   };
 
-  // --- 📸 PHOTO MEMBRE (Storage Supabase) ---
+  // ✅ PHOTO MEMBRE : Compression et stockage base64 en DB (aligné sur MemberFormPage ligne 951)
   const handleCameraCapture = async (imageData) => {
     try {
-      setUploadStatus({ loading: true, error: null, success: null });
-      const blob = dataURLToBlob(imageData);
-      const resized = await resizeImage(blob, {
-        maxW: 512,
-        maxH: 512,
-        quality: 0.8,
-      });
-      const memberId = form?.id || "unknown";
-      const fileName = sanitizeFileName(`member_${memberId}_${Date.now()}.jpg`);
-      const path = `photos/${fileName}`;
-      const { error: upErr } = await supabase.storage
-        .from("photo")
-        .upload(path, resized, {
-          upsert: true,
-          cacheControl: "31536000",
-          contentType: "image/jpeg",
-        });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from("photo").getPublicUrl(path);
-      const publicUrl = data?.publicUrl;
-      setForm((f) => ({ ...f, photo: publicUrl }));
+      const compressed = await compressImageData(imageData, 256, 0.6);
+
+      setForm((f) => ({ ...f, photo: compressed }));
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Photo capturée avec succès !",
+        success: "Photo capturée et optimisée !",
       });
-      setTimeout(
-        () => setUploadStatus({ loading: false, error: null, success: null }),
-        3000
-      );
     } catch (err) {
-      console.error("Erreur capture/upload photo:", err);
       setUploadStatus({
         loading: false,
-        error: "Erreur lors de l'upload de la photo",
+        error: "Erreur lors de la compression",
         success: null,
       });
     }
+
+    setTimeout(
+      () => setUploadStatus({ loading: false, error: null, success: null }),
+      3000
+    );
   };
 
   const captureDocument = async (imageData) => {
     setUploadStatus({ loading: true, error: null, success: null });
     try {
-      const response = await fetch(imageData);
-      const blob = await response.blob();
+      const compressed = await compressImageData(imageData, 800, 0.75);
 
+      const response = await fetch(compressed);
+      const blob = await response.blob();
       const fileName = sanitizeFileName(`doc_${Date.now()}.jpg`);
       const filePath = `certificats/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
-        .upload(filePath, blob, {
-          upsert: true,
-          cacheControl: "31536000",
-          contentType: "image/jpeg",
-        });
+        .upload(filePath, blob);
+
       if (uploadError)
         throw new Error(
           `Erreur lors du téléversement du document : ${uploadError.message}`
@@ -1017,21 +978,21 @@ function MemberForm({ member, onSave, onCancel }) {
       const { data } = supabase.storage
         .from("documents")
         .getPublicUrl(filePath);
+
       const newFile = { name: fileName, url: data.publicUrl };
-      const updatedFiles = [...form.files, newFile];
-      setForm((f) => ({ ...f, files: updatedFiles }));
+      setForm((f) => ({ ...f, files: [...f.files, newFile] }));
 
       setUploadStatus({
         loading: false,
         error: null,
-        success: 'Document capturé ! Cliquez "Enregistrer" pour sauvegarder.',
+        success: "Document capturé et optimisé !",
       });
+
       setTimeout(
         () => setUploadStatus({ loading: false, error: null, success: null }),
         3000
       );
     } catch (err) {
-      console.error("Erreur lors de la capture du document :", err);
       setUploadStatus({
         loading: false,
         error: `Erreur lors de la capture du document : ${err.message}`,
@@ -1212,45 +1173,30 @@ function MemberForm({ member, onSave, onCancel }) {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files[0];
-                  if (file) {
-                    (async () => {
+                  if (!file) return;
+
+                  try {
+                    setUploadStatus({
+                      loading: true,
+                      error: null,
+                      success: null,
+                    });
+
+                    const reader = new FileReader();
+                    reader.onload = async () => {
                       try {
-                        setUploadStatus({
-                          loading: true,
-                          error: null,
-                          success: null,
-                        });
-                        const resized = await resizeImage(file, {
-                          maxW: 512,
-                          maxH: 512,
-                          quality: 0.8,
-                        });
-                        const memberId = form?.id || "unknown";
-                        const safeName = sanitizeFileName(
-                          `member_${memberId}_${Date.now()}.jpg`
+                        const compressed = await compressImageData(
+                          reader.result,
+                          256,
+                          0.6
                         );
-                        const path = `photos/${safeName}`;
-                        const { error: upErr } = await supabase.storage
-                          .from("photo")
-                          .upload(path, resized, {
-                            upsert: true,
-                            cacheControl: "31536000",
-                            contentType: "image/jpeg",
-                          });
-                        if (upErr) throw upErr;
-                        const { data } = supabase.storage
-                          .from("photo")
-                          .getPublicUrl(path);
-                        setForm((prev) => ({
-                          ...prev,
-                          photo: data?.publicUrl,
-                        }));
+                        setForm((prev) => ({ ...prev, photo: compressed }));
                         setUploadStatus({
                           loading: false,
                           error: null,
-                          success: "Photo importée !",
+                          success: "Photo importée et optimisée !",
                         });
                         setTimeout(
                           () =>
@@ -1262,14 +1208,22 @@ function MemberForm({ member, onSave, onCancel }) {
                           3000
                         );
                       } catch (err) {
-                        console.error("Erreur upload photo:", err);
+                        console.error("Erreur compression photo:", err);
                         setUploadStatus({
                           loading: false,
-                          error: "Erreur lors de l'upload de la photo",
+                          error: "Erreur lors de la compression",
                           success: null,
                         });
                       }
-                    })();
+                    };
+                    reader.readAsDataURL(file);
+                  } catch (err) {
+                    console.error("Erreur lecture fichier:", err);
+                    setUploadStatus({
+                      loading: false,
+                      error: "Erreur lors de la lecture du fichier",
+                      success: null,
+                    });
                   }
                 }}
                 className="hidden"
@@ -1339,34 +1293,14 @@ function MemberForm({ member, onSave, onCancel }) {
           options={Object.keys(subscriptionDurations)}
           icon={FaCreditCard}
         />
-        <div>
-          <InputField
-            label="Numéro de Badge"
-            name="badge_number"
-            type="number"
-            value={form.badge_number}
-            onChange={handleBadgeNumberChange}
-            icon={FaIdCard}
-            placeholder="Ex: 16"
-          />
-
-          {form.badgeId && (
-            <div className="mt-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-              <div className="text-xs text-green-600 dark:text-green-400 mb-1">
-                Badge ID (automatique)
-              </div>
-              <div className="font-mono text-sm font-semibold text-green-700 dark:text-green-300">
-                {form.badgeId}
-              </div>
-            </div>
-          )}
-
-          {form.badge_number && !form.badgeId && (
-            <div className="mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-xs text-yellow-700 dark:text-yellow-300">
-              ⚠️ Badge non trouvé dans la base
-            </div>
-          )}
-        </div>
+        <InputField
+          label="Numéro Badge (court)"
+          name="badge_number"
+          value={form.badge_number}
+          onChange={handleBadgeNumberChange}
+          icon={FaIdCard}
+          placeholder="Ex: 77"
+        />
         <InputField
           type="date"
           label="Date de début"
@@ -1384,6 +1318,14 @@ function MemberForm({ member, onSave, onCancel }) {
           icon={FaCalendarAlt}
         />
       </div>
+
+      {form.badgeId && (
+        <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-xl">
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            <strong>Badge RFID :</strong> {form.badgeId}
+          </p>
+        </div>
+      )}
 
       {isExpired && (
         <div className="bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
@@ -1875,7 +1817,7 @@ function MemberForm({ member, onSave, onCancel }) {
           <div className="flex items-center">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3" />
             <p className="text-blue-700 dark:text-blue-300">
-              Téléversement en cours...
+              Traitement en cours...
             </p>
           </div>
         </div>
