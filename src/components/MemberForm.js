@@ -53,24 +53,43 @@ function sanitizeFileName(name) {
 }
 
 // ✅ FONCTION COMPRESSION (alignée sur MemberFormPage.js ligne 112)
+// ✅ FONCTION COMPRESSION CORRIGÉE - Respecte les proportions
 const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
 
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = maxSize;
-      canvas.height = maxSize;
+      
+      // Calculer les dimensions en gardant le ratio
+      let width = img.width;
+      let height = img.height;
+      
+      // Redimensionner si trop grand
+      if (width > height) {
+        if (width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
 
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, maxSize, maxSize);
+      ctx.drawImage(img, 0, 0, width, height);
 
       const compressed = canvas.toDataURL("image/jpeg", quality);
 
       // Log pour monitoring egress
       const sizeKB = Math.round((compressed.length * 0.75) / 1024);
       console.log(
-        `📸 Photo optimisée: ${sizeKB} KB (${maxSize}x${maxSize} @ ${
+        `📸 Photo optimisée: ${sizeKB} KB (${Math.round(width)}x${Math.round(height)} @ ${
           quality * 100
         }%)`
       );
@@ -171,29 +190,48 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   };
 
   // ✅ CORRECTION : Taille fixe 256px (aligné sur MemberFormPage ligne 234)
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  // ✅ CORRECTION : Respecte les proportions de la vidéo
+const capturePhoto = () => {
+  if (!videoRef.current || !canvasRef.current) return;
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-    const targetSize = 256;
-    canvas.width = targetSize;
-    canvas.height = targetSize;
-
-    if (facingMode === "user") {
-      context.save();
-      context.scale(-1, 1);
-      context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-      context.restore();
-    } else {
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const video = videoRef.current;
+  const canvas = canvasRef.current;
+  const context = canvas.getContext("2d");
+  const maxSize = 256;
+  
+  // Calculer les dimensions en gardant le ratio
+  let width = video.videoWidth;
+  let height = video.videoHeight;
+  
+  // Redimensionner si trop grand
+  if (width > height) {
+    if (width > maxSize) {
+      height = (height * maxSize) / width;
+      width = maxSize;
     }
+  } else {
+    if (height > maxSize) {
+      width = (width * maxSize) / height;
+      height = maxSize;
+    }
+  }
+  
+  canvas.width = width;
+  canvas.height = height;
 
-    const imageData = canvas.toDataURL("image/jpeg", 0.6);
-    setCapturedPhoto(imageData);
-    cleanupStream();
-  };
+  if (facingMode === "user") {
+    context.save();
+    context.scale(-1, 1);
+    context.drawImage(video, -width, 0, width, height);
+    context.restore();
+  } else {
+    context.drawImage(video, 0, 0, width, height);
+  }
+
+  const imageData = canvas.toDataURL("image/jpeg", 0.6);
+  setCapturedPhoto(imageData);
+  cleanupStream();
+};
 
   const confirmPhoto = () => {
     if (capturedPhoto) {
