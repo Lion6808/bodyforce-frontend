@@ -1,6 +1,6 @@
 {
-  "name": "club-musculation-frontend",
-  "version": "1.0.0",
+  "name": "bodyforce-frontend",
+  "version": "2.3.7",
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.50.5",
