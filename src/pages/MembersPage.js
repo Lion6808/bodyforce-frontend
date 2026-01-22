@@ -17,6 +17,7 @@ import {
 
 import Avatar from "../components/Avatar";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 // ───────────────────────────────────────────────────────────────────────────────
 // Utils recherche avancée (inchangés)
@@ -618,8 +619,8 @@ function MembersPage() {
     event.target.value = "";
   };
 
-  // 🎯 Export des membres vers Excel (format professionnel)
-  const handleExportMembers = () => {
+  // 🎯 Export des membres vers Excel (format professionnel avec ExcelJS)
+  const handleExportMembers = async () => {
     try {
       const today = new Date();
       const dateStr = today.toLocaleDateString("fr-FR", {
@@ -630,76 +631,173 @@ function MembersPage() {
       });
       const fileDate = today.toISOString().split("T")[0];
 
-      // Construire les données avec titre et date
-      const titleRow = ["LISTE DES MEMBRES BODYFORCE"];
-      const dateRow = [`Export du ${dateStr}`];
-      const countRow = [`${filteredMembers.length} membres`];
-      const emptyRow = [];
-      const headers = ["Nom", "Prénom", "Badge N°", "Badge ID", "Téléphone mobile", "Téléphone fixe", "Email", "Adresse"];
+      // Créer le workbook ExcelJS
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "BodyForce";
+      workbook.created = today;
+
+      const worksheet = workbook.addWorksheet("Membres BodyForce", {
+        pageSetup: {
+          orientation: "landscape",
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+        },
+        headerFooter: {
+          oddHeader: "&C&B&14BODYFORCE - Liste des Membres",
+          oddFooter: "&L&D &T&C&P / &N&R&F",
+        },
+      });
+
+      // Charger le logo
+      let logoId = null;
+      try {
+        const logoResponse = await fetch("/images/logo.png");
+        const logoBlob = await logoResponse.blob();
+        const logoBase64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result.split(",")[1]);
+          reader.readAsDataURL(logoBlob);
+        });
+        logoId = workbook.addImage({
+          base64: logoBase64,
+          extension: "png",
+        });
+      } catch (logoErr) {
+        console.warn("Logo non chargé:", logoErr);
+      }
+
+      // Ajouter le logo si disponible
+      if (logoId !== null) {
+        worksheet.addImage(logoId, {
+          tl: { col: 0, row: 0 },
+          ext: { width: 80, height: 80 },
+        });
+      }
+
+      // Lignes d'en-tête
+      const startRow = logoId !== null ? 2 : 1;
+
+      // Titre
+      worksheet.mergeCells(startRow, 1, startRow, 8);
+      const titleCell = worksheet.getCell(startRow, 1);
+      titleCell.value = "LISTE DES MEMBRES BODYFORCE";
+      titleCell.font = { bold: true, size: 18, color: { argb: "FF1E3A8A" } };
+      titleCell.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.getRow(startRow).height = 30;
+
+      // Date
+      worksheet.mergeCells(startRow + 1, 1, startRow + 1, 8);
+      const dateCell = worksheet.getCell(startRow + 1, 1);
+      dateCell.value = `Export du ${dateStr}`;
+      dateCell.font = { italic: true, size: 11, color: { argb: "FF666666" } };
+      dateCell.alignment = { horizontal: "center" };
+
+      // Compteur
+      worksheet.mergeCells(startRow + 2, 1, startRow + 2, 8);
+      const countCell = worksheet.getCell(startRow + 2, 1);
+      countCell.value = `${filteredMembers.length} membres`;
+      countCell.font = { bold: true, size: 12 };
+      countCell.alignment = { horizontal: "center" };
+
+      // Ligne vide
+      const headerRowNum = startRow + 4;
+
+      // En-têtes de colonnes
+      const headers = ["Nom", "Prénom", "Badge N°", "Badge ID", "Tél. mobile", "Tél. fixe", "Email", "Adresse"];
+      const headerRow = worksheet.getRow(headerRowNum);
+      headers.forEach((header, idx) => {
+        const cell = headerRow.getCell(idx + 1);
+        cell.value = header;
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF2563EB" }, // Bleu
+        };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF1E40AF" } },
+          bottom: { style: "thin", color: { argb: "FF1E40AF" } },
+          left: { style: "thin", color: { argb: "FF1E40AF" } },
+          right: { style: "thin", color: { argb: "FF1E40AF" } },
+        };
+      });
+      headerRow.height = 25;
 
       // Données des membres
-      const dataRows = filteredMembers.map((member) => [
-        member.name || "",
-        member.firstName || "",
-        member.badge_number || "",
-        member.badgeId || "",
-        member.mobile || "",
-        member.phone || "",
-        member.email || "",
-        member.address || "",
-      ]);
+      filteredMembers.forEach((member, rowIdx) => {
+        const rowNum = headerRowNum + 1 + rowIdx;
+        const row = worksheet.getRow(rowNum);
+        const isEven = rowIdx % 2 === 0;
 
-      // Assembler toutes les lignes
-      const allRows = [
-        titleRow,
-        dateRow,
-        countRow,
-        emptyRow,
-        headers,
-        ...dataRows,
+        const values = [
+          member.name || "",
+          member.firstName || "",
+          member.badge_number || "",
+          member.badgeId || "",
+          member.mobile || "",
+          member.phone || "",
+          member.email || "",
+          member.address || "",
+        ];
+
+        values.forEach((value, colIdx) => {
+          const cell = row.getCell(colIdx + 1);
+          cell.value = value;
+          cell.font = { size: 10 };
+          cell.alignment = { vertical: "middle", wrapText: colIdx === 7 };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFE5E7EB" } },
+            bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+            left: { style: "thin", color: { argb: "FFE5E7EB" } },
+            right: { style: "thin", color: { argb: "FFE5E7EB" } },
+          };
+          if (isEven) {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFF3F4F6" }, // Gris clair
+            };
+          }
+        });
+        row.height = 20;
+      });
+
+      // Largeur des colonnes
+      worksheet.columns = [
+        { width: 18 }, // Nom
+        { width: 15 }, // Prénom
+        { width: 10 }, // Badge N°
+        { width: 14 }, // Badge ID
+        { width: 15 }, // Mobile
+        { width: 15 }, // Fixe
+        { width: 30 }, // Email
+        { width: 40 }, // Adresse
       ];
 
-      // Créer la feuille à partir du tableau
-      const worksheet = XLSX.utils.aoa_to_sheet(allRows);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Membres BodyForce");
-
-      // Ajuster la largeur des colonnes
-      worksheet["!cols"] = [
-        { wch: 20 }, // Nom
-        { wch: 15 }, // Prénom
-        { wch: 10 }, // Badge N°
-        { wch: 15 }, // Badge ID
-        { wch: 18 }, // Mobile
-        { wch: 18 }, // Fixe
-        { wch: 32 }, // Email
-        { wch: 45 }, // Adresse
-      ];
-
-      // Fusionner les cellules du titre (A1:H1)
-      worksheet["!merges"] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, // Titre
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }, // Date
-        { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } }, // Compteur
-      ];
-
-      // Auto-filtre sur les données (commence à la ligne 5 = index 4)
-      const lastRow = 4 + dataRows.length;
-      worksheet["!autofilter"] = { ref: `A5:H${lastRow}` };
-
-      // Configuration impression : en-tête et pied de page
-      worksheet["!pageSetup"] = {
-        orientation: "landscape",
-        fitToPage: true,
-        fitToWidth: 1,
-        fitToHeight: 0,
+      // Auto-filtre
+      const lastDataRow = headerRowNum + filteredMembers.length;
+      worksheet.autoFilter = {
+        from: { row: headerRowNum, column: 1 },
+        to: { row: lastDataRow, column: 8 },
       };
 
-      // Générer le fichier
-      const filename = `BodyForce_Membres_${fileDate}.xlsx`;
-      XLSX.writeFile(workbook, filename);
+      // Figer la ligne d'en-tête
+      worksheet.views = [{ state: "frozen", ySplit: headerRowNum }];
 
-      console.log(`✅ Export Excel: ${filteredMembers.length} membres exportés (format pro)`);
+      // Générer et télécharger le fichier
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `BodyForce_Membres_${fileDate}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      console.log(`✅ Export Excel: ${filteredMembers.length} membres exportés (format pro avec logo)`);
     } catch (err) {
       console.error("❌ Erreur lors de l'export:", err);
       alert(`❌ Erreur lors de l'export: ${err.message}`);

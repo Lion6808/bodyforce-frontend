@@ -1,6 +1,6 @@
 {
   "name": "bodyforce-frontend",
-  "version": "2.3.7",
+  "version": "2.3.8",
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.50.5",
@@ -8,6 +8,7 @@
     "chart.js": "^4.5.1",
     "chartjs-plugin-datalabels": "^2.2.0",
     "date-fns": "^2.30.0",
+    "exceljs": "^4.4.0",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.525.0",
