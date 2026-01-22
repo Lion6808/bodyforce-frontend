@@ -618,7 +618,52 @@ function MembersPage() {
     event.target.value = "";
   };
 
+  // 🎯 Export des membres vers Excel
+  const handleExportMembers = () => {
+    try {
+      // Préparer les données pour l'export (infos de base)
+      const exportData = filteredMembers.map((member) => ({
+        "Nom": member.name || "",
+        "Prénom": member.firstName || "",
+        "Badge N°": member.badge_number || "",
+        "Badge ID": member.badgeId || "",
+        "Téléphone mobile": member.mobile || "",
+        "Téléphone fixe": member.phone || "",
+        "Email": member.email || "",
+        "Adresse": member.address || "",
+      }));
 
+      // Créer le workbook et la feuille
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Membres");
+
+      // Ajuster la largeur des colonnes
+      const colWidths = [
+        { wch: 20 }, // Nom
+        { wch: 15 }, // Prénom
+        { wch: 10 }, // Badge N°
+        { wch: 15 }, // Badge ID
+        { wch: 15 }, // Mobile
+        { wch: 15 }, // Fixe
+        { wch: 30 }, // Email
+        { wch: 40 }, // Adresse
+      ];
+      worksheet["!cols"] = colWidths;
+
+      // Générer le nom du fichier avec la date
+      const today = new Date().toISOString().split("T")[0];
+      const filename = `BodyForce_Membres_${today}.xlsx`;
+
+      // Télécharger le fichier
+      XLSX.writeFile(workbook, filename);
+
+      console.log(`✅ Export Excel: ${filteredMembers.length} membres exportés`);
+    } catch (err) {
+      console.error("❌ Erreur lors de l'export:", err);
+      alert(`❌ Erreur lors de l'export: ${err.message}`);
+    }
+  };
 
   const handleCloseForm = () => {
     setShowForm(false);
@@ -833,6 +878,15 @@ function MembersPage() {
             onChange={handleImportBadges}
             style={{ display: 'none' }}
           />
+
+          {/* Bouton Export Excel */}
+          <button
+            className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
+            onClick={handleExportMembers}
+            title={`Exporter ${filteredMembers.length} membres vers Excel`}
+          >
+            📤 Exporter Excel
+          </button>
 
           {selectedIds.length > 0 && (
             <button
