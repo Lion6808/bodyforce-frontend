@@ -618,47 +618,88 @@ function MembersPage() {
     event.target.value = "";
   };
 
-  // 🎯 Export des membres vers Excel
+  // 🎯 Export des membres vers Excel (format professionnel)
   const handleExportMembers = () => {
     try {
-      // Préparer les données pour l'export (infos de base)
-      const exportData = filteredMembers.map((member) => ({
-        "Nom": member.name || "",
-        "Prénom": member.firstName || "",
-        "Badge N°": member.badge_number || "",
-        "Badge ID": member.badgeId || "",
-        "Téléphone mobile": member.mobile || "",
-        "Téléphone fixe": member.phone || "",
-        "Email": member.email || "",
-        "Adresse": member.address || "",
-      }));
+      const today = new Date();
+      const dateStr = today.toLocaleDateString("fr-FR", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      const fileDate = today.toISOString().split("T")[0];
 
-      // Créer le workbook et la feuille
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      // Construire les données avec titre et date
+      const titleRow = ["LISTE DES MEMBRES BODYFORCE"];
+      const dateRow = [`Export du ${dateStr}`];
+      const countRow = [`${filteredMembers.length} membres`];
+      const emptyRow = [];
+      const headers = ["Nom", "Prénom", "Badge N°", "Badge ID", "Téléphone mobile", "Téléphone fixe", "Email", "Adresse"];
+
+      // Données des membres
+      const dataRows = filteredMembers.map((member) => [
+        member.name || "",
+        member.firstName || "",
+        member.badge_number || "",
+        member.badgeId || "",
+        member.mobile || "",
+        member.phone || "",
+        member.email || "",
+        member.address || "",
+      ]);
+
+      // Assembler toutes les lignes
+      const allRows = [
+        titleRow,
+        dateRow,
+        countRow,
+        emptyRow,
+        headers,
+        ...dataRows,
+      ];
+
+      // Créer la feuille à partir du tableau
+      const worksheet = XLSX.utils.aoa_to_sheet(allRows);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Membres");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Membres BodyForce");
 
       // Ajuster la largeur des colonnes
-      const colWidths = [
+      worksheet["!cols"] = [
         { wch: 20 }, // Nom
         { wch: 15 }, // Prénom
         { wch: 10 }, // Badge N°
         { wch: 15 }, // Badge ID
-        { wch: 15 }, // Mobile
-        { wch: 15 }, // Fixe
-        { wch: 30 }, // Email
-        { wch: 40 }, // Adresse
+        { wch: 18 }, // Mobile
+        { wch: 18 }, // Fixe
+        { wch: 32 }, // Email
+        { wch: 45 }, // Adresse
       ];
-      worksheet["!cols"] = colWidths;
 
-      // Générer le nom du fichier avec la date
-      const today = new Date().toISOString().split("T")[0];
-      const filename = `BodyForce_Membres_${today}.xlsx`;
+      // Fusionner les cellules du titre (A1:H1)
+      worksheet["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, // Titre
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }, // Date
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 7 } }, // Compteur
+      ];
 
-      // Télécharger le fichier
+      // Auto-filtre sur les données (commence à la ligne 5 = index 4)
+      const lastRow = 4 + dataRows.length;
+      worksheet["!autofilter"] = { ref: `A5:H${lastRow}` };
+
+      // Configuration impression : en-tête et pied de page
+      worksheet["!pageSetup"] = {
+        orientation: "landscape",
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+      };
+
+      // Générer le fichier
+      const filename = `BodyForce_Membres_${fileDate}.xlsx`;
       XLSX.writeFile(workbook, filename);
 
-      console.log(`✅ Export Excel: ${filteredMembers.length} membres exportés`);
+      console.log(`✅ Export Excel: ${filteredMembers.length} membres exportés (format pro)`);
     } catch (err) {
       console.error("❌ Erreur lors de l'export:", err);
       alert(`❌ Erreur lors de l'export: ${err.message}`);
