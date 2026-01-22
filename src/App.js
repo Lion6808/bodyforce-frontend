@@ -75,7 +75,7 @@ const fetchUserPhoto = async (userId) => {
 };
 
 // App version
-const APP_VERSION = "2.3.7"; // ← NOUVEAU : Version mise à jour
+const APP_VERSION = "2.3.8"; // ← Export Excel professionnel avec ExcelJS
 
 // ✅ Configuration des onglets Bottom Nav - DYNAMIQUE selon le rôle
 const getBottomNavTabs = (isAdmin) => {
