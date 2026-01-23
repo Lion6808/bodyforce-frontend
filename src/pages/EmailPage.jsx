@@ -36,7 +36,7 @@ function EmailPage() {
 
   // État du service email
   const [emailConfigured, setEmailConfigured] = useState(null);
-  const [emailAddress, setEmailAddress] = useState(null);
+  const [emailService, setEmailService] = useState(null);
 
   // Résultats d'envoi
   const [sendResult, setSendResult] = useState(null);
@@ -58,7 +58,7 @@ function EmailPage() {
 
       setMembers(membersData);
       setEmailConfigured(emailStatus.configured);
-      setEmailAddress(emailStatus.email);
+      setEmailService(emailStatus.service);
     } catch (error) {
       console.error("Erreur chargement:", error);
       toast.error("Erreur lors du chargement des données");
@@ -249,14 +249,13 @@ function EmailPage() {
                 Service email non configuré
               </p>
               <p className="text-sm text-amber-700 dark:text-amber-400">
-                Les variables GMAIL_USER et GMAIL_APP_PASSWORD doivent être
-                définies sur le serveur.
+                La variable RESEND_API_KEY doit être définie sur le serveur.
               </p>
             </div>
           </div>
         )}
 
-        {emailConfigured && emailAddress && (
+        {emailConfigured && (
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start gap-3">
             <FaCheckCircle className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -264,7 +263,7 @@ function EmailPage() {
                 Service email configuré
               </p>
               <p className="text-sm text-green-700 dark:text-green-400">
-                Les emails seront envoyés depuis : {emailAddress}
+                Service utilisé : {emailService || "Resend"}
               </p>
             </div>
           </div>
