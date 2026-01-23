@@ -1,7 +1,10 @@
 // src/services/emailService.js
 // Service d'envoi d'emails via le backend Express (Nodemailer + Gmail)
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://bodyforce-backend.onrender.com"
+    : "http://localhost:3001";
 
 /**
  * Vérifie si le service email est configuré sur le serveur
