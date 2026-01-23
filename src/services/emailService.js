@@ -3,7 +3,7 @@
 
 const API_URL =
   process.env.NODE_ENV === "production"
-    ? "https://bodyforce-backend.onrender.com"
+    ? "https://bodyforce.onrender.com"
     : "http://localhost:3001";
 
 /**
