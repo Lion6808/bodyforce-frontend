@@ -57,6 +57,7 @@ import InvitationsPage from "./pages/InvitationsPage";
 import InvitationSignupPage from "./pages/InvitationSignupPage";
 import MemberFormPage from "./pages/MemberFormPage";
 import ReportsPage from "./pages/ReportsPage"; // ← NOUVEAU : Page des rapports PDF
+import EmailPage from "./pages/EmailPage"; // Page d'envoi d'emails
 
 // Styles et notifications
 import { ToastContainer } from "react-toastify";
@@ -152,7 +153,7 @@ const getBottomNavTabs = (isAdmin) => {
   }
 };
 
-// ✅ Menu "Plus" pour admin - MODIFIÉ avec Rapports PDF
+// ✅ Menu "Plus" pour admin - MODIFIÉ avec Rapports PDF et Emails
 const getMoreMenuItems = () => [
   {
     id: "statistics",
@@ -162,11 +163,18 @@ const getMoreMenuItems = () => [
     color: "text-blue-500",
   },
   {
-    id: "reports", // ← NOUVEAU
+    id: "reports",
     name: "Rapports PDF",
     path: "/reports",
     icon: FaFilePdf,
     color: "text-red-500",
+  },
+  {
+    id: "emails",
+    name: "Emails",
+    path: "/emails",
+    icon: FaEnvelope,
+    color: "text-emerald-500",
   },
   {
     id: "messages",
@@ -675,7 +683,8 @@ function EnhancedSidebar({
           { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
           { path: "/payments", icon: FaCreditCard, label: "Paiements" },
           { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
-          { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" }, // ← NOUVEAU dans le menu desktop
+          { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" },
+          { path: "/emails", icon: FaEnvelope, label: "Emails" },
           { path: "/messages", icon: FaEnvelope, label: "Messages" },
           { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
         ]
@@ -831,7 +840,8 @@ function AnimatedMobileMenu({
           { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
           { path: "/payments", icon: FaCreditCard, label: "Paiements" },
           { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
-          { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" }, // ← NOUVEAU dans le menu mobile
+          { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" },
+          { path: "/emails", icon: FaEnvelope, label: "Emails" },
           { path: "/messages", icon: FaEnvelope, label: "Messages" },
           { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
         ]
@@ -1302,8 +1312,8 @@ function AppRoutes() {
                   <Route path="/planning" element={<PlanningPage />} />
                   <Route path="/payments" element={<PaymentsPage />} />
                   <Route path="/statistics" element={<StatisticsPage />} />
-                  <Route path="/reports" element={<ReportsPage />} />{" "}
-                  {/* ← NOUVEAU : Route rapports */}
+                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/emails" element={<EmailPage />} />
                   <Route path="/admin/users" element={<UserManagementPage />} />
                   <Route path="/invitations" element={<InvitationsPage />} />
                 </>
