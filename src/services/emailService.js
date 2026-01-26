@@ -1,5 +1,5 @@
 // src/services/emailService.js
-// Service d'envoi d'emails via le backend Express (Nodemailer + Gmail)
+// Service d'envoi d'emails via le backend Express (Resend API)
 
 const API_URL =
   process.env.NODE_ENV === "production"
