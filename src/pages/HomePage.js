@@ -31,6 +31,7 @@ import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
 import MemberForm from "../components/MemberForm";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 // ====================================================
 // SKELETONS / LOADERS
@@ -675,6 +676,46 @@ function HomePage() {
     loading.presences,
     photosCache,
   ]);
+
+  // Toast notification pour nouveaux membres (admin uniquement)
+  useEffect(() => {
+    if (!isAdmin || loading.latestMembers || latestMembers.length === 0) return;
+
+    const STORAGE_KEY = "bodyforce_lastSeenBadgeNumber";
+    const lastSeenBadgeNumber = parseInt(localStorage.getItem(STORAGE_KEY) || "0", 10);
+
+    // Trouver le plus grand badge_number actuel
+    const currentMaxBadge = Math.max(...latestMembers.map(m => m.badge_number || 0));
+
+    if (currentMaxBadge > lastSeenBadgeNumber) {
+      // Filtrer les nouveaux membres (badge_number > lastSeen)
+      const newMembers = latestMembers.filter(m => m.badge_number > lastSeenBadgeNumber);
+
+      if (newMembers.length > 0) {
+        // Construire le message
+        if (newMembers.length === 1) {
+          const m = newMembers[0];
+          toast.info(
+            `🎉 Nouveau membre !\n${m.firstName} ${m.name} (Badge ${m.badge_number})`,
+            { autoClose: 6000, icon: false }
+          );
+        } else {
+          const names = newMembers
+            .slice(0, 3)
+            .map(m => `${m.firstName} ${m.name}`)
+            .join(", ");
+          const extra = newMembers.length > 3 ? ` +${newMembers.length - 3} autre(s)` : "";
+          toast.info(
+            `🎉 ${newMembers.length} nouveaux membres !\n${names}${extra}`,
+            { autoClose: 6000, icon: false }
+          );
+        }
+      }
+
+      // Sauvegarder le nouveau max
+      localStorage.setItem(STORAGE_KEY, currentMaxBadge.toString());
+    }
+  }, [isAdmin, loading.latestMembers, latestMembers]);
 
   // Stats perso admin
   useEffect(() => {
