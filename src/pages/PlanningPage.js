@@ -150,7 +150,7 @@ function PlanningPage() {
   // --- Intratone sync (admin) ---
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
-  const [syncInterval, setSyncInterval] = useState(15);
+  const [syncInterval, setSyncInterval] = useState(5);
 
   // Période & filtres
   const [period, setPeriod] = useState("week");
