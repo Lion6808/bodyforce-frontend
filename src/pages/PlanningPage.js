@@ -36,6 +36,11 @@ import {
   endOfYear,
 } from "date-fns";
 
+const API_URL =
+  window.location.hostname === "localhost"
+    ? "http://localhost:3001"
+    : "https://bodyforce.onrender.com";
+
 // Tailwind helpers
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -141,6 +146,11 @@ function PlanningPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const { role } = useAuth();
+
+  // --- Intratone sync (admin) ---
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+  const [syncInterval, setSyncInterval] = useState(15);
 
   // Période & filtres
   const [period, setPeriod] = useState("week");
@@ -1617,16 +1627,102 @@ function PlanningPage() {
             </div>
 
             {role === "admin" && (
-              <div className="mt-4">
-                <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition">
+              <div className="mt-4 flex flex-col gap-3">
+                <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition w-fit">
                   <input
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={handleImportExcel}
                     className="hidden"
                   />
-                  📥 Importer fichier Excel (.xlsx)
+                  Importer fichier Excel (.xlsx)
                 </label>
+
+                {/* Intratone Sync */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={async () => {
+                      setSyncLoading(true);
+                      setSyncResult(null);
+                      try {
+                        const res = await fetch(`${API_URL}/api/intratone/sync`, {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: JSON.stringify({ role: "admin" }),
+                          },
+                        });
+                        const data = await res.json();
+                        setSyncResult(data);
+                        if (data.success) loadData();
+                      } catch (err) {
+                        setSyncResult({ error: err.message });
+                      } finally {
+                        setSyncLoading(false);
+                      }
+                    }}
+                    disabled={syncLoading}
+                    className="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg transition-all duration-200 flex items-center gap-2"
+                  >
+                    <RefreshCw className={cn("w-4 h-4", syncLoading && "animate-spin")} />
+                    {syncLoading ? "Synchronisation..." : "Synchroniser Intratone"}
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      Intervalle (min) :
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={120}
+                      value={syncInterval}
+                      onChange={(e) => setSyncInterval(Number(e.target.value))}
+                      className="w-20 border-2 border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (syncInterval < 5 || syncInterval > 120) return;
+                        try {
+                          const res = await fetch(`${API_URL}/api/intratone/interval`, {
+                            method: "PUT",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: JSON.stringify({ role: "admin" }),
+                            },
+                            body: JSON.stringify({ minutes: syncInterval }),
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            setSyncResult({ message: `Intervalle mis à ${syncInterval} min` });
+                          } else {
+                            setSyncResult({ error: data.error || "Erreur" });
+                          }
+                        } catch (err) {
+                          setSyncResult({ error: err.message });
+                        }
+                      }}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
+
+                  {syncResult && (
+                    <span className={cn(
+                      "text-sm font-medium",
+                      syncResult.error
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-green-600 dark:text-green-400"
+                    )}>
+                      {syncResult.error
+                        ? `Erreur: ${syncResult.error}`
+                        : syncResult.message
+                          ? syncResult.message
+                          : `${syncResult.events ?? 0} event(s) sync`}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
