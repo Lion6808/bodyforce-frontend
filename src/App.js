@@ -60,7 +60,7 @@ import ReportsPage from "./pages/ReportsPage"; // ← NOUVEAU : Page des rapport
 import EmailPage from "./pages/EmailPage"; // Page d'envoi d'emails
 
 // Styles et notifications
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast as showToast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 
@@ -1354,6 +1354,71 @@ function App() {
     showInstallPrompt,
     dismissInstallPrompt,
   } = usePWA();
+
+  // --- Realtime : toast sur nouveau passage badge ---
+  useEffect(() => {
+    const channel = supabase
+      .channel("presences-inserts")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "presences",
+        },
+        async (payload) => {
+          try {
+            const { badgeId, timestamp } = payload.new;
+            const time = new Date(timestamp).toLocaleTimeString("fr-FR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+
+            // Chercher le membre par badgeId
+            let memberName = badgeId;
+            const { data: member } = await supabase
+              .from("members")
+              .select("name, firstName")
+              .eq("badgeId", badgeId)
+              .maybeSingle();
+
+            if (member) {
+              memberName = `${member.firstName || ""} ${member.name || ""}`.trim();
+            } else {
+              // Chercher dans badge_history
+              const { data: bh } = await supabase
+                .from("badge_history")
+                .select("member_id")
+                .eq("badge_real_id", badgeId)
+                .order("date_attribution", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (bh?.member_id) {
+                const { data: m } = await supabase
+                  .from("members")
+                  .select("name, firstName")
+                  .eq("id", bh.member_id)
+                  .maybeSingle();
+                if (m) {
+                  memberName = `${m.firstName || ""} ${m.name || ""}`.trim();
+                }
+              }
+            }
+
+            showToast.info(`Passage : ${memberName} — ${time}`, {
+              autoClose: 5000,
+            });
+          } catch (err) {
+            console.error("Erreur toast presence:", err);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleInstallFromPrompt = () => {
     installApp();
