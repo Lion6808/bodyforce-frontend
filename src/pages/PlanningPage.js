@@ -150,7 +150,6 @@ function PlanningPage() {
   // --- Intratone sync (admin) ---
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
-  const [syncInterval, setSyncInterval] = useState(5);
 
   // Période & filtres
   const [period, setPeriod] = useState("week");
@@ -1667,46 +1666,6 @@ function PlanningPage() {
                     <RefreshCw className={cn("w-4 h-4", syncLoading && "animate-spin")} />
                     {syncLoading ? "Synchronisation..." : "Synchroniser Intratone"}
                   </button>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                      Intervalle (min) :
-                    </label>
-                    <input
-                      type="number"
-                      min={5}
-                      max={120}
-                      value={syncInterval}
-                      onChange={(e) => setSyncInterval(Number(e.target.value))}
-                      className="w-20 border-2 border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                    <button
-                      onClick={async () => {
-                        if (syncInterval < 5 || syncInterval > 120) return;
-                        try {
-                          const res = await fetch(`${API_URL}/api/intratone/interval`, {
-                            method: "PUT",
-                            headers: {
-                              "Content-Type": "application/json",
-                              Authorization: JSON.stringify({ role: "admin" }),
-                            },
-                            body: JSON.stringify({ minutes: syncInterval }),
-                          });
-                          const data = await res.json();
-                          if (data.success) {
-                            setSyncResult({ message: `Intervalle mis à ${syncInterval} min` });
-                          } else {
-                            setSyncResult({ error: data.error || "Erreur" });
-                          }
-                        } catch (err) {
-                          setSyncResult({ error: err.message });
-                        }
-                      }}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition"
-                    >
-                      Appliquer
-                    </button>
-                  </div>
 
                   {syncResult && (
                     <span className={cn(
