@@ -1339,9 +1339,12 @@ function HomePage() {
                   const m = r.member;
                   const ts =
                     typeof r.ts === "string" ? parseISO(r.ts) : new Date(r.ts);
-                  const displayName = m
-                    ? `${m.firstName || ""} ${m.name || ""}`.trim()
-                    : `Badge ${r.badgeId || "?"}`;
+                  const isBP = !r.badgeId;
+                  const displayName = isBP
+                    ? "BP (Sortie)"
+                    : m
+                      ? `${m.firstName || ""} ${m.name || ""}`.trim()
+                      : `Badge ${r.badgeId}`;
                   const getTimeAgo = (date) => {
                     const now = new Date();
                     const diffInMinutes = Math.floor(
@@ -1363,7 +1366,12 @@ function HomePage() {
                       className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div onClick={() => m && handleEditMember(m)} className="cursor-pointer hover:opacity-75 hover:scale-105 transition-all" title={m ? "Voir les détails du membre" : "Membre inconnu"}>
+                        <div onClick={() => m && handleEditMember(m)} className={`${m ? "cursor-pointer hover:opacity-75 hover:scale-105" : ""} transition-all`} title={isBP ? "Bouton Poussoir" : m ? "Voir les détails du membre" : "Membre inconnu"}>
+                          {isBP ? (
+                            <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold text-sm">
+                              BP
+                            </div>
+                          ) : (
                           <Avatar
                             photo={photosCache[m?.id] || null}
                             firstName={m?.firstName}
@@ -1372,13 +1380,14 @@ function HomePage() {
                             onClick={m ? () => handleEditMember(m) : undefined}
                             title={m ? "Voir les détails du membre" : "Membre inconnu"}
                           />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {displayName}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {m?.badgeId && `Badge ${m.badgeId} • `}
+                            {isBP ? "Bouton Poussoir • " : m?.badgeId ? `Badge ${m.badgeId} • ` : ""}
                             {timeAgo}
                           </div>
                         </div>
