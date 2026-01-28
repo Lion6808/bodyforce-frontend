@@ -76,7 +76,7 @@ const fetchUserPhoto = async (userId) => {
 };
 
 // App version
-const APP_VERSION = "2.4.0"; // ← Export Excel professionnel avec ExcelJS
+const APP_VERSION = "2.5.0"; // ← Sync Intratone CRON + Toasts Realtime + BP
 
 // ✅ Configuration des onglets Bottom Nav - DYNAMIQUE selon le rôle
 const getBottomNavTabs = (isAdmin) => {
