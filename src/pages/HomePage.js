@@ -608,6 +608,65 @@ function HomePage() {
     fetchData();
   }, [role, user, isAdmin, memberCtx?.id]);
 
+  // ✅ Realtime: rafraîchir les derniers passages sur INSERT
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const refreshRecentPresences = async () => {
+      try {
+        const { data: presencesData } = await supabase
+          .from("presences")
+          .select("id,badgeId,timestamp")
+          .order("timestamp", { ascending: false })
+          .limit(10);
+
+        if (!presencesData) return;
+
+        const badgeIds = Array.from(
+          new Set(presencesData.map((r) => r.badgeId).filter(Boolean))
+        );
+        let membersByBadge = {};
+
+        if (badgeIds.length > 0) {
+          const { data: membersData } = await supabase
+            .from("members")
+            .select("id, firstName, name, badgeId")
+            .in("badgeId", badgeIds);
+          if (membersData) {
+            membersByBadge = membersData.reduce((acc, m) => {
+              acc[m.badgeId] = m;
+              return acc;
+            }, {});
+          }
+        }
+
+        setRecentPresences(
+          presencesData.map((r) => ({
+            id: r.id,
+            ts: r.timestamp,
+            member: membersByBadge[r.badgeId],
+            badgeId: r.badgeId,
+          }))
+        );
+      } catch (e) {
+        console.error("Realtime refresh error:", e);
+      }
+    };
+
+    const channel = supabase
+      .channel("homepage-presences")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "presences" },
+        () => refreshRecentPresences()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAdmin]);
+
   // ✅ Lazy-load photos pour latestMembers + recentPresences
   useEffect(() => {
     const loadPhotosForDisplayedMembers = async () => {
