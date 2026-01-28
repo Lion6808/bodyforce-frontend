@@ -1374,6 +1374,14 @@ function App() {
               minute: "2-digit",
             });
 
+            // Bouton Poussoir (pas de badgeId)
+            if (!badgeId) {
+              showToast.info(`BP (Sortie) — ${time}`, {
+                autoClose: 5000,
+              });
+              return;
+            }
+
             // Chercher le membre par badgeId
             let memberName = badgeId;
             const { data: member } = await supabase
