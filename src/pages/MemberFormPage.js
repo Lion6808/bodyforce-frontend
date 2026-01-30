@@ -1,10 +1,24 @@
-// 📄 MemberFormPage.js — COMPLET CORRIGÉ avec compression optimisée egress
-// 🎯 Onglets réorganisés : Profil | Documents | Abonnement | Présence | Messages
-// 🔒 Gestion complète des paiements alignée sur MemberForm
-// ✅ Compression photos pour optimiser egress Supabase
-// ✅ Retour intelligent avec repositionnement automatique
+/**
+ * MemberFormPage.js
+ *
+ * Full-featured member creation and editing page for the BodyForce gym management app.
+ * Organized into five tabs: Profil | Documents | Abonnement | Presence | Messages.
+ *
+ * Responsibilities:
+ *  - Create or update a member (personal info, photo, badge, subscription)
+ *  - Manage document uploads and camera captures with image compression
+ *  - Record and display payment history
+ *  - Display attendance statistics with charts
+ *  - Show the member messages tab
+ *
+ * Navigation: receives { member, returnPath } via location.state and returns
+ * to the calling page with optional scroll-restoration data.
+ */
 
-import MemberMessagesTab from "../components/MemberMessagesTab";
+// ===================================================================
+// SECTION 1 -- Imports
+// ===================================================================
+
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -18,7 +32,6 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import {
-  FaCamera,
   FaFileUpload,
   FaTrash,
   FaDownload,
@@ -35,19 +48,27 @@ import {
   FaCheck,
   FaTimes,
   FaEye,
-  FaEdit,
   FaPaperPlane,
   FaComments,
   FaClipboardList,
   FaSync,
   FaChartLine,
   FaChartBar,
-  FaFilter,
   FaClock,
 } from "react-icons/fa";
 import { supabase, supabaseServices } from "../supabaseClient";
+import MemberMessagesTab from "../components/MemberMessagesTab";
 
-// 🔧 Fonctions utilitaires
+// ===================================================================
+// SECTION 2 -- Date Utilities
+// ===================================================================
+
+/**
+ * Format a Date object according to a predefined format key.
+ * @param {Date} date - The date to format.
+ * @param {string} fmt - One of the supported format keys (e.g. "dd/MM/yyyy").
+ * @returns {string} The formatted date string in French locale.
+ */
 const formatDate = (date, fmt) => {
   const map = {
     "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
@@ -62,8 +83,10 @@ const formatDate = (date, fmt) => {
   return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
 };
 
+/** Parse an ISO timestamp string into a Date. */
 const parseTimestamp = (ts) => new Date(ts);
 
+/** Convert a Date to a "yyyy-MM-dd" string (local time). Returns "" for falsy input. */
 const toDateString = (date) => {
   if (!date) return "";
   const y = date.getFullYear();
@@ -72,17 +95,61 @@ const toDateString = (date) => {
   return `${y}-${m}-${d}`;
 };
 
+/** Return true if the given date falls on a Saturday or Sunday. */
 const isWeekend = (date) => [0, 6].includes(date.getDay());
+
+/** Return true if the given date is today. */
 const isToday = (d) => d.toDateString() === new Date().toDateString();
 
+// ===================================================================
+// SECTION 3 -- Subscription Constants
+// ===================================================================
+
+/** Map of subscription type labels to their duration in months (0 = civil year). */
 const subscriptionDurations = {
   Mensuel: 1,
   Trimestriel: 3,
   Semestriel: 6,
   Annuel: 12,
-  "Année civile": 0,
+  "Annee civile": 0,
 };
 
+/**
+ * Configured end dates for "Annee civile" subscriptions, keyed by start year.
+ * Adjust these values as needed for each season.
+ */
+const SUBSCRIPTION_END_DATES = {
+  2025: "2026-01-01",
+  2026: "2027-01-01",
+  2027: "2028-01-01",
+  2028: "2029-01-01",
+  2029: "2030-01-01",
+};
+
+/**
+ * Return the configured subscription end date for a given year.
+ * Falls back to Dec 31 of the given year if no entry exists.
+ * @param {number} year
+ * @returns {string} ISO date string "yyyy-MM-dd"
+ */
+const getSubscriptionEndDate = (year) => {
+  if (SUBSCRIPTION_END_DATES[year]) {
+    return SUBSCRIPTION_END_DATES[year];
+  }
+  console.warn(`Pas de date configuree pour ${year}`);
+  return `${year}-12-31`;
+};
+
+// ===================================================================
+// SECTION 4 -- File Utilities
+// ===================================================================
+
+/**
+ * Sanitize a file name for safe storage: strip accents, replace spaces
+ * with underscores, and remove non-alphanumeric characters.
+ * @param {string} name - Original file name.
+ * @returns {string} Sanitized file name.
+ */
 function sanitizeFileName(name) {
   return name
     .normalize("NFD")
@@ -91,37 +158,29 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9_.-]/g, "");
 }
 
-// 🎯 CONFIGURATION DES DATES DE FIN D'ABONNEMENT
-const SUBSCRIPTION_END_DATES = {
-  2025: "2026-01-01", // ← Modifiez cette date selon vos besoins
-  2026: "2027-01-01",
-  2027: "2028-01-01",
-  2028: "2029-01-01",
-  2029: "2030-01-01",
-};
+// ===================================================================
+// SECTION 5 -- Image Compression
+// ===================================================================
 
-const getSubscriptionEndDate = (year) => {
-  if (SUBSCRIPTION_END_DATES[year]) {
-    return SUBSCRIPTION_END_DATES[year];
-  }
-  console.warn(`⚠️ Pas de date configurée pour ${year}`);
-  return `${year}-12-31`; // Fallback
-};
-
-// ✅ NOUVELLE FONCTION : Compression d'image optimisée egress
-// ✅ FONCTION COMPRESSION CORRIGÉE - Respecte les proportions
+/**
+ * Compress an image (given as a data URL) to JPEG at the specified max
+ * dimension and quality. Preserves aspect ratio.
+ * @param {string} imageData - Base64 data URL of the source image.
+ * @param {number} [maxSize=256] - Maximum width or height in pixels.
+ * @param {number} [quality=0.6] - JPEG quality (0..1).
+ * @returns {Promise<string>} Compressed image as a data URL.
+ */
 const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
 
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      
-      // Calculer les dimensions en gardant le ratio
+
       let width = img.width;
       let height = img.height;
-      
-      // Redimensionner si trop grand
+
+      // Scale down while keeping aspect ratio
       if (width > height) {
         if (width > maxSize) {
           height = (height * maxSize) / width;
@@ -133,7 +192,7 @@ const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
           height = maxSize;
         }
       }
-      
+
       canvas.width = width;
       canvas.height = height;
 
@@ -142,10 +201,9 @@ const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
 
       const compressed = canvas.toDataURL("image/jpeg", quality);
 
-      // Log pour monitoring egress
       const sizeKB = Math.round((compressed.length * 0.75) / 1024);
       console.log(
-        `📸 Photo optimisée: ${sizeKB} KB (${Math.round(width)}x${Math.round(height)} @ ${
+        `Photo optimisee: ${sizeKB} KB (${Math.round(width)}x${Math.round(height)} @ ${
           quality * 100
         }%)`
       );
@@ -158,7 +216,20 @@ const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
   });
 };
 
-// ✅ COMPOSANT CAMÉRA (INCHANGÉ - gestion streams préservée)
+// ===================================================================
+// SECTION 6 -- CameraModal Component
+// ===================================================================
+
+/**
+ * Full-screen camera modal for capturing photos or documents.
+ * Handles camera stream lifecycle, front/back switching, preview, and confirmation.
+ *
+ * @param {Object} props
+ * @param {boolean} props.isOpen - Whether the modal is visible.
+ * @param {Function} props.onClose - Called when the modal should close.
+ * @param {Function} props.onCapture - Called with the captured image data URL.
+ * @param {boolean} props.isDarkMode - Current dark mode state.
+ */
 function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -169,6 +240,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const [availableCameras, setAvailableCameras] = useState([]);
   const [facingMode, setFacingMode] = useState("user");
 
+  /** Stop all tracks on the current video stream. */
   const cleanupStream = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const currentStream = videoRef.current.srcObject;
@@ -178,6 +250,7 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     }
   };
 
+  // Initialize or tear down the camera when modal opens/closes or facing mode changes
   useEffect(() => {
     if (!isOpen) {
       cleanupStream();
@@ -219,11 +292,11 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           setStream(newStream);
         }
       } catch (err) {
-        let errorMessage = "Impossible d'accéder à la caméra.";
+        let errorMessage = "Impossible d'acccder a la camera.";
         if (err.name === "NotReadableError") {
-          errorMessage = "La caméra est déjà utilisée.";
+          errorMessage = "La camera est deja utilisee.";
         } else if (err.name === "NotAllowedError") {
-          errorMessage = "L'accès à la caméra a été refusé.";
+          errorMessage = "L'acces a la camera a ete refuse.";
         }
         if (isMounted) setError(errorMessage);
       } finally {
@@ -238,55 +311,57 @@ function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
     };
   }, [isOpen, facingMode]);
 
+  /** Toggle between front and back camera. */
   const switchCamera = () => {
     if (availableCameras.length > 1 && !isLoading) {
       setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
     }
   };
 
- // ✅ CORRECTION : Respecte les proportions de la vidéo
-const capturePhoto = () => {
-  if (!videoRef.current || !canvasRef.current) return;
+  /** Capture a still frame from the video stream, respecting aspect ratio. */
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
 
-  const video = videoRef.current;
-  const canvas = canvasRef.current;
-  const context = canvas.getContext("2d");
-  const maxSize = 256;
-  
-  // Calculer les dimensions en gardant le ratio
-  let width = video.videoWidth;
-  let height = video.videoHeight;
-  
-  // Redimensionner si trop grand
-  if (width > height) {
-    if (width > maxSize) {
-      height = (height * maxSize) / width;
-      width = maxSize;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+    const maxSize = 256;
+
+    let width = video.videoWidth;
+    let height = video.videoHeight;
+
+    // Scale down while keeping aspect ratio
+    if (width > height) {
+      if (width > maxSize) {
+        height = (height * maxSize) / width;
+        width = maxSize;
+      }
+    } else {
+      if (height > maxSize) {
+        width = (width * maxSize) / height;
+        height = maxSize;
+      }
     }
-  } else {
-    if (height > maxSize) {
-      width = (width * maxSize) / height;
-      height = maxSize;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    // Mirror horizontally for front-facing camera
+    if (facingMode === "user") {
+      context.save();
+      context.scale(-1, 1);
+      context.drawImage(video, -width, 0, width, height);
+      context.restore();
+    } else {
+      context.drawImage(video, 0, 0, width, height);
     }
-  }
-  
-  canvas.width = width;
-  canvas.height = height;
 
-  if (facingMode === "user") {
-    context.save();
-    context.scale(-1, 1);
-    context.drawImage(video, -width, 0, width, height);
-    context.restore();
-  } else {
-    context.drawImage(video, 0, 0, width, height);
-  }
+    const imageData = canvas.toDataURL("image/jpeg", 0.6);
+    setCapturedPhoto(imageData);
+    cleanupStream();
+  };
 
-  const imageData = canvas.toDataURL("image/jpeg", 0.6);
-  setCapturedPhoto(imageData);
-  cleanupStream();
-};
-
+  /** Confirm the captured photo and pass it to the parent. */
   const confirmPhoto = () => {
     if (capturedPhoto) {
       onCapture(capturedPhoto);
@@ -294,6 +369,7 @@ const capturePhoto = () => {
     }
   };
 
+  /** Discard the captured photo and restart the camera stream. */
   const retakePhoto = () => {
     setCapturedPhoto(null);
     setIsLoading(true);
@@ -311,6 +387,7 @@ const capturePhoto = () => {
           isDarkMode ? "bg-gray-800" : "bg-white"
         } rounded-xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col`}
       >
+        {/* Modal header */}
         <div
           className={`p-4 border-b ${
             isDarkMode ? "border-gray-700" : "border-gray-200"
@@ -321,7 +398,7 @@ const capturePhoto = () => {
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
-            📸 Prendre une photo
+            Prendre une photo
           </h3>
           <button
             onClick={onClose}
@@ -333,10 +410,11 @@ const capturePhoto = () => {
           </button>
         </div>
 
+        {/* Camera viewport */}
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           {error && (
             <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
-              <p className="font-medium mb-2">⚠ Erreur caméra</p>
+              <p className="font-medium mb-2">Erreur camera</p>
               <p className="text-sm">{error}</p>
             </div>
           )}
@@ -347,7 +425,7 @@ const capturePhoto = () => {
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                   <div className="text-white text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                    <p>Démarrage de la caméra...</p>
+                    <p>Demarrage de la camera...</p>
                   </div>
                 </div>
               )}
@@ -370,7 +448,7 @@ const capturePhoto = () => {
               {capturedPhoto && (
                 <img
                   src={capturedPhoto}
-                  alt="Photo capturée"
+                  alt="Photo capturee"
                   className="w-full h-full object-cover"
                 />
               )}
@@ -379,6 +457,7 @@ const capturePhoto = () => {
             </div>
           )}
 
+          {/* Camera controls */}
           {!error && (
             <div className="mt-6 flex items-center gap-4 h-16">
               {!isLoading && !capturedPhoto ? (
@@ -441,7 +520,14 @@ const capturePhoto = () => {
   );
 }
 
-// ✅ COMPOSANTS UTILITAIRES
+// ===================================================================
+// SECTION 7 -- Reusable Form Components
+// ===================================================================
+
+/**
+ * Styled text input with label, optional icon, and error display.
+ * All extra props are forwarded to the underlying <input>.
+ */
 function InputField({ label, icon: Icon, error, ...props }) {
   return (
     <div className="space-y-2">
@@ -464,6 +550,10 @@ function InputField({ label, icon: Icon, error, ...props }) {
   );
 }
 
+/**
+ * Styled select dropdown with label, optional icon, and error display.
+ * All extra props are forwarded to the underlying <select>.
+ */
 function SelectField({ label, options, icon: Icon, error, ...props }) {
   return (
     <div className="space-y-2">
@@ -492,26 +582,43 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
   );
 }
 
+/**
+ * Inline badge showing subscription expiry and/or student status.
+ */
 function StatusBadge({ isExpired, isStudent }) {
   return (
     <div className="flex gap-2">
       {isExpired && (
         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
           <FaTimes className="w-3 h-3 mr-1" />
-          Expiré
+          Expire
         </span>
       )}
       {isStudent && (
         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
           <FaGraduationCap className="w-3 h-3 mr-1" />
-          Étudiant
+          Etudiant
         </span>
       )}
     </div>
   );
 }
 
-// ✅ MODAL DE CONFIRMATION
+// ===================================================================
+// SECTION 8 -- ConfirmDialog Component
+// ===================================================================
+
+/**
+ * Generic confirmation dialog for destructive actions (delete photo, file, etc.).
+ *
+ * @param {Object} props
+ * @param {boolean} props.isOpen
+ * @param {Function} props.onConfirm
+ * @param {Function} props.onCancel
+ * @param {string} props.title
+ * @param {string} props.message
+ * @param {"danger"|"warning"} [props.type="danger"]
+ */
 function ConfirmDialog({
   isOpen,
   onConfirm,
@@ -526,6 +633,7 @@ function ConfirmDialog({
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
         <div className="p-6">
+          {/* Icon and title */}
           <div className="flex items-center gap-4 mb-4">
             <div
               className={`p-3 rounded-full ${
@@ -549,6 +657,7 @@ function ConfirmDialog({
 
           <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
 
+          {/* Action buttons */}
           <div className="flex gap-3 justify-end">
             <button
               onClick={onCancel}
@@ -573,11 +682,23 @@ function ConfirmDialog({
   );
 }
 
-// ✅ COMPOSANT PRINCIPAL
+// ===================================================================
+// SECTION 9 -- Main Component: MemberFormPage
+// ===================================================================
+
+/**
+ * MemberFormPage is the main page component. It reads the member data from
+ * navigation state, provides a sidebar with photo / quick info, and a tabbed
+ * content area for editing all member-related data.
+ */
 function MemberFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { member, returnPath } = location.state || {};
+
+  // -----------------------------------------------------------------
+  // 9.1 -- State declarations
+  // -----------------------------------------------------------------
 
   const [activeTab, setActiveTab] = useState("profile");
   const [form, setForm] = useState({
@@ -603,7 +724,7 @@ function MemberFormPage() {
 
   const [newPayment, setNewPayment] = useState({
     amount: "",
-    method: "espèces",
+    method: "especes",
     encaissement_prevu: "",
     commentaire: "",
     is_paid: false,
@@ -638,6 +759,7 @@ function MemberFormPage() {
     showHourlyGraph: false,
   });
 
+  // Tab definitions for the navigation bar
   const tabs = [
     { id: "profile", label: "Profil", icon: FaUser },
     {
@@ -649,13 +771,18 @@ function MemberFormPage() {
     { id: "subscription", label: "Abonnement", icon: FaCreditCard },
     {
       id: "attendance",
-      label: "Présence",
+      label: "Presence",
       icon: FaClipboardList,
       count: attendanceData.stats?.totalVisits || 0,
     },
     { id: "messages", label: "Messages", icon: FaComments },
   ];
 
+  // -----------------------------------------------------------------
+  // 9.2 -- Effects
+  // -----------------------------------------------------------------
+
+  // Watch for dark mode class on <html>
   useEffect(() => {
     const checkDarkMode = () =>
       setIsDarkMode(document.documentElement.classList.contains("dark"));
@@ -668,17 +795,13 @@ function MemberFormPage() {
     return () => observer.disconnect();
   }, []);
 
+  // Load member data from Supabase when editing an existing member
   useEffect(() => {
     const loadMemberData = async () => {
       if (!member?.id) {
-        // Nouveau membre - initialiser le formulaire vide si nécessaire
-        if (!form.name && !form.firstName) {
-          // Le formulaire est déjà vide par défaut
-        }
         return;
       }
 
-      // Membre existant - recharger depuis Supabase avec la photo
       if (!form.name && !form.firstName) {
         try {
           const fullMember = await supabaseServices.getMemberById(member.id);
@@ -697,7 +820,7 @@ function MemberFormPage() {
           }
         } catch (error) {
           console.error("Erreur chargement membre complet:", error);
-          // Fallback sur les données partielles
+          // Fallback: use partial data passed via navigation state
           setForm({
             ...member,
             badge_number: member.badge_number || "",
@@ -716,15 +839,15 @@ function MemberFormPage() {
     loadMemberData();
   }, [member?.id, form.name, form.firstName]);
 
+  // Recalculate subscription end date when type or start date changes
   useEffect(() => {
     if (!form.startDate) return;
 
-    if (form.subscriptionType === "Année civile") {
+    if (form.subscriptionType === "Annee civile") {
       const year = new Date(form.startDate).getFullYear();
       setForm((f) => ({
         ...f,
         startDate: `${year}-01-01`,
-        //endDate: `${year}-12-31`,
         endDate: getSubscriptionEndDate(year),
       }));
     } else {
@@ -737,6 +860,7 @@ function MemberFormPage() {
     }
   }, [form.subscriptionType, form.startDate]);
 
+  // Fetch attendance data when the attendance tab is selected
   useEffect(() => {
     if (member?.id && activeTab === "attendance") {
       fetchMemberAttendance(member.id);
@@ -748,19 +872,32 @@ function MemberFormPage() {
     attendanceFilters.endDate,
   ]);
 
+  // -----------------------------------------------------------------
+  // 9.3 -- Derived values
+  // -----------------------------------------------------------------
+
   const age = form.birthdate
     ? Math.floor(
         (new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)
       )
     : null;
+
   const isExpired = form.endDate && new Date(form.endDate) < new Date();
 
+  // -----------------------------------------------------------------
+  // 9.4 -- Event handlers
+  // -----------------------------------------------------------------
+
+  /** Generic handler for text / checkbox / select changes on the form. */
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  // 🎯 Recherche automatique du badge_real_id
+  /**
+   * When the badge number input changes, look up the corresponding
+   * badge_real_id from the badge_mapping table.
+   */
   const handleBadgeNumberChange = async (e) => {
     const badgeNumber = e.target.value;
 
@@ -779,13 +916,13 @@ function MemberFormPage() {
         .single();
 
       if (error) {
-        console.log("Badge non trouvé:", badgeNumber);
+        console.log("Badge non trouve:", badgeNumber);
         setForm((f) => ({ ...f, badgeId: "" }));
         return;
       }
 
       if (data) {
-        console.log("✅ Badge trouvé:", data.badge_real_id);
+        console.log("Badge trouve:", data.badge_real_id);
         setForm((f) => ({ ...f, badgeId: data.badge_real_id }));
       }
     } catch (err) {
@@ -794,6 +931,10 @@ function MemberFormPage() {
     }
   };
 
+  /**
+   * Navigate back to the previous page. If returnPath is set, pass along
+   * the edited member ID so the list can restore scroll position.
+   */
   const handleBack = (editedMemberId = null) => {
     if (returnPath) {
       if (editedMemberId) {
@@ -811,6 +952,7 @@ function MemberFormPage() {
     }
   };
 
+  /** Save the member (create or update) then navigate back after a delay. */
   const handleSave = async () => {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
@@ -818,23 +960,20 @@ function MemberFormPage() {
       let savedMemberId;
 
       if (member?.id) {
-        // 🎯 Vérifier si le badge a changé
+        // Check if badge was reassigned
         if (form.badgeId && form.badgeId !== member.badgeId) {
           console.log(
-            `🔄 Réattribution du badge ${form.badgeId} au membre ${member.id}`
+            `Reassignation du badge ${form.badgeId} au membre ${member.id}`
           );
 
-          // Appeler la fonction de réattribution
           await supabaseServices.reassignBadge(form.badgeId, member.id);
 
-          // Mettre à jour les autres champs SANS le badgeId
           const { badgeId, ...formWithoutBadge } = form;
           await supabaseServices.updateMember(member.id, {
             ...formWithoutBadge,
             files: JSON.stringify(formWithoutBadge.files),
           });
         } else {
-          // Badge inchangé ou vide - update normal
           await supabaseServices.updateMember(member.id, {
             ...form,
             files: JSON.stringify(form.files),
@@ -845,7 +984,7 @@ function MemberFormPage() {
         setUploadStatus({
           loading: false,
           error: null,
-          success: "Membre modifié avec succès !",
+          success: "Membre modifie avec succes !",
         });
       } else {
         const newMember = await supabaseServices.createMember({
@@ -856,7 +995,7 @@ function MemberFormPage() {
         setUploadStatus({
           loading: false,
           error: null,
-          success: "Nouveau membre créé avec succès !",
+          success: "Nouveau membre cree avec succes !",
         });
       }
 
@@ -870,6 +1009,11 @@ function MemberFormPage() {
     }
   };
 
+  // -----------------------------------------------------------------
+  // 9.5 -- Payment handlers
+  // -----------------------------------------------------------------
+
+  /** Fetch all payments for the given member, ordered by date descending. */
   const fetchPayments = async (memberId) => {
     const { data, error } = await supabase
       .from("payments")
@@ -880,6 +1024,7 @@ function MemberFormPage() {
     if (!error) setPayments(data);
   };
 
+  /** Insert a new payment row, then refresh the payments list. */
   const handleAddPayment = async () => {
     if (!member?.id || !newPayment.amount) return;
 
@@ -901,7 +1046,7 @@ function MemberFormPage() {
 
     setNewPayment({
       amount: "",
-      method: "espèces",
+      method: "especes",
       encaissement_prevu: "",
       commentaire: "",
       is_paid: false,
@@ -910,6 +1055,7 @@ function MemberFormPage() {
     fetchPayments(member.id);
   };
 
+  /** Delete a payment by ID, then refresh the list. */
   const handleDeletePayment = async (id) => {
     const { error } = await supabase.from("payments").delete().eq("id", id);
     if (error) {
@@ -919,6 +1065,7 @@ function MemberFormPage() {
     fetchPayments(member.id);
   };
 
+  /** Toggle the is_paid flag on a payment. */
   const togglePaymentStatus = async (paymentId, newStatus) => {
     const { error } = await supabase
       .from("payments")
@@ -927,7 +1074,7 @@ function MemberFormPage() {
 
     if (error) {
       console.error(
-        "Erreur mise à jour du statut de paiement :",
+        "Erreur mise a jour du statut de paiement :",
         error.message
       );
       return;
@@ -936,9 +1083,10 @@ function MemberFormPage() {
     fetchPayments(member.id);
   };
 
+  /** Format a numeric amount as a French-locale currency string. */
   const formatPrice = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
-      return "0,00 €";
+      return "0,00 \u20AC";
     }
 
     return new Intl.NumberFormat("fr-FR", {
@@ -947,6 +1095,11 @@ function MemberFormPage() {
     }).format(amount);
   };
 
+  // -----------------------------------------------------------------
+  // 9.6 -- File & photo handlers
+  // -----------------------------------------------------------------
+
+  /** Upload one or more files to Supabase Storage, then add them to form.files. */
   const handleFileUpload = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
@@ -962,7 +1115,7 @@ function MemberFormPage() {
           .from("documents")
           .upload(filePath, file);
         if (error)
-          throw new Error(`Erreur lors du téléversement : ${error.message}`);
+          throw new Error(`Erreur lors du televersement : ${error.message}`);
         const { data } = supabase.storage
           .from("documents")
           .getPublicUrl(filePath);
@@ -973,7 +1126,7 @@ function MemberFormPage() {
       setUploadStatus({
         loading: false,
         error: null,
-        success: `${newFiles.length} fichier(s) ajouté(s) !`,
+        success: `${newFiles.length} fichier(s) ajoute(s) !`,
       });
       setTimeout(
         () => setUploadStatus({ loading: false, error: null, success: null }),
@@ -985,17 +1138,16 @@ function MemberFormPage() {
     e.target.value = "";
   };
 
-  // ✅ MODIFIÉ : Compression après capture caméra
+  /** Compress a camera-captured image and set it as the member photo. */
   const handleCameraCapture = async (imageData) => {
     try {
-      // Compression du dataURL reçu de la caméra
       const compressed = await compressImageData(imageData, 256, 0.6);
 
       setForm((f) => ({ ...f, photo: compressed }));
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Photo capturée et optimisée !",
+        success: "Photo capturee et optimisee !",
       });
     } catch (err) {
       setUploadStatus({
@@ -1011,11 +1163,13 @@ function MemberFormPage() {
     );
   };
 
-  // ✅ MODIFIÉ : Compression pour documents capturés
+  /**
+   * Compress a camera-captured document image (larger max size),
+   * upload it to storage, and add it to form.files.
+   */
   const captureDocument = async (imageData) => {
     setUploadStatus({ loading: true, error: null, success: null });
     try {
-      // Compression avant conversion en blob (documents: taille plus grande)
       const compressed = await compressImageData(imageData, 800, 0.75);
 
       const response = await fetch(compressed);
@@ -1029,7 +1183,7 @@ function MemberFormPage() {
 
       if (uploadError)
         throw new Error(
-          `Erreur lors du téléversement du document : ${uploadError.message}`
+          `Erreur lors du televersement du document : ${uploadError.message}`
         );
 
       const { data } = supabase.storage
@@ -1042,7 +1196,7 @@ function MemberFormPage() {
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Document capturé et optimisé !",
+        success: "Document capture et optimise !",
       });
 
       setTimeout(
@@ -1058,6 +1212,7 @@ function MemberFormPage() {
     }
   };
 
+  /** Prompt for confirmation before removing the member photo. */
   const handleRemovePhoto = () => {
     setConfirmDialog({
       isOpen: true,
@@ -1066,6 +1221,7 @@ function MemberFormPage() {
     });
   };
 
+  /** Prompt for confirmation before removing a file. */
   const handleRemoveFile = (fileToRemove) => {
     setConfirmDialog({
       isOpen: true,
@@ -1074,6 +1230,7 @@ function MemberFormPage() {
     });
   };
 
+  /** Execute the confirmed deletion (photo or file). */
   const handleConfirmDelete = async () => {
     const { type, item } = confirmDialog;
 
@@ -1083,7 +1240,7 @@ function MemberFormPage() {
         setUploadStatus({
           loading: false,
           error: null,
-          success: "Photo supprimée !",
+          success: "Photo supprimee !",
         });
       } else if (type === "file" && item) {
         const url = item.url;
@@ -1107,7 +1264,7 @@ function MemberFormPage() {
         setUploadStatus({
           loading: false,
           error: null,
-          success: "Fichier supprimé !",
+          success: "Fichier supprime !",
         });
       }
 
@@ -1122,18 +1279,25 @@ function MemberFormPage() {
     setConfirmDialog({ isOpen: false, type: "", item: null });
   };
 
+  /** Cancel the pending deletion dialog. */
   const handleCancelDelete = () => {
     setConfirmDialog({ isOpen: false, type: "", item: null });
   };
 
+  // -----------------------------------------------------------------
+  // 9.7 -- Attendance data loading & statistics
+  // -----------------------------------------------------------------
+
+  /**
+   * Fetch attendance records for the member using the get_member_presences RPC,
+   * filtered by the current date range.
+   */
   const fetchMemberAttendance = async (memberId) => {
     if (!memberId) return;
 
     setAttendanceData((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      // 🎯 Utilise get_member_presences pour récupérer TOUTES les présences
-      // (tous les badges que le membre a eus dans l'historique)
       const { data, error } = await supabase
         .rpc("get_member_presences", { p_member_id: memberId })
         .gte("timestamp", attendanceFilters.startDate + "T00:00:00")
@@ -1142,7 +1306,7 @@ function MemberFormPage() {
 
       if (error)
         throw new Error(
-          `Erreur lors du chargement des présences: ${error.message}`
+          `Erreur lors du chargement des presences: ${error.message}`
         );
 
       const presences = (data || []).map((p) => ({
@@ -1167,6 +1331,12 @@ function MemberFormPage() {
     }
   };
 
+  /**
+   * Compute attendance statistics from an array of presence records:
+   * total visits, unique days, daily breakdown, hourly and weekly distributions.
+   * @param {Array} presences - Presence records with parsedDate field.
+   * @returns {Object|null} Stats object or null if no data.
+   */
   const calculateAttendanceStats = (presences) => {
     if (!presences.length) return null;
 
@@ -1235,8 +1405,14 @@ function MemberFormPage() {
     };
   };
 
+  // -----------------------------------------------------------------
+  // 9.8 -- Tab renderers
+  // -----------------------------------------------------------------
+
+  /** Render the Profile tab: personal info, contact fields, student toggle. */
   const renderProfileTab = () => (
     <div className="space-y-8">
+      {/* Personal information card */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
           <FaUser className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -1252,12 +1428,12 @@ function MemberFormPage() {
             placeholder="Nom de famille"
           />
           <InputField
-            label="Prénom"
+            label="Prenom"
             name="firstName"
             value={form.firstName}
             onChange={handleChange}
             icon={FaUser}
-            placeholder="Prénom"
+            placeholder="Prenom"
           />
           <InputField
             type="date"
@@ -1281,11 +1457,13 @@ function MemberFormPage() {
             <div className="flex items-center gap-3">
               <FaCalendarAlt className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               <span className="text-gray-700 dark:text-gray-200 font-medium">
-                Âge : {age} ans
+                Age : {age} ans
               </span>
             </div>
           </div>
         )}
+
+        {/* Student status toggle */}
         <div className="mt-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 p-6 rounded-xl border border-blue-200 dark:border-gray-600">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1294,10 +1472,10 @@ function MemberFormPage() {
               </div>
               <div>
                 <h4 className="font-semibold text-gray-800 dark:text-white">
-                  Statut étudiant
+                  Statut etudiant
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Bénéficiez de tarifs préférentiels
+                  Beneficiez de tarifs preferentiels
                 </p>
               </div>
             </div>
@@ -1320,6 +1498,7 @@ function MemberFormPage() {
         </div>
       </div>
 
+      {/* Contact information card */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
           <FaHome className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -1327,12 +1506,12 @@ function MemberFormPage() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <InputField
-            label="Adresse complète"
+            label="Adresse complete"
             name="address"
             value={form.address}
             onChange={handleChange}
             icon={FaHome}
-            placeholder="Numéro, rue, ville, code postal"
+            placeholder="Numero, rue, ville, code postal"
           />
           <InputField
             label="Email"
@@ -1344,7 +1523,7 @@ function MemberFormPage() {
             placeholder="exemple@email.com"
           />
           <InputField
-            label="Téléphone fixe"
+            label="Telephone fixe"
             name="phone"
             value={form.phone}
             onChange={handleChange}
@@ -1352,7 +1531,7 @@ function MemberFormPage() {
             placeholder="01 23 45 67 89"
           />
           <InputField
-            label="Téléphone portable"
+            label="Telephone portable"
             name="mobile"
             value={form.mobile}
             onChange={handleChange}
@@ -1364,6 +1543,7 @@ function MemberFormPage() {
     </div>
   );
 
+  /** Render the Documents tab: file upload, camera capture, and file list. */
   const renderDocumentsTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
@@ -1371,6 +1551,7 @@ function MemberFormPage() {
         Gestion des documents
       </h3>
 
+      {/* Upload actions */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <label
           htmlFor="fileUpload"
@@ -1398,6 +1579,7 @@ function MemberFormPage() {
         </button>
       </div>
 
+      {/* File list */}
       {form.files.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {form.files.map((file) => (
@@ -1431,7 +1613,7 @@ function MemberFormPage() {
                           className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 text-sm rounded-lg hover:bg-green-200 dark:hover:bg-green-700 transition-colors"
                         >
                           <FaDownload className="w-3 h-3" />
-                          Télécharger
+                          Telecharger
                         </a>
                       </>
                     )}
@@ -1455,12 +1637,14 @@ function MemberFormPage() {
             Aucun document
           </p>
           <p className="text-gray-400 dark:text-gray-500 text-sm">
-            Importez des certificats, documents d'identité, etc.
+            Importez des certificats, documents d'identite, etc.
           </p>
         </div>
       )}
     </div>
   );
+
+  /** Render the Subscription tab: subscription config, badge, payments. */
   const renderSubscriptionTab = () => {
     const totalPayments = payments.reduce((sum, payment) => {
       const amount = parseFloat(payment.amount) || 0;
@@ -1474,6 +1658,7 @@ function MemberFormPage() {
           Gestion de l'abonnement
         </h3>
 
+        {/* Subscription type, badge, and dates */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <SelectField
             label="Type d'abonnement"
@@ -1485,7 +1670,7 @@ function MemberFormPage() {
           />
           <div>
             <InputField
-              label="Numéro de Badge"
+              label="Numero de Badge"
               name="badge_number"
               type="number"
               value={form.badge_number}
@@ -1507,13 +1692,13 @@ function MemberFormPage() {
 
             {form.badge_number && !form.badgeId && (
               <div className="mt-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg text-xs text-yellow-700 dark:text-yellow-300">
-                ⚠️ Badge non trouvé dans la base
+                Badge non trouve dans la base
               </div>
             )}
           </div>
           <InputField
             type="date"
-            label="Date de début"
+            label="Date de debut"
             name="startDate"
             value={form.startDate}
             onChange={handleChange}
@@ -1529,18 +1714,20 @@ function MemberFormPage() {
           />
         </div>
 
+        {/* Expiry warning */}
         {isExpired && (
           <div className="mt-6 bg-red-50 dark:bg-red-900 border-l-4 border-red-400 dark:border-red-700 p-4 rounded-r-xl">
             <div className="flex items-center">
               <FaTimes className="w-5 h-5 text-red-400 dark:text-red-300 mr-2" />
               <p className="text-red-800 dark:text-red-200 font-medium">
-                Abonnement expiré le{" "}
+                Abonnement expire le{" "}
                 {new Date(form.endDate).toLocaleDateString()}
               </p>
             </div>
           </div>
         )}
 
+        {/* New payment form (only for existing members) */}
         {member?.id && (
           <div className="mt-8 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 p-6 rounded-xl border border-green-200 dark:border-green-600">
             <h4 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -1550,7 +1737,7 @@ function MemberFormPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               <InputField
-                label="Montant (€)"
+                label="Montant (EUR)"
                 type="number"
                 name="amount"
                 value={newPayment.amount}
@@ -1562,17 +1749,17 @@ function MemberFormPage() {
                 step="0.01"
               />
               <SelectField
-                label="Méthode de paiement"
+                label="Methode de paiement"
                 name="method"
                 value={newPayment.method}
                 onChange={(e) =>
                   setNewPayment((p) => ({ ...p, method: e.target.value }))
                 }
-                options={["espèces", "chèque", "carte", "virement", "autre"]}
+                options={["especes", "cheque", "carte", "virement", "autre"]}
                 icon={FaCreditCard}
               />
               <InputField
-                label="Encaissement prévu"
+                label="Encaissement prevu"
                 type="date"
                 name="encaissement_prevu"
                 value={newPayment.encaissement_prevu}
@@ -1624,7 +1811,7 @@ function MemberFormPage() {
                     )}
                   </div>
                 </div>
-                Paiement déjà encaissé
+                Paiement deja encaisse
               </label>
 
               <button
@@ -1640,6 +1827,7 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Payment history */}
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1651,7 +1839,7 @@ function MemberFormPage() {
               <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 px-4 py-2 rounded-lg border border-green-200 dark:border-green-700">
                 <div className="text-center">
                   <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-                    Total encaissé
+                    Total encaisse
                   </p>
                   <p className="text-xl font-bold text-green-600 dark:text-green-400">
                     {formatPrice(totalPayments)}
@@ -1670,6 +1858,7 @@ function MemberFormPage() {
                 >
                   <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                     <div className="flex-1 w-full sm:w-auto">
+                      {/* Amount and method */}
                       <div className="flex items-center gap-3 mb-3">
                         <div
                           className={`p-2 rounded-lg ${
@@ -1696,6 +1885,7 @@ function MemberFormPage() {
                         </div>
                       </div>
 
+                      {/* Payment status toggle */}
                       <div className="flex items-center gap-3 mb-3">
                         <button
                           onClick={() =>
@@ -1718,18 +1908,19 @@ function MemberFormPage() {
                               : "text-orange-600 dark:text-orange-300"
                           }`}
                         >
-                          {pay.is_paid ? "Encaissé" : "En attente"}
+                          {pay.is_paid ? "Encaisse" : "En attente"}
                         </span>
                       </div>
 
+                      {/* Payment dates and comment */}
                       <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                         <p>
-                          Payé le{" "}
+                          Paye le{" "}
                           {new Date(pay.date_paiement).toLocaleDateString()}
                         </p>
                         {pay.encaissement_prevu && (
                           <p className="text-blue-600 dark:text-blue-300">
-                            Encaissement prévu :{" "}
+                            Encaissement prevu :{" "}
                             {new Date(
                               pay.encaissement_prevu
                             ).toLocaleDateString()}
@@ -1754,12 +1945,13 @@ function MemberFormPage() {
                 </div>
               ))}
 
+              {/* Payment summary */}
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       {payments.length} paiement{payments.length > 1 ? "s" : ""}{" "}
-                      enregistré{payments.length > 1 ? "s" : ""}
+                      enregistre{payments.length > 1 ? "s" : ""}
                     </p>
                     {payments.length > 1 && (
                       <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -1793,10 +1985,10 @@ function MemberFormPage() {
             <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
               <FaEuroSign className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-gray-300 font-medium">
-                Aucun paiement enregistré
+                Aucun paiement enregistre
               </p>
               <p className="text-gray-400 dark:text-gray-500 text-sm">
-                L'historique des paiements apparaîtra ici
+                L'historique des paiements apparaitra ici
               </p>
             </div>
           )}
@@ -1805,6 +1997,7 @@ function MemberFormPage() {
     );
   };
 
+  /** Render the Attendance tab: filters, stats cards, charts, and visit history. */
   const renderAttendanceTab = () => {
     const { presences, loading, error, stats } = attendanceData;
 
@@ -1814,10 +2007,10 @@ function MemberFormPage() {
           <div className="text-center py-12">
             <FaClipboardList className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Membre non sauvegardé
+              Membre non sauvegarde
             </h3>
             <p className="text-gray-500 dark:text-gray-400">
-              Veuillez d'abord enregistrer le membre pour voir ses présences
+              Veuillez d'abord enregistrer le membre pour voir ses presences
             </p>
           </div>
         </div>
@@ -1826,6 +2019,7 @@ function MemberFormPage() {
 
     return (
       <div className="space-y-6">
+        {/* Filter bar */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -1834,7 +2028,7 @@ function MemberFormPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Suivi des présences
+                  Suivi des presences
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Membre: {form.firstName} {form.name}{" "}
@@ -1882,6 +2076,7 @@ function MemberFormPage() {
             </div>
           </div>
 
+          {/* Quick date range buttons */}
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               onClick={() =>
@@ -1938,22 +2133,24 @@ function MemberFormPage() {
               }}
               className="px-3 py-1 text-xs bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/50 dark:hover:to-purple-900/50 text-blue-700 dark:text-blue-400 rounded border-2 border-blue-300 dark:border-blue-600 transition-colors font-semibold"
             >
-              Année en cours
+              Annee en cours
             </button>
           </div>
         </div>
 
+        {/* Loading spinner */}
         {loading && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
               <p className="text-gray-600 dark:text-gray-400">
-                Chargement des présences...
+                Chargement des presences...
               </p>
             </div>
           </div>
         )}
 
+        {/* Error message */}
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
             <div className="flex items-center gap-3">
@@ -1970,6 +2167,7 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Stats summary cards */}
         {!loading && !error && stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-700">
@@ -2038,12 +2236,14 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Weekly and hourly distribution charts */}
         {!loading && !error && stats && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Weekly distribution */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <FaChartBar className="w-5 h-5 text-blue-600" />
-                Répartition par jour de la semaine
+                Repartition par jour de la semaine
               </h4>
 
               <div className="space-y-3">
@@ -2087,16 +2287,17 @@ function MemberFormPage() {
               {stats.peakDay && (
                 <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    <strong>Jour préféré:</strong> {stats.peakDay}
+                    <strong>Jour prefere:</strong> {stats.peakDay}
                   </p>
                 </div>
               )}
             </div>
 
+            {/* Hourly distribution */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <FaClock className="w-5 h-5 text-purple-600" />
-                Répartition par heure
+                Repartition par heure
               </h4>
 
               <div className="grid grid-cols-6 gap-1">
@@ -2144,6 +2345,7 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Daily visit history */}
         {!loading && !error && stats && stats.dailyStats.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
@@ -2243,20 +2445,21 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Empty state */}
         {!loading && !error && (!stats || stats.totalVisits === 0) && (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="text-center py-12">
               <FaClipboardList className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Aucune présence trouvée
+                Aucune presence trouvee
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Aucune visite enregistrée pour cette période
+                Aucune visite enregistree pour cette periode
                 {form.badgeId ? ` avec le badge ${form.badgeId}` : ""}
               </p>
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-                Les présences apparaîtront ici dès que le membre utilisera son
-                badge d'accès
+                Les presences apparaitront ici des que le membre utilisera son
+                badge d'acces
               </div>
             </div>
           </div>
@@ -2265,6 +2468,7 @@ function MemberFormPage() {
     );
   };
 
+  /** Render the Messages tab with the MemberMessagesTab sub-component. */
   const renderMessagesTab = () => (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="text-center py-12">
@@ -2274,15 +2478,16 @@ function MemberFormPage() {
         </h3>
         {member?.id && <MemberMessagesTab memberId={member.id} />}
         <p className="text-gray-500 dark:text-gray-400 mb-6">
-          Cette fonctionnalité sera bientôt disponible
+          Cette fonctionnalite sera bientot disponible
         </p>
         <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-sm text-green-700 dark:text-green-300">
-          Notes, communications, historique des échanges
+          Notes, communications, historique des echanges
         </div>
       </div>
     </div>
   );
 
+  /** Route to the correct tab renderer based on activeTab state. */
   const renderCurrentTab = () => {
     switch (activeTab) {
       case "profile":
@@ -2300,16 +2505,22 @@ function MemberFormPage() {
     }
   };
 
+  // -----------------------------------------------------------------
+  // 9.9 -- Main JSX render
+  // -----------------------------------------------------------------
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      {/* ============ Left sidebar ============ */}
       <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+        {/* Sidebar header: back button + member photo + name */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => handleBack()}
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Retour à la liste
+            Retour a la liste
           </button>
 
           <div className="text-center">
@@ -2355,6 +2566,7 @@ function MemberFormPage() {
           </div>
         </div>
 
+        {/* Photo capture / upload buttons */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="space-y-3">
             <button
@@ -2394,7 +2606,7 @@ function MemberFormPage() {
                           setUploadStatus({
                             loading: false,
                             error: null,
-                            success: "Photo optimisée et ajoutée",
+                            success: "Photo optimisee et ajoutee",
                           });
                           setTimeout(
                             () =>
@@ -2429,9 +2641,10 @@ function MemberFormPage() {
           </div>
         </div>
 
+        {/* Sidebar: personal details summary */}
         <div className="p-6 space-y-4 flex-1">
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wide">
-            Détails personnels
+            Details personnels
           </h3>
 
           <div className="space-y-3">
@@ -2450,7 +2663,7 @@ function MemberFormPage() {
             {form.phone && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Téléphone
+                  Telephone
                 </dt>
                 <dd className="text-sm text-gray-900 dark:text-white">
                   {form.phone}
@@ -2482,11 +2695,12 @@ function MemberFormPage() {
           </div>
         </div>
 
+        {/* Sidebar: quick action buttons */}
         <div className="p-6 border-t border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-4 gap-2">
             <button className="p-3 text-gray-600 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex flex-col items-center gap-1">
               <FaPaperPlane className="w-4 h-4" />
-              <span className="text-xs">Envoyer accès</span>
+              <span className="text-xs">Envoyer acces</span>
             </button>
             <button className="p-3 text-gray-600 dark:text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors flex flex-col items-center gap-1">
               <FaPhone className="w-4 h-4" />
@@ -2504,7 +2718,9 @@ function MemberFormPage() {
         </div>
       </div>
 
+      {/* ============ Main content area ============ */}
       <div className="flex-1 flex flex-col">
+        {/* Page header with save / cancel buttons */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -2512,7 +2728,7 @@ function MemberFormPage() {
                 {member?.id ? "Modifier le membre" : "Nouveau membre"}
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Gérez les informations et documents du membre
+                Gerez les informations et documents du membre
               </p>
             </div>
 
@@ -2544,6 +2760,7 @@ function MemberFormPage() {
           </div>
         </div>
 
+        {/* Tab navigation */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {tabs.map((tab) => (
@@ -2568,6 +2785,7 @@ function MemberFormPage() {
           </nav>
         </div>
 
+        {/* Status banners */}
         {uploadStatus.loading && (
           <div className="bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-400 dark:border-blue-700 p-4">
             <div className="flex items-center">
@@ -2601,11 +2819,13 @@ function MemberFormPage() {
           </div>
         )}
 
+        {/* Active tab content */}
         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
           <div className="p-6">{renderCurrentTab()}</div>
         </div>
       </div>
 
+      {/* ============ Modals ============ */}
       {showCamera && (
         <CameraModal
           key={showCamera}
@@ -2634,13 +2854,17 @@ function MemberFormPage() {
         }
         message={
           confirmDialog.type === "photo"
-            ? "Êtes-vous sûr de vouloir supprimer cette photo ? Cette action est irréversible."
-            : `Êtes-vous sûr de vouloir supprimer le document "${confirmDialog.item?.name}" ? Cette action est irréversible.`
+            ? "Etes-vous sur de vouloir supprimer cette photo ? Cette action est irreversible."
+            : `Etes-vous sur de vouloir supprimer le document "${confirmDialog.item?.name}" ? Cette action est irreversible.`
         }
         type="danger"
       />
     </div>
   );
 }
+
+// ===================================================================
+// SECTION 10 -- Export
+// ===================================================================
 
 export default MemberFormPage;

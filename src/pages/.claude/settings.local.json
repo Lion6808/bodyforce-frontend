@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:\\\\BodyForce\\\\bodyforce-frontend\" status)",
+      "Bash(git -C \"C:\\\\BodyForce\\\\bodyforce-frontend\" log --oneline -5)",
+      "Bash(git -C \"C:\\\\BodyForce\\\\bodyforce-frontend\" add src/pages/HomePage.js)",
+      "Bash(git -C \"C:\\\\BodyForce\\\\bodyforce-frontend\" commit -m \"$\\(cat <<''EOF''\nRefactoring HomePage.js : nettoyage, commentaires et optimisations\n\n- Suppression imports/composants inutilisés \\(isToday, isBefore, CircularProgress, SkeletonRing\\)\n- Suppression du bloc commenté \\(section paiements admin ~90 lignes\\)\n- Extraction de getTimeAgo, getInitials et StatCard hors du composant\n- Réorganisation en sections numérotées avec commentaires descriptifs\n- Simplification de la détection de changement du cache photos\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"C:\\\\BodyForce\\\\bodyforce-frontend\" push)",
+      "Bash(git -C \"C:\\\\BodyForce\\\\bodyforce-frontend\" diff --stat)"
+    ]
+  }
+}

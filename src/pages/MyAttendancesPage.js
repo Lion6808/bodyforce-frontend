@@ -1,7 +1,16 @@
-// 📄 Fichier : src/pages/MyAttendancesPage.js
-// 🎯 Objectif : Vue "Mes présences" avec PANNEAU DE MOTIVATION
-// 🌓 Dark mode : Contrastes corrigés
-// 📱 Mobile : Grilles et tailles adaptées
+/**
+ * MyAttendancesPage.js
+ *
+ * "Mes presences" page for authenticated members.
+ * Displays attendance history, statistics (daily/hourly distributions),
+ * and a motivation panel (streaks, levels, badges, monthly goals).
+ *
+ * Supports dark mode and responsive layouts.
+ */
+
+// ============================================================================
+// SECTION 1 -- Imports
+// ============================================================================
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
@@ -22,9 +31,16 @@ import {
   FaBolt,
 } from "react-icons/fa";
 
-/* -------------------------------------------
-   Helpers de date
--------------------------------------------- */
+// ============================================================================
+// SECTION 2 -- Date helpers
+// ============================================================================
+
+/**
+ * Format a Date using Intl.DateTimeFormat for a predefined set of patterns.
+ * @param {Date} date - The date to format.
+ * @param {string} fmt - One of the supported format keys (e.g. "dd/MM/yyyy").
+ * @returns {string} The formatted date string, or "" on error.
+ */
 const formatIntl = (date, fmt) => {
   try {
     const map = {
@@ -41,6 +57,11 @@ const formatIntl = (date, fmt) => {
   }
 };
 
+/**
+ * Convert a Date to a "YYYY-MM-DD" string without relying on toISOString (avoids UTC shift).
+ * @param {Date} date
+ * @returns {string}
+ */
 const toDateString = (date) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -48,11 +69,24 @@ const toDateString = (date) => {
   return `${y}-${m}-${d}`;
 };
 
+/**
+ * Parse a timestamp string into a Date object.
+ * @param {string} ts
+ * @returns {Date}
+ */
 const parseTimestamp = (ts) => new Date(ts);
 
-/* ------------------------------------------------------
-   Calcul des statistiques
-------------------------------------------------------- */
+// ============================================================================
+// SECTION 3 -- Attendance statistics calculator
+// ============================================================================
+
+/**
+ * Compute aggregate attendance statistics from a list of presences.
+ * Each presence is expected to carry a `parsedDate` (Date) property.
+ *
+ * @param {Array} presences - Sorted list of presence records (newest first).
+ * @returns {Object} Statistics including totals, distributions, and daily breakdown.
+ */
 const calculateAttendanceStats = (presences) => {
   if (!presences || !presences.length) {
     return {
@@ -115,9 +149,18 @@ const calculateAttendanceStats = (presences) => {
   };
 };
 
-/* ------------------------------------------------------
-   🎯 NOUVEAU : Calcul des données de motivation
-------------------------------------------------------- */
+// ============================================================================
+// SECTION 4 -- Motivation data calculator
+// ============================================================================
+
+/**
+ * Derive motivation-related metrics from attendance data: streaks, level,
+ * badges, monthly goal progress, estimated effort, and weekly regularity.
+ *
+ * @param {Array} presences - Sorted list of presence records (newest first).
+ * @param {Object|null} userMemberData - Current user's member profile.
+ * @returns {Object} Motivation metrics.
+ */
 const calculateMotivationData = (presences, userMemberData) => {
   if (!presences || !presences.length) {
     return {
@@ -133,32 +176,31 @@ const calculateMotivationData = (presences, userMemberData) => {
       daysSinceMember: 0,
       estimatedHours: 0,
       estimatedCalories: 0,
-      nextBadge: { visits: 5, name: "Débutant" },
+      nextBadge: { visits: 5, name: "Debutant" },
       weeklyRegularity: 0,
     };
   }
 
   const sortedDates = presences
-    .map(p => p.parsedDate)
+    .map((p) => p.parsedDate)
     .sort((a, b) => b - a);
 
-  // 1. Calcul des streaks — dédupliquer par JOUR
+  // -- Streak calculation (deduplicated by calendar day) --
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Liste des jours uniques (yyyy-mm-dd), triés décroissant -> [aujourd’hui|hier|...]
   const uniqueDaysDesc = Array.from(
     new Set(
-      (presences || []).map(p => {
+      presences.map((p) => {
         const d = new Date(p.parsedDate);
         d.setHours(0, 0, 0, 0);
-        return d.toISOString().slice(0, 10); // "YYYY-MM-DD"
+        return d.toISOString().slice(0, 10);
       })
     )
   )
     .sort((a, b) => (a < b ? 1 : -1))
-    .map(str => {
-      const d = new Date(str + 'T00:00:00');
+    .map((str) => {
+      const d = new Date(str + "T00:00:00");
       d.setHours(0, 0, 0, 0);
       return d;
     });
@@ -167,22 +209,24 @@ const calculateMotivationData = (presences, userMemberData) => {
   let maxStreak = 0;
 
   if (uniqueDaysDesc.length > 0) {
-    // Calcul de currentStreak (série en cours)
+    // Current streak: count consecutive days starting from the most recent
     currentStreak = 1;
     for (let i = 0; i < uniqueDaysDesc.length - 1; i++) {
       const diff = Math.round((uniqueDaysDesc[i] - uniqueDaysDesc[i + 1]) / (1000 * 60 * 60 * 24));
       if (diff === 1) {
         currentStreak++;
       } else {
-        break; // On arrête dès qu'il y a un trou
+        break;
       }
     }
-    // Meilleure série (maxStreak) calculée aussi sur jours uniques
+
+    // Best streak ever
     let tmp = 1;
     for (let i = 0; i < uniqueDaysDesc.length - 1; i++) {
       const diff = Math.round((uniqueDaysDesc[i] - uniqueDaysDesc[i + 1]) / (1000 * 60 * 60 * 24));
-      if (diff === 1) tmp++;
-      else {
+      if (diff === 1) {
+        tmp++;
+      } else {
         maxStreak = Math.max(maxStreak, tmp);
         tmp = 1;
       }
@@ -190,29 +234,28 @@ const calculateMotivationData = (presences, userMemberData) => {
     maxStreak = Math.max(maxStreak, tmp);
   }
 
-
-  // 2. Niveau
+  // -- Level progression (1 level per 5 visits) --
   const totalVisits = presences.length;
   const level = Math.floor(totalVisits / 5) + 1;
   const nextLevelVisits = level * 5;
   const levelProgress = ((totalVisits % 5) / 5) * 100;
 
-  // 3. Badges
+  // -- Badges --
   const badges = [];
-  if (totalVisits >= 5) badges.push({ icon: "🥉", name: "Débutant", desc: "5 visites" });
-  if (totalVisits >= 10) badges.push({ icon: "🥈", name: "Régulier", desc: "10 visites" });
-  if (totalVisits >= 20) badges.push({ icon: "🥇", name: "Assidu", desc: "20 visites" });
-  if (totalVisits >= 50) badges.push({ icon: "💎", name: "Expert", desc: "50 visites" });
+  if (totalVisits >= 5) badges.push({ icon: "\u{1F949}", name: "Debutant", desc: "5 visites" });
+  if (totalVisits >= 10) badges.push({ icon: "\u{1F948}", name: "Regulier", desc: "10 visites" });
+  if (totalVisits >= 20) badges.push({ icon: "\u{1F947}", name: "Assidu", desc: "20 visites" });
+  if (totalVisits >= 50) badges.push({ icon: "\u{1F48E}", name: "Expert", desc: "50 visites" });
 
-  const morningVisits = presences.filter(p => p.parsedDate.getHours() < 9).length;
-  if (morningVisits >= 5) badges.push({ icon: "🌅", name: "Lève-tôt", desc: "5 visites avant 9h" });
+  const morningVisits = presences.filter((p) => p.parsedDate.getHours() < 9).length;
+  if (morningVisits >= 5) badges.push({ icon: "\u{1F305}", name: "Leve-tot", desc: "5 visites avant 9h" });
 
-  if (maxStreak >= 7) badges.push({ icon: "🔥", name: "Warrior", desc: "7 jours consécutifs" });
+  if (maxStreak >= 7) badges.push({ icon: "\u{1F525}", name: "Warrior", desc: "7 jours consecutifs" });
 
-  // 4. Objectif mensuel
+  // -- Monthly goal (target: 12 visits) --
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-  const monthVisits = presences.filter(p => {
+  const monthVisits = presences.filter((p) => {
     const d = p.parsedDate;
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   }).length;
@@ -220,26 +263,31 @@ const calculateMotivationData = (presences, userMemberData) => {
   const monthlyGoal = 12;
   const monthProgress = (monthVisits / monthlyGoal) * 100;
 
-  // 5. Ancienneté
+  // -- Membership seniority --
   const memberSince = userMemberData?.createdAt
     ? new Date(userMemberData.createdAt)
     : new Date(sortedDates[sortedDates.length - 1]);
   const daysSinceMember = Math.floor((today - memberSince) / (1000 * 60 * 60 * 24));
 
-  // 6. Estimations
+  // -- Estimated effort --
   const estimatedHours = totalVisits * 1.5;
   const estimatedCalories = totalVisits * 300;
 
-  // 7. Prochain badge
-  const nextBadge = totalVisits < 10 ? { visits: 10, name: "Régulier" } :
-    totalVisits < 20 ? { visits: 20, name: "Assidu" } :
-      totalVisits < 50 ? { visits: 50, name: "Expert" } :
-        { visits: 100, name: "Légende" };
+  // -- Next badge to unlock --
+  const nextBadge =
+    totalVisits < 10
+      ? { visits: 10, name: "Regulier" }
+      : totalVisits < 20
+        ? { visits: 20, name: "Assidu" }
+        : totalVisits < 50
+          ? { visits: 50, name: "Expert" }
+          : { visits: 100, name: "Legende" };
 
-  // 8. Régularité hebdomadaire
-  const weeklyRegularity = daysSinceMember > 0
-    ? Math.round((totalVisits / (daysSinceMember / 7)) * 10) / 10
-    : 0;
+  // -- Weekly regularity (avg visits per week) --
+  const weeklyRegularity =
+    daysSinceMember > 0
+      ? Math.round((totalVisits / (daysSinceMember / 7)) * 10) / 10
+      : 0;
 
   return {
     currentStreak,
@@ -259,30 +307,45 @@ const calculateMotivationData = (presences, userMemberData) => {
   };
 };
 
-/* -------------------------------------------
-   🎯 NOUVEAU : Composant Panneau de Motivation
--------------------------------------------- */
-function MotivationPanel({ motivationData, stats }) {
-  const getLevelName = (level) => {
-    if (level <= 2) return "Débutant";
-    if (level <= 4) return "Intermédiaire";
-    if (level <= 8) return "Confirmé";
-    if (level <= 12) return "Expert";
-    return "Maître";
-  };
+// ============================================================================
+// SECTION 5 -- MotivationPanel component
+// ============================================================================
 
+/**
+ * Returns a human-readable level name based on the numeric level.
+ * @param {number} level
+ * @returns {string}
+ */
+const getLevelName = (level) => {
+  if (level <= 2) return "Debutant";
+  if (level <= 4) return "Intermediaire";
+  if (level <= 8) return "Confirme";
+  if (level <= 12) return "Expert";
+  return "Maitre";
+};
+
+/**
+ * Motivation panel displaying streaks, monthly goals, level progression,
+ * badges, estimated effort stats, and a personalised recommendation.
+ *
+ * @param {Object} props
+ * @param {Object} props.motivationData - Output of calculateMotivationData.
+ * @param {Object} props.stats - Output of calculateAttendanceStats.
+ */
+function MotivationPanel({ motivationData, stats }) {
+  /** Build a contextual motivational message. */
   const getMotivationalMessage = () => {
     const { currentStreak, monthProgress } = motivationData;
-    if (currentStreak >= 5) return "🔥 Incroyable série ! Continuez comme ça !";
-    if (currentStreak >= 3) return "💪 Vous êtes sur une belle lancée !";
-    if (monthProgress >= 75) return "🎯 Objectif du mois presque atteint !";
-    if (stats.totalVisits < 5) return "🌟 Continuez, chaque visite compte !";
-    return "💪 Vous progressez bien, ne lâchez rien !";
+    if (currentStreak >= 5) return "\u{1F525} Incroyable serie ! Continuez comme ca !";
+    if (currentStreak >= 3) return "\u{1F4AA} Vous etes sur une belle lancee !";
+    if (monthProgress >= 75) return "\u{1F3AF} Objectif du mois presque atteint !";
+    if (stats.totalVisits < 5) return "\u{1F31F} Continuez, chaque visite compte !";
+    return "\u{1F4AA} Vous progressez bien, ne lachez rien !";
   };
 
   return (
     <div className="space-y-4 mb-6">
-      {/* Message motivant */}
+      {/* Motivational banner */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-700 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center gap-3">
           <FaBolt className="text-3xl" />
@@ -295,17 +358,17 @@ function MotivationPanel({ motivationData, stats }) {
         </div>
       </div>
 
-      {/* Série et Objectif du mois */}
+      {/* Current streak and monthly goal */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Série actuelle */}
+        {/* Current streak card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
               <FaFire className="text-orange-500 dark:text-orange-400 text-xl" />
             </div>
             <div>
-              <h4 className="text-gray-900 dark:text-white font-bold text-lg">Série en cours</h4>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Jours consécutifs</p>
+              <h4 className="text-gray-900 dark:text-white font-bold text-lg">Serie en cours</h4>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Jours consecutifs</p>
             </div>
           </div>
 
@@ -316,23 +379,23 @@ function MotivationPanel({ motivationData, stats }) {
                   {motivationData.currentStreak}
                 </span>
                 <span className="text-gray-500 dark:text-gray-400 text-sm">
-                  jour{motivationData.currentStreak > 1 ? 's' : ''}
+                  jour{motivationData.currentStreak > 1 ? "s" : ""}
                 </span>
               </div>
               {motivationData.currentStreak > 0 ? (
                 <p className="text-green-600 dark:text-green-400 text-sm font-medium">
-                  🔥 Continue ! Ne brise pas la série
+                  \u{1F525} Continue ! Ne brise pas la serie
                 </p>
               ) : (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  Venez aujourd'hui pour démarrer une série !
+                  Venez aujourd'hui pour demarrer une serie !
                 </p>
               )}
             </div>
 
             <div className="pt-3 border-t dark:border-gray-700">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Meilleure série</span>
+                <span className="text-gray-600 dark:text-gray-400">Meilleure serie</span>
                 <span className="font-bold text-gray-900 dark:text-white">
                   {motivationData.maxStreak} jours
                 </span>
@@ -341,7 +404,7 @@ function MotivationPanel({ motivationData, stats }) {
           </div>
         </div>
 
-        {/* Objectif du mois */}
+        {/* Monthly goal card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
@@ -349,7 +412,7 @@ function MotivationPanel({ motivationData, stats }) {
             </div>
             <div>
               <h4 className="text-gray-900 dark:text-white font-bold text-lg">Objectif du mois</h4>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">12 visites recommandées</p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">12 visites recommandees</p>
             </div>
           </div>
 
@@ -374,11 +437,11 @@ function MotivationPanel({ motivationData, stats }) {
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 {motivationData.monthVisits >= motivationData.monthlyGoal ? (
                   <span className="text-green-600 dark:text-green-400 font-medium">
-                    🎉 Objectif atteint !
+                    \u{1F389} Objectif atteint !
                   </span>
                 ) : (
                   <span>
-                    Plus que <strong>{motivationData.monthlyGoal - motivationData.monthVisits}</strong> visite{(motivationData.monthlyGoal - motivationData.monthVisits) > 1 ? 's' : ''}
+                    Plus que <strong>{motivationData.monthlyGoal - motivationData.monthVisits}</strong> visite{(motivationData.monthlyGoal - motivationData.monthVisits) > 1 ? "s" : ""}
                   </span>
                 )}
               </p>
@@ -387,7 +450,7 @@ function MotivationPanel({ motivationData, stats }) {
         </div>
       </div>
 
-      {/* Niveau et progression */}
+      {/* Level and progression */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
@@ -417,7 +480,7 @@ function MotivationPanel({ motivationData, stats }) {
         </div>
       </div>
 
-      {/* Badges débloqués */}
+      {/* Unlocked badges */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border dark:border-gray-700">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
@@ -426,7 +489,7 @@ function MotivationPanel({ motivationData, stats }) {
           <div className="flex-1">
             <h4 className="text-gray-900 dark:text-white font-bold text-lg">Vos Badges</h4>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
-              {motivationData.badges.length} badge{motivationData.badges.length > 1 ? 's' : ''} débloqué{motivationData.badges.length > 1 ? 's' : ''}
+              {motivationData.badges.length} badge{motivationData.badges.length > 1 ? "s" : ""} debloque{motivationData.badges.length > 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -448,9 +511,9 @@ function MotivationPanel({ motivationData, stats }) {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <p>Continuez vos visites pour débloquer des badges !</p>
+            <p>Continuez vos visites pour debloquer des badges !</p>
             <p className="text-sm mt-2">
-              Prochain : <strong>{motivationData.nextBadge.name}</strong> à {motivationData.nextBadge.visits} visites
+              Prochain : <strong>{motivationData.nextBadge.name}</strong> a {motivationData.nextBadge.visits} visites
             </p>
           </div>
         )}
@@ -458,17 +521,18 @@ function MotivationPanel({ motivationData, stats }) {
         {stats.totalVisits < motivationData.nextBadge.visits && (
           <div className="mt-4 pt-4 border-t dark:border-gray-700">
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              🎯 Prochain badge : <strong>{motivationData.nextBadge.name}</strong>
+              \u{1F3AF} Prochain badge : <strong>{motivationData.nextBadge.name}</strong>
               <span className="ml-2 text-blue-600 dark:text-blue-400 font-medium">
-                (+{motivationData.nextBadge.visits - stats.totalVisits} visite{(motivationData.nextBadge.visits - stats.totalVisits) > 1 ? 's' : ''})
+                (+{motivationData.nextBadge.visits - stats.totalVisits} visite{(motivationData.nextBadge.visits - stats.totalVisits) > 1 ? "s" : ""})
               </span>
             </p>
           </div>
         )}
       </div>
 
-      {/* Statistiques motivantes */}
+      {/* Motivating statistics (estimated effort) */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {/* Estimated total time */}
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-4 border border-green-200 dark:border-green-800">
           <div className="flex items-center gap-2 mb-2">
             <FaClock className="text-green-600 dark:text-green-400" />
@@ -477,9 +541,10 @@ function MotivationPanel({ motivationData, stats }) {
           <p className="text-2xl font-bold text-green-900 dark:text-green-100">
             {motivationData.estimatedHours}h
           </p>
-          <p className="text-xs text-green-600 dark:text-green-400 mt-1">Entraînement estimé</p>
+          <p className="text-xs text-green-600 dark:text-green-400 mt-1">Entrainement estime</p>
         </div>
 
+        {/* Estimated calories */}
         <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/10 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
           <div className="flex items-center gap-2 mb-2">
             <FaFireAlt className="text-orange-600 dark:text-orange-400" />
@@ -488,13 +553,14 @@ function MotivationPanel({ motivationData, stats }) {
           <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
             ~{motivationData.estimatedCalories}
           </p>
-          <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Brûlées (estimé)</p>
+          <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Brulees (estime)</p>
         </div>
 
+        {/* Weekly regularity */}
         <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/10 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
           <div className="flex items-center gap-2 mb-2">
             <FaTrophy className="text-purple-600 dark:text-purple-400" />
-            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Régularité</span>
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">Regularite</span>
           </div>
           <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
             {motivationData.weeklyRegularity}
@@ -503,22 +569,22 @@ function MotivationPanel({ motivationData, stats }) {
         </div>
       </div>
 
-      {/* Recommandation personnalisée */}
+      {/* Personalised recommendation */}
       {stats.peakDay && (
         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-6 border border-indigo-200 dark:border-indigo-800">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 bg-indigo-500 dark:bg-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xl">💡</span>
+              <span className="text-white text-xl">{"\u{1F4A1}"}</span>
             </div>
             <div>
-              <h4 className="text-gray-900 dark:text-white font-bold mb-2">Recommandation personnalisée</h4>
+              <h4 className="text-gray-900 dark:text-white font-bold mb-2">Recommandation personnalisee</h4>
               <p className="text-gray-700 dark:text-gray-300 text-sm">
-                Votre meilleure performance : <strong>les {stats.peakDay}s{stats.peakHour >= 0 ? ` à ${stats.peakHour}h` : ''}</strong>.
+                Votre meilleure performance : <strong>les {stats.peakDay}s{stats.peakHour >= 0 ? ` a ${stats.peakHour}h` : ""}</strong>.
                 {motivationData.monthVisits < motivationData.monthlyGoal && (
-                  <> Pour atteindre votre objectif, planifiez <strong>{Math.ceil((motivationData.monthlyGoal - motivationData.monthVisits) / 4)} visite{Math.ceil((motivationData.monthlyGoal - motivationData.monthVisits) / 4) > 1 ? 's' : ''} par semaine</strong>.</>
+                  <> Pour atteindre votre objectif, planifiez <strong>{Math.ceil((motivationData.monthlyGoal - motivationData.monthVisits) / 4)} visite{Math.ceil((motivationData.monthlyGoal - motivationData.monthVisits) / 4) > 1 ? "s" : ""} par semaine</strong>.</>
                 )}
                 {motivationData.currentStreak === 0 && motivationData.maxStreak > 0 && (
-                  <> Vous avez déjà fait une série de <strong>{motivationData.maxStreak} jours</strong>, vous pouvez le refaire ! 💪</>
+                  <> Vous avez deja fait une serie de <strong>{motivationData.maxStreak} jours</strong>, vous pouvez le refaire ! {"\u{1F4AA}"}</>
                 )}
               </p>
             </div>
@@ -529,9 +595,20 @@ function MotivationPanel({ motivationData, stats }) {
   );
 }
 
-/* -------------------------------------------
-   UI Subcomponents (inchangés)
--------------------------------------------- */
+// ============================================================================
+// SECTION 6 -- Reusable UI sub-components
+// ============================================================================
+
+/**
+ * A single summary tile showing an icon, a label, and a large value.
+ * Supports four accent colour themes: indigo, green, purple, orange.
+ *
+ * @param {Object} props
+ * @param {React.ComponentType} props.icon - react-icons component.
+ * @param {string} props.title - Short label.
+ * @param {string|number} props.value - Displayed value.
+ * @param {string} [props.accent="indigo"] - Colour accent key.
+ */
 function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
   const gradient =
     accent === "green"
@@ -568,6 +645,14 @@ function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
   );
 }
 
+/**
+ * A single horizontal bar row used in the weekly distribution chart.
+ *
+ * @param {Object} props
+ * @param {string} props.label - Row label (e.g. day abbreviation).
+ * @param {number} props.value - Numeric count.
+ * @param {number} props.max - Maximum value in the dataset (for proportional width).
+ */
 function BarRow({ label, value, max }) {
   const width = max ? (value / max) * 100 : 0;
   return (
@@ -584,6 +669,14 @@ function BarRow({ label, value, max }) {
   );
 }
 
+/**
+ * A heatmap-style cell for hourly distribution.
+ *
+ * @param {Object} props
+ * @param {number} props.hour - Hour of day (0-23).
+ * @param {number} props.count - Visit count for that hour.
+ * @param {number} props.max - Maximum hourly count (for opacity scaling).
+ */
 function HourCell({ hour, count, max }) {
   const alpha = max ? 0.15 + (count / max) * 0.6 : 0.15;
   return (
@@ -600,12 +693,21 @@ function HourCell({ hour, count, max }) {
   );
 }
 
-/* -------------------------------------------
-   PAGE PRINCIPALE
--------------------------------------------- */
+// ============================================================================
+// SECTION 7 -- Main page component
+// ============================================================================
+
+/**
+ * MyAttendancesPage -- main exported page component.
+ *
+ * Fetches the current user's attendance records from Supabase for a
+ * configurable date range, then renders statistics, distribution charts,
+ * a motivation panel, and a detailed visit history.
+ */
 export default function MyAttendancesPage() {
   const { user, userMemberData } = useAuth();
 
+  // Date range state (default: last 30 days)
   const [range, setRange] = useState(() => {
     const today = new Date();
     const monthAgo = new Date();
@@ -618,9 +720,8 @@ export default function MyAttendancesPage() {
   const [loading, setLoading] = useState(false);
   const [presences, setPresences] = useState([]);
 
+  // Derived data
   const stats = useMemo(() => calculateAttendanceStats(presences), [presences]);
-
-  // 🎯 NOUVEAU : Calcul des données de motivation
   const motivationData = useMemo(
     () => calculateMotivationData(presences, userMemberData),
     [presences, userMemberData]
@@ -631,9 +732,9 @@ export default function MyAttendancesPage() {
     userMemberData?.firstname || userMemberData?.lastname
       ? `${userMemberData?.firstname || ""} ${userMemberData?.lastname || ""}`.trim()
       : user?.email || "Utilisateur";
-
   const memberPhoto = userMemberData?.photo || "";
 
+  // Fetch presences from Supabase whenever user, badge, or date range changes
   useEffect(() => {
     const fetchPresences = async () => {
       if (!user || !badgeId) return;
@@ -668,6 +769,7 @@ export default function MyAttendancesPage() {
     fetchPresences();
   }, [user, badgeId, range.start, range.end]);
 
+  // Date range shortcut helpers
   const setDays = (days) => {
     const end = new Date();
     const start = new Date();
@@ -684,18 +786,22 @@ export default function MyAttendancesPage() {
 
   const setCurrentYear = () => {
     const end = new Date();
-    const start = new Date(end.getFullYear(), 0, 1); // 1er janvier de l'année en cours
+    const start = new Date(end.getFullYear(), 0, 1);
     setRange({ start: formatIntl(start, "yyyy-MM-dd"), end: formatIntl(end, "yyyy-MM-dd") });
   };
 
   const dayLabels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
+  // --------------------------------------------------------------------------
+  // Render
+  // --------------------------------------------------------------------------
+
   return (
     <div className="p-4 md:p-6 text-gray-900 dark:text-gray-100">
-      {/* 1️⃣ HEADER */}
+      {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold">Mes présences</h1>
+          <h1 className="text-xl md:text-2xl font-semibold">Mes presences</h1>
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Consultez vos statistiques et l'historique de vos visites.
           </p>
@@ -704,7 +810,7 @@ export default function MyAttendancesPage() {
           <div className="text-right">
             <div className="text-sm font-medium">{memberName}</div>
             <div className="text-xs text-gray-600 dark:text-gray-300">
-              Badge : {badgeId || "—"}
+              Badge : {badgeId || "\u2014"}
             </div>
           </div>
           <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-white dark:ring-gray-700 shadow-lg flex-shrink-0">
@@ -724,45 +830,48 @@ export default function MyAttendancesPage() {
         </div>
       </div>
 
-      {/* 2️⃣ ÉTATS D'ERREUR */}
+      {/* Error / warning states */}
       {!user && (
         <div className="p-4 rounded-2xl border dark:border-gray-700 bg-yellow-50 text-yellow-900 mb-6">
-          Vous devez être connecté pour voir vos présences.
+          Vous devez etre connecte pour voir vos presences.
         </div>
       )}
       {user && !userMemberData && (
         <div className="p-4 rounded-2xl border dark:border-gray-700 bg-yellow-50 text-yellow-900 mb-6">
-          Aucun profil membre lié à votre compte. Contactez un administrateur.
+          Aucun profil membre lie a votre compte. Contactez un administrateur.
         </div>
       )}
       {user && userMemberData && !badgeId && (
         <div className="p-4 rounded-2xl border dark:border-gray-700 bg-yellow-50 text-yellow-900 mb-6">
-          Aucun badge n'est associé à votre profil. Contactez un administrateur.
+          Aucun badge n'est associe a votre profil. Contactez un administrateur.
         </div>
       )}
 
-      {/* 3️⃣ LOADER */}
+      {/* Loading indicator */}
       {loading && (
-        <div className="my-6 text-sm text-gray-600 dark:text-gray-300">Chargement…</div>
+        <div className="my-6 text-sm text-gray-600 dark:text-gray-300">Chargement...</div>
       )}
 
-      {/* 4️⃣ BLOC "SUIVI DES PRÉSENCES" - EN PREMIER */}
+      {/* Main content (only when authenticated with a valid badge) */}
       {!loading && user && userMemberData && badgeId && (
         <>
+          {/* Attendance tracking panel */}
           <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
+            {/* Panel header with date range controls */}
             <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
                   <FaChartBar />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold">Suivi des présences</div>
+                  <div className="text-sm font-semibold">Suivi des presences</div>
                   <div className="text-xs text-gray-600 dark:text-gray-300">
                     Membre : {memberName} {badgeId ? `(Badge : ${badgeId})` : ""}
                   </div>
                 </div>
               </div>
 
+              {/* Quick-range buttons and date pickers */}
               <div className="flex flex-wrap items-end gap-2">
                 <button
                   className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
@@ -786,13 +895,14 @@ export default function MyAttendancesPage() {
                   className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/60 dark:text-gray-100"
                   onClick={setCurrentYear}
                 >
-                  Année en cours
+                  Annee en cours
                 </button>
 
+                {/* Custom date range inputs */}
                 <div className="flex items-end gap-2">
                   <div className="flex flex-col">
                     <label className="text-[11px] text-gray-600 dark:text-gray-300 mb-1">
-                      Début
+                      Debut
                     </label>
                     <input
                       type="date"
@@ -823,7 +933,7 @@ export default function MyAttendancesPage() {
               </div>
             </div>
 
-            {/* Tuiles récap */}
+            {/* Summary stat tiles */}
             <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-4 gap-3">
               <StatTile icon={FaCalendarAlt} title="Total visites" value={stats.totalVisits} accent="indigo" />
               <StatTile icon={FaIdCard} title="Jours uniques" value={stats.uniqueDays} accent="green" />
@@ -832,11 +942,12 @@ export default function MyAttendancesPage() {
             </div>
           </div>
 
-          {/* 5️⃣ GRAPHIQUES DE RÉPARTITION */}
+          {/* Distribution charts (weekly + hourly) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Weekly distribution */}
             <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
               <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                Répartition par jour de la semaine
+                Repartition par jour de la semaine
               </div>
               {(() => {
                 const max = Math.max(...stats.weeklyDistribution);
@@ -846,14 +957,15 @@ export default function MyAttendancesPage() {
               })()}
               {stats.peakDay && (
                 <div className="mt-4 text-sm text-indigo-700 dark:text-indigo-300">
-                  Jour préféré : {stats.peakDay}
+                  Jour prefere : {stats.peakDay}
                 </div>
               )}
             </div>
 
+            {/* Hourly distribution */}
             <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
               <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                Répartition par heure
+                Repartition par heure
               </div>
               <div className="grid grid-cols-4 xs:grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
                 {Array.from({ length: 24 }).map((_, h) => (
@@ -873,16 +985,16 @@ export default function MyAttendancesPage() {
             </div>
           </div>
 
-          {/* 6️⃣ PANNEAU DE MOTIVATION */}
+          {/* Motivation panel */}
           {presences.length > 0 && (
             <MotivationPanel motivationData={motivationData} stats={stats} />
           )}
 
-          {/* 7️⃣ HISTORIQUE DÉTAILLÉ */}
+          {/* Detailed visit history */}
           {stats.dailyStats.length > 0 && (
             <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
               <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                Historique détaillé des visites
+                Historique detaille des visites
               </div>
               <ul className="divide-y dark:divide-gray-700">
                 {stats.dailyStats.map((d) => {
@@ -903,8 +1015,8 @@ export default function MyAttendancesPage() {
                         </div>
                       </div>
                       <div className="text-xs text-gray-800 dark:text-gray-200 flex-shrink-0">
-                        {d.first && `Arrivée : ${formatIntl(d.first, "HH:mm")}`}
-                        {d.last && d.first !== d.last && ` — Dernier badge : ${formatIntl(d.last, "HH:mm")}`}
+                        {d.first && `Arrivee : ${formatIntl(d.first, "HH:mm")}`}
+                        {d.last && d.first !== d.last && ` \u2014 Dernier badge : ${formatIntl(d.last, "HH:mm")}`}
                       </div>
                     </li>
                   );
@@ -917,5 +1029,3 @@ export default function MyAttendancesPage() {
     </div>
   );
 }
-
-// ✅ FIN DU FICHIER

@@ -1,10 +1,20 @@
-// 📁 StatisticsPage.js — BODYFORCE (optimisé RPC)
-// 🎯 Utilise get_detailed_statistics() pour tous les calculs côté serveur
+/**
+ * StatisticsPage.js — BODYFORCE
+ *
+ * Dashboard page displaying detailed gym statistics fetched via the
+ * get_detailed_statistics() RPC call. Includes KPI cards, charts for
+ * attendance (daily, hourly, monthly), gender distribution, and lists
+ * for top members and expired subscriptions.
+ */
+
+// ============================================================
+// SECTION 1 — Imports
+// ============================================================
 
 import React, { useEffect, useState } from "react";
 import { supabaseServices } from "../supabaseClient";
 import {
-  FaUser, FaClock, FaUsers, FaStar, FaExclamationTriangle,
+  FaClock, FaUsers, FaStar, FaExclamationTriangle,
   FaChartBar, FaCalendarAlt, FaEuroSign, FaUserCheck,
   FaUserTimes, FaMars, FaVenus, FaGraduationCap
 } from "react-icons/fa";
@@ -15,8 +25,132 @@ import {
   Area, AreaChart
 } from "recharts";
 
-const COLORS = ["#3182ce", "#38a169", "#e53e3e", "#d69e2e", "#805ad5", "#dd6b20"];
+// ============================================================
+// SECTION 2 — Constants
+// ============================================================
 
+/** Shared dark-theme tooltip style used across all Recharts charts */
+const TOOLTIP_CONTENT_STYLE = {
+  backgroundColor: "#111827",
+  border: "1px solid #374151",
+  borderRadius: 8,
+  padding: "8px 10px",
+  color: "#e5e7eb",
+};
+
+// ============================================================
+// SECTION 3 — Pure helper functions (no component state dependency)
+// ============================================================
+
+/**
+ * Formats raw hourly statistics into readable time-range labels.
+ * @param {Array<{hour: number, count: number}>} hourlyStats
+ * @returns {Array<{hour: string, count: number}>}
+ */
+function formatHourlyStats(hourlyStats) {
+  return hourlyStats.map((h) => ({
+    hour: `${Math.floor(h.hour)}h-${Math.floor(h.hour) + 1}h`,
+    count: h.count,
+  }));
+}
+
+/**
+ * Builds the payment chart data array from raw payment stats.
+ * Filters out entries with a zero value.
+ * @param {object} paymentStats
+ * @returns {Array<{name: string, value: number, color: string}>}
+ */
+function buildPaymentChartData(paymentStats) {
+  return [
+    paymentStats.paid || { name: "Payé", value: 0, color: "#38a169" },
+    paymentStats.unpaid || { name: "En attente", value: 0, color: "#e53e3e" },
+  ].filter((p) => p.value > 0);
+}
+
+// ============================================================
+// SECTION 4 — UI helper components
+// ============================================================
+
+/**
+ * Displays a single KPI metric inside a card.
+ * @param {object} props
+ * @param {React.ReactNode} props.icon
+ * @param {string} props.label
+ * @param {string|number} props.value
+ * @param {string} [props.subtitle]
+ * @param {string} [props.className]
+ */
+function StatCard({ icon, label, value, subtitle, className = "" }) {
+  return (
+    <div
+      className={`bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 hover:shadow-xl transition-shadow ${className}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+            {label}
+          </div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
+          {subtitle && (
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</div>
+          )}
+        </div>
+        <div className="flex-shrink-0 ml-4">{icon}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Wraps chart or list content inside a titled card section.
+ * @param {object} props
+ * @param {string} props.title
+ * @param {React.ReactNode} props.icon
+ * @param {React.ReactNode} props.children
+ * @param {boolean} [props.urgent=false] - Applies a red highlight style when true
+ */
+function Section({ title, icon, children, urgent = false }) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+      <div
+        className={`px-6 py-4 border-b ${
+          urgent
+            ? "bg-red-50 border-red-200 dark:bg-red-100/10 dark:border-red-400/40"
+            : "bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700"
+        }`}
+      >
+        <h3
+          className={`text-lg font-semibold flex items-center gap-2 ${
+            urgent ? "text-red-800 dark:text-red-400" : "text-gray-800 dark:text-white"
+          }`}
+        >
+          {icon} {title}
+        </h3>
+      </div>
+      <div className="p-6">{children}</div>
+    </div>
+  );
+}
+
+/** Placeholder shown when a chart or list has no data to display. */
+function NoDataMessage() {
+  return (
+    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+      <FaChartBar className="text-4xl mx-auto mb-2 opacity-50" />
+      <p>Aucune donnée disponible</p>
+    </div>
+  );
+}
+
+// ============================================================
+// SECTION 5 — Main page component
+// ============================================================
+
+/**
+ * StatisticsPage — Main dashboard view.
+ * Fetches all statistics via a single RPC call and renders KPI cards,
+ * charts (daily attendance, gender, hourly, monthly), plus ranked lists.
+ */
 export default function StatisticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,23 +160,23 @@ export default function StatisticsPage() {
     fetchAllData();
   }, []);
 
+  /** Loads detailed statistics from the server-side RPC function. */
   const fetchAllData = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const result = await supabaseServices.getDetailedStatistics();
       setData(result);
-      
-      console.log("✅ Statistiques détaillées chargées via RPC");
     } catch (err) {
-      console.error("❌ Erreur chargement statistiques:", err);
+      console.error("Erreur chargement statistiques:", err);
       setError(err?.message || "Erreur lors du chargement des données");
     } finally {
       setLoading(false);
     }
   };
 
+  // --- Loading state ---
   if (loading) {
     return (
       <div className="p-4">
@@ -56,6 +190,7 @@ export default function StatisticsPage() {
     );
   }
 
+  // --- Error state ---
   if (error) {
     return (
       <div className="p-4">
@@ -72,6 +207,7 @@ export default function StatisticsPage() {
     );
   }
 
+  // --- Destructure API response with safe defaults ---
   const stats = data?.stats || {};
   const topMembers = data?.topMembers || [];
   const hourlyStats = data?.hourlyStats || [];
@@ -81,20 +217,14 @@ export default function StatisticsPage() {
   const paymentStats = data?.paymentStats || {};
   const totalPresences = data?.totalPresences || 0;
 
-  // Formater les heures pour l'affichage
-  const formattedHourlyStats = hourlyStats.map(h => ({
-    hour: `${Math.floor(h.hour)}h-${Math.floor(h.hour) + 1}h`,
-    count: h.count
-  }));
-
-  // Formater les stats de paiement pour le graphique
-  const paymentChartData = [
-    paymentStats.paid || { name: 'Payé', value: 0, color: '#38a169' },
-    paymentStats.unpaid || { name: 'En attente', value: 0, color: '#e53e3e' }
-  ].filter(p => p.value > 0);
+  // Derived data for charts
+  const formattedHourlyStats = formatHourlyStats(hourlyStats);
+  const paymentChartData = buildPaymentChartData(paymentStats);
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen dark:bg-gray-900 dark:text-gray-100">
+
+      {/* Page header with refresh button */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-300">
           <FaChartBar className="inline mr-2" />
@@ -113,7 +243,7 @@ export default function StatisticsPage() {
         </button>
       </div>
 
-      {/* 🔹 Cartes principales */}
+      {/* Primary KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={<FaUsers className="text-blue-500 text-3xl" />}
@@ -141,7 +271,7 @@ export default function StatisticsPage() {
         />
       </div>
 
-      {/* 🔹 Cartes secondaires */}
+      {/* Secondary KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={<FaGraduationCap className="text-yellow-500 text-3xl" />}
@@ -169,7 +299,7 @@ export default function StatisticsPage() {
         />
       </div>
 
-      {/* 🔹 Graphiques : Présences / Genre */}
+      {/* Charts row 1: Daily attendance + Gender distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Section title="Présences - 7 derniers jours" icon={<FaCalendarAlt />}>
           {dailyStats.length > 0 ? (
@@ -180,13 +310,7 @@ export default function StatisticsPage() {
                 <YAxis />
                 <Tooltip
                   wrapperStyle={{ zIndex: 40 }}
-                  contentStyle={{
-                    backgroundColor: "#111827",
-                    border: "1px solid #374151",
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    color: "#e5e7eb",
-                  }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
                 />
                 <Area
                   type="monotone"
@@ -223,13 +347,7 @@ export default function StatisticsPage() {
                 </Pie>
                 <Tooltip
                   wrapperStyle={{ zIndex: 50 }}
-                  contentStyle={{
-                    backgroundColor: "#111827",
-                    border: "1px solid #374151",
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    color: "#e5e7eb",
-                  }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
                   cursor={{ fill: "rgba(59,130,246,0.08)" }}
                 />
               </PieChart>
@@ -240,7 +358,7 @@ export default function StatisticsPage() {
         </Section>
       </div>
 
-      {/* 🔹 Graphiques : Fréquentation / Mensuel */}
+      {/* Charts row 2: Hourly attendance + Monthly evolution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Section title="Fréquentation par heure" icon={<FaClock />}>
           {formattedHourlyStats.length > 0 ? (
@@ -251,13 +369,7 @@ export default function StatisticsPage() {
                 <YAxis />
                 <Tooltip
                   wrapperStyle={{ zIndex: 40 }}
-                  contentStyle={{
-                    backgroundColor: "#111827",
-                    border: "1px solid #374151",
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    color: "#e5e7eb",
-                  }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
                 />
                 <Bar dataKey="count" fill="#3182ce" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -276,13 +388,7 @@ export default function StatisticsPage() {
                 <YAxis />
                 <Tooltip
                   wrapperStyle={{ zIndex: 40 }}
-                  contentStyle={{
-                    backgroundColor: "#111827",
-                    border: "1px solid #374151",
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    color: "#e5e7eb",
-                  }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
                 />
                 <Line
                   type="monotone"
@@ -299,7 +405,7 @@ export default function StatisticsPage() {
         </Section>
       </div>
 
-      {/* 🔹 Listes détaillées */}
+      {/* Detail lists: Top members + Expired subscriptions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Section title="Top 10 membres les plus présents" icon={<FaStar />}>
           {topMembers.length > 0 ? (
@@ -311,9 +417,9 @@ export default function StatisticsPage() {
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">
-                      {index === 0 && "🥇"}
-                      {index === 1 && "🥈"}
-                      {index === 2 && "🥉"}
+                      {index === 0 && "\u{1F947}"}
+                      {index === 1 && "\u{1F948}"}
+                      {index === 2 && "\u{1F949}"}
                       {index > 2 && `#${index + 1}`}
                     </span>
                     <div>
@@ -381,60 +487,6 @@ export default function StatisticsPage() {
           )}
         </Section>
       </div>
-    </div>
-  );
-}
-
-// ========= UI helpers =========
-function StatCard({ icon, label, value, subtitle, className = "" }) {
-  return (
-    <div
-      className={`bg-white dark:bg-gray-800 shadow-lg rounded-lg p-6 hover:shadow-xl transition-shadow ${className}`}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-            {label}
-          </div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
-          {subtitle && (
-            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</div>
-          )}
-        </div>
-        <div className="flex-shrink-0 ml-4">{icon}</div>
-      </div>
-    </div>
-  );
-}
-
-function Section({ title, icon, children, urgent = false }) {
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-      <div
-        className={`px-6 py-4 border-b ${
-          urgent
-            ? "bg-red-50 border-red-200 dark:bg-red-100/10 dark:border-red-400/40"
-            : "bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700"
-        }`}
-      >
-        <h3
-          className={`text-lg font-semibold flex items-center gap-2 ${
-            urgent ? "text-red-800 dark:text-red-400" : "text-gray-800 dark:text-white"
-          }`}
-        >
-          {icon} {title}
-        </h3>
-      </div>
-      <div className="p-6">{children}</div>
-    </div>
-  );
-}
-
-function NoDataMessage() {
-  return (
-    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-      <FaChartBar className="text-4xl mx-auto mb-2 opacity-50" />
-      <p>Aucune donnée disponible</p>
     </div>
   );
 }

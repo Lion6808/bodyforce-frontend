@@ -1,9 +1,26 @@
-// 📄 PlanningPage.js — React — Dossier : src/pages — Date : 2025-10-08
-// ✅ Ajouts : Pagination 20 membres/page + egress optimisée (requêtes ciblées)
-// ✅ Import Excel : UPSERT par chunks (onConflict badgeId,timestamp) → évite 409
-// ✅ CORRECTION : Debounce sur les filtres pour éviter le rafraîchissement à chaque caractère
-// ⚠️ Règles BODYFORCE respectées : structure & styles conservés, modifications minimales
+/**
+ * PlanningPage.js
+ *
+ * Attendance planning page for the BodyForce application.
+ * Displays member presences over configurable date ranges with three view modes:
+ *   - List view: daily presence badges per member
+ *   - Compact view: grid/table with day columns
+ *   - Monthly view: calendar with avatar tooltips
+ *
+ * Features:
+ *   - Server-side pagination (members with presences in the selected period)
+ *   - Debounced filters (name, badge ID)
+ *   - Excel import (UPSERT with onConflict badgeId,timestamp)
+ *   - Intratone synchronization (admin only)
+ *   - Period navigation (week / month / year) with shortcut presets
+ *   - Responsive layout with mobile-specific behavior
+ *
+ * Data source: Supabase (tables: members, presences)
+ */
 
+// ============================================================================
+// SECTION 1 -- Imports
+// ============================================================================
 
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -11,6 +28,7 @@ import * as XLSX from "xlsx";
 import { supabase, supabaseServices } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import MemberForm from "../components/MemberForm";
+import Avatar from "../components/Avatar";
 
 import {
   Calendar,
@@ -36,13 +54,126 @@ import {
   endOfYear,
 } from "date-fns";
 
+// ============================================================================
+// SECTION 2 -- Constants & Configuration
+// ============================================================================
+
+/** Backend API base URL (local dev vs production) */
 const API_URL =
   window.location.hostname === "localhost"
     ? "http://localhost:3001"
     : "https://bodyforce.onrender.com";
 
-// Tailwind helpers
+/** Number of members displayed per page */
+const PAGE_SIZE = 10;
+
+// ============================================================================
+// SECTION 3 -- Utility functions (pure, no component state dependency)
+// ============================================================================
+
+/** Concatenate CSS class names, filtering out falsy values */
 const cn = (...classes) => classes.filter(Boolean).join(" ");
+
+/**
+ * Format a Date object according to a predefined format key.
+ * Uses Intl.DateTimeFormat with locale "fr-FR".
+ * @param {Date} date
+ * @param {string} fmt - One of: "yyyy-MM-dd", "dd/MM/yyyy", "EEE dd/MM",
+ *                        "EEE dd", "HH:mm", "MMMM yyyy", "EEEE dd MMMM"
+ * @returns {string}
+ */
+const formatDate = (date, fmt) => {
+  const map = {
+    "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
+    "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
+    "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
+    "EEE dd": { weekday: "short", day: "2-digit" },
+    "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
+    "MMMM yyyy": { month: "long", year: "numeric" },
+    "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
+  };
+  if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
+  return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
+};
+
+/** Parse a timestamp string into a Date object */
+const parseTimestamp = (ts) => new Date(ts);
+
+/**
+ * Convert a Date to "YYYY-MM-DD" string (local timezone).
+ * @param {Date|null} date
+ * @returns {string}
+ */
+const toDateString = (date) => {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+/** Check if a date falls on a weekend (Saturday or Sunday) */
+const isWeekend = (date) => [0, 6].includes(date.getDay());
+
+/** Check if a date falls within the given interval (inclusive) */
+const isWithinInterval = (date, interval) =>
+  date >= interval.start && date <= interval.end;
+
+/** Generate an array of Date objects for each day in the interval */
+const eachDayOfInterval = ({ start, end }) => {
+  const out = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    out.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+};
+
+/** Return a new Date set to 00:00:00.000 of the given day */
+const startOfDay = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
+/** Return a new Date set to 23:59:59.999 of the given day */
+const endOfDay = (d) => {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+};
+
+/** Add n weeks to a date */
+const addWeeks = (d, n) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n * 7);
+  return x;
+};
+
+/** Add n months to a date */
+const addMonths = (d, n) => {
+  const x = new Date(d);
+  x.setMonth(x.getMonth() + n);
+  return x;
+};
+
+/** Add n years to a date */
+const addYears = (d, n) => {
+  const x = new Date(d);
+  x.setFullYear(x.getFullYear() + n);
+  return x;
+};
+
+/** Subtract n weeks from a date */
+const subWeeks = (d, n) => addWeeks(d, -n);
+
+/** Check if a date is today */
+const isToday = (d) => d.toDateString() === new Date().toDateString();
+
+// ============================================================================
+// SECTION 4 -- Tailwind CSS class maps
+// ============================================================================
 
 const classes = {
   pageContainer:
@@ -63,119 +194,78 @@ const classes = {
   iconContainer: "p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl",
   title: "text-3xl font-bold text-gray-900 dark:text-gray-100",
   subtitle: "text-gray-600 dark:text-gray-400 mt-1",
-  avatar:
-    "w-10 h-10 object-cover rounded-full border border-blue-200 dark:border-blue-600",
-  avatarInitials:
-    "w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-sm",
 };
 
-// 👉 Avatar (même usage que dans MembersPage)
-import Avatar from "../components/Avatar";
+// ============================================================================
+// SECTION 5 -- Main component
+// ============================================================================
 
-// Dates utils
-const formatDate = (date, fmt) => {
-  const map = {
-    "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
-    "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
-    "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
-    "EEE dd": { weekday: "short", day: "2-digit" },
-    "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
-    "MMMM yyyy": { month: "long", year: "numeric" },
-    "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
-  };
-  if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
-  return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
-};
-const parseTimestamp = (ts) => new Date(ts);
-
-const toDateString = (date) => {
-  if (!date) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
-const isWeekend = (date) => [0, 6].includes(date.getDay());
-const isWithinInterval = (date, interval) =>
-  date >= interval.start && date <= interval.end;
-const eachDayOfInterval = ({ start, end }) => {
-  const out = [];
-  const cur = new Date(start);
-  while (cur <= end) {
-    out.push(new Date(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return out;
-};
-const startOfDay = (d) => {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-};
-const endOfDay = (d) => {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
-};
-const addWeeks = (d, n) => {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n * 7);
-  return x;
-};
-const addMonths = (d, n) => {
-  const x = new Date(d);
-  x.setMonth(x.getMonth() + n);
-  return x;
-};
-const addYears = (d, n) => {
-  const x = new Date(d);
-  x.setFullYear(x.getFullYear() + n);
-  return x;
-};
-const subWeeks = (d, n) => addWeeks(d, -n);
-const isToday = (d) => d.toDateString() === new Date().toDateString();
-
-// ────────────────────────────────────────────────────────────────────────────────
-
+/**
+ * PlanningPage component.
+ * Renders the attendance planning dashboard with period navigation,
+ * filters, statistics summary, and three switchable view modes.
+ */
 function PlanningPage() {
-  // Données (paginées)
-  const [presences, setPresences] = useState([]); // uniquement pour les membres de la page & la période
-  const [members, setMembers] = useState([]);     // membres de la page courante
+  // --------------------------------------------------------------------------
+  // 5.1 -- State declarations
+  // --------------------------------------------------------------------------
+
+  // Core data (scoped to current page and period)
+  const [presences, setPresences] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const { role } = useAuth();
 
-  // --- Intratone sync (admin) ---
+  // Intratone sync (admin only)
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
 
-  // Période & filtres
+  // Period and date range
   const [period, setPeriod] = useState("week");
   const [startDate, setStartDate] = useState(startOfDay(subWeeks(new Date(), 1)));
   const [endDate, setEndDate] = useState(endOfDay(new Date()));
 
-  // 🔥 CORRECTION : États séparés pour la saisie immédiate et le filtre debounced
+  // Immediate filter inputs (updated on each keystroke)
   const [filterBadgeInput, setFilterBadgeInput] = useState("");
   const [filterNameInput, setFilterNameInput] = useState("");
 
-  // États debounced (déclenchent les requêtes après 500ms d'inactivité)
+  // Debounced filter values (trigger data fetching after 500ms idle)
   const [filterBadge, setFilterBadge] = useState("");
   const [filterName, setFilterName] = useState("");
 
+  // UI state
   const [showNightHours, setShowNightHours] = useState(false);
   const [viewMode, setViewMode] = useState("list");
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalMembers, setTotalMembers] = useState(0);
+
+  // Member detail modal state
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  // Monthly view tooltip and expansion state
+  const [expandedDays, setExpandedDays] = useState(new Set());
+  const [hoveredMember, setHoveredMember] = useState(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
   const navigate = useNavigate();
 
+  // --------------------------------------------------------------------------
+  // 5.2 -- Member edit / modal handlers
+  // --------------------------------------------------------------------------
+
+  /** Open the member edit form (modal on mobile, navigation on desktop) */
   const handleEditMember = async (member) => {
     if (!member || !member.id) return;
 
     if (isMobile) {
-      // Mobile : modal
       try {
         const fullMember = await supabaseServices.getMemberById(member.id);
         setSelectedMember(fullMember || member);
@@ -186,51 +276,46 @@ function PlanningPage() {
         setShowForm(true);
       }
     } else {
-      // Desktop : navigate
       navigate("/members/edit", {
         state: { member, returnPath: "/planning", memberId: member.id },
       });
     }
   };
 
+  /** Close the member edit modal */
   const handleCloseForm = () => {
     setShowForm(false);
     setSelectedMember(null);
   };
 
+  /** Save handler after member edit -- reload data to reflect changes */
   const handleSaveMember = async () => {
     setShowForm(false);
     setSelectedMember(null);
-    // Recharger les données pour afficher les modifications
     await loadData();
   };
 
+  // --------------------------------------------------------------------------
+  // 5.3 -- Data loading (Supabase)
+  // --------------------------------------------------------------------------
 
-
-
-  // Pagination
-  const PAGE_SIZE = 10;
-  const [page, setPage] = useState(1); // 1-based
-  const [totalMembers, setTotalMembers] = useState(0);
-
-
-  // États pour la modal de détail du membre
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  // Vue mensuelle (tooltip corrigé)
-  const [expandedDays, setExpandedDays] = useState(new Set());
-  const [hoveredMember, setHoveredMember] = useState(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-
-  // Chargement Supabase (membres paginés + présences de la période pour ces membres)
+  /**
+   * Fetch members and presences from Supabase for the current period and filters.
+   * Steps:
+   *   A) Fetch all badgeIds with at least one presence in the period
+   *   B) Load corresponding members, apply name/badge filters, sort by last seen
+   *   C) Paginate the filtered member list
+   *   D) Fetch presences only for the current page's members
+   *
+   * @param {boolean} showRetryIndicator - Whether to show the retry spinner
+   */
   const loadData = async (showRetryIndicator = false) => {
     try {
       if (showRetryIndicator) setIsRetrying(true);
       setLoading(true);
       setError("");
 
-      // A) Récupère tous les badgeId AYANT AU MOINS UNE PRÉSENCE sur la période
-      //    (en tenant compte du filtre badge si fourni)
+      // A) Fetch presences in the period (optionally filtered by badge)
       let presencesQ = supabase
         .from("presences")
         .select("badgeId,timestamp")
@@ -238,14 +323,13 @@ function PlanningPage() {
         .lte("timestamp", endDate.toISOString());
 
       if (filterBadge?.trim()) {
-        // Filtrer côté DB réduit l'egress
         presencesQ = presencesQ.ilike("badgeId", `%${filterBadge.trim()}%`);
       }
 
       const { data: presInPeriod, error: prsErr } = await presencesQ;
-      if (prsErr) throw new Error(`Erreur présences (période): ${prsErr.message}`);
+      if (prsErr) throw new Error(`Erreur presences (periode): ${prsErr.message}`);
 
-      // ➕ NEW: map dernier passage par badgeId
+      // Build a map of last-seen timestamp per badge
       const lastSeenByBadge = {};
       (presInPeriod || []).forEach((p) => {
         if (!p || !p.badgeId || !p.timestamp) return;
@@ -256,7 +340,7 @@ function PlanningPage() {
         }
       });
 
-      // Distinct badgeIds présents dans la période
+      // Collect distinct badge IDs present in the period
       const badgeIdSet = new Set(
         (presInPeriod || [])
           .map((p) => p.badgeId)
@@ -264,7 +348,7 @@ function PlanningPage() {
       );
       const allBadgeIdsInPeriod = Array.from(badgeIdSet);
 
-      // Si aucun présent → reset affichage et fin
+      // No presences found -- clear display and return early
       if (allBadgeIdsInPeriod.length === 0) {
         setMembers([]);
         setPresences([]);
@@ -273,7 +357,7 @@ function PlanningPage() {
         return;
       }
 
-      // B) Charger les members correspondants puis appliquer filtre nom
+      // B) Load members matching the badge IDs, then apply filters
       const { data: periodMembersAll, error: membersErr } = await supabase
         .from("members")
         .select("id,name,firstName,badgeId,badge_number,photo")
@@ -282,22 +366,25 @@ function PlanningPage() {
 
       if (membersErr) throw new Error(`Erreur membres: ${membersErr.message}`);
 
-      let filteredMembers = (periodMembersAll || []);
+      let filteredMembers = periodMembersAll || [];
 
+      // Sort by most recent presence (descending), then alphabetically
       filteredMembers.sort((a, b) => {
         const tb = lastSeenByBadge[b.badgeId] ?? 0;
         const ta = lastSeenByBadge[a.badgeId] ?? 0;
-        if (tb !== ta) return tb - ta;          // du plus récent au plus ancien
-        // tie-break par nom pour une stabilité d'affichage
+        if (tb !== ta) return tb - ta;
         return (a.name || "").localeCompare(b.name || "");
       });
 
+      // Apply name filter
       if (filterName?.trim()) {
         const s = filterName.trim().toLowerCase();
         filteredMembers = filteredMembers.filter((m) =>
           `${m.name || ""} ${m.firstName || ""}`.toLowerCase().includes(s)
         );
       }
+
+      // Apply badge filter (client-side complement to server-side ilike)
       if (filterBadge?.trim()) {
         const s = filterBadge.trim();
         filteredMembers = filteredMembers.filter((m) =>
@@ -305,7 +392,7 @@ function PlanningPage() {
         );
       }
 
-      // C) Pagination SUR les membres présents dans la période
+      // C) Paginate members
       const total = filteredMembers.length;
       setTotalMembers(total);
 
@@ -314,7 +401,7 @@ function PlanningPage() {
       const pageMembers = filteredMembers.slice(from, to);
       setMembers(pageMembers);
 
-      // D) Charger les présences UNIQUEMENT pour les membres de la page (et sur la période)
+      // D) Fetch presences only for the current page's members
       const pageBadgeIds = pageMembers.map((m) => m.badgeId).filter(Boolean);
 
       let prs = [];
@@ -327,7 +414,7 @@ function PlanningPage() {
           .in("badgeId", pageBadgeIds)
           .order("timestamp", { ascending: false });
 
-        if (error) throw new Error(`Erreur présences (page): ${error.message}`);
+        if (error) throw new Error(`Erreur presences (page): ${error.message}`);
         prs = data || [];
       }
 
@@ -342,40 +429,41 @@ function PlanningPage() {
       setRetryCount(0);
     } catch (err) {
       console.error("Erreur:", err);
-      setError(err.message || "Erreur de connexion à la base de données");
+      setError(err.message || "Erreur de connexion a la base de donnees");
     } finally {
       setLoading(false);
       setIsRetrying(false);
     }
   };
 
+  // --------------------------------------------------------------------------
+  // 5.4 -- Effects
+  // --------------------------------------------------------------------------
+
+  // Reload data whenever period, filters, or page change
   useEffect(() => {
     loadData();
   }, [startDate, endDate, filterName, filterBadge, page]);
 
-  // 🔥 CORRECTION : Debounce pour filterName (attend 500ms après la dernière saisie)
+  // Debounce: propagate name input to actual filter after 500ms idle
   useEffect(() => {
     const timer = setTimeout(() => {
       setFilterName(filterNameInput);
-      setPage(1); // Reset à la page 1 quand on filtre
+      setPage(1);
     }, 500);
     return () => clearTimeout(timer);
   }, [filterNameInput]);
 
-  // 🔥 CORRECTION : Debounce pour filterBadge (attend 500ms après la dernière saisie)
+  // Debounce: propagate badge input to actual filter after 500ms idle
   useEffect(() => {
     const timer = setTimeout(() => {
       setFilterBadge(filterBadgeInput);
-      setPage(1); // Reset à la page 1 quand on filtre
+      setPage(1);
     }, 500);
     return () => clearTimeout(timer);
   }, [filterBadgeInput]);
 
-  const handleRetry = () => {
-    setRetryCount((v) => v + 1);
-    loadData(true);
-  };
-
+  // Track viewport width for responsive layout
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     onResize();
@@ -383,7 +471,22 @@ function PlanningPage() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ✅ Aligne la période sur les bornes naturelles + reset page
+  // --------------------------------------------------------------------------
+  // 5.5 -- Period navigation helpers
+  // --------------------------------------------------------------------------
+
+  /** Retry loading data (manual refresh) */
+  const handleRetry = () => {
+    setRetryCount((v) => v + 1);
+    loadData(true);
+  };
+
+  /**
+   * Align start/end dates to the natural boundaries of the given period type.
+   * Also resets pagination to page 1.
+   * @param {string} value - "week" | "month" | "year"
+   * @param {Date} base - Reference date for alignment
+   */
   const updateDateRange = (value, base = new Date()) => {
     setPage(1);
     if (value === "week") {
@@ -404,7 +507,7 @@ function PlanningPage() {
     }
   };
 
-  // Navigation ‹ › qui s'aligne via updateDateRange
+  /** Navigate to the previous or next period */
   const navigatePeriod = (direction) => {
     const amount = direction === "prev" ? -1 : 1;
     let newStart;
@@ -414,27 +517,35 @@ function PlanningPage() {
     updateDateRange(period, newStart);
   };
 
+  /** Convert a raw timestamp to a local Date */
   const toLocalDate = (timestamp) => parseTimestamp(timestamp);
 
-  // Import Excel – passage en UPSERT par chunks (onConflict badgeId,timestamp)
+  // --------------------------------------------------------------------------
+  // 5.6 -- Excel import
+  // --------------------------------------------------------------------------
+
+  /**
+   * Handle Excel file import.
+   * Reads .xlsx/.xls, maps "Quand"/"Quoi"/"Qui" columns to presence records,
+   * then upserts in 500-row chunks (onConflict: badgeId,timestamp).
+   */
   const handleImportExcel = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // 1) Auth (utile avec RLS)
+    // Verify authentication (needed for RLS)
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        alert("❌ Vous devez être connecté pour importer des présences.");
+        alert("Vous devez etre connecte pour importer des presences.");
         return;
       }
     } catch (e) {
       console.error("Auth check error:", e);
     }
 
-    // 2) Helpers parsing
+    // Date parsing helpers
     const excelSerialToDate = (serial) => {
-      // Excel serial → JS Date (base 1899-12-30)
       const base = new Date(Date.UTC(1899, 11, 30));
       const ms = Math.round(Number(serial) * 86400) * 1000;
       return new Date(base.getTime() + ms);
@@ -454,7 +565,7 @@ function PlanningPage() {
         const [, dd, mm, yyyy, HH, MI] = m;
         return new Date(`${yyyy}-${mm}-${dd}T${HH}:${MI}:00`);
       }
-      const d = new Date(str); // fallback (ISO, etc.)
+      const d = new Date(str);
       return isNaN(d) ? null : d;
     };
 
@@ -465,7 +576,7 @@ function PlanningPage() {
       return null;
     };
 
-    // 3) Lecture + mapping colonnes spécifiques (Quand, Quoi, Qui)
+    // Read and process the file
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -474,7 +585,7 @@ function PlanningPage() {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
 
-        // Stats diag
+        // Import statistics
         let totalRows = 0;
         let kept = 0;
         let filteredOtherType = 0;
@@ -482,7 +593,7 @@ function PlanningPage() {
         let skippedNoDate = 0;
         let unparsableDate = 0;
 
-        const allowedTypes = new Set(["Badges ou Télécommandes", "CleMobil"]);
+        const allowedTypes = new Set(["Badges ou Telecommandes", "CleMobil"]);
         const payload = [];
 
         for (const row of rows) {
@@ -492,20 +603,20 @@ function PlanningPage() {
           const quiRaw = row["Qui"];
           const quandRaw = row["Quand"];
 
-          // Filtre type (ignore "BP", lignes vides, etc.)
+          // Filter by type (ignore "BP", empty lines, etc.)
           if (!allowedTypes.has(quoi)) {
             filteredOtherType++;
             continue;
           }
 
-          // Badge obligatoire
+          // Badge ID is required
           const badgeId = (quiRaw ?? "").toString().trim();
           if (!badgeId) {
             skippedNoBadge++;
             continue;
           }
 
-          // Date obligatoire
+          // Date is required
           if (quandRaw == null) {
             skippedNoDate++;
             continue;
@@ -524,19 +635,19 @@ function PlanningPage() {
         if (payload.length === 0) {
           alert(
             [
-              "ℹ️ Aucune ligne importée.",
+              "Aucune ligne importee.",
               `Lignes totales: ${totalRows}`,
-              `• Gardées: ${kept}`,
-              `• Filtrées (type ≠ 'Badges ou Télécommandes' / 'CleMobil'): ${filteredOtherType}`,
-              `• Sans badge: ${skippedNoBadge}`,
-              `• Sans date: ${skippedNoDate}`,
-              `• Date illisible: ${unparsableDate}`,
+              `- Gardees: ${kept}`,
+              `- Filtrees (type): ${filteredOtherType}`,
+              `- Sans badge: ${skippedNoBadge}`,
+              `- Sans date: ${skippedNoDate}`,
+              `- Date illisible: ${unparsableDate}`,
             ].join("\n")
           );
           return;
         }
 
-        // 4) UPSERT par chunks
+        // Upsert in chunks of 500
         const chunkSize = 500;
         let affected = 0;
 
@@ -545,11 +656,11 @@ function PlanningPage() {
           const { data: upserted, error } = await supabase
             .from("presences")
             .upsert(chunk, { onConflict: "badgeId,timestamp" })
-            .select("badgeId"); // lignes touchées (insert + update)
+            .select("badgeId");
 
           if (error) {
             console.error("Upsert error:", error);
-            alert("❌ Erreur lors de l'upsert: " + (error.message || "inconnue"));
+            alert("Erreur lors de l'upsert: " + (error.message || "inconnue"));
             return;
           }
 
@@ -558,29 +669,32 @@ function PlanningPage() {
 
         alert(
           [
-            "✅ Import terminé.",
+            "Import termine.",
             `Lignes totales lues: ${totalRows}`,
-            `• Retenues pour import: ${kept}`,
-            `• Upsertées (insert+update): ${affected} (doublons ignorés)`,
-            `• Filtrées type: ${filteredOtherType} | Sans badge: ${skippedNoBadge} | Sans date: ${skippedNoDate} | Date illisible: ${unparsableDate}`,
+            `- Retenues pour import: ${kept}`,
+            `- Upsertees (insert+update): ${affected} (doublons ignores)`,
+            `- Filtrees type: ${filteredOtherType} | Sans badge: ${skippedNoBadge} | Sans date: ${skippedNoDate} | Date illisible: ${unparsableDate}`,
           ].join("\n")
         );
 
-        // Recharge l'affichage
         loadData();
       };
 
       reader.readAsArrayBuffer(file);
     } catch (err) {
-      console.error("Erreur import Excel :", err);
-      alert("❌ Erreur lors de l'import.");
+      console.error("Erreur import Excel:", err);
+      alert("Erreur lors de l'import.");
     } finally {
-      // Permet de réimporter le même fichier sans recharger la page
+      // Allow re-importing the same file without page reload
       try { event.target.value = ""; } catch { }
     }
   };
 
-  // UI: états de chargement / erreur
+  // --------------------------------------------------------------------------
+  // 5.7 -- Loading and error screens
+  // --------------------------------------------------------------------------
+
+  /** Render the connection error screen with retry button */
   const renderConnectionError = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-gray-200 dark:border-gray-700">
@@ -617,6 +731,7 @@ function PlanningPage() {
     </div>
   );
 
+  /** Render the loading spinner screen */
   const renderLoading = () => (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
       <div className="text-center">
@@ -634,15 +749,21 @@ function PlanningPage() {
     </div>
   );
 
+  // Early returns for loading / error states
   if (loading) return renderLoading();
   if (error && !isRetrying) return renderConnectionError();
 
-  // Filtrage local (présences) – garde la logique d'origine
+  // --------------------------------------------------------------------------
+  // 5.8 -- Derived data (computed from state after loading)
+  // --------------------------------------------------------------------------
+
+  // Filter presences to the current date range
   const filteredPresences = presences.filter((p) => {
     const presenceDate = toLocalDate(p.timestamp);
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
   });
 
+  // Group presence dates by member badge ID
   const groupedByMember = {};
   filteredPresences.forEach((p) => {
     const key = p.badgeId;
@@ -650,16 +771,20 @@ function PlanningPage() {
     groupedByMember[key].push(toLocalDate(p.timestamp));
   });
 
+  // All days in the selected period
   const allDays = eachDayOfInterval({ start: startDate, end: endDate });
-  const fullHours = Array.from({ length: 24 }, (_, i) => i);
-  const hours = showNightHours ? fullHours : fullHours.slice(6);
 
+  /** Look up a member object by badge ID */
   const getMemberInfo = (badgeId) =>
     members.find((m) => m.badgeId === badgeId) || {};
 
+  // Members visible in the current page
   const visibleMembers = members;
 
-  // Stats (identiques à ta version)
+  // --------------------------------------------------------------------------
+  // 5.9 -- Statistics computation
+  // --------------------------------------------------------------------------
+
   const stats = (() => {
     const totalPresences = filteredPresences.length;
     const uniqueMembers = new Set(filteredPresences.map((p) => p.badgeId)).size;
@@ -696,10 +821,16 @@ function PlanningPage() {
     };
   })();
 
-  // ─────────────── Pagination UI (type MembersPage/PaymentsPage) ───────────────
+  // --------------------------------------------------------------------------
+  // 5.10 -- Pagination
+  // --------------------------------------------------------------------------
+
   const totalPages = Math.max(1, Math.ceil(totalMembers / PAGE_SIZE));
+
+  /** Navigate to a specific page (clamped to valid range) */
   const goToPage = (p) => setPage(Math.min(Math.max(1, p), totalPages));
 
+  /** Pagination control component */
   const Pager = () => {
     const pages = [];
     const cur = page;
@@ -763,8 +894,18 @@ function PlanningPage() {
     );
   };
 
+  // ============================================================================
+  // SECTION 6 -- Sub-components (StatsResume, ListView, CompactView, MonthlyView)
+  // ============================================================================
+
+  // --------------------------------------------------------------------------
+  // 6.1 -- StatsResume: period summary cards
+  // --------------------------------------------------------------------------
+
+  /** Render the statistics summary cards for the selected period */
   const StatsResume = () => (
     <div className={cn(classes.card, "p-6 mb-6")}>
+      {/* Section header */}
       <div className="flex items-center gap-3 mb-6">
         <div className={classes.iconContainer}>
           <BarChart3 className="w-6 h-6 text-white" />
@@ -780,7 +921,9 @@ function PlanningPage() {
         </div>
       </div>
 
+      {/* Stat cards grid */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Active members */}
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
           <div className="flex items-center gap-2 mb-2">
             <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -793,6 +936,7 @@ function PlanningPage() {
           </div>
         </div>
 
+        {/* Total presences */}
         <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-4 border border-green-200 dark:border-green-700">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-green-600 dark:text-green-400" />
@@ -805,6 +949,7 @@ function PlanningPage() {
           </div>
         </div>
 
+        {/* Average members per day */}
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
@@ -820,6 +965,7 @@ function PlanningPage() {
           </div>
         </div>
 
+        {/* Days covered */}
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
           <div className="flex items-center gap-2 mb-2">
             <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400" />
@@ -832,6 +978,7 @@ function PlanningPage() {
           </div>
         </div>
 
+        {/* Busiest day */}
         {stats.busiestDay.day && (
           <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg p-4 border border-red-200 dark:border-red-700">
             <div className="flex items-center gap-2 mb-2">
@@ -855,9 +1002,14 @@ function PlanningPage() {
     </div>
   );
 
-  // Vue Liste (pastilles journalières) – ajout du Pager (haut + bas)
+  // --------------------------------------------------------------------------
+  // 6.2 -- ListView: daily presence badges per member
+  // --------------------------------------------------------------------------
+
+  /** Render the list view with daily presence dots per member */
   const ListView = () => (
     <div className={cn(classes.card, "overflow-visible")}>
+      {/* List header with pagination */}
       <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
@@ -872,6 +1024,7 @@ function PlanningPage() {
         </div>
       </div>
 
+      {/* Member rows */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {visibleMembers.map((member, idx) => {
           const times = groupedByMember[member.badgeId] || [];
@@ -885,6 +1038,7 @@ function PlanningPage() {
               key={member.badgeId || idx}
               className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
+              {/* Member info */}
               <div className="flex items-center gap-3 mb-3">
                 <Avatar
                   photo={member.photo}
@@ -913,6 +1067,7 @@ function PlanningPage() {
                 </div>
               </div>
 
+              {/* Daily presence grid */}
               <div className="grid grid-cols-7 sm:grid-cols-14 gap-1">
                 {allDays.map((day) => {
                   const k = toDateString(day);
@@ -940,6 +1095,7 @@ function PlanningPage() {
                         )}
                       </div>
 
+                      {/* Tooltip with presence times */}
                       {has && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
                           <div className="bg-gray-900 dark:bg-gray-800 text-white text-xs rounded-lg px-2 py-1.5 shadow-xl min-w-max border border-gray-700">
@@ -973,15 +1129,21 @@ function PlanningPage() {
         })}
       </div>
 
+      {/* Bottom pagination */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center">
         <Pager />
       </div>
     </div>
   );
 
-  // Vue Compacte (tableau rapide) – pager ajouté en bas
+  // --------------------------------------------------------------------------
+  // 6.3 -- CompactView: grid table with day columns
+  // --------------------------------------------------------------------------
+
+  /** Render the compact grid view with a column per day */
   const CompactView = () => (
     <div className={cn(classes.card, "overflow-visible")}>
+      {/* Compact view header */}
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
           Vue compacte ({visibleMembers.length} membres)
@@ -991,8 +1153,10 @@ function PlanningPage() {
         </p>
       </div>
 
+      {/* Scrollable grid */}
       <div className="overflow-x-auto">
         <div className="min-w-max">
+          {/* Column headers (days) */}
           <div
             className="grid"
             style={{
@@ -1020,6 +1184,7 @@ function PlanningPage() {
             ))}
           </div>
 
+          {/* Member rows */}
           {visibleMembers.map((member, idx) => {
             const times = groupedByMember[member.badgeId] || [];
             return (
@@ -1030,6 +1195,7 @@ function PlanningPage() {
                   gridTemplateColumns: `200px repeat(${allDays.length}, 80px)`,
                 }}
               >
+                {/* Member name cell */}
                 <div className="p-3 border-r border-b border-gray-200 dark:border-gray-600 flex items-center gap-3 bg-white dark:bg-gray-800">
                   <Avatar
                     photo={member.photo}
@@ -1047,6 +1213,7 @@ function PlanningPage() {
                   </div>
                 </div>
 
+                {/* Day cells */}
                 {allDays.map((day) => {
                   const dayTimes = times.filter(
                     (t) => toDateString(t) === toDateString(day)
@@ -1079,14 +1246,20 @@ function PlanningPage() {
         </div>
       </div>
 
+      {/* Bottom pagination */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-center">
         <Pager />
       </div>
     </div>
   );
 
-  // Vue Mensuelle
+  // --------------------------------------------------------------------------
+  // 6.4 -- MonthlyView: calendar grid with member avatars
+  // --------------------------------------------------------------------------
+
+  /** Render the monthly calendar view with avatar tooltips */
   const MonthlyView = () => {
+    /** Generate a 6-week (42 day) calendar grid starting from Monday */
     const generateCalendarDays = () => {
       const y = startDate.getFullYear();
       const m = startDate.getMonth();
@@ -1107,6 +1280,7 @@ function PlanningPage() {
 
     const calendarDays = generateCalendarDays();
 
+    // Group presences by day and member for quick lookup
     const presencesByDayAndMember = (() => {
       const grouped = {};
       filteredPresences.forEach((presence) => {
@@ -1121,12 +1295,14 @@ function PlanningPage() {
       return grouped;
     })();
 
+    /** Toggle expansion of a calendar day cell */
     const toggleDayExpansion = (dayKey) => {
       const s = new Set(expandedDays);
       s.has(dayKey) ? s.delete(dayKey) : s.add(dayKey);
       setExpandedDays(s);
     };
 
+    /** Tooltip hover handlers */
     const onAvatarEnter = (badgeId, dayKey, e) => {
       const member = members.find((m) => m.badgeId === badgeId);
       const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
@@ -1146,6 +1322,10 @@ function PlanningPage() {
       }, 100);
     };
 
+    /**
+     * Render a single member avatar with optional multi-passage badge
+     * and a detailed hover tooltip.
+     */
     const renderMemberAvatar = (
       badgeId,
       presenceCount,
@@ -1174,14 +1354,17 @@ function PlanningPage() {
             size={32}
           />
 
+          {/* Multi-passage badge indicator */}
           {presenceCount > 1 && (
             <div className="absolute -top-1 -right-1 bg-orange-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border border-white dark:border-gray-800 shadow-sm animate-pulse">
               {presenceCount > 99 ? "99+" : presenceCount}
             </div>
           )}
 
+          {/* Detailed hover tooltip */}
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-[200]">
             <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-xl shadow-2xl p-4 min-w-[280px] max-w-[320px] border border-gray-700 dark:border-gray-600">
+              {/* Tooltip header: avatar + name */}
               <div className="flex items-center gap-3 mb-3">
                 <Avatar
                   photo={member.photo}
@@ -1199,6 +1382,7 @@ function PlanningPage() {
                 </div>
               </div>
 
+              {/* Tooltip body: date and passage times */}
               <div className="space-y-2 border-t border-gray-700 pt-3 mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-400" />
@@ -1226,7 +1410,7 @@ function PlanningPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-orange-400" />
                         <span className="text-sm font-semibold text-orange-300">
-                          ⚠️ {presences.length} passages (inhabituel)
+                          {presences.length} passages (inhabituel)
                         </span>
                       </div>
 
@@ -1255,6 +1439,7 @@ function PlanningPage() {
                 })()}
               </div>
 
+              {/* Tooltip footer: status */}
               <div className="flex justify-between items-center">
                 <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full border border-green-500/30">
                   Présent(e)
@@ -1266,6 +1451,7 @@ function PlanningPage() {
                 )}
               </div>
 
+              {/* Tooltip arrow */}
               <div className="absolute top-full left-1/2 -translate-x-1/2">
                 <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-gray-900 dark:border-t-gray-800"></div>
               </div>
@@ -1277,6 +1463,7 @@ function PlanningPage() {
 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {/* Calendar navigation header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
           <div className="flex items-center justify-between">
             <button
@@ -1302,6 +1489,7 @@ function PlanningPage() {
           </div>
         </div>
 
+        {/* Day-of-week headers */}
         <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-700">
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day, i) => (
             <div
@@ -1316,6 +1504,7 @@ function PlanningPage() {
           ))}
         </div>
 
+        {/* Calendar day cells */}
         <div className="grid grid-cols-7">
           {calendarDays.map((day, idx) => {
             const dateKey = toDateString(day);
@@ -1330,6 +1519,7 @@ function PlanningPage() {
             const today = isToday(day);
             const expanded = expandedDays.has(dateKey);
 
+            // Determine how many avatars to show vs. hide
             let visibleMembers, hiddenMembersCount, showExpandButton;
             if (memberIds.length <= 9) {
               visibleMembers = memberIds;
@@ -1368,6 +1558,7 @@ function PlanningPage() {
                   } ${today ? "ring-2 ring-blue-500 ring-inset" : ""} ${expanded ? "bg-blue-25 dark:bg-blue-900/5" : ""
                   } hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200`}
               >
+                {/* Day number and member count badge */}
                 <div className="flex justify-between items-start mb-2">
                   <span
                     className={cn(
@@ -1398,15 +1589,11 @@ function PlanningPage() {
                       >
                         {memberIds.length > 99 ? "99+" : memberIds.length}
                       </span>
-                      {memberIds.length > 20 && (
-                        <span className="text-[10px] text-red-500 dark:text-red-400 font-bold">
-                          🔥
-                        </span>
-                      )}
                     </div>
                   )}
                 </div>
 
+                {/* Member avatars */}
                 {memberIds.length > 0 && (
                   <div className="space-y-1">
                     {expanded && memberIds.length > 20 ? (
@@ -1425,6 +1612,7 @@ function PlanningPage() {
                       </div>
                     ) : (
                       <>
+                        {/* Row 1: first 3 avatars */}
                         <div className="flex justify-start gap-1 flex-wrap">
                           {visibleMembers
                             .slice(0, 3)
@@ -1438,6 +1626,7 @@ function PlanningPage() {
                               )
                             )}
                         </div>
+                        {/* Row 2: avatars 4-6 */}
                         {visibleMembers.length > 3 && (
                           <div className="flex justify-start gap-1 flex-wrap">
                             {visibleMembers
@@ -1453,6 +1642,7 @@ function PlanningPage() {
                               )}
                           </div>
                         )}
+                        {/* Row 3: avatars 7-9 */}
                         {visibleMembers.length > 6 && (
                           <div className="flex justify-start gap-1 flex-wrap">
                             {visibleMembers
@@ -1471,6 +1661,7 @@ function PlanningPage() {
                       </>
                     )}
 
+                    {/* Expand / collapse button */}
                     <div className="flex justify-center gap-1 mt-1">
                       {showExpandButton && (
                         <button
@@ -1490,7 +1681,7 @@ function PlanningPage() {
                           }
                         >
                           {expanded
-                            ? "−"
+                            ? "\u2212"
                             : `+${Math.max(
                               0,
                               memberIds.length - visibleMembers.length
@@ -1501,6 +1692,7 @@ function PlanningPage() {
                   </div>
                 )}
 
+                {/* Today indicator dot */}
                 {today && (
                   <div className="absolute top-1 right-1">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
@@ -1511,6 +1703,7 @@ function PlanningPage() {
           })}
         </div>
 
+        {/* Calendar legend */}
         <div className="bg-gray-50 dark:bg-gray-700 p-4 border-t border-gray-200 dark:border-gray-600">
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex items-center gap-2">
@@ -1530,7 +1723,7 @@ function PlanningPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs px-2 py-1 rounded-full font-bold bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">
-                50 🔥
+                50
               </span>
               <span>Journée très chargée</span>
             </div>
@@ -1540,14 +1733,17 @@ function PlanningPage() {
     );
   };
 
-  // ───────────────────────────────────────────────────────────────────────────────
-  // Rendu principal
+  // ============================================================================
+  // SECTION 7 -- Main render
+  // ============================================================================
+
   return (
     <div className={classes.pageContainer}>
       <div className={classes.maxWidthWrapper}>
-        {/* En-tête */}
+        {/* Page header */}
         <div className={classes.headerCard}>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            {/* Title and icon */}
             <div className="flex items-center gap-4">
               <div className={classes.iconContainer}>
                 <Calendar className="w-8 h-8 text-white" />
@@ -1560,7 +1756,7 @@ function PlanningPage() {
               </div>
             </div>
 
-            {/* Vues + filtre - ORDRE CORRIGÉ */}
+            {/* View mode switcher and filter toggle */}
             <div className="flex flex-wrap justify-center sm:justify-end bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1 w-full sm:w-auto">
               <button
                 onClick={() => setViewMode("list")}
@@ -1625,6 +1821,7 @@ function PlanningPage() {
               </button>
             </div>
 
+            {/* Admin actions: Excel import and Intratone sync */}
             {role === "admin" && (
               <div className="mt-4 flex flex-col gap-3">
                 <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg transition w-fit">
@@ -1637,7 +1834,7 @@ function PlanningPage() {
                   Importer fichier Excel (.xlsx)
                 </label>
 
-                {/* Intratone Sync */}
+                {/* Intratone sync button */}
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={async () => {
@@ -1667,6 +1864,7 @@ function PlanningPage() {
                     {syncLoading ? "Synchronisation..." : "Synchroniser Intratone"}
                   </button>
 
+                  {/* Sync result feedback */}
                   {syncResult && (
                     <span className={cn(
                       "text-sm font-medium",
@@ -1686,7 +1884,7 @@ function PlanningPage() {
             )}
           </div>
 
-          {/* Navigation période */}
+          {/* Period navigation bar */}
           <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg overflow-visible">
             <button
               onClick={() => navigatePeriod("prev")}
@@ -1696,6 +1894,7 @@ function PlanningPage() {
             </button>
 
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 flex-1 min-w-0">
+              {/* Start date picker */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                   Début:
@@ -1727,6 +1926,7 @@ function PlanningPage() {
                 />
               </div>
 
+              {/* Period type selector */}
               <select
                 className={classes.select}
                 value={period}
@@ -1742,6 +1942,7 @@ function PlanningPage() {
                 <option value="year">Année</option>
               </select>
 
+              {/* Current date range display */}
               <div className="text-center min-w-0">
                 <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-gray-100 truncate">
                   {formatDate(startDate, "dd/MM/yyyy")} -{" "}
@@ -1761,7 +1962,7 @@ function PlanningPage() {
             </button>
           </div>
 
-          {/* Raccourcis */}
+          {/* Quick date presets */}
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
             <div className="flex flex-wrap gap-2">
               <span className="text-sm font-medium text-blue-800 dark:text-blue-300 mr-2">
@@ -1848,10 +2049,11 @@ function PlanningPage() {
           </div>
         </div>
 
-        {/* Filtres */}
+        {/* Filter panel (toggled) */}
         {showFilters && (
           <div className={classes.card + " p-6 mb-6"}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Name filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Rechercher par nom
@@ -1867,6 +2069,7 @@ function PlanningPage() {
                   )}
                 />
               </div>
+              {/* Badge filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Filtrer par badge
@@ -1882,6 +2085,7 @@ function PlanningPage() {
                   )}
                 />
               </div>
+              {/* Night hours toggle */}
               <div className="flex items-end">
                 <label className="flex items-center gap-3 text-sm font-medium p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors">
                   <input
@@ -1895,6 +2099,7 @@ function PlanningPage() {
                   </span>
                 </label>
               </div>
+              {/* Refresh button */}
               <div className="flex items-end">
                 <button
                   onClick={handleRetry}
@@ -1911,10 +2116,10 @@ function PlanningPage() {
           </div>
         )}
 
-        {/* Résumé */}
+        {/* Statistics summary */}
         <StatsResume />
 
-        {/* Contenu principal */}
+        {/* Main content: selected view or empty state */}
         {visibleMembers.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center border border-gray-200 dark:border-gray-700">
             <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1945,7 +2150,7 @@ function PlanningPage() {
           </>
         )}
 
-        {/* Modal pour afficher/éditer le membre sur mobile */}
+        {/* Member edit modal (mobile only) */}
         {showForm && selectedMember && (
           <MemberForm
             member={selectedMember}
@@ -1959,5 +2164,3 @@ function PlanningPage() {
 }
 
 export default PlanningPage;
-
-// ✅ FIN DU FICHIER

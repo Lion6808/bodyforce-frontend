@@ -1,4 +1,32 @@
-// ✅ PARTIE 1/7 : IMPORTS ET CONFIGURATIONS
+// =============================================================================
+// App.js — Point d'entree principal BodyForce
+// =============================================================================
+//
+// Responsabilites :
+//   - Routing (React Router) avec protection par authentification
+//   - Layout responsive : sidebar desktop, bottom nav + menu mobile
+//   - Theme dark/light/auto (hook useDarkMode)
+//   - Navigation par swipe (hook useSwipeNavigation)
+//   - PWA : install prompt, toast, service worker
+//   - Realtime : toast Supabase sur nouveau passage badge
+//
+// Sections :
+//   1. Imports
+//   2. Constants & Configuration
+//   3. Hook useDarkMode
+//   4. Hook useSwipeNavigation
+//   5. LoginPage
+//   6. BottomNavigationBar
+//   7. EnhancedSidebar (desktop)
+//   8. AnimatedMobileMenu
+//   9. PWA (InstallPrompt, PWAToast, usePWA)
+//  10. AppRoutes (layout principal authentifie)
+//  11. App (racine)
+// =============================================================================
+
+// =============================================================================
+// SECTION 1 — Imports
+// =============================================================================
 
 import React, { useState, useEffect } from "react";
 import {
@@ -25,8 +53,6 @@ import {
   FaDownload,
   FaCheck,
   FaTimes as FaTimesIcon,
-  FaChevronLeft,
-  FaChevronRight,
   FaMoon,
   FaSun,
   FaAdjust,
@@ -34,17 +60,15 @@ import {
   FaAngleDoubleRight,
   FaClipboardList,
   FaEnvelope,
-  FaEllipsisH, // Pour le bouton "Plus"
-  FaFilePdf, // Pour les rapports PDF
+  FaEllipsisH,
+  FaFilePdf,
 } from "react-icons/fa";
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
 
-// Messagerie et notifications
+// Pages
 import MessagesPage from "./pages/MessagesPage";
 import NotificationBell from "./components/NotificationBell";
-
-// Import des pages
 import HomePage from "./pages/HomePage";
 import MembersPage from "./pages/MembersPage";
 import PlanningPage from "./pages/PlanningPage";
@@ -56,144 +80,94 @@ import MyAttendancesPage from "./pages/MyAttendancesPage";
 import InvitationsPage from "./pages/InvitationsPage";
 import InvitationSignupPage from "./pages/InvitationSignupPage";
 import MemberFormPage from "./pages/MemberFormPage";
-import ReportsPage from "./pages/ReportsPage"; // ← NOUVEAU : Page des rapports PDF
-import EmailPage from "./pages/EmailPage"; // Page d'envoi d'emails
+import ReportsPage from "./pages/ReportsPage";
+import EmailPage from "./pages/EmailPage";
 
-// Styles et notifications
+// Styles & notifications
 import { ToastContainer, toast as showToast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 
-// Récupération photo de profil
+// =============================================================================
+// SECTION 2 — Constants & Configuration
+// =============================================================================
+
+const APP_VERSION = "2.5.0";
+
+/** Recupere la photo de profil d'un utilisateur par son email */
 const fetchUserPhoto = async (userId) => {
   const { data, error } = await supabase
     .from("members")
     .select("photo")
     .eq("email", userId)
     .single();
-
   return error ? null : data?.photo || null;
 };
 
-// App version
-const APP_VERSION = "2.5.0"; // ← Sync Intratone CRON + Toasts Realtime + BP
-
-// ✅ Configuration des onglets Bottom Nav - DYNAMIQUE selon le rôle
+/**
+ * Retourne les onglets de la barre de navigation mobile selon le role.
+ * Admin : Accueil, Membres, Planning, Paiements, Plus
+ * Membre : Accueil, Messages, Presences, Profil
+ */
 const getBottomNavTabs = (isAdmin) => {
   if (isAdmin) {
     return [
-      {
-        id: "home",
-        name: "Accueil",
-        path: "/",
-        icon: FaHome,
-        color: "text-red-500",
-      },
-      {
-        id: "members",
-        name: "Membres",
-        path: "/members",
-        icon: FaUserFriends,
-        color: "text-green-500",
-      },
-      {
-        id: "planning",
-        name: "Planning",
-        path: "/planning",
-        icon: FaCalendarAlt,
-        color: "text-yellow-500",
-      },
-      {
-        id: "payments",
-        name: "Paiements",
-        path: "/payments",
-        icon: FaCreditCard,
-        color: "text-purple-500",
-      },
-      {
-        id: "more",
-        name: "Plus",
-        path: "/more",
-        icon: FaEllipsisH,
-        color: "text-gray-500",
-        isMore: true,
-      },
-    ];
-  } else {
-    return [
-      {
-        id: "home",
-        name: "Accueil",
-        path: "/",
-        icon: FaHome,
-        color: "text-red-500",
-      },
-      {
-        id: "messages",
-        name: "Messages",
-        path: "/messages",
-        icon: FaEnvelope,
-        color: "text-blue-500",
-      },
-      {
-        id: "attendances",
-        name: "Présences",
-        path: "/my-attendances",
-        icon: FaClipboardList,
-        color: "text-green-500",
-      },
-      {
-        id: "profile",
-        name: "Profil",
-        path: "/profile",
-        icon: FaUser,
-        color: "text-purple-500",
-      },
+      { id: "home", name: "Accueil", path: "/", icon: FaHome, color: "text-red-500" },
+      { id: "members", name: "Membres", path: "/members", icon: FaUserFriends, color: "text-green-500" },
+      { id: "planning", name: "Planning", path: "/planning", icon: FaCalendarAlt, color: "text-yellow-500" },
+      { id: "payments", name: "Paiements", path: "/payments", icon: FaCreditCard, color: "text-purple-500" },
+      { id: "more", name: "Plus", path: "/more", icon: FaEllipsisH, color: "text-gray-500", isMore: true },
     ];
   }
+  return [
+    { id: "home", name: "Accueil", path: "/", icon: FaHome, color: "text-red-500" },
+    { id: "messages", name: "Messages", path: "/messages", icon: FaEnvelope, color: "text-blue-500" },
+    { id: "attendances", name: "Présences", path: "/my-attendances", icon: FaClipboardList, color: "text-green-500" },
+    { id: "profile", name: "Profil", path: "/profile", icon: FaUser, color: "text-purple-500" },
+  ];
 };
 
-// ✅ Menu "Plus" pour admin - MODIFIÉ avec Rapports PDF et Emails
+/** Elements du menu "Plus" (admin, mobile) */
 const getMoreMenuItems = () => [
-  {
-    id: "statistics",
-    name: "Statistiques",
-    path: "/statistics",
-    icon: FaChartBar,
-    color: "text-blue-500",
-  },
-  {
-    id: "reports",
-    name: "Rapports PDF",
-    path: "/reports",
-    icon: FaFilePdf,
-    color: "text-red-500",
-  },
-  {
-    id: "emails",
-    name: "Emails",
-    path: "/emails",
-    icon: FaEnvelope,
-    color: "text-emerald-500",
-  },
-  {
-    id: "messages",
-    name: "Messages",
-    path: "/messages",
-    icon: FaEnvelope,
-    color: "text-sky-500",
-  },
-  {
-    id: "invitations",
-    name: "Invitations",
-    path: "/invitations",
-    icon: FaUserPlus,
-    color: "text-orange-500",
-  },
+  { id: "statistics", name: "Statistiques", path: "/statistics", icon: FaChartBar, color: "text-blue-500" },
+  { id: "reports", name: "Rapports PDF", path: "/reports", icon: FaFilePdf, color: "text-red-500" },
+  { id: "emails", name: "Emails", path: "/emails", icon: FaEnvelope, color: "text-emerald-500" },
+  { id: "messages", name: "Messages", path: "/messages", icon: FaEnvelope, color: "text-sky-500" },
+  { id: "invitations", name: "Invitations", path: "/invitations", icon: FaUserPlus, color: "text-orange-500" },
 ];
 
-// ✅ PARTIE 2/7 : HOOK DARK MODE (Inchangé)
+/**
+ * Retourne les liens de navigation (sidebar desktop + menu mobile).
+ * Factorise la liste dupliquee entre EnhancedSidebar et AnimatedMobileMenu.
+ */
+const getMenuItems = (isAdmin) => [
+  { path: "/", icon: FaHome, label: "Accueil" },
+  ...(isAdmin
+    ? [
+        { path: "/members", icon: FaUserFriends, label: "Membres" },
+        { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
+        { path: "/payments", icon: FaCreditCard, label: "Paiements" },
+        { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
+        { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" },
+        { path: "/emails", icon: FaEnvelope, label: "Emails" },
+        { path: "/messages", icon: FaEnvelope, label: "Messages" },
+        { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
+      ]
+    : [
+        { path: "/messages", icon: FaEnvelope, label: "Messages" },
+        { path: "/my-attendances", icon: FaClipboardList, label: "Mes présences" },
+        { path: "/profile", icon: FaUser, label: "Mon profil" },
+      ]),
+];
 
+// =============================================================================
+// SECTION 3 — Hook useDarkMode
+// =============================================================================
+
+/**
+ * Gere le theme de l'application (clair / sombre / auto).
+ * Le mode auto bascule automatiquement selon l'heure (19h-7h = sombre).
+ */
 function useDarkMode() {
   const [darkMode, setDarkMode] = useState("auto");
   const [actualDarkMode, setActualDarkMode] = useState(false);
@@ -228,6 +202,7 @@ function useDarkMode() {
     }
   };
 
+  // Initialisation depuis localStorage
   useEffect(() => {
     const savedMode = localStorage.getItem("darkMode") || "auto";
     const newActualMode = determineActualMode(savedMode);
@@ -236,12 +211,14 @@ function useDarkMode() {
     applyTheme(newActualMode);
   }, []);
 
+  // Reagir au changement de mode
   useEffect(() => {
     const newActualMode = determineActualMode(darkMode);
     setActualDarkMode(newActualMode);
     applyTheme(newActualMode);
   }, [darkMode]);
 
+  // En mode auto, verifier periodiquement l'heure
   useEffect(() => {
     if (darkMode === "auto") {
       const interval = setInterval(() => {
@@ -296,8 +273,14 @@ function useDarkMode() {
   };
 }
 
-// ✅ PARTIE 3/7 : HOOK SWIPE NAVIGATION (Adapté pour Bottom Nav)
+// =============================================================================
+// SECTION 4 — Hook useSwipeNavigation
+// =============================================================================
 
+/**
+ * Gere la navigation par swipe horizontal sur mobile.
+ * Permet de changer d'onglet en glissant le doigt.
+ */
 function useSwipeNavigation(isAdmin) {
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
@@ -311,7 +294,6 @@ function useSwipeNavigation(isAdmin) {
 
   const minSwipeDistance = 50;
   const maxVerticalDistance = 100;
-
   const tabs = getBottomNavTabs(isAdmin);
 
   const getCurrentTabIndex = () => {
@@ -403,8 +385,11 @@ function useSwipeNavigation(isAdmin) {
   };
 }
 
-// ✅ PARTIE 4/7 : COMPOSANTS (LoginPage, BottomNav, etc.) - Inchangés
+// =============================================================================
+// SECTION 5 — LoginPage
+// =============================================================================
 
+/** Page de connexion (email + mot de passe) */
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -420,10 +405,7 @@ function LoginPage() {
 
     try {
       const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        await supabase.auth.signInWithPassword({ email, password });
 
       if (authError) throw authError;
 
@@ -460,6 +442,7 @@ function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        {/* Logo & titre */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <img
@@ -479,6 +462,7 @@ function LoginPage() {
           </p>
         </div>
 
+        {/* Formulaire de connexion */}
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -549,6 +533,11 @@ function LoginPage() {
   );
 }
 
+// =============================================================================
+// SECTION 6 — BottomNavigationBar (mobile)
+// =============================================================================
+
+/** Barre de navigation fixee en bas sur mobile avec menu "Plus" pour admin */
 function BottomNavigationBar({ isAdmin, currentPath }) {
   const tabs = getBottomNavTabs(isAdmin);
   const navigate = useNavigate();
@@ -570,14 +559,13 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
   };
 
   const isActive = (path) => {
-    if (path === "/") {
-      return currentPath === "/";
-    }
+    if (path === "/") return currentPath === "/";
     return currentPath.startsWith(path);
   };
 
   return (
     <>
+      {/* Backdrop du menu "Plus" */}
       {showMoreMenu && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40"
@@ -585,6 +573,7 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
         />
       )}
 
+      {/* Menu "Plus" (overflow) */}
       {showMoreMenu && (
         <div className="fixed bottom-20 left-0 right-0 z-50 mx-4 mb-2">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
@@ -625,6 +614,7 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
         </div>
       )}
 
+      {/* Barre d'onglets */}
       <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
         <div className="flex justify-around items-center h-16 px-2">
           {tabs.map((tab) => {
@@ -662,8 +652,11 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
   );
 }
 
-// ✅ PARTIE 5/7 : SIDEBARS ET MENUS (EnhancedSidebar, AnimatedMobileMenu)
+// =============================================================================
+// SECTION 7 — EnhancedSidebar (desktop)
+// =============================================================================
 
+/** Sidebar retractable pour la navigation desktop */
 function EnhancedSidebar({
   user,
   isAdmin,
@@ -674,30 +667,7 @@ function EnhancedSidebar({
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
-
-  const menuItems = [
-    { path: "/", icon: FaHome, label: "Accueil" },
-    ...(isAdmin
-      ? [
-          { path: "/members", icon: FaUserFriends, label: "Membres" },
-          { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
-          { path: "/payments", icon: FaCreditCard, label: "Paiements" },
-          { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
-          { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" },
-          { path: "/emails", icon: FaEnvelope, label: "Emails" },
-          { path: "/messages", icon: FaEnvelope, label: "Messages" },
-          { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
-        ]
-      : [
-          { path: "/messages", icon: FaEnvelope, label: "Messages" },
-          {
-            path: "/my-attendances",
-            icon: FaClipboardList,
-            label: "Mes présences",
-          },
-          { path: "/profile", icon: FaUser, label: "Mon profil" },
-        ]),
-  ];
+  const menuItems = getMenuItems(isAdmin);
 
   return (
     <aside
@@ -705,6 +675,7 @@ function EnhancedSidebar({
         isCollapsed ? "w-20" : "w-64"
       }`}
     >
+      {/* Header : logo + bouton collapse */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
@@ -736,6 +707,7 @@ function EnhancedSidebar({
         </div>
       </div>
 
+      {/* Liens de navigation */}
       <nav className="flex-1 overflow-y-auto p-4">
         <div className="space-y-2">
           {menuItems.map((item) => {
@@ -766,6 +738,7 @@ function EnhancedSidebar({
         </div>
       </nav>
 
+      {/* Footer : user info, dark mode, deconnexion */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <div
           className={`flex items-center gap-3 mb-4 ${
@@ -820,6 +793,11 @@ function EnhancedSidebar({
   );
 }
 
+// =============================================================================
+// SECTION 8 — AnimatedMobileMenu (panneau lateral mobile)
+// =============================================================================
+
+/** Menu lateral anime (slide-in) pour mobile */
 function AnimatedMobileMenu({
   isOpen,
   onClose,
@@ -831,33 +809,11 @@ function AnimatedMobileMenu({
   getDarkModeLabel,
 }) {
   const location = useLocation();
-
-  const menuItems = [
-    { path: "/", icon: FaHome, label: "Accueil" },
-    ...(isAdmin
-      ? [
-          { path: "/members", icon: FaUserFriends, label: "Membres" },
-          { path: "/planning", icon: FaCalendarAlt, label: "Planning" },
-          { path: "/payments", icon: FaCreditCard, label: "Paiements" },
-          { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
-          { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" },
-          { path: "/emails", icon: FaEnvelope, label: "Emails" },
-          { path: "/messages", icon: FaEnvelope, label: "Messages" },
-          { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
-        ]
-      : [
-          { path: "/messages", icon: FaEnvelope, label: "Messages" },
-          {
-            path: "/my-attendances",
-            icon: FaClipboardList,
-            label: "Mes présences",
-          },
-          { path: "/profile", icon: FaUser, label: "Mon profil" },
-        ]),
-  ];
+  const menuItems = getMenuItems(isAdmin);
 
   return (
     <>
+      {/* Backdrop */}
       {isOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
@@ -865,12 +821,14 @@ function AnimatedMobileMenu({
         />
       )}
 
+      {/* Panneau lateral */}
       <div
         className={`lg:hidden fixed top-0 right-0 h-full w-80 max-w-full bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
+          {/* Header du panneau */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               Menu
@@ -884,6 +842,7 @@ function AnimatedMobileMenu({
             </button>
           </div>
 
+          {/* Infos utilisateur + navigation */}
           <div className="flex-1 overflow-y-auto p-4">
             <div className="flex items-center gap-3 p-4 mb-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               {user?.photo ? (
@@ -932,6 +891,7 @@ function AnimatedMobileMenu({
             </nav>
           </div>
 
+          {/* Footer : dark mode + deconnexion */}
           <div className="p-4 pb-24 border-t border-gray-200 dark:border-gray-700 space-y-2">
             <button
               onClick={toggleDarkMode}
@@ -960,8 +920,11 @@ function AnimatedMobileMenu({
   );
 }
 
-// ✅ PARTIE 6/7 : PWA (InstallPrompt, PWAToast, usePWA) - Inchangés
+// =============================================================================
+// SECTION 9 — PWA (InstallPrompt, PWAToast, usePWA)
+// =============================================================================
 
+/** Banniere d'invitation a installer la PWA */
 function InstallPrompt({ show, onInstall, onDismiss }) {
   if (!show) return null;
 
@@ -1012,6 +975,7 @@ function InstallPrompt({ show, onInstall, onDismiss }) {
   );
 }
 
+/** Toast de feedback PWA (install success, etc.) */
 function PWAToast({ toast, onClose }) {
   if (!toast) return null;
 
@@ -1034,6 +998,7 @@ function PWAToast({ toast, onClose }) {
   );
 }
 
+/** Hook de gestion PWA : detecte installabilite, affiche prompt, gere install */
 function usePWA() {
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -1064,7 +1029,7 @@ function usePWA() {
       setIsInstalled(true);
       setIsInstallable(false);
       setShowInstallPrompt(false);
-      showToast("Application installée avec succès !", "success");
+      showPWAToast("Application installée avec succès !", "success");
       localStorage.removeItem("pwa-prompt-dismissed");
     };
 
@@ -1082,7 +1047,7 @@ function usePWA() {
 
   const installApp = async () => {
     if (!deferredPrompt) {
-      showToast("Installation non disponible", "info");
+      showPWAToast("Installation non disponible", "info");
       return;
     }
 
@@ -1091,18 +1056,19 @@ function usePWA() {
       const { outcome } = await deferredPrompt.userChoice;
 
       if (outcome === "accepted") {
-        showToast("Installation en cours...", "info");
+        showPWAToast("Installation en cours...", "info");
       }
 
       setDeferredPrompt(null);
       setShowInstallPrompt(false);
     } catch (error) {
       console.error("Erreur installation PWA:", error);
-      showToast("Erreur lors de l'installation", "info");
+      showPWAToast("Erreur lors de l'installation", "info");
     }
   };
 
-  const showToast = (message, type = "info") => {
+  /** Toast interne PWA (distinct du toast react-toastify importe en tant que showToast) */
+  const showPWAToast = (message, type = "info") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
@@ -1127,12 +1093,16 @@ function usePWA() {
   };
 }
 
-// ✅ PARTIE 7/7 : COMPOSANT PRINCIPAL + APP
+// =============================================================================
+// SECTION 10 — AppRoutes (layout principal authentifie)
+// =============================================================================
 
+/** Layout principal avec sidebar, header mobile, routes protegees et bottom nav */
 function AppRoutes() {
   const { user, role, setUser } = useAuth();
   const isAdmin = role === "admin";
 
+  // Charger la photo utilisateur si manquante
   useEffect(() => {
     const updateUserPhoto = async () => {
       if (user && !user.photo) {
@@ -1179,17 +1149,15 @@ function AppRoutes() {
     swipeDirection,
   } = useSwipeNavigation(isAdmin);
 
+  // Detection mobile (breakpoint 768px)
   useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-    };
-
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Desactiver le swipe quand le menu mobile est ouvert
   useEffect(() => {
     setIsSwipeEnabled(!mobileMenuOpen);
   }, [mobileMenuOpen, setIsSwipeEnabled]);
@@ -1204,6 +1172,7 @@ function AppRoutes() {
     }
   };
 
+  // Redirection si non connecte
   if (!user) {
     return <Navigate to="/login" />;
   }
@@ -1230,7 +1199,6 @@ function AppRoutes() {
 
         <div className="flex items-center gap-2">
           <NotificationBell />
-
           <button
             onClick={toggleDarkMode}
             className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -1239,7 +1207,6 @@ function AppRoutes() {
           >
             {getDarkModeIcon()}
           </button>
-
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -1250,6 +1217,7 @@ function AppRoutes() {
         </div>
       </div>
 
+      {/* Sidebar desktop */}
       <EnhancedSidebar
         user={user}
         isAdmin={isAdmin}
@@ -1259,6 +1227,7 @@ function AppRoutes() {
         getDarkModeLabel={getDarkModeLabel}
       />
 
+      {/* Menu mobile (slide-in) */}
       <AnimatedMobileMenu
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
@@ -1270,6 +1239,7 @@ function AppRoutes() {
         getDarkModeLabel={getDarkModeLabel}
       />
 
+      {/* Bouton install PWA */}
       {isInstallable && !isInstalled && (
         <button
           onClick={installApp}
@@ -1284,7 +1254,7 @@ function AppRoutes() {
 
       <PWAToast toast={toast} onClose={closeToast} />
 
-      {/* Contenu principal */}
+      {/* Zone de contenu principal */}
       <main className="flex-1 overflow-y-auto p-4">
         <div
           className={isMobile ? "swipe-container pb-20" : ""}
@@ -1301,9 +1271,11 @@ function AppRoutes() {
                   : "translateX(0)",
             }}
           >
+            {/* Definitions des routes */}
             <Routes>
               <Route path="/" element={<HomePage />} />
 
+              {/* Routes admin uniquement */}
               {isAdmin && (
                 <>
                   <Route path="/members" element={<MembersPage />} />
@@ -1319,17 +1291,19 @@ function AppRoutes() {
                 </>
               )}
 
+              {/* Routes partagees */}
               <Route path="/my-attendances" element={<MyAttendancesPage />} />
               <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/messages" element={<MessagesPage />} />
 
+              {/* Catch-all */}
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </div>
         </div>
       </main>
 
-      {/* Bottom Navigation Bar FIXED en bas (mobile uniquement) */}
+      {/* Bottom nav mobile */}
       {isMobile && (
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
           <BottomNavigationBar
@@ -1342,6 +1316,11 @@ function AppRoutes() {
   );
 }
 
+// =============================================================================
+// SECTION 11 — App (composant racine)
+// =============================================================================
+
+/** Composant racine : routing de premier niveau, realtime toasts, PWA, version */
 function App() {
   const { user, loading } = useAuth();
 
@@ -1355,17 +1334,13 @@ function App() {
     dismissInstallPrompt,
   } = usePWA();
 
-  // --- Realtime : toast sur nouveau passage badge ---
+  // Realtime : toast sur chaque nouveau passage badge
   useEffect(() => {
     const channel = supabase
       .channel("presences-inserts")
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "presences",
-        },
+        { event: "INSERT", schema: "public", table: "presences" },
         async (payload) => {
           try {
             const { badgeId, timestamp } = payload.new;
@@ -1376,9 +1351,7 @@ function App() {
 
             // Bouton Poussoir (pas de badgeId)
             if (!badgeId) {
-              showToast.info(`BP (Sortie) — ${time}`, {
-                autoClose: 5000,
-              });
+              showToast.info(`BP (Sortie) — ${time}`, { autoClose: 5000 });
               return;
             }
 
@@ -1393,7 +1366,7 @@ function App() {
             if (member) {
               memberName = `${member.firstName || ""} ${member.name || ""}`.trim();
             } else {
-              // Chercher dans badge_history
+              // Fallback : chercher dans badge_history
               const { data: bh } = await supabase
                 .from("badge_history")
                 .select("member_id")
@@ -1433,6 +1406,7 @@ function App() {
     dismissInstallPrompt();
   };
 
+  // Ecran de chargement initial
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -1446,6 +1420,7 @@ function App() {
 
   return (
     <Router>
+      {/* Routes de premier niveau */}
       <Routes>
         <Route
           path="/login"
@@ -1455,14 +1430,17 @@ function App() {
         <Route path="/*" element={<AppRoutes />} />
       </Routes>
 
+      {/* Banniere d'installation PWA */}
       <InstallPrompt
         show={showInstallPrompt && isInstallable && !isInstalled}
         onInstall={handleInstallFromPrompt}
         onDismiss={dismissInstallPrompt}
       />
 
+      {/* Toast PWA */}
       <PWAToast toast={toast} onClose={closeToast} />
 
+      {/* Container global des toasts react-toastify */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -1474,6 +1452,7 @@ function App() {
         draggable
         pauseOnHover
       />
+
       {/* Badge de version */}
       <div
         className="fixed bottom-3 right-3 z-50 px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg bg-gray-800 dark:bg-gray-700 text-gray-100 cursor-default"
