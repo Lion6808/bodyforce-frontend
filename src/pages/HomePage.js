@@ -30,7 +30,17 @@ import {
   FaBullseye,
   FaRocket,
   FaDollarSign,
+  FaArrowRight,
 } from "react-icons/fa";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 import { supabaseServices, supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
@@ -1094,7 +1104,7 @@ function HomePage() {
       {/* 6.2 — Grille de statistiques (6 cartes)                            */}
       {/* ------------------------------------------------------------------ */}
       {user && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           {loading.stats ? (
             <>
               <SkeletonCard />
@@ -1288,76 +1298,54 @@ function HomePage() {
                 ))}
               </div>
             ) : attendance7d.length > 0 ? (
-              <div className="relative h-60">
-                {/* Echelle verticale */}
-                <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-xs text-gray-400 dark:text-gray-500 pr-2">
-                  {[...Array(6)].map((_, i) => {
-                    const maxCount = Math.max(
-                      ...attendance7d.map((d) => d.count),
-                      1
-                    );
-                    const value = Math.round((maxCount * (5 - i)) / 5);
-                    return (
-                      <div key={i} className="text-right">
-                        {value}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Barres */}
-                <div className="ml-10 h-full flex items-end justify-between gap-2 pb-8">
-                  {attendance7d.map((dayData, index) => {
-                    const maxCount = Math.max(
-                      ...attendance7d.map((d) => d.count),
-                      1
-                    );
-                    const heightPercent =
-                      maxCount > 0 ? (dayData.count / maxCount) * 100 : 0;
-                    const dayName = format(dayData.date, "EEE", {
-                      locale: fr,
-                    }).substring(0, 3);
-                    const isWeekend =
-                      dayData.date.getDay() === 0 ||
-                      dayData.date.getDay() === 6;
-
-                    // Couleur selon le niveau de frequentation
-                    const gradient =
-                      dayData.count > maxCount * 0.7
-                        ? "from-emerald-500 to-teal-400"
-                        : dayData.count > maxCount * 0.4
-                          ? "from-cyan-500 to-blue-400"
-                          : "from-indigo-500 to-purple-400";
-
-                    return (
-                      <div
-                        key={index}
-                        className="flex-1 h-full flex flex-col items-center justify-end gap-2 group"
-                      >
-                        <div
-                          className={`w-full bg-gradient-to-t ${gradient} rounded-t-xl relative transition-all hover:opacity-80 cursor-pointer shadow-lg`}
-                          style={{
-                            height: `${Math.max(heightPercent, 2)}%`,
-                          }}
-                        >
-                          {/* Tooltip au survol */}
-                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white px-2 py-1 rounded text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl">
-                            {dayData.count}
-                          </div>
-                        </div>
-                        <div
-                          className={`text-xs font-medium ${
-                            isWeekend
-                              ? "text-blue-600 dark:text-blue-400"
-                              : "text-gray-600 dark:text-gray-400"
-                          }`}
-                        >
-                          {dayName}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="h-60">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={attendance7d.map((d) => ({
+                      ...d,
+                      dayName: format(d.date, "EEE", { locale: fr }).substring(0, 3),
+                      isWeekend: d.date.getDay() === 0 || d.date.getDay() === 6,
+                    }))}
+                    margin={{ top: 10, right: 10, left: -10, bottom: 5 }}
+                  >
+                    <XAxis
+                      dataKey="dayName"
+                      tick={{ fontSize: 12, fill: "#9CA3AF" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={35}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1F2937",
+                        border: "none",
+                        borderRadius: "8px",
+                        color: "#fff",
+                        fontSize: "12px",
+                      }}
+                      formatter={(value) => [`${value} passages`, "Total"]}
+                      labelFormatter={(label) => `${label}`}
+                      cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={50}>
+                      {attendance7d.map((entry, index) => {
+                        const maxCount = Math.max(...attendance7d.map((d) => d.count), 1);
+                        const color =
+                          entry.count > maxCount * 0.7
+                            ? "#10B981"
+                            : entry.count > maxCount * 0.4
+                              ? "#06B6D4"
+                              : "#6366F1";
+                        return <Cell key={`cell-${index}`} fill={color} />;
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-gray-500 dark:text-gray-400">
@@ -1372,11 +1360,20 @@ function HomePage() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Derniers passages
               </h2>
-              {!loading.presences && recentPresences.length > 0 && (
-                <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                  {recentPresences.length} récents
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {!loading.presences && recentPresences.length > 0 && (
+                  <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    {recentPresences.length} récents
+                  </span>
+                )}
+                <a
+                  href="/planning"
+                  className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                >
+                  Voir tout
+                  <FaArrowRight className="text-[10px]" />
+                </a>
+              </div>
             </div>
 
             {loading.presences ? (

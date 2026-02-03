@@ -60,6 +60,8 @@ import {
   FaAngleDoubleRight,
   FaClipboardList,
   FaEnvelope,
+  FaPaperPlane,
+  FaComments,
   FaEllipsisH,
   FaFilePdf,
 } from "react-icons/fa";
@@ -121,7 +123,7 @@ const getBottomNavTabs = (isAdmin) => {
   }
   return [
     { id: "home", name: "Accueil", path: "/", icon: FaHome, color: "text-red-500" },
-    { id: "messages", name: "Messages", path: "/messages", icon: FaEnvelope, color: "text-blue-500" },
+    { id: "messages", name: "Messages", path: "/messages", icon: FaComments, color: "text-blue-500" },
     { id: "attendances", name: "Présences", path: "/my-attendances", icon: FaClipboardList, color: "text-green-500" },
     { id: "profile", name: "Profil", path: "/profile", icon: FaUser, color: "text-purple-500" },
   ];
@@ -131,8 +133,8 @@ const getBottomNavTabs = (isAdmin) => {
 const getMoreMenuItems = () => [
   { id: "statistics", name: "Statistiques", path: "/statistics", icon: FaChartBar, color: "text-blue-500" },
   { id: "reports", name: "Rapports PDF", path: "/reports", icon: FaFilePdf, color: "text-red-500" },
-  { id: "emails", name: "Emails", path: "/emails", icon: FaEnvelope, color: "text-emerald-500" },
-  { id: "messages", name: "Messages", path: "/messages", icon: FaEnvelope, color: "text-sky-500" },
+  { id: "emails", name: "Emails", path: "/emails", icon: FaPaperPlane, color: "text-emerald-500" },
+  { id: "messages", name: "Messages", path: "/messages", icon: FaComments, color: "text-sky-500" },
   { id: "invitations", name: "Invitations", path: "/invitations", icon: FaUserPlus, color: "text-orange-500" },
 ];
 
@@ -149,12 +151,12 @@ const getMenuItems = (isAdmin) => [
         { path: "/payments", icon: FaCreditCard, label: "Paiements" },
         { path: "/statistics", icon: FaChartBar, label: "Statistiques" },
         { path: "/reports", icon: FaFilePdf, label: "Rapports PDF" },
-        { path: "/emails", icon: FaEnvelope, label: "Emails" },
-        { path: "/messages", icon: FaEnvelope, label: "Messages" },
+        { path: "/emails", icon: FaPaperPlane, label: "Emails" },
         { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
+        { path: "/messages", icon: FaComments, label: "Messages" },
       ]
     : [
-        { path: "/messages", icon: FaEnvelope, label: "Messages" },
+        { path: "/messages", icon: FaComments, label: "Messages" },
         { path: "/my-attendances", icon: FaClipboardList, label: "Mes présences" },
         { path: "/profile", icon: FaUser, label: "Mon profil" },
       ]),
@@ -1453,9 +1455,9 @@ function App() {
         pauseOnHover
       />
 
-      {/* Badge de version */}
+      {/* Badge de version - positionné plus haut sur mobile pour éviter la bottom nav */}
       <div
-        className="fixed bottom-3 right-3 z-50 px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg bg-gray-800 dark:bg-gray-700 text-gray-100 cursor-default"
+        className="fixed bottom-20 lg:bottom-3 right-3 z-40 px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg bg-gray-800 dark:bg-gray-700 text-gray-100 cursor-default"
         title={`Version de l'application : ${APP_VERSION}`}
       >
         v{APP_VERSION}

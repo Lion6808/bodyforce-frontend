@@ -37,6 +37,7 @@ function EmailPage() {
   // État du service email
   const [emailConfigured, setEmailConfigured] = useState(null);
   const [emailService, setEmailService] = useState(null);
+  const [emailStatusLoading, setEmailStatusLoading] = useState(true);
 
   // Résultats d'envoi
   const [sendResult, setSendResult] = useState(null);
@@ -50,19 +51,25 @@ function EmailPage() {
     try {
       setLoading(true);
 
-      // Charger les membres et le statut email en parallèle
-      const [membersData, emailStatus] = await Promise.all([
-        supabaseServices.getMembersWithoutPhotos(),
-        getEmailStatus().catch(() => ({ configured: false })),
-      ]);
-
+      // Charger les membres en priorité (rapide - Supabase direct)
+      const membersData = await supabaseServices.getMembersWithoutPhotos();
       setMembers(membersData);
-      setEmailConfigured(emailStatus.configured);
-      setEmailService(emailStatus.service);
+      setLoading(false); // Page affichée immédiatement
+
+      // Vérifier le statut email en arrière-plan (peut être lent - cold start Render)
+      setEmailStatusLoading(true);
+      try {
+        const emailStatus = await getEmailStatus();
+        setEmailConfigured(emailStatus.configured);
+        setEmailService(emailStatus.service);
+      } catch {
+        setEmailConfigured(false);
+      } finally {
+        setEmailStatusLoading(false);
+      }
     } catch (error) {
       console.error("Erreur chargement:", error);
       toast.error("Erreur lors du chargement des données");
-    } finally {
       setLoading(false);
     }
   };
@@ -241,7 +248,21 @@ function EmailPage() {
         </div>
 
         {/* Statut du service email */}
-        {emailConfigured === false && (
+        {emailStatusLoading && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-start gap-3">
+            <FaSpinner className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5 animate-spin" />
+            <div>
+              <p className="font-medium text-blue-800 dark:text-blue-300">
+                Vérification du service email...
+              </p>
+              <p className="text-sm text-blue-700 dark:text-blue-400">
+                Connexion au serveur en cours
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!emailStatusLoading && emailConfigured === false && (
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-start gap-3">
             <FaExclamationTriangle className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -255,7 +276,7 @@ function EmailPage() {
           </div>
         )}
 
-        {emailConfigured && (
+        {!emailStatusLoading && emailConfigured && (
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-start gap-3">
             <FaCheckCircle className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -492,6 +513,7 @@ function EmailPage() {
               onClick={handleSend}
               disabled={
                 sending ||
+                emailStatusLoading ||
                 !emailConfigured ||
                 selectedMembers.length === 0 ||
                 !subject.trim() ||
@@ -503,6 +525,11 @@ function EmailPage() {
                 <>
                   <FaSpinner className="animate-spin" />
                   Envoi en cours...
+                </>
+              ) : emailStatusLoading ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  Vérification du serveur...
                 </>
               ) : (
                 <>
