@@ -16,7 +16,7 @@
 // ============================================================
 
 import React, { useEffect, useState, useMemo } from "react";
-import { supabaseServices } from "../supabaseClient";
+import { supabaseServices, supabase } from "../supabaseClient";
 import {
   FaClock, FaUsers, FaStar, FaExclamationTriangle,
   FaChartBar, FaCalendarAlt, FaEuroSign, FaUserCheck,
@@ -28,7 +28,6 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
-  PieChart, Pie, Cell,
   Area, AreaChart, Legend, ComposedChart, Line
 } from "recharts";
 
@@ -52,7 +51,6 @@ const PERIOD_OPTIONS = [
   { value: "current", label: `${CURRENT_YEAR}`, year: CURRENT_YEAR },
   { value: "previous", label: `${PREVIOUS_YEAR}`, year: PREVIOUS_YEAR },
   { value: "comparison", label: "Comparaison" },
-  { value: "all", label: "Tout" },
 ];
 
 // ============================================================
@@ -64,6 +62,20 @@ function formatHourlyStats(hourlyStats) {
     hour: `${Math.floor(h.hour)}h`,
     count: h.count,
   }));
+}
+
+// Formate les dates avec le nom du jour (Lun, Mar, etc.)
+function formatDailyStatsWithDayNames(dailyStats) {
+  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  return dailyStats.map(d => {
+    const date = new Date(d.date);
+    const dayName = dayNames[date.getDay()];
+    const dayNum = date.getDate();
+    return {
+      ...d,
+      dateLabel: `${dayName} ${dayNum}`,
+    };
+  });
 }
 
 function calculateTrend(current, previous) {
@@ -88,11 +100,37 @@ function mergeMonthlyStats(currentStats, previousStats) {
   });
 }
 
+// Merge hourly stats pour comparaison (double colonnes)
+function mergeHourlyStats(currentHourly, previousHourly) {
+  const hours = [];
+  for (let h = 6; h <= 22; h++) { // Heures d'ouverture typiques
+    const current = currentHourly.find(s => s.hour === h);
+    const previous = previousHourly.find(s => s.hour === h);
+    if ((current?.count || 0) > 0 || (previous?.count || 0) > 0) {
+      hours.push({
+        hour: `${h}h`,
+        [CURRENT_YEAR]: current?.count || 0,
+        [PREVIOUS_YEAR]: previous?.count || 0,
+      });
+    }
+  }
+  return hours;
+}
+
 // Calcule la moyenne mensuelle comparable (même période)
 function getComparableAverage(currentPresences, previousPresences) {
   const currentAvg = currentPresences / CURRENT_MONTH;
-  const previousAvg = previousPresences / 12;
+  const previousAvg = previousPresences / CURRENT_MONTH; // Même période!
   return { currentAvg: Math.round(currentAvg), previousAvg: Math.round(previousAvg) };
+}
+
+// Calcule les présences de l'année précédente sur la même période (mois 1 à CURRENT_MONTH)
+function getComparablePreviousPresences(previousMonthlyStats) {
+  if (!previousMonthlyStats || !previousMonthlyStats.length) return 0;
+  // Ne compter que les mois de 0 à CURRENT_MONTH - 1 (même période que l'année en cours)
+  return previousMonthlyStats
+    .filter(m => m.monthIndex < CURRENT_MONTH)
+    .reduce((sum, m) => sum + m.count, 0);
 }
 
 // Génère un message d'insight basé sur les données
@@ -245,8 +283,8 @@ function InsightBanner({ type, message, icon }) {
 }
 
 function SummaryBanner({ displayStats, stats, previousYearStats }) {
-  // Calculer le score global de santé de la salle
-  const presenceTrend = calculateTrend(displayStats?.currentPresences || 0, displayStats?.previousPresences || 0);
+  // Calculer le score global de santé de la salle (comparaison sur même période)
+  const presenceTrend = calculateTrend(displayStats?.currentPresences || 0, displayStats?.comparablePreviousPresences || 0);
   const activeRate = stats.total > 0 ? (stats.actifs / stats.total * 100) : 0;
 
   // Score: +1 pour tendance positive, +1 pour taux actif > 70%, +1 pour peu d'expirés
@@ -382,6 +420,9 @@ export default function StatisticsPage() {
   const [baseData, setBaseData] = useState(null);
   const [currentYearStats, setCurrentYearStats] = useState(null);
   const [previousYearStats, setPreviousYearStats] = useState(null);
+  const [topMembersCurrent, setTopMembersCurrent] = useState([]);
+  const [topMembersPrevious, setTopMembersPrevious] = useState([]);
+  const [championOfMonth, setChampionOfMonth] = useState(null);
 
   // Fetch all data on mount
   useEffect(() => {
@@ -393,15 +434,27 @@ export default function StatisticsPage() {
       setLoading(true);
       setError(null);
 
-      const [baseResult, currentYear, previousYear] = await Promise.all([
+      const [baseResult, currentYear, previousYear, topCurrent, topPrevious] = await Promise.all([
         supabaseServices.getDetailedStatistics(),
         supabaseServices.getYearlyPresenceStats(CURRENT_YEAR),
         supabaseServices.getYearlyPresenceStats(PREVIOUS_YEAR),
+        supabaseServices.getTopMembersByYear(CURRENT_YEAR, 10),
+        supabaseServices.getTopMembersByYear(PREVIOUS_YEAR, 10),
       ]);
 
       setBaseData(baseResult);
       setCurrentYearStats(currentYear);
       setPreviousYearStats(previousYear);
+
+      // Filtrer les membres sans badge valide
+      const filterValidMembers = (members) => members.filter(m =>
+        m.badge_number || m.badgeId
+      );
+      setTopMembersCurrent(filterValidMembers(topCurrent || []));
+      setTopMembersPrevious(filterValidMembers(topPrevious || []));
+
+      // Calculer le champion du mois (présences du mois courant uniquement)
+      await fetchChampionOfMonth();
     } catch (err) {
       console.error("Erreur chargement statistiques:", err);
       setError(err?.message || "Erreur lors du chargement des données");
@@ -410,13 +463,39 @@ export default function StatisticsPage() {
     }
   };
 
+  // Récupère le champion du mois courant
+  const fetchChampionOfMonth = async () => {
+    try {
+      const startDate = `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, '0')}-01T00:00:00`;
+      const lastDay = new Date(CURRENT_YEAR, CURRENT_MONTH, 0).getDate();
+      const endDate = `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, '0')}-${lastDay}T23:59:59`;
+
+      // Appeler la RPC avec les dates du mois courant
+      const { data } = await supabase.rpc('get_top_members_by_period', {
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_limit: 1
+      });
+
+      if (data && data.length > 0 && (data[0].badge_number || data[0].badgeId)) {
+        setChampionOfMonth(data[0]);
+      }
+    } catch (err) {
+      console.warn("Erreur fetchChampionOfMonth:", err);
+    }
+  };
+
   // Computed data based on period
   const displayStats = useMemo(() => {
     if (!currentYearStats || !previousYearStats) return null;
 
+    // Calculer les présences de l'année précédente sur la MÊME PÉRIODE (Jan à mois actuel)
+    const comparablePreviousPresences = getComparablePreviousPresences(previousYearStats.monthlyStats);
+
     return {
       currentPresences: currentYearStats.totalPresences,
-      previousPresences: previousYearStats.totalPresences,
+      previousPresences: previousYearStats.totalPresences, // Total année complète
+      comparablePreviousPresences, // Même période pour comparaison équitable
       totalPresences: (currentYearStats.totalPresences || 0) + (previousYearStats.totalPresences || 0),
       currentMonthly: currentYearStats.monthlyStats,
       previousMonthly: previousYearStats.monthlyStats,
@@ -431,6 +510,15 @@ export default function StatisticsPage() {
     return mergeMonthlyStats(displayStats.currentMonthly, displayStats.previousMonthly);
   }, [displayStats]);
 
+  // Top members selon la période sélectionnée
+  const displayTopMembers = useMemo(() => {
+    if (period === "previous") {
+      return topMembersPrevious;
+    }
+    // Pour "current" et "comparison", afficher l'année en cours
+    return topMembersCurrent;
+  }, [period, topMembersCurrent, topMembersPrevious]);
+
   // Insights
   const insights = useMemo(() => {
     if (!displayStats || !baseData) return {};
@@ -438,7 +526,7 @@ export default function StatisticsPage() {
     return {
       presence: generateInsight("presence", {
         current: displayStats.currentPresences,
-        previous: displayStats.previousPresences
+        previous: displayStats.comparablePreviousPresences // Même période pour comparaison équitable
       }),
       members: generateInsight("members", {
         total: stats.total || 0,
@@ -488,15 +576,13 @@ export default function StatisticsPage() {
 
   // Destructure base data
   const stats = baseData?.stats || {};
-  const topMembers = baseData?.topMembers || [];
   const dailyStats = baseData?.dailyStats || [];
-  const genderStats = baseData?.genderStats || [];
   const paymentStats = baseData?.paymentStats || {};
 
-  // Calculs comparatifs
+  // Calculs comparatifs (même période pour comparaison équitable)
   const { currentAvg, previousAvg } = getComparableAverage(
     displayStats?.currentPresences || 0,
-    displayStats?.previousPresences || 0
+    displayStats?.comparablePreviousPresences || 0
   );
 
   return (
@@ -541,15 +627,15 @@ export default function StatisticsPage() {
           icon={<FaClock className="text-blue-500 text-2xl" />}
           label={`Passages ${CURRENT_YEAR}`}
           value={displayStats?.currentPresences || 0}
-          previousValue={displayStats?.previousPresences}
+          previousValue={displayStats?.comparablePreviousPresences}
           showTrend={true}
           highlight={true}
         />
         <StatCard
           icon={<FaClock className="text-purple-500 text-2xl" />}
-          label={`Passages ${PREVIOUS_YEAR}`}
-          value={displayStats?.previousPresences || 0}
-          subtitle="année de référence"
+          label={`Passages ${PREVIOUS_YEAR} (même période)`}
+          value={displayStats?.comparablePreviousPresences || 0}
+          subtitle={`Jan-${['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][CURRENT_MONTH - 1]} ${PREVIOUS_YEAR}`}
         />
         <StatCard
           icon={<FaCalendarAlt className="text-cyan-500 text-2xl" />}
@@ -590,8 +676,6 @@ export default function StatisticsPage() {
               monthlyData = displayStats?.currentMonthly;
             } else if (period === "previous") {
               monthlyData = displayStats?.previousMonthly;
-            } else if (period === "all") {
-              monthlyData = displayStats?.currentMonthly;
             } else {
               monthlyData = comparisonMonthlyData;
             }
@@ -645,10 +729,44 @@ export default function StatisticsPage() {
         </Section>
 
         <Section
-          title={`Créneaux horaires ${period === "previous" ? `(${PREVIOUS_YEAR})` : `(${CURRENT_YEAR})`}`}
+          title={`Créneaux horaires ${period === "comparison" ? "(comparaison)" : period === "previous" ? `(${PREVIOUS_YEAR})` : `(${CURRENT_YEAR})`}`}
           icon={<FaClock />}
         >
           {(() => {
+            // Mode comparaison : double colonnes
+            if (period === "comparison") {
+              const comparisonHourlyData = mergeHourlyStats(
+                displayStats?.currentHourly || [],
+                displayStats?.previousHourly || []
+              );
+              if (!comparisonHourlyData?.length) return <NoDataMessage />;
+
+              return (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={comparisonHourlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="hour" stroke="#9CA3AF" />
+                    <YAxis stroke="#9CA3AF" />
+                    <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
+                    <Legend />
+                    <Bar
+                      dataKey={CURRENT_YEAR}
+                      fill="#10B981"
+                      radius={[4, 4, 0, 0]}
+                      name={`${CURRENT_YEAR}`}
+                    />
+                    <Bar
+                      dataKey={PREVIOUS_YEAR}
+                      fill="#9333EA"
+                      radius={[4, 4, 0, 0]}
+                      name={`${PREVIOUS_YEAR}`}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              );
+            }
+
+            // Mode simple : une seule année
             const hourlyData = period === "previous"
               ? displayStats?.previousHourly
               : displayStats?.currentHourly;
@@ -689,17 +807,21 @@ export default function StatisticsPage() {
       <Section title="Activité récente (7 derniers jours)" icon={<FaCalendarAlt />} className="mb-6">
         {dailyStats.length > 0 ? (
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={dailyStats}>
+            <AreaChart data={formatDailyStatsWithDayNames(dailyStats)}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="date" stroke="#9CA3AF" />
+              <XAxis dataKey="dateLabel" stroke="#9CA3AF" />
               <YAxis stroke="#9CA3AF" />
-              <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
+              <Tooltip
+                contentStyle={TOOLTIP_CONTENT_STYLE}
+                labelFormatter={(label) => `${label}`}
+              />
               <Area
                 type="monotone"
                 dataKey="count"
                 stroke="#3B82F6"
                 fill="#3B82F6"
                 fillOpacity={0.3}
+                name="Passages"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -790,8 +912,8 @@ export default function StatisticsPage() {
         <StatCard
           icon={<FaStar className="text-orange-500 text-2xl" />}
           label="Champion du mois"
-          value={topMembers[0]?.visit_count || 0}
-          subtitle={topMembers[0] ? `${topMembers[0].firstName} ${topMembers[0].name}` : ""}
+          value={championOfMonth?.visit_count || 0}
+          subtitle={championOfMonth ? `${championOfMonth.firstName} ${championOfMonth.name}` : "Pas de données"}
         />
       </div>
 
@@ -805,41 +927,16 @@ export default function StatisticsPage() {
         </div>
       )}
 
-      {/* Graphique genre */}
+      {/* Top members podium */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Section title="Répartition par genre" icon={<FaUsers />}>
-          {genderStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={genderStats}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  innerRadius={50}
-                  label={({ name, value, percent }) =>
-                    `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
-                  }
-                >
-                  {genderStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <NoDataMessage />
-          )}
-        </Section>
-
         {/* Top members podium */}
-        <Section title="Podium - Top visiteurs" icon={<FaTrophy className="text-yellow-500" />}>
-          {topMembers.length > 0 ? (
+        <Section
+          title={`Podium - Top visiteurs ${period === "previous" ? PREVIOUS_YEAR : CURRENT_YEAR}`}
+          icon={<FaTrophy className="text-yellow-500" />}
+        >
+          {displayTopMembers.length > 0 ? (
             <div className="space-y-3">
-              {topMembers.slice(0, 5).map((member, index) => (
+              {displayTopMembers.slice(0, 5).map((member, index) => (
                 <div
                   key={member.id ?? member.badgeId ?? index}
                   className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
@@ -872,9 +969,9 @@ export default function StatisticsPage() {
                   </div>
                 </div>
               ))}
-              {topMembers.length > 5 && (
+              {displayTopMembers.length > 5 && (
                 <div className="text-center text-sm text-gray-400 pt-2">
-                  ... et {topMembers.length - 5} autres membres réguliers
+                  ... et {displayTopMembers.length - 5} autres membres réguliers
                 </div>
               )}
             </div>
