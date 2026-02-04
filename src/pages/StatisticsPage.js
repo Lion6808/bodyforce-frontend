@@ -16,7 +16,7 @@
 // ============================================================
 
 import React, { useEffect, useState, useMemo } from "react";
-import { supabaseServices, supabase } from "../supabaseClient";
+import { supabaseServices } from "../supabaseClient";
 import {
   FaClock, FaUsers, FaStar, FaExclamationTriangle,
   FaChartBar, FaCalendarAlt, FaEuroSign, FaUserCheck,
@@ -469,19 +469,15 @@ export default function StatisticsPage() {
     }
   };
 
-  // Récupère le champion du mois courant
+  // Récupère le champion du mois courant (via calcul côté client)
   const fetchChampionOfMonth = async () => {
     try {
       const startDate = `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, '0')}-01T00:00:00`;
       const lastDay = new Date(CURRENT_YEAR, CURRENT_MONTH, 0).getDate();
       const endDate = `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, '0')}-${lastDay}T23:59:59`;
 
-      // Appeler la RPC avec les dates du mois courant
-      const { data } = await supabase.rpc('get_top_members_by_period', {
-        p_start_date: startDate,
-        p_end_date: endDate,
-        p_limit: 1
-      });
+      // Utiliser la fonction côté client qui passe par badge_history
+      const data = await supabaseServices.getTopMembersByPeriod(startDate, endDate, 1);
 
       if (data && data.length > 0 && (data[0].badge_number || data[0].badgeId)) {
         setChampionOfMonth(data[0]);

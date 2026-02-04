@@ -508,28 +508,152 @@ export const supabaseServices = {
     }
   },
 
-  // ✅ NOUVEAU : Top membres par année
+  // ✅ CORRIGÉ : Top membres par année (calcul côté client via badge_history)
   async getTopMembersByYear(year, limit = 10) {
     try {
       const startDate = `${year}-01-01T00:00:00`;
       const endDate = `${year}-12-31T23:59:59`;
 
-      // Récupérer toutes les présences de l'année avec badge_history
-      const { data, error } = await supabase.rpc('get_top_members_by_period', {
-        p_start_date: startDate,
-        p_end_date: endDate,
-        p_limit: limit
+      // 1. Récupérer toutes les présences de l'année
+      const { data: presences, error: presError } = await supabase
+        .from('presences')
+        .select('id, badgeId')
+        .gte('timestamp', startDate)
+        .lte('timestamp', endDate);
+
+      if (presError) throw presError;
+
+      // 2. Récupérer tout le badge_history
+      const { data: badgeHistory, error: bhError } = await supabase
+        .from('badge_history')
+        .select('member_id, badge_real_id');
+
+      if (bhError) throw bhError;
+
+      // 3. Récupérer tous les membres
+      const { data: members, error: memError } = await supabase
+        .from('members')
+        .select('id, name, firstName, badgeId, badge_number');
+
+      if (memError) throw memError;
+
+      // 4. Créer un map badge_real_id -> member_id
+      const badgeToMember = {};
+      badgeHistory.forEach(bh => {
+        if (bh.badge_real_id && bh.member_id) {
+          badgeToMember[bh.badge_real_id] = bh.member_id;
+        }
       });
 
-      if (error) {
-        // Fallback si la RPC n'existe pas : calcul côté client
-        console.warn("RPC get_top_members_by_period non disponible, fallback côté client");
-        return [];
-      }
+      // 5. Compter les présences par member_id
+      const presenceCount = {};
+      presences.forEach(p => {
+        const memberId = badgeToMember[p.badgeId];
+        if (memberId) {
+          presenceCount[memberId] = (presenceCount[memberId] || 0) + 1;
+        }
+      });
 
-      return data || [];
+      // 6. Créer le résultat avec les infos membres
+      const membersMap = {};
+      members.forEach(m => {
+        membersMap[m.id] = m;
+      });
+
+      const result = Object.entries(presenceCount)
+        .map(([memberId, count]) => {
+          const member = membersMap[memberId];
+          if (!member) return null;
+          return {
+            id: member.id,
+            name: member.name,
+            firstName: member.firstName,
+            badgeId: member.badgeId,
+            badge_number: member.badge_number,
+            visit_count: count
+          };
+        })
+        .filter(m => m && (m.badge_number || m.badgeId)) // Filtrer membres sans badge
+        .sort((a, b) => b.visit_count - a.visit_count)
+        .slice(0, limit);
+
+      console.log(`📊 [Client] getTopMembersByYear(${year}): Top ${result.length} membres calculés via badge_history`);
+      return result;
     } catch (error) {
       console.error(`Erreur getTopMembersByYear(${year}):`, error);
+      return [];
+    }
+  },
+
+  // ✅ NOUVEAU : Top membres par période (calcul côté client via badge_history)
+  async getTopMembersByPeriod(startDate, endDate, limit = 10) {
+    try {
+      // 1. Récupérer les présences de la période
+      const { data: presences, error: presError } = await supabase
+        .from('presences')
+        .select('id, badgeId')
+        .gte('timestamp', startDate)
+        .lte('timestamp', endDate);
+
+      if (presError) throw presError;
+
+      // 2. Récupérer tout le badge_history
+      const { data: badgeHistory, error: bhError } = await supabase
+        .from('badge_history')
+        .select('member_id, badge_real_id');
+
+      if (bhError) throw bhError;
+
+      // 3. Récupérer tous les membres
+      const { data: members, error: memError } = await supabase
+        .from('members')
+        .select('id, name, firstName, badgeId, badge_number');
+
+      if (memError) throw memError;
+
+      // 4. Créer un map badge_real_id -> member_id
+      const badgeToMember = {};
+      badgeHistory.forEach(bh => {
+        if (bh.badge_real_id && bh.member_id) {
+          badgeToMember[bh.badge_real_id] = bh.member_id;
+        }
+      });
+
+      // 5. Compter les présences par member_id
+      const presenceCount = {};
+      presences.forEach(p => {
+        const memberId = badgeToMember[p.badgeId];
+        if (memberId) {
+          presenceCount[memberId] = (presenceCount[memberId] || 0) + 1;
+        }
+      });
+
+      // 6. Créer le résultat avec les infos membres
+      const membersMap = {};
+      members.forEach(m => {
+        membersMap[m.id] = m;
+      });
+
+      const result = Object.entries(presenceCount)
+        .map(([memberId, count]) => {
+          const member = membersMap[memberId];
+          if (!member) return null;
+          return {
+            id: member.id,
+            name: member.name,
+            firstName: member.firstName,
+            badgeId: member.badgeId,
+            badge_number: member.badge_number,
+            visit_count: count
+          };
+        })
+        .filter(m => m && (m.badge_number || m.badgeId))
+        .sort((a, b) => b.visit_count - a.visit_count)
+        .slice(0, limit);
+
+      return result;
+    } catch (error) {
+      console.error(`Erreur getTopMembersByPeriod:`, error);
       return [];
     }
   },
