@@ -217,6 +217,10 @@ export default function StatisticsPage() {
         supabaseServices.getYearlyPresenceStats(PREVIOUS_YEAR),
       ]);
 
+      // Debug: vérifier les données
+      console.log(`📊 Stats ${CURRENT_YEAR}:`, currentYear);
+      console.log(`📊 Stats ${PREVIOUS_YEAR}:`, previousYear);
+
       setBaseData(baseResult);
       setCurrentYearStats(currentYear);
       setPreviousYearStats(previousYear);
