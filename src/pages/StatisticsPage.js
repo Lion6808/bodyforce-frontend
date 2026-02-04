@@ -38,6 +38,7 @@ import {
 const CURRENT_YEAR = new Date().getFullYear();
 const PREVIOUS_YEAR = CURRENT_YEAR - 1;
 const CURRENT_MONTH = new Date().getMonth() + 1; // 1-12
+const CURRENT_DAY = new Date().getDate(); // Jour du mois (1-31)
 
 const TOOLTIP_CONTENT_STYLE = {
   backgroundColor: "#111827",
@@ -122,15 +123,6 @@ function getComparableAverage(currentPresences, previousPresences) {
   const currentAvg = currentPresences / CURRENT_MONTH;
   const previousAvg = previousPresences / CURRENT_MONTH; // Même période!
   return { currentAvg: Math.round(currentAvg), previousAvg: Math.round(previousAvg) };
-}
-
-// Calcule les présences de l'année précédente sur la même période (mois 1 à CURRENT_MONTH)
-function getComparablePreviousPresences(previousMonthlyStats) {
-  if (!previousMonthlyStats || !previousMonthlyStats.length) return 0;
-  // Ne compter que les mois de 0 à CURRENT_MONTH - 1 (même période que l'année en cours)
-  return previousMonthlyStats
-    .filter(m => m.monthIndex < CURRENT_MONTH)
-    .reduce((sum, m) => sum + m.count, 0);
 }
 
 // Génère un message d'insight basé sur les données
@@ -423,6 +415,7 @@ export default function StatisticsPage() {
   const [topMembersCurrent, setTopMembersCurrent] = useState([]);
   const [topMembersPrevious, setTopMembersPrevious] = useState([]);
   const [championOfMonth, setChampionOfMonth] = useState(null);
+  const [exactPreviousPresences, setExactPreviousPresences] = useState(0); // Présences N-1 même période exacte
 
   // Fetch all data on mount
   useEffect(() => {
@@ -434,17 +427,20 @@ export default function StatisticsPage() {
       setLoading(true);
       setError(null);
 
-      const [baseResult, currentYear, previousYear, topCurrent, topPrevious] = await Promise.all([
+      const [baseResult, currentYear, previousYear, topCurrent, topPrevious, prevExact] = await Promise.all([
         supabaseServices.getDetailedStatistics(),
         supabaseServices.getYearlyPresenceStats(CURRENT_YEAR),
         supabaseServices.getYearlyPresenceStats(PREVIOUS_YEAR),
         supabaseServices.getTopMembersByYear(CURRENT_YEAR, 10),
         supabaseServices.getTopMembersByYear(PREVIOUS_YEAR, 10),
+        // Récupérer présences N-1 jusqu'au même jour (comparaison équitable)
+        supabaseServices.getPresenceCountUntilDate(PREVIOUS_YEAR, CURRENT_MONTH, CURRENT_DAY),
       ]);
 
       setBaseData(baseResult);
       setCurrentYearStats(currentYear);
       setPreviousYearStats(previousYear);
+      setExactPreviousPresences(prevExact);
 
       // Filtrer les membres sans badge valide
       const filterValidMembers = (members) => members.filter(m =>
@@ -499,20 +495,19 @@ export default function StatisticsPage() {
   const displayStats = useMemo(() => {
     if (!currentYearStats || !previousYearStats) return null;
 
-    // Calculer les présences de l'année précédente sur la MÊME PÉRIODE (Jan à mois actuel)
-    const comparablePreviousPresences = getComparablePreviousPresences(previousYearStats.monthlyStats);
-
+    // Utiliser exactPreviousPresences pour une comparaison équitable jour par jour
+    // (présences du 1er janvier au même jour/mois de l'année précédente)
     return {
       currentPresences: currentYearStats.totalPresences,
       previousPresences: previousYearStats.totalPresences, // Total année complète
-      comparablePreviousPresences, // Même période pour comparaison équitable
+      comparablePreviousPresences: exactPreviousPresences, // Même période EXACTE (même jour)
       totalPresences: (currentYearStats.totalPresences || 0) + (previousYearStats.totalPresences || 0),
       currentMonthly: currentYearStats.monthlyStats,
       previousMonthly: previousYearStats.monthlyStats,
       currentHourly: currentYearStats.hourlyStats,
       previousHourly: previousYearStats.hourlyStats,
     };
-  }, [currentYearStats, previousYearStats]);
+  }, [currentYearStats, previousYearStats, exactPreviousPresences]);
 
   // Merged monthly data for comparison chart
   const comparisonMonthlyData = useMemo(() => {
@@ -645,7 +640,7 @@ export default function StatisticsPage() {
           icon={<FaClock className="text-purple-500 text-2xl" />}
           label={`Passages ${PREVIOUS_YEAR} (même période)`}
           value={displayStats?.comparablePreviousPresences || 0}
-          subtitle={`Jan-${['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][CURRENT_MONTH - 1]} ${PREVIOUS_YEAR}`}
+          subtitle={`1 Jan - ${CURRENT_DAY} ${['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][CURRENT_MONTH - 1]} ${PREVIOUS_YEAR}`}
         />
         <StatCard
           icon={<FaCalendarAlt className="text-cyan-500 text-2xl" />}

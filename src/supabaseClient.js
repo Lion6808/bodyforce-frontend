@@ -486,6 +486,28 @@ export const supabaseServices = {
     }
   },
 
+  // ✅ NOUVEAU : Compte les présences d'une année jusqu'à une date précise (pour comparaison équitable)
+  async getPresenceCountUntilDate(year, month, day) {
+    try {
+      const startDate = `${year}-01-01T00:00:00`;
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T23:59:59`;
+
+      const { count, error } = await supabase
+        .from('presences')
+        .select('*', { count: 'exact', head: true })
+        .gte('timestamp', startDate)
+        .lte('timestamp', endDate);
+
+      if (error) throw error;
+
+      console.log(`📊 [Supabase] getPresenceCountUntilDate(${year}, ${month}, ${day}): ${count} présences`);
+      return count || 0;
+    } catch (error) {
+      console.error(`Erreur getPresenceCountUntilDate(${year}, ${month}, ${day}):`, error);
+      throw error;
+    }
+  },
+
   // ✅ NOUVEAU : Top membres par année
   async getTopMembersByYear(year, limit = 10) {
     try {
