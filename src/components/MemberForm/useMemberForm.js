@@ -214,7 +214,13 @@ export function useMemberForm(member, onSave) {
   
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ ...form, files: JSON.stringify(form.files) }, true);
+    // Prepare data: convert badge_number to integer or null if empty
+    const preparedForm = {
+      ...form,
+      badge_number: form.badge_number ? parseInt(form.badge_number, 10) : null,
+      badgeId: form.badgeId || null,
+    };
+    onSave({ ...preparedForm, files: JSON.stringify(preparedForm.files) }, true);
   };
 
   const age = form.birthdate ? Math.floor((new Date() - new Date(form.birthdate)) / (365.25 * 24 * 3600 * 1000)) : null;

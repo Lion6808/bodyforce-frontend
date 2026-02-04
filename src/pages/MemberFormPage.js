@@ -957,26 +957,33 @@ function MemberFormPage() {
     try {
       setUploadStatus({ loading: true, error: null, success: null });
 
+      // Prepare data: convert badge_number to integer or null if empty
+      const preparedForm = {
+        ...form,
+        badge_number: form.badge_number ? parseInt(form.badge_number, 10) : null,
+        badgeId: form.badgeId || null,
+      };
+
       let savedMemberId;
 
       if (member?.id) {
         // Check if badge was reassigned
-        if (form.badgeId && form.badgeId !== member.badgeId) {
+        if (preparedForm.badgeId && preparedForm.badgeId !== member.badgeId) {
           console.log(
-            `Reassignation du badge ${form.badgeId} au membre ${member.id}`
+            `Reassignation du badge ${preparedForm.badgeId} au membre ${member.id}`
           );
 
-          await supabaseServices.reassignBadge(form.badgeId, member.id);
+          await supabaseServices.reassignBadge(preparedForm.badgeId, member.id);
 
-          const { badgeId, ...formWithoutBadge } = form;
+          const { badgeId, ...formWithoutBadge } = preparedForm;
           await supabaseServices.updateMember(member.id, {
             ...formWithoutBadge,
             files: JSON.stringify(formWithoutBadge.files),
           });
         } else {
           await supabaseServices.updateMember(member.id, {
-            ...form,
-            files: JSON.stringify(form.files),
+            ...preparedForm,
+            files: JSON.stringify(preparedForm.files),
           });
         }
 
@@ -988,8 +995,8 @@ function MemberFormPage() {
         });
       } else {
         const newMember = await supabaseServices.createMember({
-          ...form,
-          files: JSON.stringify(form.files),
+          ...preparedForm,
+          files: JSON.stringify(preparedForm.files),
         });
         savedMemberId = newMember.id;
         setUploadStatus({

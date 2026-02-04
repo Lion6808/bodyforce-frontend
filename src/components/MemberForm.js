@@ -893,17 +893,24 @@ function MemberForm({ member, onSave, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Prepare data: convert badge_number to integer or null if empty
+    const preparedForm = {
+      ...form,
+      badge_number: form.badge_number ? parseInt(form.badge_number, 10) : null,
+      badgeId: form.badgeId || null,
+    };
+
     // 🎯 Détecter si le badge a changé
-    if (member?.id && form.badgeId && form.badgeId !== member.badgeId) {
-      console.log(`🔄 Badge modifié: ${member.badgeId} → ${form.badgeId}`);
+    if (member?.id && preparedForm.badgeId && preparedForm.badgeId !== member.badgeId) {
+      console.log(`🔄 Badge modifié: ${member.badgeId} → ${preparedForm.badgeId}`);
 
       if (
         typeof supabaseServices !== "undefined" &&
         supabaseServices.reassignBadge
       ) {
         try {
-          await supabaseServices.reassignBadge(form.badgeId, member.id);
-          const { badgeId, ...formWithoutBadge } = form;
+          await supabaseServices.reassignBadge(preparedForm.badgeId, member.id);
+          const { badgeId, ...formWithoutBadge } = preparedForm;
           onSave(
             {
               ...formWithoutBadge,
@@ -918,7 +925,7 @@ function MemberForm({ member, onSave, onCancel }) {
       }
     }
 
-    onSave({ ...form, files: JSON.stringify(form.files) }, true);
+    onSave({ ...preparedForm, files: JSON.stringify(preparedForm.files) }, true);
   };
 
   // --- Upload de documents (bucket: documents) ---
