@@ -1079,7 +1079,7 @@ function MembersPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
         <Widget
           title="Total"
-          value={total - expiredCount}
+          value={total}
           onClick={() => setActiveFilter("Actifs")}
           active={activeFilter === "Actifs" || !activeFilter}
         />
