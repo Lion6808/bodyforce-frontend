@@ -3,8 +3,9 @@
  *
  * Dashboard page displaying detailed gym statistics with year-over-year comparison.
  * Features:
+ *  - Summary banner with overall assessment
  *  - Year selector (current year, previous year, all time)
- *  - KPI cards with trend indicators
+ *  - KPI cards grouped by category with insights
  *  - Comparative charts (current vs previous year)
  *  - Top members by period
  *  - Expired subscriptions list
@@ -20,13 +21,15 @@ import {
   FaClock, FaUsers, FaStar, FaExclamationTriangle,
   FaChartBar, FaCalendarAlt, FaEuroSign, FaUserCheck,
   FaUserTimes, FaMars, FaVenus, FaGraduationCap,
-  FaArrowUp, FaArrowDown, FaMinus, FaSync
+  FaArrowUp, FaArrowDown, FaMinus, FaSync,
+  FaCheckCircle, FaTimesCircle, FaInfoCircle,
+  FaChartLine, FaUserFriends, FaTrophy, FaLightbulb
 } from "react-icons/fa";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
-  LineChart, Line, PieChart, Pie, Cell,
-  Area, AreaChart, Legend, ComposedChart
+  PieChart, Pie, Cell,
+  Area, AreaChart, Legend, ComposedChart, Line
 } from "recharts";
 
 // ============================================================
@@ -35,6 +38,7 @@ import {
 
 const CURRENT_YEAR = new Date().getFullYear();
 const PREVIOUS_YEAR = CURRENT_YEAR - 1;
+const CURRENT_MONTH = new Date().getMonth() + 1; // 1-12
 
 const TOOLTIP_CONTENT_STYLE = {
   backgroundColor: "#111827",
@@ -84,11 +88,66 @@ function mergeMonthlyStats(currentStats, previousStats) {
   });
 }
 
+// Calcule la moyenne mensuelle comparable (même période)
+function getComparableAverage(currentPresences, previousPresences) {
+  const currentAvg = currentPresences / CURRENT_MONTH;
+  const previousAvg = previousPresences / 12;
+  return { currentAvg: Math.round(currentAvg), previousAvg: Math.round(previousAvg) };
+}
+
+// Génère un message d'insight basé sur les données
+function generateInsight(type, data) {
+  switch (type) {
+    case "presence":
+      const trend = calculateTrend(data.current, data.previous);
+      if (trend.direction === "up") {
+        return {
+          type: "success",
+          message: `Excellente progression ! +${trend.value}% de fréquentation par rapport à ${PREVIOUS_YEAR}.`
+        };
+      } else if (trend.direction === "down") {
+        return {
+          type: "warning",
+          message: `Attention : -${trend.value}% de fréquentation par rapport à ${PREVIOUS_YEAR}. Pensez à relancer les membres inactifs.`
+        };
+      }
+      return { type: "info", message: "Fréquentation stable par rapport à l'année dernière." };
+
+    case "members":
+      const activeRate = data.actifs / data.total * 100;
+      if (activeRate > 80) {
+        return { type: "success", message: `${activeRate.toFixed(0)}% de membres actifs - Excellent taux de rétention !` };
+      } else if (activeRate > 60) {
+        return { type: "info", message: `${activeRate.toFixed(0)}% de membres actifs - Bon niveau, mais ${data.expired} abonnements à renouveler.` };
+      }
+      return { type: "warning", message: `${activeRate.toFixed(0)}% de membres actifs - ${data.expired} abonnements expirés à relancer.` };
+
+    case "gender":
+      const ratio = data.hommes / (data.hommes + data.femmes) * 100;
+      if (ratio > 70) {
+        return { type: "info", message: `Clientèle majoritairement masculine (${ratio.toFixed(0)}%). Opportunité : attirer plus de femmes.` };
+      } else if (ratio < 30) {
+        return { type: "info", message: `Clientèle majoritairement féminine (${(100 - ratio).toFixed(0)}%).` };
+      }
+      return { type: "success", message: `Bonne mixité : ${ratio.toFixed(0)}% hommes / ${(100 - ratio).toFixed(0)}% femmes.` };
+
+    case "peak":
+      const peakHour = data.hourlyStats?.reduce((max, h) => h.count > (max?.count || 0) ? h : max, null);
+      if (peakHour) {
+        return { type: "info", message: `Heure de pointe : ${peakHour.hour}h avec ${peakHour.count} passages.` };
+      }
+      return null;
+
+    default:
+      return null;
+  }
+}
+
 // ============================================================
 // SECTION 4 — UI Components
 // ============================================================
 
-function TrendBadge({ current, previous, suffix = "" }) {
+function TrendBadge({ current, previous, suffix = "", inverted = false }) {
   const trend = calculateTrend(current, previous);
 
   if (trend.direction === "neutral") {
@@ -100,9 +159,11 @@ function TrendBadge({ current, previous, suffix = "" }) {
   }
 
   const isUp = trend.direction === "up";
+  const isPositive = inverted ? !isUp : isUp;
+
   return (
     <span className={`inline-flex items-center text-xs font-medium ${
-      isUp ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+      isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
     }`}>
       {isUp ? <FaArrowUp className="mr-1" /> : <FaArrowDown className="mr-1" />}
       {trend.value}%{suffix}
@@ -110,9 +171,11 @@ function TrendBadge({ current, previous, suffix = "" }) {
   );
 }
 
-function StatCard({ icon, label, value, previousValue, subtitle, showTrend = false }) {
+function StatCard({ icon, label, value, previousValue, subtitle, showTrend = false, highlight = false }) {
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-5 hover:shadow-xl transition-all duration-200 border border-gray-100 dark:border-gray-700">
+    <div className={`bg-white dark:bg-gray-800 shadow-lg rounded-xl p-5 hover:shadow-xl transition-all duration-200 border ${
+      highlight ? "border-blue-300 dark:border-blue-600 ring-2 ring-blue-100 dark:ring-blue-900" : "border-gray-100 dark:border-gray-700"
+    }`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -143,9 +206,125 @@ function StatCard({ icon, label, value, previousValue, subtitle, showTrend = fal
   );
 }
 
-function Section({ title, icon, children, action }) {
+function SectionHeader({ title, icon, subtitle }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+    <div className="mb-4">
+      <h3 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+        {icon} {title}
+      </h3>
+      {subtitle && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 ml-7">
+          {subtitle}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function InsightBanner({ type, message, icon }) {
+  const styles = {
+    success: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300",
+    warning: "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300",
+    info: "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300",
+    error: "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300"
+  };
+
+  const icons = {
+    success: <FaCheckCircle className="text-green-500" />,
+    warning: <FaExclamationTriangle className="text-amber-500" />,
+    info: <FaInfoCircle className="text-blue-500" />,
+    error: <FaTimesCircle className="text-red-500" />
+  };
+
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-lg border ${styles[type]}`}>
+      {icon || icons[type]}
+      <span className="text-sm font-medium">{message}</span>
+    </div>
+  );
+}
+
+function SummaryBanner({ displayStats, stats, previousYearStats }) {
+  // Calculer le score global de santé de la salle
+  const presenceTrend = calculateTrend(displayStats?.currentPresences || 0, displayStats?.previousPresences || 0);
+  const activeRate = stats.total > 0 ? (stats.actifs / stats.total * 100) : 0;
+
+  // Score: +1 pour tendance positive, +1 pour taux actif > 70%, +1 pour peu d'expirés
+  let score = 0;
+  let messages = [];
+
+  if (presenceTrend.direction === "up") {
+    score += 1;
+    messages.push(`↑ Fréquentation en hausse (+${presenceTrend.value}%)`);
+  } else if (presenceTrend.direction === "down") {
+    messages.push(`↓ Fréquentation en baisse (-${presenceTrend.value}%)`);
+  } else {
+    score += 0.5;
+    messages.push("→ Fréquentation stable");
+  }
+
+  if (activeRate > 70) {
+    score += 1;
+    messages.push(`${activeRate.toFixed(0)}% de membres actifs`);
+  } else if (activeRate > 50) {
+    score += 0.5;
+    messages.push(`${activeRate.toFixed(0)}% de membres actifs`);
+  } else {
+    messages.push(`Seulement ${activeRate.toFixed(0)}% de membres actifs`);
+  }
+
+  const expiredRate = stats.total > 0 ? (stats.expirés / stats.total * 100) : 0;
+  if (expiredRate < 20) {
+    score += 1;
+  } else if (expiredRate < 40) {
+    score += 0.5;
+  }
+
+  // Déterminer le niveau global
+  let level, levelColor, levelIcon, levelMessage;
+  if (score >= 2.5) {
+    level = "Excellent";
+    levelColor = "from-green-500 to-emerald-600";
+    levelIcon = <FaCheckCircle className="text-3xl" />;
+    levelMessage = "La salle se porte très bien ! Continuez ainsi.";
+  } else if (score >= 1.5) {
+    level = "Bon";
+    levelColor = "from-blue-500 to-cyan-600";
+    levelIcon = <FaChartLine className="text-3xl" />;
+    levelMessage = "Performance correcte avec des axes d'amélioration.";
+  } else {
+    level = "À améliorer";
+    levelColor = "from-amber-500 to-orange-600";
+    levelIcon = <FaExclamationTriangle className="text-3xl" />;
+    levelMessage = "Des actions sont nécessaires pour relancer l'activité.";
+  }
+
+  return (
+    <div className={`bg-gradient-to-r ${levelColor} rounded-2xl p-6 text-white shadow-xl mb-6`}>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {levelIcon}
+          <div>
+            <div className="text-sm opacity-90 uppercase tracking-wide">Bilan {CURRENT_YEAR}</div>
+            <div className="text-2xl font-bold">{level}</div>
+            <div className="text-sm opacity-90 mt-1">{levelMessage}</div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 lg:gap-4">
+          {messages.map((msg, i) => (
+            <div key={i} className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2 text-sm font-medium">
+              {msg}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, icon, children, action, className = "" }) {
+  return (
+    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700 ${className}`}>
       <div className="px-6 py-4 border-b bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700 flex justify-between items-center">
         <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-800 dark:text-white">
           {icon} {title}
@@ -186,6 +365,10 @@ function NoDataMessage() {
   );
 }
 
+function Divider({ className = "" }) {
+  return <div className={`border-t border-gray-200 dark:border-gray-700 my-8 ${className}`} />;
+}
+
 // ============================================================
 // SECTION 5 — Main Component
 // ============================================================
@@ -210,18 +393,11 @@ export default function StatisticsPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch base stats and yearly comparison in parallel
       const [baseResult, currentYear, previousYear] = await Promise.all([
         supabaseServices.getDetailedStatistics(),
         supabaseServices.getYearlyPresenceStats(CURRENT_YEAR),
         supabaseServices.getYearlyPresenceStats(PREVIOUS_YEAR),
       ]);
-
-      // Debug: vérifier les données
-      console.log(`📊 Stats ${CURRENT_YEAR} (currentYear):`, currentYear);
-      console.log(`📊 Stats ${PREVIOUS_YEAR} (previousYear):`, previousYear);
-      console.log(`📊 currentYear.year =`, currentYear?.year, `| totalPresences =`, currentYear?.totalPresences);
-      console.log(`📊 previousYear.year =`, previousYear?.year, `| totalPresences =`, previousYear?.totalPresences);
 
       setBaseData(baseResult);
       setCurrentYearStats(currentYear);
@@ -237,10 +413,6 @@ export default function StatisticsPage() {
   // Computed data based on period
   const displayStats = useMemo(() => {
     if (!currentYearStats || !previousYearStats) return null;
-
-    // Debug: vérifier l'assignation
-    console.log(`📊 displayStats - currentYearStats.year:`, currentYearStats.year);
-    console.log(`📊 displayStats - previousYearStats.year:`, previousYearStats.year);
 
     return {
       currentPresences: currentYearStats.totalPresences,
@@ -258,6 +430,30 @@ export default function StatisticsPage() {
     if (!displayStats) return [];
     return mergeMonthlyStats(displayStats.currentMonthly, displayStats.previousMonthly);
   }, [displayStats]);
+
+  // Insights
+  const insights = useMemo(() => {
+    if (!displayStats || !baseData) return {};
+    const stats = baseData.stats || {};
+    return {
+      presence: generateInsight("presence", {
+        current: displayStats.currentPresences,
+        previous: displayStats.previousPresences
+      }),
+      members: generateInsight("members", {
+        total: stats.total || 0,
+        actifs: stats.actifs || 0,
+        expired: stats.expirés || 0
+      }),
+      gender: generateInsight("gender", {
+        hommes: stats.hommes || 0,
+        femmes: stats.femmes || 0
+      }),
+      peak: generateInsight("peak", {
+        hourlyStats: displayStats.currentHourly
+      })
+    };
+  }, [displayStats, baseData]);
 
   // Loading state
   if (loading) {
@@ -297,6 +493,12 @@ export default function StatisticsPage() {
   const genderStats = baseData?.genderStats || [];
   const paymentStats = baseData?.paymentStats || {};
 
+  // Calculs comparatifs
+  const { currentAvg, previousAvg } = getComparableAverage(
+    displayStats?.currentPresences || 0,
+    displayStats?.previousPresences || 0
+  );
+
   return (
     <div className="p-4 bg-gray-50 min-h-screen dark:bg-gray-900 dark:text-gray-100">
 
@@ -318,125 +520,80 @@ export default function StatisticsPage() {
         </div>
       </div>
 
-      {/* KPI Cards - Presences with comparison */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Summary Banner */}
+      <SummaryBanner
+        displayStats={displayStats}
+        stats={stats}
+        previousYearStats={previousYearStats}
+      />
+
+      {/* ================================================== */}
+      {/* SECTION: FRÉQUENTATION */}
+      {/* ================================================== */}
+      <SectionHeader
+        title="Fréquentation"
+        icon={<FaClock className="text-blue-500" />}
+        subtitle={`Analyse des passages ${CURRENT_YEAR} vs ${PREVIOUS_YEAR}`}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard
           icon={<FaClock className="text-blue-500 text-2xl" />}
-          label={`Présences ${CURRENT_YEAR}`}
+          label={`Passages ${CURRENT_YEAR}`}
           value={displayStats?.currentPresences || 0}
           previousValue={displayStats?.previousPresences}
           showTrend={true}
+          highlight={true}
         />
         <StatCard
           icon={<FaClock className="text-purple-500 text-2xl" />}
-          label={`Présences ${PREVIOUS_YEAR}`}
+          label={`Passages ${PREVIOUS_YEAR}`}
           value={displayStats?.previousPresences || 0}
-          subtitle="année précédente"
-        />
-        <StatCard
-          icon={<FaClock className="text-indigo-500 text-2xl" />}
-          label="Total historique"
-          value={baseData?.totalPresences || 0}
-          subtitle="depuis le début"
+          subtitle="année de référence"
         />
         <StatCard
           icon={<FaCalendarAlt className="text-cyan-500 text-2xl" />}
-          label="Moyenne/mois"
-          value={Math.round((displayStats?.currentPresences || 0) / new Date().getMonth() || 1)}
-          previousValue={Math.round((displayStats?.previousPresences || 0) / 12)}
+          label="Moyenne mensuelle"
+          value={currentAvg}
+          previousValue={previousAvg}
           showTrend={true}
         />
-      </div>
-
-      {/* KPI Cards - Members */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
-          icon={<FaUsers className="text-blue-500 text-2xl" />}
-          label="Total Membres"
-          value={stats.total || 0}
-          subtitle="inscrits"
-        />
-        <StatCard
-          icon={<FaUserCheck className="text-green-500 text-2xl" />}
-          label="Abonnements Actifs"
-          value={stats.actifs || 0}
-          subtitle="en cours"
-        />
-        <StatCard
-          icon={<FaUserTimes className="text-red-500 text-2xl" />}
-          label="Expirés"
-          value={stats.expirés || 0}
-          subtitle="à renouveler"
-        />
-        <StatCard
-          icon={<FaEuroSign className="text-green-500 text-2xl" />}
-          label="Revenus"
-          value={`${(paymentStats.total || 0).toFixed(0)}€`}
-          subtitle="encaissés"
+          icon={<FaChartLine className="text-indigo-500 text-2xl" />}
+          label="Total historique"
+          value={baseData?.totalPresences || 0}
+          subtitle="depuis l'ouverture"
         />
       </div>
 
-      {/* KPI Cards - Demographics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          icon={<FaMars className="text-blue-600 text-2xl" />}
-          label="Hommes"
-          value={stats.hommes || 0}
-          subtitle={`${stats.total ? ((stats.hommes / stats.total) * 100).toFixed(0) : 0}% du total`}
-        />
-        <StatCard
-          icon={<FaVenus className="text-pink-500 text-2xl" />}
-          label="Femmes"
-          value={stats.femmes || 0}
-          subtitle={`${stats.total ? ((stats.femmes / stats.total) * 100).toFixed(0) : 0}% du total`}
-        />
-        <StatCard
-          icon={<FaGraduationCap className="text-yellow-500 text-2xl" />}
-          label="Étudiants"
-          value={stats.etudiants || 0}
-          subtitle="tarif réduit"
-        />
-        <StatCard
-          icon={<FaStar className="text-orange-500 text-2xl" />}
-          label="Top visiteur"
-          value={topMembers[0]?.visit_count || 0}
-          subtitle={topMembers[0] ? `${topMembers[0].firstName} ${topMembers[0].name}` : ""}
-        />
-      </div>
+      {/* Insight fréquentation */}
+      {insights.presence && (
+        <div className="mb-6">
+          <InsightBanner
+            type={insights.presence.type}
+            message={insights.presence.message}
+            icon={<FaLightbulb className={insights.presence.type === "success" ? "text-green-500" : insights.presence.type === "warning" ? "text-amber-500" : "text-blue-500"} />}
+          />
+        </div>
+      )}
 
-      {/* Charts Row 1: Monthly comparison + Gender */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      {/* Graphiques fréquentation */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4">
         <Section
           title={`Évolution mensuelle ${period === "comparison" ? "(comparaison)" : period === "current" ? `(${CURRENT_YEAR})` : period === "previous" ? `(${PREVIOUS_YEAR})` : ""}`}
           icon={<FaChartBar />}
         >
           {(() => {
-            // Sélectionner les données selon la période
             let monthlyData;
-            let chartYear;
 
             if (period === "current") {
               monthlyData = displayStats?.currentMonthly;
-              chartYear = CURRENT_YEAR;
             } else if (period === "previous") {
               monthlyData = displayStats?.previousMonthly;
-              chartYear = PREVIOUS_YEAR;
             } else if (period === "all") {
-              // Pour "Tout", combiner les deux années
               monthlyData = displayStats?.currentMonthly;
-              chartYear = "Tout";
             } else {
-              // comparison mode
               monthlyData = comparisonMonthlyData;
-              chartYear = "comparison";
-            }
-
-            // Debug: afficher les données utilisées
-            console.log(`📊 [Chart] period="${period}" → chartYear=${chartYear}`);
-            console.log(`📊 [Chart] monthlyData:`, monthlyData);
-            if (monthlyData?.length > 0) {
-              const total = monthlyData.reduce((sum, m) => sum + (m.count || m[CURRENT_YEAR] || 0), 0);
-              console.log(`📊 [Chart] Total count in data: ${total}`);
             }
 
             if (period === "comparison") {
@@ -487,9 +644,172 @@ export default function StatisticsPage() {
           })()}
         </Section>
 
+        <Section
+          title={`Créneaux horaires ${period === "previous" ? `(${PREVIOUS_YEAR})` : `(${CURRENT_YEAR})`}`}
+          icon={<FaClock />}
+        >
+          {(() => {
+            const hourlyData = period === "previous"
+              ? displayStats?.previousHourly
+              : displayStats?.currentHourly;
+
+            if (!hourlyData?.length) return <NoDataMessage />;
+
+            // Trouver le pic
+            const peak = hourlyData.reduce((max, h) => h.count > (max?.count || 0) ? h : max, null);
+
+            return (
+              <>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={formatHourlyStats(hourlyData)}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="hour" stroke="#9CA3AF" />
+                    <YAxis stroke="#9CA3AF" />
+                    <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
+                    <Bar
+                      dataKey="count"
+                      fill={period === "previous" ? "#9333EA" : "#10B981"}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+                {peak && (
+                  <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                    <FaInfoCircle className="text-blue-500" />
+                    Pic de fréquentation à <strong>{peak.hour}h</strong> ({peak.count} passages)
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </Section>
+      </div>
+
+      {/* 7 derniers jours */}
+      <Section title="Activité récente (7 derniers jours)" icon={<FaCalendarAlt />} className="mb-6">
+        {dailyStats.length > 0 ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={dailyStats}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="date" stroke="#9CA3AF" />
+              <YAxis stroke="#9CA3AF" />
+              <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
+              <Area
+                type="monotone"
+                dataKey="count"
+                stroke="#3B82F6"
+                fill="#3B82F6"
+                fillOpacity={0.3}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <NoDataMessage />
+        )}
+      </Section>
+
+      <Divider />
+
+      {/* ================================================== */}
+      {/* SECTION: MEMBRES */}
+      {/* ================================================== */}
+      <SectionHeader
+        title="Membres"
+        icon={<FaUsers className="text-green-500" />}
+        subtitle="État des inscriptions et abonnements"
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <StatCard
+          icon={<FaUsers className="text-blue-500 text-2xl" />}
+          label="Total Membres"
+          value={stats.total || 0}
+          subtitle="inscrits dans la base"
+        />
+        <StatCard
+          icon={<FaUserCheck className="text-green-500 text-2xl" />}
+          label="Abonnements Actifs"
+          value={stats.actifs || 0}
+          subtitle={stats.total ? `${((stats.actifs / stats.total) * 100).toFixed(0)}% du total` : ""}
+          highlight={true}
+        />
+        <StatCard
+          icon={<FaUserTimes className="text-red-500 text-2xl" />}
+          label="Expirés"
+          value={stats.expirés || 0}
+          subtitle="à renouveler"
+        />
+        <StatCard
+          icon={<FaEuroSign className="text-emerald-500 text-2xl" />}
+          label="Revenus encaissés"
+          value={`${(paymentStats.total || 0).toFixed(0)}€`}
+          subtitle="total enregistré"
+        />
+      </div>
+
+      {/* Insight membres */}
+      {insights.members && (
+        <div className="mb-6">
+          <InsightBanner
+            type={insights.members.type}
+            message={insights.members.message}
+          />
+        </div>
+      )}
+
+      <Divider />
+
+      {/* ================================================== */}
+      {/* SECTION: DÉMOGRAPHIE */}
+      {/* ================================================== */}
+      <SectionHeader
+        title="Profil des membres"
+        icon={<FaUserFriends className="text-purple-500" />}
+        subtitle="Répartition par genre et statut"
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <StatCard
+          icon={<FaMars className="text-blue-600 text-2xl" />}
+          label="Hommes"
+          value={stats.hommes || 0}
+          subtitle={`${stats.total ? ((stats.hommes / stats.total) * 100).toFixed(0) : 0}% du total`}
+        />
+        <StatCard
+          icon={<FaVenus className="text-pink-500 text-2xl" />}
+          label="Femmes"
+          value={stats.femmes || 0}
+          subtitle={`${stats.total ? ((stats.femmes / stats.total) * 100).toFixed(0) : 0}% du total`}
+        />
+        <StatCard
+          icon={<FaGraduationCap className="text-yellow-500 text-2xl" />}
+          label="Étudiants"
+          value={stats.etudiants || 0}
+          subtitle="tarif réduit"
+        />
+        <StatCard
+          icon={<FaStar className="text-orange-500 text-2xl" />}
+          label="Champion du mois"
+          value={topMembers[0]?.visit_count || 0}
+          subtitle={topMembers[0] ? `${topMembers[0].firstName} ${topMembers[0].name}` : ""}
+        />
+      </div>
+
+      {/* Insight genre */}
+      {insights.gender && (
+        <div className="mb-6">
+          <InsightBanner
+            type={insights.gender.type}
+            message={insights.gender.message}
+          />
+        </div>
+      )}
+
+      {/* Graphique genre */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Section title="Répartition par genre" icon={<FaUsers />}>
           {genderStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
                   data={genderStats}
@@ -497,8 +817,8 @@ export default function StatisticsPage() {
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={110}
-                  innerRadius={60}
+                  outerRadius={100}
+                  innerRadius={50}
                   label={({ name, value, percent }) =>
                     `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
                   }
@@ -514,71 +834,19 @@ export default function StatisticsPage() {
             <NoDataMessage />
           )}
         </Section>
-      </div>
 
-      {/* Charts Row 2: Daily + Hourly */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Section title="Présences - 7 derniers jours (temps réel)" icon={<FaCalendarAlt />}>
-          {dailyStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={dailyStats}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="date" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" />
-                <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#3B82F6"
-                  fill="#3B82F6"
-                  fillOpacity={0.3}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <NoDataMessage />
-          )}
-        </Section>
-
-        <Section
-          title={`Fréquentation par heure ${period === "previous" ? `(${PREVIOUS_YEAR})` : period === "current" ? `(${CURRENT_YEAR})` : ""}`}
-          icon={<FaClock />}
-        >
-          {(() => {
-            const hourlyData = period === "previous"
-              ? displayStats?.previousHourly
-              : displayStats?.currentHourly;
-
-            if (!hourlyData?.length) return <NoDataMessage />;
-
-            return (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={formatHourlyStats(hourlyData)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="hour" stroke="#9CA3AF" />
-                  <YAxis stroke="#9CA3AF" />
-                  <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
-                  <Bar
-                    dataKey="count"
-                    fill={period === "previous" ? "#9333EA" : "#10B981"}
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            );
-          })()}
-        </Section>
-      </div>
-
-      {/* Lists: Top members + Expired */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Section title="Top 10 membres les plus présents" icon={<FaStar className="text-yellow-500" />}>
+        {/* Top members podium */}
+        <Section title="Podium - Top visiteurs" icon={<FaTrophy className="text-yellow-500" />}>
           {topMembers.length > 0 ? (
-            <div className="space-y-2">
-              {topMembers.map((member, index) => (
+            <div className="space-y-3">
+              {topMembers.slice(0, 5).map((member, index) => (
                 <div
                   key={member.id ?? member.badgeId ?? index}
-                  className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
+                    index < 3
+                      ? "bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border border-yellow-200 dark:border-yellow-800"
+                      : "bg-gray-50 dark:bg-gray-700/50"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-2xl w-10 text-center">
@@ -604,17 +872,41 @@ export default function StatisticsPage() {
                   </div>
                 </div>
               ))}
+              {topMembers.length > 5 && (
+                <div className="text-center text-sm text-gray-400 pt-2">
+                  ... et {topMembers.length - 5} autres membres réguliers
+                </div>
+              )}
             </div>
           ) : (
             <NoDataMessage />
           )}
         </Section>
+      </div>
 
-        <Section
-          title={`Abonnements expirés (${stats?.membresExpirés?.length || 0})`}
-          icon={<FaExclamationTriangle className="text-red-500" />}
-        >
-          {stats?.membresExpirés?.length > 0 ? (
+      <Divider />
+
+      {/* ================================================== */}
+      {/* SECTION: ALERTES */}
+      {/* ================================================== */}
+      <SectionHeader
+        title="Alertes & Actions"
+        icon={<FaExclamationTriangle className="text-red-500" />}
+        subtitle="Abonnements à renouveler"
+      />
+
+      <Section
+        title={`Abonnements expirés (${stats?.membresExpirés?.length || 0})`}
+        icon={<FaUserTimes className="text-red-500" />}
+      >
+        {stats?.membresExpirés?.length > 0 ? (
+          <>
+            <div className="mb-4">
+              <InsightBanner
+                type="warning"
+                message={`${stats.membresExpirés.length} membre${stats.membresExpirés.length > 1 ? 's ont' : ' a'} un abonnement expiré. Pensez à les contacter pour renouvellement.`}
+              />
+            </div>
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {stats.membresExpirés.slice(0, 15).map((member, i) => (
                 <div
@@ -628,7 +920,7 @@ export default function StatisticsPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-medium text-red-600 dark:text-red-400">
-                      {member?.endDate ? new Date(member.endDate).toLocaleDateString("fr-FR") : "—"}
+                      Expiré le {member?.endDate ? new Date(member.endDate).toLocaleDateString("fr-FR") : "—"}
                     </div>
                   </div>
                 </div>
@@ -639,14 +931,19 @@ export default function StatisticsPage() {
                 </div>
               )}
             </div>
-          ) : (
-            <div className="text-center text-green-600 py-8">
-              <FaUserCheck className="text-4xl mx-auto mb-2" />
-              <p>Tous les abonnements sont à jour !</p>
-            </div>
-          )}
-        </Section>
-      </div>
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <FaCheckCircle className="text-5xl text-green-500 mx-auto mb-3" />
+            <p className="text-lg font-medium text-green-600 dark:text-green-400">
+              Tous les abonnements sont à jour !
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Aucune action requise
+            </p>
+          </div>
+        )}
+      </Section>
     </div>
   );
 }
