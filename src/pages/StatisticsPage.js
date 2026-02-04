@@ -941,7 +941,7 @@ export default function StatisticsPage() {
         >
           {displayTopMembers.length > 0 ? (
             <div className="space-y-3">
-              {displayTopMembers.slice(0, 5).map((member, index) => (
+              {displayTopMembers.slice(0, 10).map((member, index) => (
                 <div
                   key={member.id ?? member.badgeId ?? index}
                   className={`flex justify-between items-center p-3 rounded-lg transition-colors ${
@@ -974,11 +974,6 @@ export default function StatisticsPage() {
                   </div>
                 </div>
               ))}
-              {displayTopMembers.length > 5 && (
-                <div className="text-center text-sm text-gray-400 pt-2">
-                  ... et {displayTopMembers.length - 5} autres membres réguliers
-                </div>
-              )}
             </div>
           ) : (
             <NoDataMessage />
