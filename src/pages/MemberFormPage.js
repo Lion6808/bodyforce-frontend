@@ -111,11 +111,11 @@ const subscriptionDurations = {
   Trimestriel: 3,
   Semestriel: 6,
   Annuel: 12,
-  "Annee civile": 0,
+  "Année civile": 0,
 };
 
 /**
- * Configured end dates for "Annee civile" subscriptions, keyed by start year.
+ * Configured end dates for "Année civile" subscriptions, keyed by start year.
  * Adjust these values as needed for each season.
  */
 const SUBSCRIPTION_END_DATES = {
@@ -843,7 +843,7 @@ function MemberFormPage() {
   useEffect(() => {
     if (!form.startDate) return;
 
-    if (form.subscriptionType === "Annee civile") {
+    if (form.subscriptionType === "Année civile") {
       const year = new Date(form.startDate).getFullYear();
       setForm((f) => ({
         ...f,
