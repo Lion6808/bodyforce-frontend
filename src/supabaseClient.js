@@ -409,6 +409,91 @@ export const supabaseServices = {
     }
   },
 
+  // ✅ NOUVEAU : Statistiques de présences par année (optimisé pour comparaison)
+  async getYearlyPresenceStats(year) {
+    try {
+      const startDate = `${year}-01-01T00:00:00`;
+      const endDate = `${year}-12-31T23:59:59`;
+
+      // Récupérer le nombre de présences pour l'année
+      const { count, error: countError } = await supabase
+        .from('presences')
+        .select('*', { count: 'exact', head: true })
+        .gte('timestamp', startDate)
+        .lte('timestamp', endDate);
+
+      if (countError) throw countError;
+
+      // Récupérer les stats horaires pour l'année
+      const { data: presences, error: presError } = await supabase
+        .from('presences')
+        .select('timestamp')
+        .gte('timestamp', startDate)
+        .lte('timestamp', endDate);
+
+      if (presError) throw presError;
+
+      // Calculer les stats horaires
+      const hourlyStats = Array(24).fill(0);
+      const monthlyStats = Array(12).fill(0);
+
+      presences.forEach(p => {
+        const date = new Date(p.timestamp);
+        hourlyStats[date.getHours()]++;
+        monthlyStats[date.getMonth()]++;
+      });
+
+      const formattedHourly = hourlyStats.map((count, hour) => ({
+        hour,
+        count
+      })).filter(h => h.count > 0);
+
+      const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+      const formattedMonthly = monthlyStats.map((count, month) => ({
+        month: monthNames[month],
+        monthIndex: month,
+        count
+      }));
+
+      return {
+        year,
+        totalPresences: count || 0,
+        hourlyStats: formattedHourly,
+        monthlyStats: formattedMonthly,
+        avgPerMonth: count ? Math.round(count / 12) : 0
+      };
+    } catch (error) {
+      console.error(`Erreur getYearlyPresenceStats(${year}):`, error);
+      throw error;
+    }
+  },
+
+  // ✅ NOUVEAU : Top membres par année
+  async getTopMembersByYear(year, limit = 10) {
+    try {
+      const startDate = `${year}-01-01T00:00:00`;
+      const endDate = `${year}-12-31T23:59:59`;
+
+      // Récupérer toutes les présences de l'année avec badge_history
+      const { data, error } = await supabase.rpc('get_top_members_by_period', {
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_limit: limit
+      });
+
+      if (error) {
+        // Fallback si la RPC n'existe pas : calcul côté client
+        console.warn("RPC get_top_members_by_period non disponible, fallback côté client");
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error(`Erreur getTopMembersByYear(${year}):`, error);
+      return [];
+    }
+  },
+
   // ✅ VERSION COMPLETE : Pour StatisticsPage (toutes les données)
   async getStatistics() {
     try {
