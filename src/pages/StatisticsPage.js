@@ -473,7 +473,7 @@ export default function StatisticsPage() {
 
       {/* Charts Row 2: Daily + Hourly */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Section title="Présences - 7 derniers jours" icon={<FaCalendarAlt />}>
+        <Section title="Présences - 7 derniers jours (temps réel)" icon={<FaCalendarAlt />}>
           {dailyStats.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={dailyStats}>
@@ -495,20 +495,33 @@ export default function StatisticsPage() {
           )}
         </Section>
 
-        <Section title="Fréquentation par heure" icon={<FaClock />}>
-          {displayStats?.currentHourly?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={formatHourlyStats(displayStats.currentHourly)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="hour" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" />
-                <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
-                <Bar dataKey="count" fill="#10B981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <NoDataMessage />
-          )}
+        <Section
+          title={`Fréquentation par heure ${period === "previous" ? `(${PREVIOUS_YEAR})` : period === "current" ? `(${CURRENT_YEAR})` : ""}`}
+          icon={<FaClock />}
+        >
+          {(() => {
+            const hourlyData = period === "previous"
+              ? displayStats?.previousHourly
+              : displayStats?.currentHourly;
+
+            if (!hourlyData?.length) return <NoDataMessage />;
+
+            return (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={formatHourlyStats(hourlyData)}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="hour" stroke="#9CA3AF" />
+                  <YAxis stroke="#9CA3AF" />
+                  <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
+                  <Bar
+                    dataKey="count"
+                    fill={period === "previous" ? "#9333EA" : "#10B981"}
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            );
+          })()}
         </Section>
       </div>
 
