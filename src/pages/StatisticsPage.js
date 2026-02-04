@@ -450,10 +450,20 @@ export default function StatisticsPage() {
       const filterValidMembers = (members) => members.filter(m =>
         m.badge_number || m.badgeId
       );
-      setTopMembersCurrent(filterValidMembers(topCurrent || []));
-      setTopMembersPrevious(filterValidMembers(topPrevious || []));
 
-      // Calculer le champion du mois (présences du mois courant uniquement)
+      // Utiliser les données RPC si disponibles, sinon fallback sur baseResult.topMembers
+      const topCurrentFiltered = filterValidMembers(topCurrent || []);
+      const topPreviousFiltered = filterValidMembers(topPrevious || []);
+      const fallbackTopMembers = filterValidMembers(baseResult?.topMembers || []);
+
+      setTopMembersCurrent(topCurrentFiltered.length > 0 ? topCurrentFiltered : fallbackTopMembers);
+      setTopMembersPrevious(topPreviousFiltered.length > 0 ? topPreviousFiltered : fallbackTopMembers);
+
+      // Champion du mois : utiliser le premier du fallback si RPC échoue
+      if (fallbackTopMembers.length > 0) {
+        setChampionOfMonth(fallbackTopMembers[0]);
+      }
+      // Tenter quand même de récupérer le vrai champion du mois via RPC
       await fetchChampionOfMonth();
     } catch (err) {
       console.error("Erreur chargement statistiques:", err);
