@@ -218,8 +218,10 @@ export default function StatisticsPage() {
       ]);
 
       // Debug: vérifier les données
-      console.log(`📊 Stats ${CURRENT_YEAR}:`, currentYear);
-      console.log(`📊 Stats ${PREVIOUS_YEAR}:`, previousYear);
+      console.log(`📊 Stats ${CURRENT_YEAR} (currentYear):`, currentYear);
+      console.log(`📊 Stats ${PREVIOUS_YEAR} (previousYear):`, previousYear);
+      console.log(`📊 currentYear.year =`, currentYear?.year, `| totalPresences =`, currentYear?.totalPresences);
+      console.log(`📊 previousYear.year =`, previousYear?.year, `| totalPresences =`, previousYear?.totalPresences);
 
       setBaseData(baseResult);
       setCurrentYearStats(currentYear);
@@ -235,6 +237,10 @@ export default function StatisticsPage() {
   // Computed data based on period
   const displayStats = useMemo(() => {
     if (!currentYearStats || !previousYearStats) return null;
+
+    // Debug: vérifier l'assignation
+    console.log(`📊 displayStats - currentYearStats.year:`, currentYearStats.year);
+    console.log(`📊 displayStats - previousYearStats.year:`, previousYearStats.year);
 
     return {
       currentPresences: currentYearStats.totalPresences,
@@ -401,49 +407,84 @@ export default function StatisticsPage() {
       {/* Charts Row 1: Monthly comparison + Gender */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Section
-          title={`Évolution mensuelle ${period === "comparison" ? "(comparaison)" : ""}`}
+          title={`Évolution mensuelle ${period === "comparison" ? "(comparaison)" : period === "current" ? `(${CURRENT_YEAR})` : period === "previous" ? `(${PREVIOUS_YEAR})` : ""}`}
           icon={<FaChartBar />}
         >
-          {comparisonMonthlyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={320}>
-              {period === "comparison" ? (
-                <ComposedChart data={comparisonMonthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="month" stroke="#9CA3AF" />
-                  <YAxis stroke="#9CA3AF" />
-                  <Tooltip
-                    wrapperStyle={{ zIndex: 40 }}
-                    contentStyle={TOOLTIP_CONTENT_STYLE}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey={CURRENT_YEAR}
-                    fill="#3B82F6"
-                    radius={[4, 4, 0, 0]}
-                    name={`${CURRENT_YEAR}`}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey={PREVIOUS_YEAR}
-                    stroke="#9333EA"
-                    strokeWidth={3}
-                    dot={{ fill: "#9333EA", r: 4 }}
-                    name={`${PREVIOUS_YEAR}`}
-                  />
-                </ComposedChart>
-              ) : (
-                <BarChart data={period === "current" ? displayStats?.currentMonthly : displayStats?.previousMonthly}>
+          {(() => {
+            // Sélectionner les données selon la période
+            let monthlyData;
+            let chartYear;
+
+            if (period === "current") {
+              monthlyData = displayStats?.currentMonthly;
+              chartYear = CURRENT_YEAR;
+            } else if (period === "previous") {
+              monthlyData = displayStats?.previousMonthly;
+              chartYear = PREVIOUS_YEAR;
+            } else if (period === "all") {
+              // Pour "Tout", combiner les deux années
+              monthlyData = displayStats?.currentMonthly;
+              chartYear = "Tout";
+            } else {
+              // comparison mode
+              monthlyData = comparisonMonthlyData;
+              chartYear = "comparison";
+            }
+
+            // Debug: afficher les données utilisées
+            console.log(`📊 [Chart] period="${period}" → chartYear=${chartYear}`);
+            console.log(`📊 [Chart] monthlyData:`, monthlyData);
+            if (monthlyData?.length > 0) {
+              const total = monthlyData.reduce((sum, m) => sum + (m.count || m[CURRENT_YEAR] || 0), 0);
+              console.log(`📊 [Chart] Total count in data: ${total}`);
+            }
+
+            if (period === "comparison") {
+              if (!comparisonMonthlyData?.length) return <NoDataMessage />;
+              return (
+                <ResponsiveContainer width="100%" height={320}>
+                  <ComposedChart data={comparisonMonthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="month" stroke="#9CA3AF" />
+                    <YAxis stroke="#9CA3AF" />
+                    <Tooltip
+                      wrapperStyle={{ zIndex: 40 }}
+                      contentStyle={TOOLTIP_CONTENT_STYLE}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey={CURRENT_YEAR}
+                      fill="#3B82F6"
+                      radius={[4, 4, 0, 0]}
+                      name={`${CURRENT_YEAR}`}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={PREVIOUS_YEAR}
+                      stroke="#9333EA"
+                      strokeWidth={3}
+                      dot={{ fill: "#9333EA", r: 4 }}
+                      name={`${PREVIOUS_YEAR}`}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              );
+            }
+
+            if (!monthlyData?.length) return <NoDataMessage />;
+
+            return (
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="month" stroke="#9CA3AF" />
                   <YAxis stroke="#9CA3AF" />
                   <Tooltip contentStyle={TOOLTIP_CONTENT_STYLE} />
-                  <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill={period === "previous" ? "#9333EA" : "#3B82F6"} radius={[4, 4, 0, 0]} />
                 </BarChart>
-              )}
-            </ResponsiveContainer>
-          ) : (
-            <NoDataMessage />
-          )}
+              </ResponsiveContainer>
+            );
+          })()}
         </Section>
 
         <Section title="Répartition par genre" icon={<FaUsers />}>

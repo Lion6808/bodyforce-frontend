@@ -424,20 +424,36 @@ export const supabaseServices = {
 
       if (countError) throw countError;
 
-      // Récupérer les stats horaires pour l'année
-      const { data: presences, error: presError } = await supabase
-        .from('presences')
-        .select('timestamp')
-        .gte('timestamp', startDate)
-        .lte('timestamp', endDate);
+      // Récupérer TOUTES les présences avec pagination (Supabase limite à 1000 par défaut)
+      const pageSize = 1000;
+      let allPresences = [];
+      let from = 0;
 
-      if (presError) throw presError;
+      while (true) {
+        const { data: presences, error: presError } = await supabase
+          .from('presences')
+          .select('timestamp')
+          .gte('timestamp', startDate)
+          .lte('timestamp', endDate)
+          .order('timestamp', { ascending: true })
+          .range(from, from + pageSize - 1);
 
-      // Calculer les stats horaires
+        if (presError) throw presError;
+
+        allPresences = [...allPresences, ...presences];
+
+        // Si on a moins de pageSize résultats, on a tout récupéré
+        if (presences.length < pageSize) break;
+        from += pageSize;
+      }
+
+      console.log(`📊 [Supabase] getYearlyPresenceStats(${year}): ${allPresences.length} présences récupérées`);
+
+      // Calculer les stats horaires et mensuelles
       const hourlyStats = Array(24).fill(0);
       const monthlyStats = Array(12).fill(0);
 
-      presences.forEach(p => {
+      allPresences.forEach(p => {
         const date = new Date(p.timestamp);
         hourlyStats[date.getHours()]++;
         monthlyStats[date.getMonth()]++;
@@ -454,6 +470,8 @@ export const supabaseServices = {
         monthIndex: month,
         count
       }));
+
+      console.log(`📊 [Supabase] ${year} - Monthly breakdown:`, formattedMonthly.map(m => `${m.month}:${m.count}`).join(', '));
 
       return {
         year,
