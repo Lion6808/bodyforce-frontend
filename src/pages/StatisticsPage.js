@@ -395,6 +395,224 @@ function NoDataMessage() {
   );
 }
 
+// ============================================================
+// Composant RadialHeatmap - Heatmap circulaire 24h
+// ============================================================
+function RadialHeatmap({ data }) {
+  if (!data || !data.matrix) return <NoDataMessage />;
+
+  const { matrix, maxHourly } = data;
+  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+
+  // Couleurs de l'app (bleu -> cyan -> vert -> jaune -> orange -> rouge)
+  const getHeatColor = (value, max) => {
+    if (max === 0 || value === 0) return 'rgba(55, 65, 81, 0.3)'; // gray-700/30
+    const ratio = value / max;
+    if (ratio < 0.15) return 'rgba(59, 130, 246, 0.4)';   // blue-500/40
+    if (ratio < 0.3) return 'rgba(59, 130, 246, 0.6)';    // blue-500/60
+    if (ratio < 0.45) return 'rgba(6, 182, 212, 0.7)';    // cyan-500/70
+    if (ratio < 0.6) return 'rgba(16, 185, 129, 0.75)';   // green-500/75
+    if (ratio < 0.75) return 'rgba(234, 179, 8, 0.8)';    // yellow-500/80
+    if (ratio < 0.9) return 'rgba(249, 115, 22, 0.85)';   // orange-500/85
+    return 'rgba(239, 68, 68, 0.9)';                       // red-500/90
+  };
+
+  const centerX = 200;
+  const centerY = 200;
+  const innerRadius = 50;
+  const outerRadius = 180;
+  const dayRingWidth = (outerRadius - innerRadius) / 7;
+
+  // Générer les segments
+  const segments = [];
+  for (let day = 0; day < 7; day++) {
+    for (let hour = 0; hour < 24; hour++) {
+      const value = matrix[day][hour];
+      const startAngle = (hour / 24) * 360 - 90;
+      const endAngle = ((hour + 1) / 24) * 360 - 90;
+      const innerR = innerRadius + day * dayRingWidth;
+      const outerR = innerR + dayRingWidth - 1;
+
+      const startRad = (startAngle * Math.PI) / 180;
+      const endRad = (endAngle * Math.PI) / 180;
+
+      const x1 = centerX + innerR * Math.cos(startRad);
+      const y1 = centerY + innerR * Math.sin(startRad);
+      const x2 = centerX + outerR * Math.cos(startRad);
+      const y2 = centerY + outerR * Math.sin(startRad);
+      const x3 = centerX + outerR * Math.cos(endRad);
+      const y3 = centerY + outerR * Math.sin(endRad);
+      const x4 = centerX + innerR * Math.cos(endRad);
+      const y4 = centerY + innerR * Math.sin(endRad);
+
+      const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+
+      const pathD = [
+        `M ${x1} ${y1}`,
+        `L ${x2} ${y2}`,
+        `A ${outerR} ${outerR} 0 ${largeArcFlag} 1 ${x3} ${y3}`,
+        `L ${x4} ${y4}`,
+        `A ${innerR} ${innerR} 0 ${largeArcFlag} 0 ${x1} ${y1}`,
+        'Z'
+      ].join(' ');
+
+      segments.push(
+        <path
+          key={`${day}-${hour}`}
+          d={pathD}
+          fill={getHeatColor(value, maxHourly)}
+          stroke="rgba(17, 24, 39, 0.5)"
+          strokeWidth="0.5"
+        >
+          <title>{dayNames[day]} {hour}h: {value} passages</title>
+        </path>
+      );
+    }
+  }
+
+  // Labels des heures (0h, 6h, 12h, 18h)
+  const hourLabels = [0, 6, 12, 18].map(hour => {
+    const angle = ((hour / 24) * 360 - 90) * Math.PI / 180;
+    const labelR = outerRadius + 15;
+    const x = centerX + labelR * Math.cos(angle);
+    const y = centerY + labelR * Math.sin(angle);
+    return (
+      <text
+        key={`hour-${hour}`}
+        x={x}
+        y={y}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        className="fill-gray-400 dark:fill-gray-500 text-xs font-medium"
+      >
+        {hour}h
+      </text>
+    );
+  });
+
+  // Labels des jours
+  const dayLabels = dayNames.map((name, index) => {
+    const r = innerRadius + (index + 0.5) * dayRingWidth;
+    const angle = -90 * Math.PI / 180; // À gauche (9h)
+    const x = centerX + r * Math.cos(angle) - 25;
+    const y = centerY + r * Math.sin(angle);
+    return (
+      <text
+        key={`day-${index}`}
+        x={x}
+        y={y}
+        textAnchor="end"
+        dominantBaseline="middle"
+        className="fill-gray-500 dark:fill-gray-400 text-[10px] font-medium"
+      >
+        {name}
+      </text>
+    );
+  });
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg viewBox="0 0 400 400" className="w-full max-w-[350px]">
+        {segments}
+        {hourLabels}
+        {dayLabels}
+        {/* Centre */}
+        <circle cx={centerX} cy={centerY} r={innerRadius - 5} fill="transparent" />
+        <text
+          x={centerX}
+          y={centerY - 8}
+          textAnchor="middle"
+          className="fill-gray-700 dark:fill-gray-200 text-lg font-bold"
+        >
+          24h
+        </text>
+        <text
+          x={centerX}
+          y={centerY + 10}
+          textAnchor="middle"
+          className="fill-gray-500 dark:fill-gray-400 text-xs"
+        >
+          Fréquentation
+        </text>
+      </svg>
+      {/* Légende */}
+      <div className="flex items-center gap-2 mt-4">
+        <span className="text-xs text-gray-500 dark:text-gray-400">Faible</span>
+        <div className="flex gap-0.5">
+          {['rgba(59, 130, 246, 0.4)', 'rgba(59, 130, 246, 0.6)', 'rgba(6, 182, 212, 0.7)', 'rgba(16, 185, 129, 0.75)', 'rgba(234, 179, 8, 0.8)', 'rgba(249, 115, 22, 0.85)', 'rgba(239, 68, 68, 0.9)'].map((color, i) => (
+            <div key={i} className="w-4 h-3 rounded-sm" style={{ backgroundColor: color }} />
+          ))}
+        </div>
+        <span className="text-xs text-gray-500 dark:text-gray-400">Fort</span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Composant DayBars - Barres de fréquentation par jour
+// ============================================================
+function DayBars({ data }) {
+  if (!data || !data.dayTotals) return <NoDataMessage />;
+
+  const { dayTotals, maxDaily } = data;
+
+  // Réorganiser pour commencer par Lundi (index 1)
+  const orderedDays = [...dayTotals.slice(1), dayTotals[0]];
+
+  // Couleurs par jour (gradient du bleu au violet)
+  const dayColors = [
+    { bg: 'from-blue-500 to-blue-600', text: 'text-blue-600 dark:text-blue-400' },
+    { bg: 'from-cyan-500 to-cyan-600', text: 'text-cyan-600 dark:text-cyan-400' },
+    { bg: 'from-teal-500 to-teal-600', text: 'text-teal-600 dark:text-teal-400' },
+    { bg: 'from-green-500 to-green-600', text: 'text-green-600 dark:text-green-400' },
+    { bg: 'from-yellow-500 to-amber-500', text: 'text-yellow-600 dark:text-yellow-400' },
+    { bg: 'from-orange-500 to-orange-600', text: 'text-orange-600 dark:text-orange-400' },
+    { bg: 'from-purple-500 to-purple-600', text: 'text-purple-600 dark:text-purple-400' },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {orderedDays.map((day, index) => {
+        const percentage = maxDaily > 0 ? (day.total / maxDaily) * 100 : 0;
+        const colors = dayColors[index];
+
+        return (
+          <div key={day.day} className="flex items-center gap-3">
+            <div className="w-12 text-sm font-medium text-gray-600 dark:text-gray-300 text-right">
+              {day.day.substring(0, 3)}
+            </div>
+            <div className="flex-1 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden relative">
+              <div
+                className={`h-full bg-gradient-to-r ${colors.bg} rounded-lg transition-all duration-500 flex items-center justify-end pr-2`}
+                style={{ width: `${Math.max(percentage, 5)}%` }}
+              >
+                {percentage > 25 && (
+                  <span className="text-white text-sm font-semibold">{day.total}</span>
+                )}
+              </div>
+              {percentage <= 25 && (
+                <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-sm font-semibold ${colors.text}`}>
+                  {day.total}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {/* Total */}
+      <div className="flex items-center gap-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+        <div className="w-12 text-sm font-bold text-gray-700 dark:text-gray-200 text-right">
+          Total
+        </div>
+        <div className="flex-1 text-lg font-bold text-blue-600 dark:text-blue-400">
+          {data.totalPresences} passages
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Divider({ className = "" }) {
   return <div className={`border-t border-gray-200 dark:border-gray-700 my-8 ${className}`} />;
 }
@@ -416,6 +634,7 @@ export default function StatisticsPage() {
   const [topMembersPrevious, setTopMembersPrevious] = useState([]);
   const [championOfMonth, setChampionOfMonth] = useState(null);
   const [exactPreviousPresences, setExactPreviousPresences] = useState(0); // Présences N-1 même période exacte
+  const [heatmapData, setHeatmapData] = useState(null); // Données pour la heatmap radiale
 
   // Fetch all data on mount
   useEffect(() => {
@@ -427,7 +646,7 @@ export default function StatisticsPage() {
       setLoading(true);
       setError(null);
 
-      const [baseResult, currentYear, previousYear, topCurrent, topPrevious, prevExact] = await Promise.all([
+      const [baseResult, currentYear, previousYear, topCurrent, topPrevious, prevExact, heatmap] = await Promise.all([
         supabaseServices.getDetailedStatistics(),
         supabaseServices.getYearlyPresenceStats(CURRENT_YEAR),
         supabaseServices.getYearlyPresenceStats(PREVIOUS_YEAR),
@@ -435,12 +654,15 @@ export default function StatisticsPage() {
         supabaseServices.getTopMembersByYear(PREVIOUS_YEAR, 10),
         // Récupérer présences N-1 jusqu'au même jour (comparaison équitable)
         supabaseServices.getPresenceCountUntilDate(PREVIOUS_YEAR, CURRENT_MONTH, CURRENT_DAY),
+        // Données pour la heatmap radiale
+        supabaseServices.getHourlyStatsByDayOfWeek(CURRENT_YEAR),
       ]);
 
       setBaseData(baseResult);
       setCurrentYearStats(currentYear);
       setPreviousYearStats(previousYear);
       setExactPreviousPresences(prevExact);
+      setHeatmapData(heatmap);
 
       // Filtrer les membres sans badge valide
       const filterValidMembers = (members) => members.filter(m =>
@@ -801,6 +1023,23 @@ export default function StatisticsPage() {
               </>
             );
           })()}
+        </Section>
+      </div>
+
+      {/* Heatmap radiale et barres par jour */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Section
+          title={`Heatmap horaire ${CURRENT_YEAR}`}
+          icon={<FaClock />}
+        >
+          <RadialHeatmap data={heatmapData} />
+        </Section>
+
+        <Section
+          title={`Fréquentation par jour ${CURRENT_YEAR}`}
+          icon={<FaCalendarAlt />}
+        >
+          <DayBars data={heatmapData} />
         </Section>
       </div>
 

@@ -816,6 +816,73 @@ export const supabaseServices = {
       throw error;
     }
   },
+  // ✅ NOUVEAU : Statistiques horaires par jour de semaine (pour heatmap radiale)
+  async getHourlyStatsByDayOfWeek(year = null) {
+    try {
+      const currentYear = year || new Date().getFullYear();
+      const startDate = `${currentYear}-01-01T00:00:00`;
+      const endDate = `${currentYear}-12-31T23:59:59`;
+
+      // Récupérer toutes les présences de l'année avec pagination
+      const pageSize = 1000;
+      let allPresences = [];
+      let from = 0;
+
+      while (true) {
+        const { data: presences, error } = await supabase
+          .from('presences')
+          .select('timestamp')
+          .gte('timestamp', startDate)
+          .lte('timestamp', endDate)
+          .order('timestamp', { ascending: true })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        allPresences = [...allPresences, ...presences];
+        if (presences.length < pageSize) break;
+        from += pageSize;
+      }
+
+      // Créer une matrice 7 jours x 24 heures
+      const matrix = Array(7).fill(null).map(() => Array(24).fill(0));
+      const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+      allPresences.forEach(p => {
+        const date = new Date(p.timestamp);
+        const dayOfWeek = date.getDay(); // 0 = Dimanche
+        const hour = date.getHours();
+        matrix[dayOfWeek][hour]++;
+      });
+
+      // Calculer les totaux par jour
+      const dayTotals = matrix.map((hours, dayIndex) => ({
+        day: dayNames[dayIndex],
+        dayIndex,
+        total: hours.reduce((sum, count) => sum + count, 0),
+        hours: hours.map((count, hour) => ({ hour, count }))
+      }));
+
+      // Trouver le max pour la normalisation
+      const maxHourly = Math.max(...matrix.flat());
+      const maxDaily = Math.max(...dayTotals.map(d => d.total));
+
+      console.log(`📊 [Supabase] getHourlyStatsByDayOfWeek(${currentYear}): ${allPresences.length} présences, max horaire: ${maxHourly}`);
+
+      return {
+        year: currentYear,
+        matrix,
+        dayTotals,
+        maxHourly,
+        maxDaily,
+        totalPresences: allPresences.length
+      };
+    } catch (error) {
+      console.error(`Erreur getHourlyStatsByDayOfWeek:`, error);
+      throw error;
+    }
+  },
+
   /* ---------------- Réattribution de badges ---------------- */
   async reassignBadge(badgeRealId, newMemberId) {
     const { data, error } = await supabase.rpc('reassign_badge', {
