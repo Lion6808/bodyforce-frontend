@@ -449,14 +449,18 @@ export const supabaseServices = {
 
       console.log(`📊 [Supabase] getYearlyPresenceStats(${year}): ${allPresences.length} présences récupérées`);
 
-      // Calculer les stats horaires et mensuelles
+      // Calculer les stats horaires, mensuelles ET matrice jour×heure (pour heatmap)
       const hourlyStats = Array(24).fill(0);
       const monthlyStats = Array(12).fill(0);
+      const dayHourMatrix = Array(7).fill(null).map(() => Array(24).fill(0)); // 7 jours × 24 heures
 
       allPresences.forEach(p => {
         const date = new Date(p.timestamp);
-        hourlyStats[date.getHours()]++;
+        const hour = date.getHours();
+        const dayOfWeek = date.getDay(); // 0 = Dimanche
+        hourlyStats[hour]++;
         monthlyStats[date.getMonth()]++;
+        dayHourMatrix[dayOfWeek][hour]++;
       });
 
       const formattedHourly = hourlyStats.map((count, hour) => ({
@@ -471,6 +475,17 @@ export const supabaseServices = {
         count
       }));
 
+      // Données pour la heatmap radiale (évite un second fetch)
+      const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+      const dayTotals = dayHourMatrix.map((hours, dayIndex) => ({
+        day: dayNames[dayIndex],
+        dayIndex,
+        total: hours.reduce((sum, c) => sum + c, 0),
+        hours: hours.map((c, h) => ({ hour: h, count: c }))
+      }));
+      const maxHourly = Math.max(...dayHourMatrix.flat());
+      const maxDaily = Math.max(...dayTotals.map(d => d.total));
+
       console.log(`📊 [Supabase] ${year} - Monthly breakdown:`, formattedMonthly.map(m => `${m.month}:${m.count}`).join(', '));
 
       return {
@@ -478,7 +493,15 @@ export const supabaseServices = {
         totalPresences: count || 0,
         hourlyStats: formattedHourly,
         monthlyStats: formattedMonthly,
-        avgPerMonth: count ? Math.round(count / 12) : 0
+        avgPerMonth: count ? Math.round(count / 12) : 0,
+        // Données heatmap (calculées en même temps, 0 egress supplémentaire)
+        heatmapData: {
+          matrix: dayHourMatrix,
+          dayTotals,
+          maxHourly,
+          maxDaily,
+          totalPresences: allPresences.length
+        }
       };
     } catch (error) {
       console.error(`Erreur getYearlyPresenceStats(${year}):`, error);

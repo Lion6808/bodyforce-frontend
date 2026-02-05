@@ -746,7 +746,8 @@ export default function StatisticsPage() {
       setLoading(true);
       setError(null);
 
-      const [baseResult, currentYear, previousYear, topCurrent, topPrevious, prevExact, heatmap] = await Promise.all([
+      // ✅ OPTIMISATION EGRESS : heatmapData inclus dans getYearlyPresenceStats (évite double fetch)
+      const [baseResult, currentYear, previousYear, topCurrent, topPrevious, prevExact] = await Promise.all([
         supabaseServices.getDetailedStatistics(),
         supabaseServices.getYearlyPresenceStats(CURRENT_YEAR),
         supabaseServices.getYearlyPresenceStats(PREVIOUS_YEAR),
@@ -754,15 +755,14 @@ export default function StatisticsPage() {
         supabaseServices.getTopMembersByYear(PREVIOUS_YEAR, 10),
         // Récupérer présences N-1 jusqu'au même jour (comparaison équitable)
         supabaseServices.getPresenceCountUntilDate(PREVIOUS_YEAR, CURRENT_MONTH, CURRENT_DAY),
-        // Données pour la heatmap radiale
-        supabaseServices.getHourlyStatsByDayOfWeek(CURRENT_YEAR),
       ]);
 
       setBaseData(baseResult);
       setCurrentYearStats(currentYear);
       setPreviousYearStats(previousYear);
       setExactPreviousPresences(prevExact);
-      setHeatmapData(heatmap);
+      // Utilise les données heatmap déjà calculées (0 egress supplémentaire)
+      setHeatmapData(currentYear.heatmapData);
 
       // Filtrer les membres sans badge valide
       const filterValidMembers = (members) => members.filter(m =>
