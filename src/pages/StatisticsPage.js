@@ -419,10 +419,10 @@ function RadialHeatmap({ data }) {
     return 'rgba(239, 68, 68, 0.9)';
   };
 
-  const centerX = 220;
-  const centerY = 200;
-  const innerRadius = 45;
-  const outerRadius = 160;
+  const centerX = 280;
+  const centerY = 260;
+  const innerRadius = 60;
+  const outerRadius = 220;
   const dayRingWidth = (outerRadius - innerRadius) / 7;
 
   // Générer les segments
@@ -476,7 +476,7 @@ function RadialHeatmap({ data }) {
   // Labels des heures (toutes les 3h pour plus de lisibilité)
   const hourLabels = [0, 3, 6, 9, 12, 15, 18, 21].map(hour => {
     const angle = ((hour / 24) * 360 - 90) * Math.PI / 180;
-    const labelR = outerRadius + 18;
+    const labelR = outerRadius + 25;
     const x = centerX + labelR * Math.cos(angle);
     const y = centerY + labelR * Math.sin(angle);
     return (
@@ -486,7 +486,7 @@ function RadialHeatmap({ data }) {
         y={y}
         textAnchor="middle"
         dominantBaseline="middle"
-        style={{ fontSize: '11px', fontWeight: 600, fill: '#6B7280' }}
+        style={{ fontSize: '14px', fontWeight: 600, fill: '#4B5563' }}
       >
         {hour}h
       </text>
@@ -499,11 +499,11 @@ function RadialHeatmap({ data }) {
     return (
       <text
         key={`day-${index}`}
-        x={centerX - outerRadius - 25}
-        y={centerY - outerRadius + 15 + index * (dayRingWidth + 3)}
+        x={centerX - outerRadius - 30}
+        y={centerY - outerRadius + 25 + index * (dayRingWidth + 4)}
         textAnchor="end"
         dominantBaseline="middle"
-        style={{ fontSize: '11px', fontWeight: 500, fill: '#6B7280' }}
+        style={{ fontSize: '13px', fontWeight: 500, fill: '#4B5563' }}
       >
         {name}
       </text>
@@ -516,55 +516,55 @@ function RadialHeatmap({ data }) {
     const angle = Math.PI; // 180° = gauche
     const endX = centerX + r * Math.cos(angle);
     const endY = centerY + r * Math.sin(angle);
-    const startX = centerX - outerRadius - 5;
-    const startY = centerY - outerRadius + 15 + index * (dayRingWidth + 3);
+    const startX = centerX - outerRadius - 8;
+    const startY = centerY - outerRadius + 25 + index * (dayRingWidth + 4);
     return (
       <path
         key={`connector-${index}`}
-        d={`M ${startX} ${startY} Q ${startX + 15} ${startY} ${endX} ${endY}`}
+        d={`M ${startX} ${startY} Q ${startX + 20} ${startY} ${endX} ${endY}`}
         fill="none"
-        stroke="rgba(107, 114, 128, 0.3)"
-        strokeWidth="1"
-        strokeDasharray="2,2"
+        stroke="rgba(107, 114, 128, 0.4)"
+        strokeWidth="1.5"
+        strokeDasharray="3,3"
       />
     );
   });
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 440 420" className="w-full max-w-[400px]">
+      <svg viewBox="0 0 560 540" className="w-full max-w-[600px]">
         {dayConnectors}
         {segments}
         {hourLabels}
         {dayLabels}
         {/* Centre */}
-        <circle cx={centerX} cy={centerY} r={innerRadius - 5} fill="rgba(17, 24, 39, 0.1)" />
+        <circle cx={centerX} cy={centerY} r={innerRadius - 8} fill="rgba(17, 24, 39, 0.08)" />
         <text
           x={centerX}
-          y={centerY - 6}
+          y={centerY - 8}
           textAnchor="middle"
-          style={{ fontSize: '16px', fontWeight: 700, fill: '#374151' }}
+          style={{ fontSize: '20px', fontWeight: 700, fill: '#374151' }}
         >
           24h
         </text>
         <text
           x={centerX}
-          y={centerY + 12}
+          y={centerY + 14}
           textAnchor="middle"
-          style={{ fontSize: '9px', fill: '#6B7280' }}
+          style={{ fontSize: '11px', fill: '#6B7280' }}
         >
           Fréquentation
         </text>
       </svg>
       {/* Légende */}
-      <div className="flex items-center gap-2 mt-2">
-        <span className="text-xs text-gray-500 dark:text-gray-400">Faible</span>
-        <div className="flex gap-0.5">
+      <div className="flex items-center gap-3 mt-4">
+        <span className="text-sm text-gray-500 dark:text-gray-400">Faible</span>
+        <div className="flex gap-1">
           {['rgba(59, 130, 246, 0.4)', 'rgba(59, 130, 246, 0.6)', 'rgba(6, 182, 212, 0.7)', 'rgba(16, 185, 129, 0.75)', 'rgba(234, 179, 8, 0.8)', 'rgba(249, 115, 22, 0.85)', 'rgba(239, 68, 68, 0.9)'].map((color, i) => (
-            <div key={i} className="w-5 h-3 rounded-sm" style={{ backgroundColor: color }} />
+            <div key={i} className="w-8 h-4 rounded" style={{ backgroundColor: color }} />
           ))}
         </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400">Fort</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400">Fort</span>
       </div>
     </div>
   );
@@ -1047,22 +1047,23 @@ export default function StatisticsPage() {
         </Section>
       </div>
 
-      {/* Heatmap radiale et barres par jour */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Section
-          title={`Heatmap horaire ${CURRENT_YEAR}`}
-          icon={<FaClock />}
-        >
-          <RadialHeatmap data={heatmapData} />
-        </Section>
+      {/* Heatmap radiale - pleine largeur */}
+      <Section
+        title={`Heatmap horaire ${CURRENT_YEAR}`}
+        icon={<FaClock />}
+        className="mb-6"
+      >
+        <RadialHeatmap data={heatmapData} />
+      </Section>
 
-        <Section
-          title={`Fréquentation par jour ${CURRENT_YEAR}`}
-          icon={<FaCalendarAlt />}
-        >
-          <DayBars data={heatmapData} />
-        </Section>
-      </div>
+      {/* Barres par jour */}
+      <Section
+        title={`Fréquentation par jour ${CURRENT_YEAR}`}
+        icon={<FaCalendarAlt />}
+        className="mb-6"
+      >
+        <DayBars data={heatmapData} />
+      </Section>
 
       {/* 7 derniers jours */}
       <Section title="Activité récente (7 derniers jours)" icon={<FaCalendarAlt />} className="mb-6">
