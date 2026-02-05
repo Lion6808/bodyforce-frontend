@@ -402,35 +402,38 @@ function RadialHeatmap({ data }) {
   if (!data || !data.matrix) return <NoDataMessage />;
 
   const { matrix, maxHourly } = data;
-  const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  // Réorganiser : commencer par Lundi (index 1 dans matrix) -> Dimanche (index 0)
+  const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Lun, Mar, Mer, Jeu, Ven, Sam, Dim
+  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   // Couleurs de l'app (bleu -> cyan -> vert -> jaune -> orange -> rouge)
   const getHeatColor = (value, max) => {
-    if (max === 0 || value === 0) return 'rgba(55, 65, 81, 0.3)'; // gray-700/30
+    if (max === 0 || value === 0) return 'rgba(55, 65, 81, 0.3)';
     const ratio = value / max;
-    if (ratio < 0.15) return 'rgba(59, 130, 246, 0.4)';   // blue-500/40
-    if (ratio < 0.3) return 'rgba(59, 130, 246, 0.6)';    // blue-500/60
-    if (ratio < 0.45) return 'rgba(6, 182, 212, 0.7)';    // cyan-500/70
-    if (ratio < 0.6) return 'rgba(16, 185, 129, 0.75)';   // green-500/75
-    if (ratio < 0.75) return 'rgba(234, 179, 8, 0.8)';    // yellow-500/80
-    if (ratio < 0.9) return 'rgba(249, 115, 22, 0.85)';   // orange-500/85
-    return 'rgba(239, 68, 68, 0.9)';                       // red-500/90
+    if (ratio < 0.15) return 'rgba(59, 130, 246, 0.4)';
+    if (ratio < 0.3) return 'rgba(59, 130, 246, 0.6)';
+    if (ratio < 0.45) return 'rgba(6, 182, 212, 0.7)';
+    if (ratio < 0.6) return 'rgba(16, 185, 129, 0.75)';
+    if (ratio < 0.75) return 'rgba(234, 179, 8, 0.8)';
+    if (ratio < 0.9) return 'rgba(249, 115, 22, 0.85)';
+    return 'rgba(239, 68, 68, 0.9)';
   };
 
-  const centerX = 200;
+  const centerX = 220;
   const centerY = 200;
-  const innerRadius = 50;
-  const outerRadius = 180;
+  const innerRadius = 45;
+  const outerRadius = 160;
   const dayRingWidth = (outerRadius - innerRadius) / 7;
 
   // Générer les segments
   const segments = [];
-  for (let day = 0; day < 7; day++) {
+  for (let ringIndex = 0; ringIndex < 7; ringIndex++) {
+    const matrixDay = dayOrder[ringIndex];
     for (let hour = 0; hour < 24; hour++) {
-      const value = matrix[day][hour];
+      const value = matrix[matrixDay][hour];
       const startAngle = (hour / 24) * 360 - 90;
       const endAngle = ((hour + 1) / 24) * 360 - 90;
-      const innerR = innerRadius + day * dayRingWidth;
+      const innerR = innerRadius + ringIndex * dayRingWidth;
       const outerR = innerR + dayRingWidth - 1;
 
       const startRad = (startAngle * Math.PI) / 180;
@@ -458,22 +461,22 @@ function RadialHeatmap({ data }) {
 
       segments.push(
         <path
-          key={`${day}-${hour}`}
+          key={`${ringIndex}-${hour}`}
           d={pathD}
           fill={getHeatColor(value, maxHourly)}
-          stroke="rgba(17, 24, 39, 0.5)"
+          stroke="rgba(17, 24, 39, 0.4)"
           strokeWidth="0.5"
         >
-          <title>{dayNames[day]} {hour}h: {value} passages</title>
+          <title>{dayNames[ringIndex]} {hour}h: {value} passages</title>
         </path>
       );
     }
   }
 
-  // Labels des heures (0h, 6h, 12h, 18h)
-  const hourLabels = [0, 6, 12, 18].map(hour => {
+  // Labels des heures (toutes les 3h pour plus de lisibilité)
+  const hourLabels = [0, 3, 6, 9, 12, 15, 18, 21].map(hour => {
     const angle = ((hour / 24) * 360 - 90) * Math.PI / 180;
-    const labelR = outerRadius + 15;
+    const labelR = outerRadius + 18;
     const x = centerX + labelR * Math.cos(angle);
     const y = centerY + labelR * Math.sin(angle);
     return (
@@ -483,64 +486,82 @@ function RadialHeatmap({ data }) {
         y={y}
         textAnchor="middle"
         dominantBaseline="middle"
-        className="fill-gray-400 dark:fill-gray-500 text-xs font-medium"
+        style={{ fontSize: '11px', fontWeight: 600, fill: '#6B7280' }}
       >
         {hour}h
       </text>
     );
   });
 
-  // Labels des jours
+  // Labels des jours à GAUCHE du cercle (sur une colonne)
   const dayLabels = dayNames.map((name, index) => {
     const r = innerRadius + (index + 0.5) * dayRingWidth;
-    const angle = -90 * Math.PI / 180; // À gauche (9h)
-    const x = centerX + r * Math.cos(angle) - 25;
-    const y = centerY + r * Math.sin(angle);
     return (
       <text
         key={`day-${index}`}
-        x={x}
-        y={y}
+        x={centerX - outerRadius - 25}
+        y={centerY - outerRadius + 15 + index * (dayRingWidth + 3)}
         textAnchor="end"
         dominantBaseline="middle"
-        className="fill-gray-500 dark:fill-gray-400 text-[10px] font-medium"
+        style={{ fontSize: '11px', fontWeight: 500, fill: '#6B7280' }}
       >
         {name}
       </text>
     );
   });
 
+  // Lignes de connexion entre labels et anneaux
+  const dayConnectors = dayNames.map((name, index) => {
+    const r = innerRadius + (index + 0.5) * dayRingWidth;
+    const angle = Math.PI; // 180° = gauche
+    const endX = centerX + r * Math.cos(angle);
+    const endY = centerY + r * Math.sin(angle);
+    const startX = centerX - outerRadius - 5;
+    const startY = centerY - outerRadius + 15 + index * (dayRingWidth + 3);
+    return (
+      <path
+        key={`connector-${index}`}
+        d={`M ${startX} ${startY} Q ${startX + 15} ${startY} ${endX} ${endY}`}
+        fill="none"
+        stroke="rgba(107, 114, 128, 0.3)"
+        strokeWidth="1"
+        strokeDasharray="2,2"
+      />
+    );
+  });
+
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 400 400" className="w-full max-w-[350px]">
+      <svg viewBox="0 0 440 420" className="w-full max-w-[400px]">
+        {dayConnectors}
         {segments}
         {hourLabels}
         {dayLabels}
         {/* Centre */}
-        <circle cx={centerX} cy={centerY} r={innerRadius - 5} fill="transparent" />
+        <circle cx={centerX} cy={centerY} r={innerRadius - 5} fill="rgba(17, 24, 39, 0.1)" />
         <text
           x={centerX}
-          y={centerY - 8}
+          y={centerY - 6}
           textAnchor="middle"
-          className="fill-gray-700 dark:fill-gray-200 text-lg font-bold"
+          style={{ fontSize: '16px', fontWeight: 700, fill: '#374151' }}
         >
           24h
         </text>
         <text
           x={centerX}
-          y={centerY + 10}
+          y={centerY + 12}
           textAnchor="middle"
-          className="fill-gray-500 dark:fill-gray-400 text-xs"
+          style={{ fontSize: '9px', fill: '#6B7280' }}
         >
           Fréquentation
         </text>
       </svg>
       {/* Légende */}
-      <div className="flex items-center gap-2 mt-4">
+      <div className="flex items-center gap-2 mt-2">
         <span className="text-xs text-gray-500 dark:text-gray-400">Faible</span>
         <div className="flex gap-0.5">
           {['rgba(59, 130, 246, 0.4)', 'rgba(59, 130, 246, 0.6)', 'rgba(6, 182, 212, 0.7)', 'rgba(16, 185, 129, 0.75)', 'rgba(234, 179, 8, 0.8)', 'rgba(249, 115, 22, 0.85)', 'rgba(239, 68, 68, 0.9)'].map((color, i) => (
-            <div key={i} className="w-4 h-3 rounded-sm" style={{ backgroundColor: color }} />
+            <div key={i} className="w-5 h-3 rounded-sm" style={{ backgroundColor: color }} />
           ))}
         </div>
         <span className="text-xs text-gray-500 dark:text-gray-400">Fort</span>
