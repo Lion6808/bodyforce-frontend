@@ -508,20 +508,35 @@ export const supabaseServices = {
     }
   },
 
-  // ✅ CORRIGÉ : Top membres par année (calcul côté client via badge_history)
+  // ✅ CORRIGÉ : Top membres par année (calcul côté client via badge_history avec pagination)
   async getTopMembersByYear(year, limit = 10) {
     try {
       const startDate = `${year}-01-01T00:00:00`;
       const endDate = `${year}-12-31T23:59:59`;
 
-      // 1. Récupérer toutes les présences de l'année
-      const { data: presences, error: presError } = await supabase
-        .from('presences')
-        .select('id, badgeId')
-        .gte('timestamp', startDate)
-        .lte('timestamp', endDate);
+      // Fonction de pagination pour récupérer toutes les données
+      const fetchAllWithPagination = async (query) => {
+        const pageSize = 1000;
+        let allData = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await query.range(from, from + pageSize - 1);
+          if (error) throw error;
+          allData = [...allData, ...data];
+          if (data.length < pageSize) break;
+          from += pageSize;
+        }
+        return allData;
+      };
 
-      if (presError) throw presError;
+      // 1. Récupérer TOUTES les présences de l'année (avec pagination)
+      const presences = await fetchAllWithPagination(
+        supabase
+          .from('presences')
+          .select('id, badgeId')
+          .gte('timestamp', startDate)
+          .lte('timestamp', endDate)
+      );
 
       // 2. Récupérer tout le badge_history
       const { data: badgeHistory, error: bhError } = await supabase
@@ -573,11 +588,11 @@ export const supabaseServices = {
             visit_count: count
           };
         })
-        .filter(m => m && (m.badge_number || m.badgeId)) // Filtrer membres sans badge
+        .filter(m => m && (m.badge_number || m.badgeId))
         .sort((a, b) => b.visit_count - a.visit_count)
         .slice(0, limit);
 
-      console.log(`📊 [Client] getTopMembersByYear(${year}): Top ${result.length} membres calculés via badge_history`);
+      console.log(`📊 [Client] getTopMembersByYear(${year}): ${presences.length} présences analysées, Top ${result.length} membres`);
       return result;
     } catch (error) {
       console.error(`Erreur getTopMembersByYear(${year}):`, error);
@@ -585,17 +600,32 @@ export const supabaseServices = {
     }
   },
 
-  // ✅ NOUVEAU : Top membres par période (calcul côté client via badge_history)
+  // ✅ CORRIGÉ : Top membres par période (calcul côté client via badge_history avec pagination)
   async getTopMembersByPeriod(startDate, endDate, limit = 10) {
     try {
-      // 1. Récupérer les présences de la période
-      const { data: presences, error: presError } = await supabase
-        .from('presences')
-        .select('id, badgeId')
-        .gte('timestamp', startDate)
-        .lte('timestamp', endDate);
+      // Fonction de pagination pour récupérer toutes les données
+      const fetchAllWithPagination = async (query) => {
+        const pageSize = 1000;
+        let allData = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await query.range(from, from + pageSize - 1);
+          if (error) throw error;
+          allData = [...allData, ...data];
+          if (data.length < pageSize) break;
+          from += pageSize;
+        }
+        return allData;
+      };
 
-      if (presError) throw presError;
+      // 1. Récupérer TOUTES les présences de la période (avec pagination)
+      const presences = await fetchAllWithPagination(
+        supabase
+          .from('presences')
+          .select('id, badgeId')
+          .gte('timestamp', startDate)
+          .lte('timestamp', endDate)
+      );
 
       // 2. Récupérer tout le badge_history
       const { data: badgeHistory, error: bhError } = await supabase
