@@ -634,6 +634,85 @@ function DayBars({ data }) {
   );
 }
 
+// ============================================================
+// Composant TopCreneaux - Top 5 des créneaux les plus fréquentés
+// ============================================================
+function TopCreneaux({ data }) {
+  if (!data || !data.matrix) return <NoDataMessage />;
+
+  const { matrix, maxHourly } = data;
+  const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+  // Extraire tous les créneaux avec leurs valeurs
+  const allSlots = [];
+  for (let day = 0; day < 7; day++) {
+    for (let hour = 0; hour < 24; hour++) {
+      const count = matrix[day][hour];
+      if (count > 0) {
+        allSlots.push({ day, hour, count, dayName: dayNames[day] });
+      }
+    }
+  }
+
+  // Trier par nombre de passages décroissant et prendre le top 5
+  const topSlots = allSlots
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Couleurs des médailles
+  const medalColors = [
+    'from-yellow-400 to-amber-500',  // Or
+    'from-gray-300 to-gray-400',      // Argent
+    'from-orange-400 to-orange-600',  // Bronze
+    'from-blue-400 to-blue-500',      // 4e
+    'from-indigo-400 to-indigo-500',  // 5e
+  ];
+
+  const medalIcons = ['🥇', '🥈', '🥉', '4', '5'];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {topSlots.map((slot, index) => {
+        const percentage = maxHourly > 0 ? (slot.count / maxHourly) * 100 : 0;
+
+        return (
+          <div
+            key={`${slot.day}-${slot.hour}`}
+            className={`relative overflow-hidden rounded-xl p-4 bg-gradient-to-br ${medalColors[index]} shadow-lg`}
+          >
+            {/* Badge de rang */}
+            <div className="absolute top-2 right-2 text-2xl">
+              {index < 3 ? medalIcons[index] : (
+                <span className="bg-white/30 rounded-full w-8 h-8 flex items-center justify-center text-white font-bold text-sm">
+                  {medalIcons[index]}
+                </span>
+              )}
+            </div>
+
+            {/* Contenu */}
+            <div className="text-white">
+              <div className="text-3xl font-bold mb-1">{slot.count}</div>
+              <div className="text-white/90 text-sm font-medium">passages</div>
+              <div className="mt-3 pt-3 border-t border-white/30">
+                <div className="font-semibold">{slot.dayName}</div>
+                <div className="text-white/80 text-lg">{slot.hour}h - {slot.hour + 1}h</div>
+              </div>
+            </div>
+
+            {/* Barre de progression */}
+            <div className="mt-3 h-1.5 bg-white/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white/70 rounded-full transition-all duration-500"
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Divider({ className = "" }) {
   return <div className={`border-t border-gray-200 dark:border-gray-700 my-8 ${className}`} />;
 }
@@ -1063,6 +1142,15 @@ export default function StatisticsPage() {
         className="mb-6"
       >
         <DayBars data={heatmapData} />
+      </Section>
+
+      {/* Top créneaux */}
+      <Section
+        title={`Top 5 créneaux les plus fréquentés ${CURRENT_YEAR}`}
+        icon={<FaTrophy className="text-yellow-500" />}
+        className="mb-6"
+      >
+        <TopCreneaux data={heatmapData} />
       </Section>
 
       {/* 7 derniers jours */}
