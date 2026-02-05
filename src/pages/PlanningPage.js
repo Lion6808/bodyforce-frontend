@@ -315,7 +315,22 @@ function PlanningPage() {
       setLoading(true);
       setError("");
 
-      // A) Fetch presences in the period (optionally filtered by badge)
+      // Fonction de pagination pour récupérer toutes les données
+      const fetchAllWithPagination = async (baseQuery) => {
+        const pageSize = 1000;
+        let allData = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await baseQuery.range(from, from + pageSize - 1);
+          if (error) throw error;
+          allData = [...allData, ...data];
+          if (data.length < pageSize) break;
+          from += pageSize;
+        }
+        return allData;
+      };
+
+      // A) Fetch ALL presences in the period (avec pagination)
       let presencesQ = supabase
         .from("presences")
         .select("badgeId,timestamp")
@@ -326,30 +341,57 @@ function PlanningPage() {
         presencesQ = presencesQ.ilike("badgeId", `%${filterBadge.trim()}%`);
       }
 
-      const { data: presInPeriod, error: prsErr } = await presencesQ;
-      if (prsErr) throw new Error(`Erreur presences (periode): ${prsErr.message}`);
+      const presInPeriod = await fetchAllWithPagination(presencesQ);
 
-      // Build a map of last-seen timestamp per badge
-      const lastSeenByBadge = {};
-      (presInPeriod || []).forEach((p) => {
-        if (!p || !p.badgeId || !p.timestamp) return;
-        const t = new Date(p.timestamp).getTime();
-        if (!Number.isFinite(t)) return;
-        if (!lastSeenByBadge[p.badgeId] || t > lastSeenByBadge[p.badgeId]) {
-          lastSeenByBadge[p.badgeId] = t;
+      // B) Fetch badge_history pour mapper badge_real_id -> member_id
+      const { data: badgeHistory, error: bhErr } = await supabase
+        .from("badge_history")
+        .select("member_id, badge_real_id");
+
+      if (bhErr) throw new Error(`Erreur badge_history: ${bhErr.message}`);
+
+      // Créer le mapping badge_real_id -> member_id
+      const badgeToMemberId = {};
+      (badgeHistory || []).forEach((bh) => {
+        if (bh.badge_real_id && bh.member_id) {
+          badgeToMemberId[bh.badge_real_id] = bh.member_id;
         }
       });
 
-      // Collect distinct badge IDs present in the period
-      const badgeIdSet = new Set(
+      // Créer aussi le mapping inverse : member_id -> liste de tous ses badges
+      const memberToBadges = {};
+      (badgeHistory || []).forEach((bh) => {
+        if (bh.badge_real_id && bh.member_id) {
+          if (!memberToBadges[bh.member_id]) {
+            memberToBadges[bh.member_id] = [];
+          }
+          memberToBadges[bh.member_id].push(bh.badge_real_id);
+        }
+      });
+
+      // Build a map of last-seen timestamp per MEMBER (pas par badge)
+      const lastSeenByMember = {};
+      (presInPeriod || []).forEach((p) => {
+        if (!p || !p.badgeId || !p.timestamp) return;
+        const memberId = badgeToMemberId[p.badgeId];
+        if (!memberId) return;
+        const t = new Date(p.timestamp).getTime();
+        if (!Number.isFinite(t)) return;
+        if (!lastSeenByMember[memberId] || t > lastSeenByMember[memberId]) {
+          lastSeenByMember[memberId] = t;
+        }
+      });
+
+      // Collect distinct member IDs present in the period
+      const memberIdSet = new Set(
         (presInPeriod || [])
-          .map((p) => p.badgeId)
-          .filter((b) => !!b)
+          .map((p) => badgeToMemberId[p.badgeId])
+          .filter((id) => !!id)
       );
-      const allBadgeIdsInPeriod = Array.from(badgeIdSet);
+      const allMemberIdsInPeriod = Array.from(memberIdSet);
 
       // No presences found -- clear display and return early
-      if (allBadgeIdsInPeriod.length === 0) {
+      if (allMemberIdsInPeriod.length === 0) {
         setMembers([]);
         setPresences([]);
         setTotalMembers(0);
@@ -357,11 +399,11 @@ function PlanningPage() {
         return;
       }
 
-      // B) Load members matching the badge IDs, then apply filters
+      // C) Load members by their IDs (pas par badgeId)
       const { data: periodMembersAll, error: membersErr } = await supabase
         .from("members")
         .select("id,name,firstName,badgeId,badge_number,photo")
-        .in("badgeId", allBadgeIdsInPeriod)
+        .in("id", allMemberIdsInPeriod)
         .order("name", { ascending: true });
 
       if (membersErr) throw new Error(`Erreur membres: ${membersErr.message}`);
@@ -370,8 +412,8 @@ function PlanningPage() {
 
       // Sort by most recent presence (descending), then alphabetically
       filteredMembers.sort((a, b) => {
-        const tb = lastSeenByBadge[b.badgeId] ?? 0;
-        const ta = lastSeenByBadge[a.badgeId] ?? 0;
+        const tb = lastSeenByMember[b.id] ?? 0;
+        const ta = lastSeenByMember[a.id] ?? 0;
         if (tb !== ta) return tb - ta;
         return (a.name || "").localeCompare(b.name || "");
       });
@@ -384,15 +426,16 @@ function PlanningPage() {
         );
       }
 
-      // Apply badge filter (client-side complement to server-side ilike)
+      // Apply badge filter (on any of member's badges)
       if (filterBadge?.trim()) {
         const s = filterBadge.trim();
-        filteredMembers = filteredMembers.filter((m) =>
-          (m.badgeId || "").includes(s)
-        );
+        filteredMembers = filteredMembers.filter((m) => {
+          const allBadges = memberToBadges[m.id] || [];
+          return allBadges.some((b) => b.includes(s)) || (m.badgeId || "").includes(s);
+        });
       }
 
-      // C) Paginate members
+      // D) Paginate members
       const total = filteredMembers.length;
       setTotalMembers(total);
 
@@ -401,8 +444,13 @@ function PlanningPage() {
       const pageMembers = filteredMembers.slice(from, to);
       setMembers(pageMembers);
 
-      // D) Fetch presences only for the current page's members
-      const pageBadgeIds = pageMembers.map((m) => m.badgeId).filter(Boolean);
+      // E) Fetch presences for ALL badges of the current page's members
+      const pageMemberIds = pageMembers.map((m) => m.id);
+      const pageBadgeIds = [];
+      pageMemberIds.forEach((memberId) => {
+        const badges = memberToBadges[memberId] || [];
+        pageBadgeIds.push(...badges);
+      });
 
       let prs = [];
       if (pageBadgeIds.length) {
@@ -418,9 +466,11 @@ function PlanningPage() {
         prs = data || [];
       }
 
+      // Mapper les présences avec le member_id pour l'affichage
       setPresences(
         prs.map((p) => ({
           badgeId: p.badgeId,
+          memberId: badgeToMemberId[p.badgeId],
           timestamp: p.timestamp,
           parsedDate: parseTimestamp(p.timestamp),
         }))
@@ -763,10 +813,10 @@ function PlanningPage() {
     return isWithinInterval(presenceDate, { start: startDate, end: endDate });
   });
 
-  // Group presence dates by member badge ID
+  // Group presence dates by member ID (pas par badgeId pour gérer les changements de badge)
   const groupedByMember = {};
   filteredPresences.forEach((p) => {
-    const key = p.badgeId;
+    const key = p.memberId || p.badgeId; // Utiliser memberId si disponible, sinon badgeId
     if (!groupedByMember[key]) groupedByMember[key] = [];
     groupedByMember[key].push(toLocalDate(p.timestamp));
   });
@@ -1027,7 +1077,7 @@ function PlanningPage() {
       {/* Member rows */}
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {visibleMembers.map((member, idx) => {
-          const times = groupedByMember[member.badgeId] || [];
+          const times = groupedByMember[member.id] || [];
           const daily = times.reduce((acc, d) => {
             const k = toDateString(d);
             (acc[k] ||= []).push(d);
@@ -1035,7 +1085,7 @@ function PlanningPage() {
           }, {});
           return (
             <div
-              key={member.badgeId || idx}
+              key={member.id || idx}
               className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
             >
               {/* Member info */}
@@ -1186,10 +1236,10 @@ function PlanningPage() {
 
           {/* Member rows */}
           {visibleMembers.map((member, idx) => {
-            const times = groupedByMember[member.badgeId] || [];
+            const times = groupedByMember[member.id] || [];
             return (
               <div
-                key={member.badgeId || idx}
+                key={member.id || idx}
                 className="grid hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                 style={{
                   gridTemplateColumns: `200px repeat(${allDays.length}, 80px)`,
@@ -1220,7 +1270,7 @@ function PlanningPage() {
                   );
                   return (
                     <div
-                      key={`${member.badgeId}-${day.toISOString()}`}
+                      key={`${member.id}-${day.toISOString()}`}
                       className={cn(
                         "p-2 border-r border-b border-gray-200 dark:border-gray-600 min-h-[60px] flex items-center justify-center text-xs font-bold transition-colors",
                         dayTimes.length > 0
@@ -1280,14 +1330,15 @@ function PlanningPage() {
 
     const calendarDays = generateCalendarDays();
 
-    // Group presences by day and member for quick lookup
+    // Group presences by day and member ID for quick lookup
     const presencesByDayAndMember = (() => {
       const grouped = {};
       filteredPresences.forEach((presence) => {
         const date = parseTimestamp(presence.timestamp);
         const key = toDateString(date);
+        const memberKey = presence.memberId || presence.badgeId; // Utiliser memberId si disponible
         grouped[key] ||= {};
-        (grouped[key][presence.badgeId] ||= []).push({
+        (grouped[key][memberKey] ||= []).push({
           ...presence,
           parsedDate: date,
         });
@@ -1303,9 +1354,9 @@ function PlanningPage() {
     };
 
     /** Tooltip hover handlers */
-    const onAvatarEnter = (badgeId, dayKey, e) => {
-      const member = members.find((m) => m.badgeId === badgeId);
-      const memberPresences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
+    const onAvatarEnter = (memberId, dayKey, e) => {
+      const member = members.find((m) => m.id === memberId);
+      const memberPresences = presencesByDayAndMember[dayKey]?.[memberId] || [];
       setMousePos({ x: e.clientX, y: e.clientY });
       setHoveredMember({ member, presences: memberPresences, dayKey });
     };
@@ -1327,23 +1378,23 @@ function PlanningPage() {
      * and a detailed hover tooltip.
      */
     const renderMemberAvatar = (
-      badgeId,
+      memberId,
       presenceCount,
       dayKey,
       dayIndex,
       memberIndex
     ) => {
-      const member = members.find((m) => m.badgeId === badgeId);
+      const member = members.find((m) => m.id === memberId);
       if (!member) return null;
 
       const uniqueZIndex = dayIndex * 100 + memberIndex + 10;
 
       return (
         <div
-          key={badgeId}
+          key={memberId}
           className="relative group cursor-pointer"
           style={{ zIndex: uniqueZIndex }}
-          onMouseEnter={(e) => onAvatarEnter(badgeId, dayKey, e)}
+          onMouseEnter={(e) => onAvatarEnter(memberId, dayKey, e)}
           onMouseMove={onAvatarMove}
           onMouseLeave={onAvatarLeave}
         >
@@ -1392,7 +1443,7 @@ function PlanningPage() {
                 </div>
 
                 {(() => {
-                  const presences = presencesByDayAndMember[dayKey]?.[badgeId] || [];
+                  const presences = presencesByDayAndMember[dayKey]?.[memberId] || [];
                   const multiple = presences.length > 1;
                   if (!multiple) {
                     return (
