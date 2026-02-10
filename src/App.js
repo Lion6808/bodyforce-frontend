@@ -618,7 +618,7 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
 
       {/* Barre d'onglets — Floating pill iOS-style */}
       <nav className="mx-4 mb-3 rounded-full bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border border-white/20 dark:border-gray-700/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-        <div className="flex justify-around items-center h-14 px-2">
+        <div className="flex justify-around items-center h-16 px-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const active = tab.isMore ? showMoreMenu : isActive(tab.path);
@@ -627,23 +627,23 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
               <button
                 key={tab.id}
                 onClick={() => handleTabClick(tab)}
-                className="flex items-center justify-center flex-1 h-full py-1.5 transition-all"
+                className="flex items-center justify-center flex-1 h-full py-2 transition-all"
               >
                 <div
-                  className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-full transition-all duration-300 ${
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-full transition-all duration-300 ${
                     active
                       ? "bg-blue-500/15 dark:bg-blue-400/15"
                       : ""
                   }`}
                 >
                   <Icon
-                    className={`text-lg transition-colors duration-300 ${
+                    className={`text-xl transition-colors duration-300 ${
                       active ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
                     }`}
                   />
                   {active && (
                     <span
-                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 transition-all duration-300"
+                      className="text-sm font-semibold text-blue-600 dark:text-blue-400 transition-all duration-300"
                     >
                       {tab.name}
                     </span>
