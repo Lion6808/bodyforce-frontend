@@ -575,10 +575,10 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
         />
       )}
 
-      {/* Menu "Plus" (overflow) */}
+      {/* Menu "Plus" (overflow) — Glassmorphism style */}
       {showMoreMenu && (
-        <div className="fixed bottom-20 left-0 right-0 z-50 mx-4 mb-2">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed bottom-24 left-0 right-0 z-50 mx-4 mb-2">
+          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-white/20 dark:border-gray-700/40 overflow-hidden">
             <div className="p-2">
               {moreMenuItems.map((item) => {
                 const Icon = item.icon;
@@ -588,8 +588,8 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
                     onClick={() => handleMoreItemClick(item)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                       isActive(item.path)
-                        ? "bg-blue-50 dark:bg-blue-900/20"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        ? "bg-blue-500/15 dark:bg-blue-400/15"
+                        : "hover:bg-gray-500/10 dark:hover:bg-gray-400/10"
                     }`}
                   >
                     <Icon
@@ -616,9 +616,9 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
         </div>
       )}
 
-      {/* Barre d'onglets */}
-      <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
-        <div className="flex justify-around items-center h-16 px-2">
+      {/* Barre d'onglets — Floating iOS-style */}
+      <nav className="mx-3 mb-3 rounded-2xl bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border border-white/20 dark:border-gray-700/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="flex justify-around items-center h-16 px-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const active = tab.isMore ? showMoreMenu : isActive(tab.path);
@@ -627,24 +627,30 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
               <button
                 key={tab.id}
                 onClick={() => handleTabClick(tab)}
-                className={`flex flex-col items-center justify-center flex-1 h-full transition-all ${
-                  active ? "scale-110" : "scale-100"
-                }`}
+                className="flex flex-col items-center justify-center flex-1 h-full py-1.5 transition-all"
               >
-                <Icon
-                  className={`text-2xl mb-1 transition-colors ${
-                    active ? "text-blue-600 dark:text-blue-400" : tab.color
-                  }`}
-                />
-                <span
-                  className={`text-xs font-medium transition-colors ${
+                <div
+                  className={`flex flex-col items-center justify-center px-3 py-1 rounded-xl transition-all duration-300 ${
                     active
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-gray-600 dark:text-gray-400"
+                      ? "bg-blue-500/15 dark:bg-blue-400/15"
+                      : ""
                   }`}
                 >
-                  {tab.name}
-                </span>
+                  <Icon
+                    className={`text-xl mb-0.5 transition-colors duration-300 ${
+                      active ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
+                    }`}
+                  />
+                  <span
+                    className={`text-[10px] font-semibold transition-colors duration-300 ${
+                      active
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-gray-500 dark:text-gray-400"
+                    }`}
+                  >
+                    {tab.name}
+                  </span>
+                </div>
               </button>
             );
           })}
@@ -1305,9 +1311,9 @@ function AppRoutes() {
         </div>
       </main>
 
-      {/* Bottom nav mobile */}
+      {/* Bottom nav mobile — floating bar */}
       {isMobile && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 safe-area-bottom">
           <BottomNavigationBar
             isAdmin={isAdmin}
             currentPath={location.pathname}

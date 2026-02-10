@@ -1376,12 +1376,12 @@
   fill: #f9fafb !important; /* texte labels en dark */
 }
 
-/* ===== BOTTOM NAVIGATION BAR ===== */
+/* ===== BOTTOM NAVIGATION BAR (Floating iOS-style) ===== */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Animation des indicateurs swipe (déjà existante normalement) */
+/* Animation des indicateurs swipe */
 .swipe-container {
   position: relative;
   overflow: hidden;
@@ -1395,28 +1395,16 @@
   transition: none;
 }
 
-/* ===== FIX BOTTOM NAVIGATION ===== */
-
-/* S'assurer que le menu "Plus" apparaît au bon endroit */
-.fixed.bottom-0 {
-  position: fixed !important;
-}
-
-/* Animation smooth du menu Plus */
-.bg-white.border-t {
-  transition: all 0.3s ease;
-}
-
-/* Éviter que le contenu passe sous la nav */
+/* Éviter que le contenu passe sous la floating nav */
 @media (max-width: 768px) {
   .swipe-container.pb-20 {
-    padding-bottom: 5rem; /* 80px pour la bottom nav */
+    padding-bottom: 5.5rem; /* 88px : 64px bar + 12px margin bottom + 12px extra */
   }
 }
 
 /* Safe area pour iPhone avec encoche */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .safe-area-bottom {
-    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
