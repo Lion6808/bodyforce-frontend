@@ -578,7 +578,7 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
       {/* Menu "Plus" (overflow) — Glassmorphism style */}
       {showMoreMenu && (
         <div className="fixed bottom-24 left-0 right-0 z-50 mx-4 mb-2">
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-white/20 dark:border-gray-700/40 overflow-hidden">
+          <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-white/30 dark:border-gray-700/40 overflow-hidden">
             <div className="p-2">
               {moreMenuItems.map((item) => {
                 const Icon = item.icon;
@@ -641,7 +641,7 @@ function BottomNavigationBar({ isAdmin, currentPath }) {
                       active ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
                     }`}
                   />
-                  {active && (
+                  {active && !tab.isMore && (
                     <span
                       className="text-sm font-semibold text-blue-600 dark:text-blue-400 transition-all duration-300"
                     >
