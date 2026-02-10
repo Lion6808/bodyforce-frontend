@@ -234,7 +234,7 @@ const AdminMotivationWidgets = ({
   // --- Rendu du bandeau ---
   return (
     <div className="space-y-6 mb-8">
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 rounded-2xl p-6 text-white shadow-lg border border-blue-400/20">
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 rounded-3xl p-6 text-white shadow-lg border border-blue-400/20">
         <div className="flex items-start gap-4">
           {/* Emoji principal */}
           <div className="text-5xl flex-shrink-0">
@@ -1128,7 +1128,7 @@ function HomePage() {
             <>
               {/* Widget 1 : Membres (Total, Actifs, Expirés) */}
               <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Membres</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Membres</h2>
                 <div className="flex items-baseline gap-2 mb-4">
                   <span className="text-4xl font-bold text-gray-900 dark:text-white">{stats.total}</span>
                 </div>
@@ -1156,7 +1156,7 @@ function HomePage() {
 
               {/* Widget 2 : Répartition (Hommes, Femmes, Étudiants) */}
               <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Répartition</p>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Répartition</h2>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-center">
                     <div className="mx-auto w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-2">
@@ -1202,7 +1202,7 @@ function HomePage() {
       {/* 6.4 — Liste des paiements du membre connecte (non-admin)           */}
       {/* ------------------------------------------------------------------ */}
       {user && !isAdmin && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <FaCreditCard className="text-blue-500" />
@@ -1299,7 +1299,7 @@ function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
 
           {/* --- Graphique en barres : presences sur 7 jours --- */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Présences — 7 derniers jours
@@ -1384,7 +1384,7 @@ function HomePage() {
           </div>
 
           {/* --- Liste des derniers passages (Realtime) --- */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Derniers passages
@@ -1524,7 +1524,7 @@ function HomePage() {
       {/* 6.6 — Derniers badges attribues (admin)                            */}
       {/* ------------------------------------------------------------------ */}
       {isAdmin && (
-        <div className="block w-full bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+        <div className="block w-full bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Derniers badges attribués
@@ -1599,7 +1599,7 @@ function HomePage() {
       {/* 6.7 — Abonnements echus (admin)                                    */}
       {/* ------------------------------------------------------------------ */}
       {isAdmin && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8 border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
             Abonnements échus
           </h2>
