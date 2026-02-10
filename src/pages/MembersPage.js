@@ -24,6 +24,9 @@ import {
   FaExternalLinkAlt,
   FaChevronLeft,
   FaChevronRight,
+  FaSearch,
+  FaFileImport,
+  FaFileExport,
 } from "react-icons/fa";
 import Avatar from "../components/Avatar";
 import * as XLSX from "xlsx";
@@ -296,7 +299,7 @@ function Widget({ title, value, onClick, active = false }) {
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
+      className={`p-3 rounded-3xl text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
         active
           ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
           : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
@@ -1092,23 +1095,28 @@ function MembersPage() {
       </div>
 
       {/* 6.3 -- Action bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          {/* Add member */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Add member — primary action */}
           <button
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors font-medium"
             onClick={handleAddMember}
           >
             <FaPlus />
             Ajouter un membre
           </button>
 
-          {/* Import badges */}
+          {/* Separator */}
+          <div className="hidden sm:block w-px h-8 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+          {/* Import badges — secondary/ghost */}
           <button
-            className="bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
+            className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors text-sm"
             onClick={() => document.getElementById("badge-import-input").click()}
+            title="Importer badges (.xlsx)"
           >
-            Importer badges (.xlsx)
+            <FaFileImport />
+            <span className="hidden md:inline">Importer</span>
           </button>
           <input
             id="badge-import-input"
@@ -1118,20 +1126,21 @@ function MembersPage() {
             style={{ display: "none" }}
           />
 
-          {/* Export Excel */}
+          {/* Export Excel — secondary/ghost */}
           <button
-            className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
+            className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors text-sm"
             onClick={handleExportMembers}
             title={`Exporter ${filteredMembers.length} membres vers Excel`}
           >
-            Exporter Excel
+            <FaFileExport />
+            <span className="hidden md:inline">Exporter</span>
           </button>
 
           {/* Bulk delete */}
           {selectedIds.length > 0 && (
             <button
               onClick={handleBulkDelete}
-              className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white px-4 py-2 rounded-lg w-full sm:w-auto inline-flex items-center justify-center gap-2 transition-colors"
+              className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors text-sm font-medium"
             >
               <FaTrash />
               Supprimer ({selectedIds.length})
@@ -1141,29 +1150,32 @@ function MembersPage() {
 
         {/* Search input */}
         <div className="flex items-center gap-4 w-full sm:w-auto">
-          <input
-            type="text"
-            placeholder="Rechercher nom, prénom..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-          />
+          <div className="relative w-full sm:w-72">
+            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Rechercher nom, prénom..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border border-gray-300 dark:border-gray-600 pl-10 pr-4 py-2.5 rounded-full w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+            />
+          </div>
           <SearchHints search={search} />
         </div>
       </div>
 
       {/* 6.4 -- Pagination (top) */}
       {totalPages > 1 && (
-        <div className="mb-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage} sur {totalPages} — Affichage de {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membres
+        <div className="mb-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-3xl p-3 border border-gray-200 dark:border-gray-700">
+          <div className="text-sm text-gray-600 dark:text-gray-400 pl-2">
+            Page {currentPage} sur {totalPages} — {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors inline-flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300"
             >
               <FaChevronLeft className="w-3 h-3" />
               <span className="hidden sm:inline">Précédent</span>
@@ -1175,13 +1187,13 @@ function MembersPage() {
                 .map((page, idx, arr) => (
                   <React.Fragment key={page}>
                     {idx > 0 && arr[idx - 1] !== page - 1 && (
-                      <span className="px-2 text-gray-400 dark:text-gray-600">...</span>
+                      <span className="px-1.5 text-gray-400 dark:text-gray-600 text-sm">...</span>
                     )}
                     <button
                       onClick={() => goToPage(page)}
-                      className={`px-3 py-2 rounded-lg transition-colors ${
+                      className={`min-w-[36px] px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
                         page === currentPage
-                          ? "bg-blue-600 text-white"
+                          ? "bg-blue-600 text-white shadow-sm"
                           : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                       }`}
                     >
@@ -1194,7 +1206,7 @@ function MembersPage() {
             <button
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors inline-flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300"
             >
               <span className="hidden sm:inline">Suivant</span>
               <FaChevronRight className="w-3 h-3" />
@@ -1205,7 +1217,7 @@ function MembersPage() {
 
       {/* 6.5 -- Member list */}
       {filteredMembers.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 dark:text-gray-400">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 dark:text-gray-400">
           {search || activeFilter
             ? "Aucun membre ne correspond aux critères de recherche"
             : "Aucun membre trouvé dans la base de données"}
@@ -1213,7 +1225,7 @@ function MembersPage() {
       ) : (
         <>
           {/* 6.5.1 -- Desktop table view */}
-          <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
@@ -1477,7 +1489,7 @@ function MembersPage() {
                   ref={(el) => {
                     if (el) memberRefs.current[member.id] = el;
                   }}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-150 transform-gpu member-card"
+                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-150 transform-gpu member-card"
                 >
                   {/* Card header: checkbox, avatar, name */}
                   <div className="flex items-start justify-between mb-3">
@@ -1651,29 +1663,47 @@ function MembersPage() {
 
       {/* 6.6 -- Pagination (bottom) */}
       {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {currentPage} sur {totalPages}
+        <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-3xl p-3 border border-gray-200 dark:border-gray-700">
+          <div className="text-sm text-gray-600 dark:text-gray-400 pl-2">
+            Page {currentPage} sur {totalPages} — {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors inline-flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300"
             >
               <FaChevronLeft className="w-3 h-3" />
               <span className="hidden sm:inline">Précédent</span>
             </button>
 
-            <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">
-              {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length}
-            </span>
+            <div className="hidden sm:flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+                .map((page, idx, arr) => (
+                  <React.Fragment key={page}>
+                    {idx > 0 && arr[idx - 1] !== page - 1 && (
+                      <span className="px-1.5 text-gray-400 dark:text-gray-600 text-sm">...</span>
+                    )}
+                    <button
+                      onClick={() => goToPage(page)}
+                      className={`min-w-[36px] px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        page === currentPage
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  </React.Fragment>
+                ))}
+            </div>
 
             <button
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors inline-flex items-center gap-1"
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-colors inline-flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300"
             >
               <span className="hidden sm:inline">Suivant</span>
               <FaChevronRight className="w-3 h-3" />
@@ -1684,7 +1714,7 @@ function MembersPage() {
 
       {/* 6.7 -- Summary footer */}
       {filteredMembers.length > 0 && (
-        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400">
+        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-3xl text-sm text-gray-600 dark:text-gray-400">
           <div className="flex items-center justify-between">
             <div>
               Affichage de {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membre

@@ -891,10 +891,10 @@ function PlanningPage() {
           key={label}
           onClick={() => goToPage(n)}
           className={cn(
-            "px-3 py-1 rounded-md text-sm border",
+            "min-w-[36px] px-3 py-2 rounded-xl text-sm font-medium transition-colors",
             n === cur
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
           )}
         >
           {label}
@@ -905,26 +905,27 @@ function PlanningPage() {
       for (let i = 1; i <= max; i++) push(i);
     } else {
       push(1);
-      if (cur > 4) pages.push(<span key="l" className="px-1">…</span>);
+      if (cur > 4) pages.push(<span key="l" className="px-1.5 text-gray-400 dark:text-gray-600 text-sm">...</span>);
       const start = Math.max(2, cur - 1);
       const end = Math.min(max - 1, cur + 1);
       for (let i = start; i <= end; i++) push(i);
-      if (cur < max - 3) pages.push(<span key="r" className="px-1">…</span>);
+      if (cur < max - 3) pages.push(<span key="r" className="px-1.5 text-gray-400 dark:text-gray-600 text-sm">...</span>);
       push(max);
     }
 
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <button
           onClick={() => goToPage(page - 1)}
           disabled={page === 1}
           className={cn(
-            "px-3 py-1 rounded-md text-sm border",
+            "px-4 py-2 rounded-xl text-sm transition-colors inline-flex items-center gap-1.5",
             page === 1
-              ? "bg-gray-100 dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 cursor-not-allowed"
-              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              ? "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-40"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
           )}
         >
+          <ChevronLeft className="w-4 h-4" />
           Précédent
         </button>
         {pages}
@@ -932,13 +933,14 @@ function PlanningPage() {
           onClick={() => goToPage(page + 1)}
           disabled={page === totalPages}
           className={cn(
-            "px-3 py-1 rounded-md text-sm border",
+            "px-4 py-2 rounded-xl text-sm transition-colors inline-flex items-center gap-1.5",
             page === totalPages
-              ? "bg-gray-100 dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 cursor-not-allowed"
-              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              ? "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-40"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
           )}
         >
           Suivant
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     );
