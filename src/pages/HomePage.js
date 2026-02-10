@@ -1101,57 +1101,86 @@ function HomePage() {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* 6.2 — Grille de statistiques (6 cartes)                            */}
+      {/* 6.2 — Widgets statistiques groupés                                 */}
       {/* ------------------------------------------------------------------ */}
       {user && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           {loading.stats ? (
             <>
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
+              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+                <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
+                <SkeletonPulse className="h-10 w-20 mb-4 rounded" />
+                <div className="grid grid-cols-2 gap-3">
+                  <SkeletonPulse className="h-20 rounded-2xl" />
+                  <SkeletonPulse className="h-20 rounded-2xl" />
+                </div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+                <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
+                <div className="grid grid-cols-3 gap-3">
+                  <SkeletonPulse className="h-20 rounded-2xl" />
+                  <SkeletonPulse className="h-20 rounded-2xl" />
+                  <SkeletonPulse className="h-20 rounded-2xl" />
+                </div>
+              </div>
             </>
           ) : (
             <>
-              <StatCard
-                icon={FaUsers}
-                label="Total Membres"
-                value={stats.total}
-                color="bg-blue-500"
-              />
-              <StatCard
-                icon={FaUserCheck}
-                label="Actifs"
-                value={stats.actifs}
-                color="bg-green-500"
-              />
-              <StatCard
-                icon={FaUserTimes}
-                label="Expirés"
-                value={stats.expirés}
-                color="bg-red-500"
-              />
-              <StatCard
-                icon={FaMale}
-                label="Hommes"
-                value={stats.hommes}
-                color="bg-indigo-500"
-              />
-              <StatCard
-                icon={FaFemale}
-                label="Femmes"
-                value={stats.femmes}
-                color="bg-pink-500"
-              />
-              <StatCard
-                icon={FaGraduationCap}
-                label="Étudiants"
-                value={stats.etudiants}
-                color="bg-yellow-500"
-              />
+              {/* Widget 1 : Membres (Total, Actifs, Expirés) */}
+              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Membres</p>
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-4xl font-bold text-gray-900 dark:text-white">{stats.total}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-green-500/15">
+                      <FaUserCheck className="text-green-600 dark:text-green-400" size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Actifs</p>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.actifs}</p>
+                    </div>
+                  </div>
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-red-500/15">
+                      <FaUserTimes className="text-red-600 dark:text-red-400" size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium">Expirés</p>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.expirés}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Widget 2 : Répartition (Hommes, Femmes, Étudiants) */}
+              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Répartition</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-center">
+                    <div className="mx-auto w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-2">
+                      <FaMale className="text-indigo-600 dark:text-indigo-400" size={18} />
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.hommes}</p>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1">Hommes</p>
+                  </div>
+                  <div className="bg-pink-50 dark:bg-pink-900/20 rounded-2xl p-4 text-center">
+                    <div className="mx-auto w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center mb-2">
+                      <FaFemale className="text-pink-600 dark:text-pink-400" size={18} />
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.femmes}</p>
+                    <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mt-1">Femmes</p>
+                  </div>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl p-4 text-center">
+                    <div className="mx-auto w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center mb-2">
+                      <FaGraduationCap className="text-yellow-600 dark:text-yellow-400" size={18} />
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.etudiants}</p>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-1">Étudiants</p>
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </div>
