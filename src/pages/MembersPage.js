@@ -1090,12 +1090,7 @@ function MembersPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {/* Widget 1 : Total + Actifs / Expirés */}
         <div
-          className={`bg-white dark:bg-gray-800 rounded-3xl shadow-sm border-2 p-6 cursor-pointer transition-colors ${
-            activeFilter === "Actifs" || !activeFilter
-              ? "border-blue-300 dark:border-blue-600"
-              : "border-gray-100 dark:border-gray-700"
-          }`}
-          onClick={() => setActiveFilter("Actifs")}
+          className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
         >
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Membres</h2>
           <div className="flex items-baseline gap-2 mb-4">
@@ -1103,12 +1098,12 @@ function MembersPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div
-              className={`rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-colors ${
+              className={`rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
                 activeFilter === "Actifs" || !activeFilter
-                  ? "bg-green-100 dark:bg-green-900/30"
+                  ? "bg-green-100 dark:bg-green-900/40 ring-2 ring-green-400 dark:ring-green-500 shadow-md shadow-green-500/10"
                   : "bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30"
               }`}
-              onClick={(e) => { e.stopPropagation(); setActiveFilter("Actifs"); }}
+              onClick={() => setActiveFilter("Actifs")}
             >
               <div className="p-2 rounded-xl bg-green-500/15">
                 <FaUserCheck className="text-green-600 dark:text-green-400" size={18} />
@@ -1119,12 +1114,12 @@ function MembersPage() {
               </div>
             </div>
             <div
-              className={`rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-colors ${
+              className={`rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
                 activeFilter === "Expiré"
-                  ? "bg-red-100 dark:bg-red-900/30"
+                  ? "bg-red-100 dark:bg-red-900/40 ring-2 ring-red-400 dark:ring-red-500 shadow-md shadow-red-500/10"
                   : "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30"
               }`}
-              onClick={(e) => { e.stopPropagation(); setActiveFilter("Expiré"); }}
+              onClick={() => setActiveFilter("Expiré")}
             >
               <div className="p-2 rounded-xl bg-red-500/15">
                 <FaUserTimes className="text-red-600 dark:text-red-400" size={18} />
@@ -1142,9 +1137,9 @@ function MembersPage() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Répartition</h2>
           <div className="grid grid-cols-3 gap-3">
             <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-colors ${
+              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
                 activeFilter === "Homme"
-                  ? "bg-indigo-100 dark:bg-indigo-900/30"
+                  ? "bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-400 dark:ring-indigo-500 shadow-md shadow-indigo-500/10"
                   : "bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
               }`}
               onClick={() => setActiveFilter("Homme")}
@@ -1156,9 +1151,9 @@ function MembersPage() {
               <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1">Hommes</p>
             </div>
             <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-colors ${
+              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
                 activeFilter === "Femme"
-                  ? "bg-pink-100 dark:bg-pink-900/30"
+                  ? "bg-pink-100 dark:bg-pink-900/40 ring-2 ring-pink-400 dark:ring-pink-500 shadow-md shadow-pink-500/10"
                   : "bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30"
               }`}
               onClick={() => setActiveFilter("Femme")}
@@ -1170,9 +1165,9 @@ function MembersPage() {
               <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mt-1">Femmes</p>
             </div>
             <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-colors ${
+              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
                 activeFilter === "Etudiant"
-                  ? "bg-yellow-100 dark:bg-yellow-900/30"
+                  ? "bg-yellow-100 dark:bg-yellow-900/40 ring-2 ring-yellow-400 dark:ring-yellow-500 shadow-md shadow-yellow-500/10"
                   : "bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
               }`}
               onClick={() => setActiveFilter("Etudiant")}
@@ -1190,10 +1185,10 @@ function MembersPage() {
       {/* 6.2b -- Filtres spéciaux (Badges récents, Sans certif) */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-colors border-2 ${
+          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
             activeFilter === "Récent"
-              ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-600"
-              : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              ? "bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400 dark:ring-blue-500 shadow-md shadow-blue-500/10"
+              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
           }`}
           onClick={() => setActiveFilter("Récent")}
         >
@@ -1206,10 +1201,10 @@ function MembersPage() {
           </div>
         </div>
         <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-colors border-2 ${
+          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
             activeFilter === "SansCertif"
-              ? "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-600"
-              : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+              ? "bg-orange-100 dark:bg-orange-900/40 ring-2 ring-orange-400 dark:ring-orange-500 shadow-md shadow-orange-500/10"
+              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-orange-50 dark:hover:bg-orange-900/20"
           }`}
           onClick={() => setActiveFilter("SansCertif")}
         >
