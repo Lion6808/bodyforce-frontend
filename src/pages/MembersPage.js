@@ -391,12 +391,8 @@ function MembersPage() {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
 
-  // Statistics
-  const total = filteredMembers.length;
-  const maleCount = filteredMembers.filter((m) => m.gender === "Homme").length;
-  const femaleCount = filteredMembers.filter((m) => m.gender === "Femme").length;
-  const studentCount = filteredMembers.filter((m) => m.etudiant).length;
-
+  // Statistics — computed on ALL members (not filtered)
+  const totalAll = members.length;
   const expiredCount = members.filter((m) => {
     if (!m.endDate) return true;
     try {
@@ -405,6 +401,10 @@ function MembersPage() {
       return true;
     }
   }).length;
+  const activeCount = totalAll - expiredCount;
+  const maleCount = members.filter((m) => m.gender === "Homme" && !isMemberExpired(m)).length;
+  const femaleCount = members.filter((m) => m.gender === "Femme" && !isMemberExpired(m)).length;
+  const studentCount = members.filter((m) => m.etudiant && !isMemberExpired(m)).length;
 
   const noCertCount = filteredMembers.filter((m) => !memberHasFiles(m)).length;
 
@@ -1094,7 +1094,7 @@ function MembersPage() {
         >
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Membres</h2>
           <div className="flex items-baseline gap-2 mb-4">
-            <span className="text-4xl font-bold text-gray-900 dark:text-white">{total}</span>
+            <span className="text-4xl font-bold text-gray-900 dark:text-white">{totalAll}</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div
@@ -1110,7 +1110,7 @@ function MembersPage() {
               </div>
               <div>
                 <p className="text-xs text-green-600 dark:text-green-400 font-medium">Actifs</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{total - expiredCount}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">{activeCount}</p>
               </div>
             </div>
             <div
