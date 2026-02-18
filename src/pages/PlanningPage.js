@@ -344,29 +344,34 @@ function PlanningPage() {
       const presInPeriod = await fetchAllWithPagination(presencesQ);
 
       // B) Fetch badge_history pour mapper badge_real_id -> member_id
+      // On récupère date_attribution pour résoudre les réattributions de badges :
+      // un même badge peut avoir appartenu à plusieurs membres sur des années différentes.
       const { data: badgeHistory, error: bhErr } = await supabase
         .from("badge_history")
-        .select("member_id, badge_real_id");
+        .select("member_id, badge_real_id, date_attribution")
+        .order("date_attribution", { ascending: true });
 
       if (bhErr) throw new Error(`Erreur badge_history: ${bhErr.message}`);
 
-      // Créer le mapping badge_real_id -> member_id
+      // Pour chaque badge, ne retenir que le propriétaire dont la date_attribution
+      // est la plus récente tout en étant <= endDate (fin de la période affichée).
+      // Cela évite d'attribuer les passages d'un badge réaffecté à l'ancien propriétaire.
       const badgeToMemberId = {};
+      const endDateIso = endDate.toISOString();
       (badgeHistory || []).forEach((bh) => {
-        if (bh.badge_real_id && bh.member_id) {
-          badgeToMemberId[bh.badge_real_id] = bh.member_id;
-        }
+        if (!bh.badge_real_id || !bh.member_id) return;
+        // Ignorer les attributions postérieures à la période affichée
+        if (bh.date_attribution && bh.date_attribution > endDateIso) return;
+        // Comme le tableau est trié par date_attribution ASC, chaque entrée
+        // plus récente écrase la précédente → on conserve la plus récente valide
+        badgeToMemberId[bh.badge_real_id] = bh.member_id;
       });
 
-      // Créer aussi le mapping inverse : member_id -> liste de tous ses badges
+      // Créer aussi le mapping inverse : member_id -> liste de ses badges valides sur la période
       const memberToBadges = {};
-      (badgeHistory || []).forEach((bh) => {
-        if (bh.badge_real_id && bh.member_id) {
-          if (!memberToBadges[bh.member_id]) {
-            memberToBadges[bh.member_id] = [];
-          }
-          memberToBadges[bh.member_id].push(bh.badge_real_id);
-        }
+      Object.entries(badgeToMemberId).forEach(([badgeId, memberId]) => {
+        if (!memberToBadges[memberId]) memberToBadges[memberId] = [];
+        memberToBadges[memberId].push(badgeId);
       });
 
       // Build a map of last-seen timestamp per MEMBER (pas par badge)

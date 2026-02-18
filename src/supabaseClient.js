@@ -561,10 +561,12 @@ export const supabaseServices = {
           .lte('timestamp', endDate)
       );
 
-      // 2. Récupérer tout le badge_history
+      // 2. Récupérer tout le badge_history avec date_attribution pour éviter les
+      //    contaminations entre membres lors d'une réattribution de badge
       const { data: badgeHistory, error: bhError } = await supabase
         .from('badge_history')
-        .select('member_id, badge_real_id');
+        .select('member_id, badge_real_id, date_attribution')
+        .order('date_attribution', { ascending: true });
 
       if (bhError) throw bhError;
 
@@ -575,12 +577,16 @@ export const supabaseServices = {
 
       if (memError) throw memError;
 
-      // 4. Créer un map badge_real_id -> member_id
+      // 4. Créer un map badge_real_id -> member_id en tenant compte des dates.
+      //    Pour chaque badge, on ne retient que le propriétaire dont la date_attribution
+      //    est la plus récente et <= endDate (fin de la période analysée).
+      //    Cela évite d'attribuer les passages d'un badge réaffecté à l'ancien propriétaire.
       const badgeToMember = {};
       badgeHistory.forEach(bh => {
-        if (bh.badge_real_id && bh.member_id) {
-          badgeToMember[bh.badge_real_id] = bh.member_id;
-        }
+        if (!bh.badge_real_id || !bh.member_id) return;
+        if (bh.date_attribution && bh.date_attribution > endDate) return;
+        // Tri ASC → chaque entrée plus récente écrase la précédente : on garde la plus récente valide
+        badgeToMember[bh.badge_real_id] = bh.member_id;
       });
 
       // 5. Compter les présences par member_id
@@ -650,10 +656,12 @@ export const supabaseServices = {
           .lte('timestamp', endDate)
       );
 
-      // 2. Récupérer tout le badge_history
+      // 2. Récupérer tout le badge_history avec date_attribution pour éviter les
+      //    contaminations entre membres lors d'une réattribution de badge
       const { data: badgeHistory, error: bhError } = await supabase
         .from('badge_history')
-        .select('member_id, badge_real_id');
+        .select('member_id, badge_real_id, date_attribution')
+        .order('date_attribution', { ascending: true });
 
       if (bhError) throw bhError;
 
@@ -664,12 +672,16 @@ export const supabaseServices = {
 
       if (memError) throw memError;
 
-      // 4. Créer un map badge_real_id -> member_id
+      // 4. Créer un map badge_real_id -> member_id en tenant compte des dates.
+      //    Pour chaque badge, on ne retient que le propriétaire dont la date_attribution
+      //    est la plus récente et <= endDate (fin de la période analysée).
+      //    Cela évite d'attribuer les passages d'un badge réaffecté à l'ancien propriétaire.
       const badgeToMember = {};
       badgeHistory.forEach(bh => {
-        if (bh.badge_real_id && bh.member_id) {
-          badgeToMember[bh.badge_real_id] = bh.member_id;
-        }
+        if (!bh.badge_real_id || !bh.member_id) return;
+        if (bh.date_attribution && bh.date_attribution > endDate) return;
+        // Tri ASC → chaque entrée plus récente écrase la précédente : on garde la plus récente valide
+        badgeToMember[bh.badge_real_id] = bh.member_id;
       });
 
       // 5. Compter les présences par member_id
