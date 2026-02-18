@@ -94,7 +94,7 @@ import "./App.css";
 // SECTION 2 — Constants & Configuration
 // =============================================================================
 
-const APP_VERSION = "2.6.2";
+const APP_VERSION = "2.7.0";
 
 /** Recupere la photo de profil d'un utilisateur par son email */
 const fetchUserPhoto = async (userId) => {
