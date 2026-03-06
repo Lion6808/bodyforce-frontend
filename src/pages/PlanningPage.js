@@ -343,48 +343,38 @@ function PlanningPage() {
 
       const presInPeriod = await fetchAllWithPagination(presencesQ);
 
-      // B) Fetch badge_history pour mapper badge_real_id -> member_id
-      // On récupère date_attribution pour résoudre les réattributions de badges :
-      // un même badge peut avoir appartenu à plusieurs membres sur des années différentes.
-      const { data: badgeHistory, error: bhErr } = await supabase
-        .from("badge_history")
-        .select("member_id, badge_real_id, date_attribution")
-        .order("date_attribution", { ascending: true });
+      // B) Construire le mapping badge_real_id -> member_id en 2 couches :
+      //    Couche 1 (base)   : badge actuel de chaque membre (members.badgeId)
+      //                        → couvre les badges jamais réattribués (absents de badge_history)
+      //    Couche 2 (overlay): badge_history trié ASC par date_attribution
+      //                        → écrase la couche 1 uniquement pour les badges réattribués,
+      //                          en retenant le propriétaire valide à la fin de la période.
+
+      const [{ data: allMemberBadges }, { data: badgeHistory, error: bhErr }] =
+        await Promise.all([
+          supabase.from("members").select("id, badgeId").not("badgeId", "is", null),
+          supabase
+            .from("badge_history")
+            .select("member_id, badge_real_id, date_attribution")
+            .order("date_attribution", { ascending: true }),
+        ]);
 
       if (bhErr) throw new Error(`Erreur badge_history: ${bhErr.message}`);
 
-      // Pour chaque badge, ne retenir que le propriétaire dont la date_attribution
-      // est la plus récente tout en étant <= endDate (fin de la période affichée).
-      // Cela évite d'attribuer les passages d'un badge réaffecté à l'ancien propriétaire.
+      // Couche 1 : assignation actuelle des membres
       const badgeToMemberId = {};
+      (allMemberBadges || []).forEach((m) => {
+        if (m.badgeId && m.id) badgeToMemberId[m.badgeId] = m.id;
+      });
+
+      // Couche 2 : badge_history écrase pour les badges réattribués
+      // Trié ASC → la dernière entrée valide (≤ endDate) gagne
       const endDateIso = endDate.toISOString();
       (badgeHistory || []).forEach((bh) => {
         if (!bh.badge_real_id || !bh.member_id) return;
-        // Ignorer les attributions postérieures à la période affichée
         if (bh.date_attribution && bh.date_attribution > endDateIso) return;
-        // Comme le tableau est trié par date_attribution ASC, chaque entrée
-        // plus récente écrase la précédente → on conserve la plus récente valide
         badgeToMemberId[bh.badge_real_id] = bh.member_id;
       });
-
-      // B2) Fallback : pour les badgeIds présents dans les présences mais absents de
-      // badge_history (badge actuel jamais réattribué → pas encore historisé),
-      // on résout le membre directement depuis la table members.
-      const uniquePresenceBadgeIds = [
-        ...new Set((presInPeriod || []).map((p) => p.badgeId).filter(Boolean)),
-      ];
-      const unmappedBadgeIds = uniquePresenceBadgeIds.filter(
-        (bid) => !badgeToMemberId[bid]
-      );
-      if (unmappedBadgeIds.length > 0) {
-        const { data: membersWithBadge } = await supabase
-          .from("members")
-          .select("id, badgeId")
-          .in("badgeId", unmappedBadgeIds);
-        (membersWithBadge || []).forEach((m) => {
-          if (m.badgeId && m.id) badgeToMemberId[m.badgeId] = m.id;
-        });
-      }
 
       // Créer aussi le mapping inverse : member_id -> liste de ses badges valides sur la période
       const memberToBadges = {};
