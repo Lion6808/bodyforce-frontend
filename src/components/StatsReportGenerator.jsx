@@ -111,7 +111,7 @@ const StatsReportGenerator = () => {
 
       // Informations
       doc.setFontSize(8);
-      doc.text('Club BodyForce', 20, pageHeight - 10);
+      doc.text('Club BodyForce Faulquemont', 20, pageHeight - 10);
       doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
     }
   };
