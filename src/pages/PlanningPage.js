@@ -367,6 +367,25 @@ function PlanningPage() {
         badgeToMemberId[bh.badge_real_id] = bh.member_id;
       });
 
+      // B2) Fallback : pour les badgeIds présents dans les présences mais absents de
+      // badge_history (badge actuel jamais réattribué → pas encore historisé),
+      // on résout le membre directement depuis la table members.
+      const uniquePresenceBadgeIds = [
+        ...new Set((presInPeriod || []).map((p) => p.badgeId).filter(Boolean)),
+      ];
+      const unmappedBadgeIds = uniquePresenceBadgeIds.filter(
+        (bid) => !badgeToMemberId[bid]
+      );
+      if (unmappedBadgeIds.length > 0) {
+        const { data: membersWithBadge } = await supabase
+          .from("members")
+          .select("id, badgeId")
+          .in("badgeId", unmappedBadgeIds);
+        (membersWithBadge || []).forEach((m) => {
+          if (m.badgeId && m.id) badgeToMemberId[m.badgeId] = m.id;
+        });
+      }
+
       // Créer aussi le mapping inverse : member_id -> liste de ses badges valides sur la période
       const memberToBadges = {};
       Object.entries(badgeToMemberId).forEach(([badgeId, memberId]) => {
