@@ -347,7 +347,7 @@ const StatsReportGenerator = () => {
 
         const allMembersData = allMembers.map((item, idx) => [
           (idx + 1).toString(),
-          `${item.firstname || ''} ${item.name || ''}`.trim(),
+          `${item.name || ''} ${item.firstName || ''}`.trim(),
           item.badge_number?.toString() || '-',
           item.phone || item.mobile || '-',  // ← Affiche phone OU mobile
           item.gender || '-',                 // ← Affiche le genre
