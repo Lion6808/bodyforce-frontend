@@ -234,21 +234,6 @@ export const supabaseServices = {
     return data || [];
   },
 
-  // ✅ MODIFIÉ : Utilise maintenant la fonction RPC
-  async getPresencesWithMembers(startDate = null, endDate = null) {
-    const { data, error } = await supabase.rpc('get_presences_with_members', {
-      p_start_date: startDate ? startDate.toISOString() : null,
-      p_end_date: endDate ? endDate.toISOString() : null
-    });
-
-    if (error) {
-      console.error("Erreur getPresencesWithMembers:", error);
-      throw error;
-    }
-
-    return data || [];
-  },
-
   async createPresence(badgeId, timestamp = new Date()) {
     const { data, error } = await supabase
       .from("presences")
