@@ -673,13 +673,11 @@ export default function MyAttendancesPage() {
 
   useEffect(() => {
     const fetchPresences = async () => {
-      if (!user || !badgeId) return;
+      if (!user || !userMemberData?.id) return;
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from("presences")
-          .select("*")
-          .eq("badgeId", badgeId)
+          .rpc("get_member_presences", { p_member_id: userMemberData.id })
           .gte("timestamp", `${range.start}T00:00:00`)
           .lte("timestamp", `${range.end}T23:59:59`)
           .order("timestamp", { ascending: false });
@@ -703,7 +701,7 @@ export default function MyAttendancesPage() {
     };
 
     fetchPresences();
-  }, [user, badgeId, range.start, range.end]);
+  }, [user, userMemberData?.id, range.start, range.end]);
 
   const setDays = (days) => {
     const end = new Date();
