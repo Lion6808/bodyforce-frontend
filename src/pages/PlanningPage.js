@@ -315,94 +315,31 @@ function PlanningPage() {
       setLoading(true);
       setError("");
 
-      // Fonction de pagination pour récupérer toutes les données
-      const fetchAllWithPagination = async (baseQuery) => {
-        const pageSize = 1000;
-        let allData = [];
-        let from = 0;
-        while (true) {
-          const { data, error } = await baseQuery.range(from, from + pageSize - 1);
-          if (error) throw error;
-          allData = [...allData, ...data];
-          if (data.length < pageSize) break;
-          from += pageSize;
+      // A+B) ✅ RPC : remplace le chargement massif des présences + badge_history côté client
+      const { data: planningData, error: planningErr } = await supabase.rpc(
+        "get_planning_members",
+        {
+          p_start_date: startDate.toISOString(),
+          p_end_date: endDate.toISOString(),
         }
-        return allData;
-      };
-
-      // A) Fetch ALL presences in the period (avec pagination)
-      let presencesQ = supabase
-        .from("presences")
-        .select("badgeId,timestamp")
-        .gte("timestamp", startDate.toISOString())
-        .lte("timestamp", endDate.toISOString());
-
-      if (filterBadge?.trim()) {
-        presencesQ = presencesQ.ilike("badgeId", `%${filterBadge.trim()}%`);
-      }
-
-      const presInPeriod = await fetchAllWithPagination(presencesQ);
-
-      // B) Construire le mapping badge_real_id -> member_id en 2 couches :
-      //    Couche 1 (base)   : badge actuel de chaque membre (members.badgeId)
-      //                        → couvre les badges jamais réattribués (absents de badge_history)
-      //    Couche 2 (overlay): badge_history trié ASC par date_attribution
-      //                        → écrase la couche 1 uniquement pour les badges réattribués,
-      //                          en retenant le propriétaire valide à la fin de la période.
-
-      const [{ data: allMemberBadges }, { data: badgeHistory, error: bhErr }] =
-        await Promise.all([
-          supabase.from("members").select("id, badgeId").not("badgeId", "is", null),
-          supabase
-            .from("badge_history")
-            .select("member_id, badge_real_id, date_attribution")
-            .order("date_attribution", { ascending: true }),
-        ]);
-
-      if (bhErr) throw new Error(`Erreur badge_history: ${bhErr.message}`);
-
-      // Couche 1 : assignation actuelle des membres
-      const badgeToMemberId = {};
-      (allMemberBadges || []).forEach((m) => {
-        if (m.badgeId && m.id) badgeToMemberId[m.badgeId] = m.id;
-      });
-
-      // Couche 2 : badge_history écrase pour les badges réattribués
-      // Trié ASC → la dernière entrée valide (≤ endDate) gagne
-      const endDateIso = endDate.toISOString();
-      (badgeHistory || []).forEach((bh) => {
-        if (!bh.badge_real_id || !bh.member_id) return;
-        if (bh.date_attribution && bh.date_attribution > endDateIso) return;
-        badgeToMemberId[bh.badge_real_id] = bh.member_id;
-      });
-
-      // Créer aussi le mapping inverse : member_id -> liste de ses badges valides sur la période
-      const memberToBadges = {};
-      Object.entries(badgeToMemberId).forEach(([badgeId, memberId]) => {
-        if (!memberToBadges[memberId]) memberToBadges[memberId] = [];
-        memberToBadges[memberId].push(badgeId);
-      });
-
-      // Build a map of last-seen timestamp per MEMBER (pas par badge)
-      const lastSeenByMember = {};
-      (presInPeriod || []).forEach((p) => {
-        if (!p || !p.badgeId || !p.timestamp) return;
-        const memberId = badgeToMemberId[p.badgeId];
-        if (!memberId) return;
-        const t = new Date(p.timestamp).getTime();
-        if (!Number.isFinite(t)) return;
-        if (!lastSeenByMember[memberId] || t > lastSeenByMember[memberId]) {
-          lastSeenByMember[memberId] = t;
-        }
-      });
-
-      // Collect distinct member IDs present in the period
-      const memberIdSet = new Set(
-        (presInPeriod || [])
-          .map((p) => badgeToMemberId[p.badgeId])
-          .filter((id) => !!id)
       );
-      const allMemberIdsInPeriod = Array.from(memberIdSet);
+
+      if (planningErr) throw new Error(`Erreur planning: ${planningErr.message}`);
+
+      // Construire les mappings depuis les données RPC
+      const memberToBadges = {};
+      const lastSeenByMember = {};
+      const badgeToMemberId = {};
+
+      (planningData || []).forEach((row) => {
+        const memberId = row.member_id;
+        const badges = row.badge_ids || [];
+        memberToBadges[memberId] = badges;
+        lastSeenByMember[memberId] = new Date(row.last_seen).getTime();
+        badges.forEach((badgeId) => { badgeToMemberId[badgeId] = memberId; });
+      });
+
+      const allMemberIdsInPeriod = (planningData || []).map((row) => row.member_id);
 
       // No presences found -- clear display and return early
       if (allMemberIdsInPeriod.length === 0) {
