@@ -409,99 +409,69 @@ export const supabaseServices = {
     }
   },
 
-  // ✅ NOUVEAU : Statistiques de présences par année (optimisé pour comparaison)
+  // ✅ RPC : Statistiques de présences par année — agrégation côté serveur
   async getYearlyPresenceStats(year) {
     try {
       const startDate = `${year}-01-01T00:00:00`;
       const endDate = `${year}-12-31T23:59:59`;
 
-      // Récupérer le nombre de présences pour l'année
-      const { count, error: countError } = await supabase
-        .from('presences')
-        .select('*', { count: 'exact', head: true })
-        .gte('timestamp', startDate)
-        .lte('timestamp', endDate);
-
-      if (countError) throw countError;
-
-      // Récupérer TOUTES les présences avec pagination (Supabase limite à 1000 par défaut)
-      const pageSize = 1000;
-      let allPresences = [];
-      let from = 0;
-
-      while (true) {
-        const { data: presences, error: presError } = await supabase
-          .from('presences')
-          .select('timestamp')
-          .gte('timestamp', startDate)
-          .lte('timestamp', endDate)
-          .order('timestamp', { ascending: true })
-          .range(from, from + pageSize - 1);
-
-        if (presError) throw presError;
-
-        allPresences = [...allPresences, ...presences];
-
-        // Si on a moins de pageSize résultats, on a tout récupéré
-        if (presences.length < pageSize) break;
-        from += pageSize;
-      }
-
-      console.log(`📊 [Supabase] getYearlyPresenceStats(${year}): ${allPresences.length} présences récupérées`);
-
-      // Calculer les stats horaires, mensuelles ET matrice jour×heure (pour heatmap)
-      const hourlyStats = Array(24).fill(0);
-      const monthlyStats = Array(12).fill(0);
-      const dayHourMatrix = Array(7).fill(null).map(() => Array(24).fill(0)); // 7 jours × 24 heures
-
-      allPresences.forEach(p => {
-        const date = new Date(p.timestamp);
-        const hour = date.getHours();
-        const dayOfWeek = date.getDay(); // 0 = Dimanche
-        hourlyStats[hour]++;
-        monthlyStats[date.getMonth()]++;
-        dayHourMatrix[dayOfWeek][hour]++;
+      const { data, error } = await supabase.rpc('get_yearly_presence_stats', {
+        p_start_date: startDate,
+        p_end_date: endDate,
       });
 
-      const formattedHourly = hourlyStats.map((count, hour) => ({
-        hour,
-        count
-      })).filter(h => h.count > 0);
+      if (error) throw error;
 
+      const totalPresences = data.totalPresences || 0;
+      const dayHour = data.dayHour || [];
+
+      // Reconstruire la matrice 7×24 depuis les données sparse du RPC
+      const matrix = Array(7).fill(null).map(() => Array(24).fill(0));
+      dayHour.forEach(({ d, h, c }) => { matrix[d][h] = c; });
+
+      // Stats mensuelles
       const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-      const formattedMonthly = monthlyStats.map((count, month) => ({
-        month: monthNames[month],
-        monthIndex: month,
-        count
+      const monthlyStats = (data.monthly || []).map(m => ({
+        month: monthNames[m.monthIndex],
+        monthIndex: m.monthIndex,
+        count: m.count,
       }));
 
-      // Données pour la heatmap radiale (évite un second fetch)
+      // Stats horaires : agréger par heure (toutes journées confondues)
+      const hourlyMap = {};
+      dayHour.forEach(({ h, c }) => { hourlyMap[h] = (hourlyMap[h] || 0) + c; });
+      const hourlyStats = Object.entries(hourlyMap)
+        .map(([hour, count]) => ({ hour: parseInt(hour, 10), count }))
+        .filter(h => h.count > 0)
+        .sort((a, b) => a.hour - b.hour);
+
+      // Totaux par jour de semaine
       const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-      const dayTotals = dayHourMatrix.map((hours, dayIndex) => ({
+      const dayTotals = matrix.map((hours, dayIndex) => ({
         day: dayNames[dayIndex],
         dayIndex,
         total: hours.reduce((sum, c) => sum + c, 0),
-        hours: hours.map((c, h) => ({ hour: h, count: c }))
+        hours: hours.map((c, h) => ({ hour: h, count: c })),
       }));
-      const maxHourly = Math.max(...dayHourMatrix.flat());
-      const maxDaily = Math.max(...dayTotals.map(d => d.total));
 
-      console.log(`📊 [Supabase] ${year} - Monthly breakdown:`, formattedMonthly.map(m => `${m.month}:${m.count}`).join(', '));
+      const maxHourly = Math.max(...matrix.flat(), 0);
+      const maxDaily = Math.max(...dayTotals.map(d => d.total), 0);
+
+      console.log(`📊 [RPC] getYearlyPresenceStats(${year}): ${totalPresences} présences`);
 
       return {
         year,
-        totalPresences: count || 0,
-        hourlyStats: formattedHourly,
-        monthlyStats: formattedMonthly,
-        avgPerMonth: count ? Math.round(count / 12) : 0,
-        // Données heatmap (calculées en même temps, 0 egress supplémentaire)
+        totalPresences,
+        hourlyStats,
+        monthlyStats,
+        avgPerMonth: totalPresences ? Math.round(totalPresences / 12) : 0,
         heatmapData: {
-          matrix: dayHourMatrix,
+          matrix,
           dayTotals,
           maxHourly,
           maxDaily,
-          totalPresences: allPresences.length
-        }
+          totalPresences,
+        },
       };
     } catch (error) {
       console.error(`Erreur getYearlyPresenceStats(${year}):`, error);
@@ -531,194 +501,34 @@ export const supabaseServices = {
     }
   },
 
-  // ✅ CORRIGÉ : Top membres par année (calcul côté client via badge_history avec pagination)
+  // ✅ RPC : Top membres par année — délègue à get_top_members_by_period côté serveur
   async getTopMembersByYear(year, limit = 10) {
     try {
-      const startDate = `${year}-01-01T00:00:00`;
-      const endDate = `${year}-12-31T23:59:59`;
-
-      // Fonction de pagination pour récupérer toutes les données
-      const fetchAllWithPagination = async (query) => {
-        const pageSize = 1000;
-        let allData = [];
-        let from = 0;
-        while (true) {
-          const { data, error } = await query.range(from, from + pageSize - 1);
-          if (error) throw error;
-          allData = [...allData, ...data];
-          if (data.length < pageSize) break;
-          from += pageSize;
-        }
-        return allData;
-      };
-
-      // 1. Récupérer TOUTES les présences de l'année (avec pagination)
-      const presences = await fetchAllWithPagination(
-        supabase
-          .from('presences')
-          .select('id, badgeId')
-          .gte('timestamp', startDate)
-          .lte('timestamp', endDate)
-      );
-
-      // 2. Récupérer tout le badge_history avec date_attribution pour éviter les
-      //    contaminations entre membres lors d'une réattribution de badge
-      const { data: badgeHistory, error: bhError } = await supabase
-        .from('badge_history')
-        .select('member_id, badge_real_id, date_attribution')
-        .order('date_attribution', { ascending: true });
-
-      if (bhError) throw bhError;
-
-      // 3. Récupérer tous les membres
-      const { data: members, error: memError } = await supabase
-        .from('members')
-        .select('id, name, firstName, badgeId, badge_number');
-
-      if (memError) throw memError;
-
-      // 4. Créer un map badge_real_id -> member_id en tenant compte des dates.
-      //    Pour chaque badge, on ne retient que le propriétaire dont la date_attribution
-      //    est la plus récente et <= endDate (fin de la période analysée).
-      //    Cela évite d'attribuer les passages d'un badge réaffecté à l'ancien propriétaire.
-      const badgeToMember = {};
-      badgeHistory.forEach(bh => {
-        if (!bh.badge_real_id || !bh.member_id) return;
-        if (bh.date_attribution && bh.date_attribution > endDate) return;
-        // Tri ASC → chaque entrée plus récente écrase la précédente : on garde la plus récente valide
-        badgeToMember[bh.badge_real_id] = bh.member_id;
+      const { data, error } = await supabase.rpc('get_top_members_by_period', {
+        p_start_date: `${year}-01-01T00:00:00`,
+        p_end_date: `${year}-12-31T23:59:59`,
+        p_limit: limit,
       });
-
-      // 5. Compter les présences par member_id
-      const presenceCount = {};
-      presences.forEach(p => {
-        const memberId = badgeToMember[p.badgeId];
-        if (memberId) {
-          presenceCount[memberId] = (presenceCount[memberId] || 0) + 1;
-        }
-      });
-
-      // 6. Créer le résultat avec les infos membres
-      const membersMap = {};
-      members.forEach(m => {
-        membersMap[m.id] = m;
-      });
-
-      const result = Object.entries(presenceCount)
-        .map(([memberId, count]) => {
-          const member = membersMap[memberId];
-          if (!member) return null;
-          return {
-            id: member.id,
-            name: member.name,
-            firstName: member.firstName,
-            badgeId: member.badgeId,
-            badge_number: member.badge_number,
-            visit_count: count
-          };
-        })
-        .filter(m => m && (m.badge_number || m.badgeId))
-        .sort((a, b) => b.visit_count - a.visit_count)
-        .slice(0, limit);
-
-      console.log(`📊 [Client] getTopMembersByYear(${year}): ${presences.length} présences analysées, Top ${result.length} membres`);
-      return result;
+      if (error) throw error;
+      return data || [];
     } catch (error) {
       console.error(`Erreur getTopMembersByYear(${year}):`, error);
       return [];
     }
   },
 
-  // ✅ CORRIGÉ : Top membres par période (calcul côté client via badge_history avec pagination)
+  // ✅ RPC : Top membres par période — délègue à get_top_members_by_period côté serveur
   async getTopMembersByPeriod(startDate, endDate, limit = 10) {
     try {
-      // Fonction de pagination pour récupérer toutes les données
-      const fetchAllWithPagination = async (query) => {
-        const pageSize = 1000;
-        let allData = [];
-        let from = 0;
-        while (true) {
-          const { data, error } = await query.range(from, from + pageSize - 1);
-          if (error) throw error;
-          allData = [...allData, ...data];
-          if (data.length < pageSize) break;
-          from += pageSize;
-        }
-        return allData;
-      };
-
-      // 1. Récupérer TOUTES les présences de la période (avec pagination)
-      const presences = await fetchAllWithPagination(
-        supabase
-          .from('presences')
-          .select('id, badgeId')
-          .gte('timestamp', startDate)
-          .lte('timestamp', endDate)
-      );
-
-      // 2. Récupérer tout le badge_history avec date_attribution pour éviter les
-      //    contaminations entre membres lors d'une réattribution de badge
-      const { data: badgeHistory, error: bhError } = await supabase
-        .from('badge_history')
-        .select('member_id, badge_real_id, date_attribution')
-        .order('date_attribution', { ascending: true });
-
-      if (bhError) throw bhError;
-
-      // 3. Récupérer tous les membres
-      const { data: members, error: memError } = await supabase
-        .from('members')
-        .select('id, name, firstName, badgeId, badge_number');
-
-      if (memError) throw memError;
-
-      // 4. Créer un map badge_real_id -> member_id en tenant compte des dates.
-      //    Pour chaque badge, on ne retient que le propriétaire dont la date_attribution
-      //    est la plus récente et <= endDate (fin de la période analysée).
-      //    Cela évite d'attribuer les passages d'un badge réaffecté à l'ancien propriétaire.
-      const badgeToMember = {};
-      badgeHistory.forEach(bh => {
-        if (!bh.badge_real_id || !bh.member_id) return;
-        if (bh.date_attribution && bh.date_attribution > endDate) return;
-        // Tri ASC → chaque entrée plus récente écrase la précédente : on garde la plus récente valide
-        badgeToMember[bh.badge_real_id] = bh.member_id;
+      const { data, error } = await supabase.rpc('get_top_members_by_period', {
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_limit: limit,
       });
-
-      // 5. Compter les présences par member_id
-      const presenceCount = {};
-      presences.forEach(p => {
-        const memberId = badgeToMember[p.badgeId];
-        if (memberId) {
-          presenceCount[memberId] = (presenceCount[memberId] || 0) + 1;
-        }
-      });
-
-      // 6. Créer le résultat avec les infos membres
-      const membersMap = {};
-      members.forEach(m => {
-        membersMap[m.id] = m;
-      });
-
-      const result = Object.entries(presenceCount)
-        .map(([memberId, count]) => {
-          const member = membersMap[memberId];
-          if (!member) return null;
-          return {
-            id: member.id,
-            name: member.name,
-            firstName: member.firstName,
-            badgeId: member.badgeId,
-            badge_number: member.badge_number,
-            visit_count: count
-          };
-        })
-        .filter(m => m && (m.badge_number || m.badgeId))
-        .sort((a, b) => b.visit_count - a.visit_count)
-        .slice(0, limit);
-
-      return result;
+      if (error) throw error;
+      return data || [];
     } catch (error) {
-      console.error(`Erreur getTopMembersByPeriod:`, error);
+      console.error('Erreur getTopMembersByPeriod:', error);
       return [];
     }
   },
