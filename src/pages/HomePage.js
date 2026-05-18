@@ -402,18 +402,12 @@ function HomePage() {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") { setPushStatus("denied"); return; }
       const reg = await navigator.serviceWorker.ready;
-      console.log("[Push] SW actif:", reg.active?.scriptURL);
 
       // Désinscrire toute subscription existante pour éviter les conflits
       const existing = await reg.pushManager.getSubscription();
-      if (existing) {
-        console.log("[Push] Désinscription existante:", existing.endpoint.substring(0, 60));
-        await existing.unsubscribe();
-      }
+      if (existing) await existing.unsubscribe();
 
       const appKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-      console.log("[Push] Clé VAPID longueur:", appKey.length, "premier octet:", appKey[0]);
-
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: appKey,
@@ -428,7 +422,11 @@ function HomePage() {
       if (supaErr) throw supaErr;
       setPushStatus("active");
     } catch (err) {
-      console.error("[Push] Erreur complète:", err.name, err.message, err);
+      if (err.name === "AbortError") {
+        toast.error("Activation impossible. Sur Brave : brave://settings/privacy → activer 'Use Google services for push messaging'. Sinon, utilise l'appli mobile.", { autoClose: 8000 });
+      } else {
+        console.error("Push activation:", err);
+      }
     } finally {
       setPushLoading(false);
     }
