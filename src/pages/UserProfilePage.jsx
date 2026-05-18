@@ -24,7 +24,7 @@ import {
   FaBellSlash,
 } from "react-icons/fa";
 
-const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || "";
+const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || "BFm-sjydQw6LfYtniSytrr9K7WU_WHzgWvj95tw7YWfchRokgQXjTwbETOWrlSJhXe9c5ohTr0Z_d4hm2JADVec";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
