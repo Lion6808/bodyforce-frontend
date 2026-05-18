@@ -97,6 +97,17 @@ import "./App.css";
 
 const APP_VERSION = "2.8.0";
 
+const CHANGELOG = {
+  version: "2.8.0",
+  date: "Mai 2026",
+  changes: [
+    "Rappels d'entraînement : notification push 1h30 après chaque entrée",
+    "Validation de la durée de séance (OK ou heure personnalisée)",
+    "Bouton 'Activer les rappels' sur la page d'accueil",
+    "Enregistrement de l'heure de fin dans les présences",
+  ],
+};
+
 /** Recupere la photo de profil d'un utilisateur par son email */
 const fetchUserPhoto = async (userId) => {
   const { data, error } = await supabase
@@ -1331,6 +1342,7 @@ function AppRoutes() {
 /** Composant racine : routing de premier niveau, realtime toasts, PWA, version */
 function App() {
   const { user, loading } = useAuth();
+  const [showChangelog, setShowChangelog] = useState(false);
 
   const {
     isInstallable,
@@ -1462,11 +1474,38 @@ function App() {
       />
 
       {/* Badge de version - positionné plus haut sur mobile pour éviter la bottom nav */}
-      <div
-        className="fixed bottom-20 lg:bottom-3 right-3 z-40 px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg bg-gray-800 dark:bg-gray-700 text-gray-100 cursor-default"
-        title={`Version de l'application : ${APP_VERSION}`}
-      >
-        v{APP_VERSION}
+      <div className="fixed bottom-20 lg:bottom-3 right-3 z-40">
+        {showChangelog && (
+          <div className="absolute bottom-9 right-0 w-72 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 mb-1">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                Nouveautés v{CHANGELOG.version}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">{CHANGELOG.date}</span>
+            </div>
+            <ul className="space-y-2">
+              {CHANGELOG.changes.map((c, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+                  <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />
+                  {c}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setShowChangelog(false)}
+              className="mt-3 w-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            >
+              Fermer
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() => setShowChangelog((v) => !v)}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium shadow-lg bg-gray-800 dark:bg-gray-700 text-gray-100 hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+          title="Voir les nouveautés"
+        >
+          v{APP_VERSION}
+        </button>
       </div>
     </Router>
   );
