@@ -402,9 +402,21 @@ function HomePage() {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") { setPushStatus("denied"); return; }
       const reg = await navigator.serviceWorker.ready;
+      console.log("[Push] SW actif:", reg.active?.scriptURL);
+
+      // Désinscrire toute subscription existante pour éviter les conflits
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        console.log("[Push] Désinscription existante:", existing.endpoint.substring(0, 60));
+        await existing.unsubscribe();
+      }
+
+      const appKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      console.log("[Push] Clé VAPID longueur:", appKey.length, "premier octet:", appKey[0]);
+
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: appKey,
       });
       const { endpoint, keys } = sub.toJSON();
       const { error: supaErr } = await supabase
@@ -416,7 +428,7 @@ function HomePage() {
       if (supaErr) throw supaErr;
       setPushStatus("active");
     } catch (err) {
-      console.error("Push activation:", err);
+      console.error("[Push] Erreur complète:", err.name, err.message, err);
     } finally {
       setPushLoading(false);
     }
