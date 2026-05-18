@@ -14,7 +14,7 @@
 //   - Composant Avatar reutilisable pour l'affichage des photos/initiales
 // =============================================================================
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { parseISO, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -31,7 +31,20 @@ import {
   FaRocket,
   FaDollarSign,
   FaArrowRight,
+  FaBell,
+  FaBellSlash,
 } from "react-icons/fa";
+
+const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || "";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const output = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+  return output;
+}
 import {
   BarChart,
   Bar,
@@ -361,6 +374,70 @@ function HomePage() {
   // ---------------------------------------------------------------------------
 
   const [isMobile, setIsMobile] = useState(false);
+
+  // Push notifications
+  const [pushStatus, setPushStatus]   = useState("loading");
+  const [pushLoading, setPushLoading] = useState(false);
+
+  const memberId = memberCtx?.id ?? null;
+
+  const checkPushStatus = useCallback(async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !VAPID_PUBLIC_KEY) {
+      setPushStatus("unsupported"); return;
+    }
+    if (Notification.permission === "denied") { setPushStatus("denied"); return; }
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setPushStatus(sub ? "active" : "inactive");
+    } catch { setPushStatus("inactive"); }
+  }, []);
+
+  useEffect(() => { checkPushStatus(); }, [checkPushStatus]);
+
+  const handleActivatePush = async () => {
+    if (!memberId || !user?.id) return;
+    setPushLoading(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { setPushStatus("denied"); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      const { endpoint, keys } = sub.toJSON();
+      const { error: supaErr } = await supabase
+        .from("push_subscriptions")
+        .upsert(
+          { member_id: memberId, user_id: user.id, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+          { onConflict: "endpoint" }
+        );
+      if (supaErr) throw supaErr;
+      setPushStatus("active");
+    } catch (err) {
+      console.error("Push activation:", err);
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleDeactivatePush = async () => {
+    setPushLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        await sub.unsubscribe();
+      }
+      setPushStatus("inactive");
+    } catch (err) {
+      console.error("Push deactivation:", err);
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   // Flags de chargement par section
   const [loading, setLoading] = useState({
@@ -1085,6 +1162,28 @@ function HomePage() {
                       </svg>
                     </a>
                   </>
+                )}
+
+                {/* Bouton rappels push */}
+                {pushStatus === "inactive" && memberId && (
+                  <button
+                    onClick={handleActivatePush}
+                    disabled={pushLoading}
+                    className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/25 transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <FaBell className="text-[10px]" />
+                    {pushLoading ? "…" : "Activer les rappels"}
+                  </button>
+                )}
+                {pushStatus === "active" && (
+                  <button
+                    onClick={handleDeactivatePush}
+                    disabled={pushLoading}
+                    className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-rose-500/15 hover:text-rose-700 dark:hover:text-rose-300 transition-colors flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <FaBell className="text-[10px]" />
+                    {pushLoading ? "…" : "Rappels actifs"}
+                  </button>
                 )}
 
                 {/* Tag membre : nombre de paiements regles */}
