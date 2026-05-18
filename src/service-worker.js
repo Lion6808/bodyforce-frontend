@@ -150,3 +150,40 @@ self.addEventListener("activate", (event) => {
   // console.log("[SW] Activated");
   event.waitUntil(self.clients.claim());
 });
+
+// ------------------------------------------------------------
+// Push notifications — rappel fin d'entraînement
+// ------------------------------------------------------------
+self.addEventListener("push", (event) => {
+  const data = event.data ? event.data.json() : {};
+  event.waitUntil(
+    self.registration.showNotification(data.title || "BodyForce", {
+      body: data.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: data.data || {},
+      requireInteraction: true,
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const { badgeId, timestamp } = event.notification.data || {};
+  const url =
+    badgeId && timestamp
+      ? `/workout-end?badgeId=${encodeURIComponent(badgeId)}&ts=${encodeURIComponent(timestamp)}`
+      : "/";
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if (c.url.startsWith(self.location.origin) && "focus" in c) {
+          c.navigate(url);
+          return c.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});

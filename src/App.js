@@ -84,6 +84,7 @@ import InvitationSignupPage from "./pages/InvitationSignupPage";
 import MemberFormPage from "./pages/MemberFormPage";
 import ReportsPage from "./pages/ReportsPage";
 import EmailPage from "./pages/EmailPage";
+import WorkoutEndPage from "./pages/WorkoutEndPage";
 
 // Styles & notifications
 import { ToastContainer, toast as showToast } from "react-toastify";
@@ -1301,6 +1302,7 @@ function AppRoutes() {
               <Route path="/my-attendances" element={<MyAttendancesPage />} />
               <Route path="/profile" element={<UserProfilePage />} />
               <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/workout-end" element={<WorkoutEndPage />} />
 
               {/* Catch-all */}
               <Route path="*" element={<Navigate to="/" />} />

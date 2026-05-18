@@ -2,7 +2,7 @@
 // 🎯 "Mon profil" — design aligné onglet Admin, dark-mode & mobile OK
 // 💳 Paiements : même logique que l’admin (colonnes FR supportées)
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../supabaseClient";
 import {
@@ -20,7 +20,20 @@ import {
   FaExclamationTriangle,
   FaCalendarCheck,
   FaMoneyCheckAlt,
+  FaBell,
+  FaBellSlash,
 } from "react-icons/fa";
+
+const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || "";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const output = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+  return output;
+}
 
 /* -------------------------------------------
    Helpers
@@ -379,6 +392,69 @@ export default function UserProfilePage() {
     };
   }, [payments]);
 
+  // --- Push notifications ---
+  const [pushStatus, setPushStatus] = useState("loading"); // loading | unsupported | denied | inactive | active
+  const [pushLoading, setPushLoading] = useState(false);
+
+  const checkPushStatus = useCallback(async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !VAPID_PUBLIC_KEY) {
+      setPushStatus("unsupported");
+      return;
+    }
+    if (Notification.permission === "denied") { setPushStatus("denied"); return; }
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setPushStatus(sub ? "active" : "inactive");
+    } catch {
+      setPushStatus("inactive");
+    }
+  }, []);
+
+  useEffect(() => { checkPushStatus(); }, [checkPushStatus]);
+
+  const handleActivatePush = async () => {
+    if (!memberId) return;
+    setPushLoading(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { setPushStatus("denied"); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      const { endpoint, keys } = sub.toJSON();
+      const { error: supaErr } = await supabase.from("push_subscriptions").upsert(
+        { member_id: memberId, user_id: user.id, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+        { onConflict: "endpoint" }
+      );
+      if (supaErr) throw supaErr;
+      setPushStatus("active");
+    } catch (err) {
+      console.error("Push activation error:", err);
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleDeactivatePush = async () => {
+    setPushLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        await sub.unsubscribe();
+      }
+      setPushStatus("inactive");
+    } catch (err) {
+      console.error("Push deactivation error:", err);
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 text-gray-900 dark:text-gray-100">
       {/* Header */}
@@ -456,6 +532,52 @@ export default function UserProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Notifications */}
+      {pushStatus !== "unsupported" && (
+        <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
+          <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
+              <FaBell />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Rappels d'entraînement</div>
+              <div className="text-xs text-gray-600 dark:text-gray-300">
+                Notification 1h30 après ton entrée en salle
+              </div>
+            </div>
+          </div>
+          <div className="p-4 md:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              {pushStatus === "active" && "Les rappels sont activés sur cet appareil."}
+              {pushStatus === "inactive" && "Active les rappels pour recevoir une notification 1h30 après chaque séance."}
+              {pushStatus === "denied" && "Les notifications sont bloquées dans les paramètres du navigateur."}
+              {pushStatus === "loading" && "Vérification…"}
+            </div>
+            {pushStatus === "denied" ? (
+              <div className="flex items-center gap-2 text-sm text-rose-600 dark:text-rose-400">
+                <FaBellSlash /> Bloquées dans le navigateur
+              </div>
+            ) : pushStatus === "active" ? (
+              <button
+                onClick={handleDeactivatePush}
+                disabled={pushLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-300 hover:bg-rose-500/25 transition-colors disabled:opacity-50 text-sm font-medium"
+              >
+                <FaBellSlash /> {pushLoading ? "…" : "Désactiver"}
+              </button>
+            ) : pushStatus === "inactive" ? (
+              <button
+                onClick={handleActivatePush}
+                disabled={pushLoading || !memberId}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50 text-sm font-semibold"
+              >
+                <FaBell /> {pushLoading ? "…" : "Activer les rappels"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {/* Paiements */}
       <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
