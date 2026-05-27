@@ -898,6 +898,8 @@ function MemberForm({ member, onSave, onCancel }) {
       ...form,
       badge_number: form.badge_number ? parseInt(form.badge_number, 10) : null,
       badgeId: form.badgeId || null,
+      startDate: form.startDate || null,
+      endDate: form.endDate || null,
     };
 
     // 🎯 Détecter si le badge a changé
