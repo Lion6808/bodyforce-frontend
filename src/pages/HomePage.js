@@ -1107,12 +1107,18 @@ function HomePage() {
                   alt={memberDisplayName}
                   width="160"
                   height="160"
-                  className="w-32 h-32 md:w-40 md:h-40 rounded-2xl object-cover shadow-xl ring-4 ring-white dark:ring-gray-700"
+                  className="w-32 h-32 md:w-40 md:h-40 rounded-2xl object-cover shadow-xl ring-4 ring-white dark:ring-gray-700 cursor-pointer hover:opacity-80 hover:scale-105 transition-all duration-200"
                   decoding="async"
                   fetchPriority="high"
+                  onClick={() => memberCtx && handleEditMember(memberCtx)}
+                  title="Voir mes détails"
                 />
               ) : (
-                <div className="w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-700">
+                <div
+                  className="w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-700 cursor-pointer hover:opacity-80 hover:scale-105 transition-all duration-200"
+                  onClick={() => memberCtx && handleEditMember(memberCtx)}
+                  title="Voir mes détails"
+                >
                   {getInitials(memberFirstName, memberLastName)}
                 </div>
               )}
@@ -1131,7 +1137,11 @@ function HomePage() {
 
               <div className="mt-4 flex flex-wrap items-center gap-2 justify-center md:justify-start">
                 {memberCtx?.badgeId && (
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">
+                  <span
+                    className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 cursor-pointer hover:bg-indigo-500/25 transition-colors"
+                    onClick={() => memberCtx && handleEditMember(memberCtx)}
+                    title="Voir mes détails"
+                  >
                     Badge : {memberCtx.badgeId}
                   </span>
                 )}
