@@ -1098,7 +1098,6 @@ function HomePage() {
       {/* ------------------------------------------------------------------ */}
       {user && (
         <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 mb-8">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-blue-500/10 dark:from-indigo-400/10 dark:via-emerald-400/10 dark:to-blue-400/10" />
 
           {/* Zone haute : identité + infos */}
           <div className="relative p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
@@ -1175,18 +1174,8 @@ function HomePage() {
 
           {/* Zone basse : actions */}
           {(memberId || (isAdmin && memberCtx?.badgeId)) && (
-            <div className="relative border-t border-gray-100 dark:border-gray-700 px-6 md:px-8 py-3 flex items-center justify-between gap-3 flex-wrap">
-              {/* Bouton Voir mes stats (admin uniquement car non-admin n'a pas de stats perso ici) */}
-              {isAdmin && memberCtx?.badgeId && (
-                <a
-                  href="/my-attendances"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors shadow-sm"
-                >
-                  <FaChartBar className="text-xs" />
-                  Voir mes stats
-                </a>
-              )}
-              {!isAdmin && memberCtx?.badgeId && (
+            <div className="border-t border-gray-100 dark:border-gray-700 px-6 md:px-8 py-3 flex items-center justify-center md:justify-between gap-3 flex-wrap">
+              {memberCtx?.badgeId && (
                 <a
                   href="/my-attendances"
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors shadow-sm"
@@ -1198,7 +1187,7 @@ function HomePage() {
 
               {/* Toggle rappels push */}
               {memberId && pushStatus !== "loading" && (
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center gap-2 md:ml-auto">
                   {pushStatus === "active" && (
                     <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
