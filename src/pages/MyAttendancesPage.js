@@ -76,6 +76,15 @@ const toDateString = (date) => {
  */
 const parseTimestamp = (ts) => new Date(ts);
 
+const calcDuration = (start, end) => {
+  if (!start || !end) return null;
+  const mins = Math.round((end - start) / 60000);
+  if (mins <= 0) return null;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+};
+
 // ============================================================================
 // SECTION 3 -- Attendance statistics calculator
 // ============================================================================
@@ -124,12 +133,16 @@ const calculateAttendanceStats = (presences) => {
   const peakDay = dayNames[weeklyDistribution.indexOf(Math.max(...weeklyDistribution))] || "";
 
   const dailyStats = Object.entries(dailyPresences)
-    .map(([date, visits]) => ({
-      date: new Date(date),
-      visits: visits.length,
-      first: visits[visits.length - 1]?.parsedDate,
-      last: visits[0]?.parsedDate,
-    }))
+    .map(([date, visits]) => {
+      const firstVisit = visits[visits.length - 1];
+      return {
+        date: new Date(date),
+        visits: visits.length,
+        first: firstVisit?.parsedDate,
+        last: visits[0]?.parsedDate,
+        endTime: firstVisit?.end_time ? new Date(firstVisit.end_time) : null,
+      };
+    })
     .sort((a, b) => b.date - a.date);
 
   const firstVisit = presences[presences.length - 1]?.parsedDate || null;
@@ -689,6 +702,7 @@ export default function MyAttendancesPage() {
           const list = (data || []).map((p) => ({
             ...p,
             parsedDate: parseTimestamp(p.timestamp),
+            end_time: p.end_time || null,
           }));
           setPresences(list);
         }
@@ -929,9 +943,21 @@ export default function MyAttendancesPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-xs text-gray-800 dark:text-gray-200 flex-shrink-0">
-                        {d.first && `Arrivée : ${formatIntl(d.first, "HH:mm")}`}
-                        {d.last && d.first !== d.last && ` — Dernier badge : ${formatIntl(d.last, "HH:mm")}`}
+                      <div className="text-xs text-gray-800 dark:text-gray-200 flex-shrink-0 text-right">
+                        {d.first && (
+                          <span>
+                            {formatIntl(d.first, "HH:mm")}
+                            {d.endTime && ` → ${formatIntl(d.endTime, "HH:mm")}`}
+                            {d.endTime && calcDuration(d.first, d.endTime) && (
+                              <span className="ml-1 font-semibold text-indigo-600 dark:text-indigo-400">
+                                ({calcDuration(d.first, d.endTime)})
+                              </span>
+                            )}
+                          </span>
+                        )}
+                        {d.last && d.first !== d.last && !d.endTime && (
+                          <span className="block">Dernier badge : {formatIntl(d.last, "HH:mm")}</span>
+                        )}
                       </div>
                     </li>
                   );
