@@ -33,6 +33,7 @@ import {
   FaArrowRight,
   FaBell,
   FaBellSlash,
+  FaChartBar,
 } from "react-icons/fa";
 
 const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || "BFm-sjydQw6LfYtniSytrr9K7WU_WHzgWvj95tw7YWfchRokgQXjTwbETOWrlSJhXe9c5ohTr0Z_d4hm2JADVec";
@@ -1098,9 +1099,11 @@ function HomePage() {
       {user && (
         <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 mb-8">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-blue-500/10 dark:from-indigo-400/10 dark:via-emerald-400/10 dark:to-blue-400/10" />
+
+          {/* Zone haute : identité + infos */}
           <div className="relative p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
             {/* Photo ou initiales */}
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               {memberPhoto ? (
                 <img
                   src={memberPhoto}
@@ -1111,13 +1114,13 @@ function HomePage() {
                   decoding="async"
                   fetchPriority="high"
                   onClick={() => memberCtx && handleEditMember(memberCtx)}
-                  title="Voir mes détails"
+                  title="Voir ma fiche"
                 />
               ) : (
                 <div
                   className="w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-700 cursor-pointer hover:opacity-80 hover:scale-105 transition-all duration-200"
                   onClick={() => memberCtx && handleEditMember(memberCtx)}
-                  title="Voir mes détails"
+                  title="Voir ma fiche"
                 >
                   {getInitials(memberFirstName, memberLastName)}
                 </div>
@@ -1125,8 +1128,8 @@ function HomePage() {
               <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-emerald-400/90 blur-sm" />
             </div>
 
-            {/* Texte de bienvenue + tags */}
-            <div className="text-center md:text-left flex-1">
+            {/* Texte de bienvenue + pills infos */}
+            <div className="text-center md:text-left flex-1 min-w-0">
               <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white">
                 Bonjour{memberFirstName ? `, ${memberFirstName}` : ""} 👋
               </h1>
@@ -1135,87 +1138,94 @@ function HomePage() {
                 dernières informations.
               </p>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2 justify-center md:justify-start">
+              {/* Pills d'info uniquement */}
+              <div className="mt-3 flex flex-wrap items-center gap-2 justify-center md:justify-start">
                 {memberCtx?.badgeId && (
                   <span
-                    className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 cursor-pointer hover:bg-indigo-500/25 transition-colors"
+                    className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 underline underline-offset-2 decoration-dotted cursor-pointer hover:bg-indigo-500/25 transition-colors"
                     onClick={() => memberCtx && handleEditMember(memberCtx)}
-                    title="Voir mes détails"
+                    title="Voir ma fiche"
                   >
-                    Badge : {memberCtx.badgeId}
+                    Badge {memberCtx.badgeId}
                   </span>
                 )}
-
-                {/* Tags admin : streak, niveau, objectif mensuel */}
                 {isAdmin && memberCtx?.badgeId && (
                   <>
                     {adminPersonalStats.currentStreak > 0 && (
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-500/15 text-orange-700 dark:text-orange-300 flex items-center gap-1">
-                        🔥 {adminPersonalStats.currentStreak} jour
-                        {adminPersonalStats.currentStreak > 1 ? "s" : ""}
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-500/15 text-orange-700 dark:text-orange-300">
+                        🔥 {adminPersonalStats.currentStreak} jour{adminPersonalStats.currentStreak > 1 ? "s" : ""}
                       </span>
                     )}
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300">
                       📊 Niveau {adminPersonalStats.level}
                     </span>
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300">
-                      🎯 {adminPersonalStats.monthVisits}/
-                      {adminPersonalStats.monthlyGoal} ce mois
+                      🎯 {adminPersonalStats.monthVisits}/{adminPersonalStats.monthlyGoal} ce mois
                     </span>
-                    <a
-                      href="/my-attendances"
-                      className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center gap-1"
-                    >
-                      Voir mes stats
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </a>
                   </>
                 )}
-
-                {/* Bouton rappels push */}
-                {pushStatus === "inactive" && memberId && (
-                  <button
-                    onClick={handleActivatePush}
-                    disabled={pushLoading}
-                    className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/25 transition-colors flex items-center gap-1 disabled:opacity-50"
-                  >
-                    <FaBell className="text-[10px]" />
-                    {pushLoading ? "…" : "Activer les rappels"}
-                  </button>
-                )}
-                {pushStatus === "active" && (
-                  <button
-                    onClick={handleDeactivatePush}
-                    disabled={pushLoading}
-                    className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-rose-500/15 hover:text-rose-700 dark:hover:text-rose-300 transition-colors flex items-center gap-1 disabled:opacity-50"
-                  >
-                    <FaBell className="text-[10px]" />
-                    {pushLoading ? "…" : "Rappels actifs"}
-                  </button>
-                )}
-
-                {/* Tag membre : nombre de paiements regles */}
                 {!isAdmin && userPayments?.length > 0 && (
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                    {userPayments.filter((p) => p.is_paid).length} paiement(s)
-                    réglé(s)
+                    {userPayments.filter((p) => p.is_paid).length} paiement(s) réglé(s)
                   </span>
                 )}
               </div>
             </div>
           </div>
+
+          {/* Zone basse : actions */}
+          {(memberId || (isAdmin && memberCtx?.badgeId)) && (
+            <div className="relative border-t border-gray-100 dark:border-gray-700 px-6 md:px-8 py-3 flex items-center justify-between gap-3 flex-wrap">
+              {/* Bouton Voir mes stats (admin uniquement car non-admin n'a pas de stats perso ici) */}
+              {isAdmin && memberCtx?.badgeId && (
+                <a
+                  href="/my-attendances"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors shadow-sm"
+                >
+                  <FaChartBar className="text-xs" />
+                  Voir mes stats
+                </a>
+              )}
+              {!isAdmin && memberCtx?.badgeId && (
+                <a
+                  href="/my-attendances"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors shadow-sm"
+                >
+                  <FaChartBar className="text-xs" />
+                  Voir mes stats
+                </a>
+              )}
+
+              {/* Toggle rappels push */}
+              {memberId && pushStatus !== "loading" && (
+                <div className="flex items-center gap-2 ml-auto">
+                  {pushStatus === "active" && (
+                    <span className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Rappels actifs
+                    </span>
+                  )}
+                  {pushStatus === "inactive" && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Rappels désactivés
+                    </span>
+                  )}
+                  <button
+                    onClick={pushStatus === "active" ? handleDeactivatePush : handleActivatePush}
+                    disabled={pushLoading}
+                    title={pushStatus === "active" ? "Désactiver les rappels" : "Activer les rappels"}
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors disabled:opacity-50 ${
+                      pushStatus === "active"
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-rose-500/15 hover:text-rose-600 dark:hover:text-rose-400"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-indigo-500/15 hover:text-indigo-600 dark:hover:text-indigo-400"
+                    }`}
+                  >
+                    <FaBell className="text-sm" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
