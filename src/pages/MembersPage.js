@@ -14,6 +14,7 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase, supabaseServices } from "../supabaseClient";
+import { keyboardClickable } from "../utils/a11y";
 import MemberForm from "../components/MemberForm";
 import { isBefore, parseISO } from "date-fns";
 import {
@@ -306,7 +307,7 @@ function SearchHints({ search }) {
 function Widget({ title, value, onClick, active = false }) {
   return (
     <div
-      onClick={onClick}
+      {...keyboardClickable(onClick)}
       className={`p-3 rounded-3xl text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
         active
           ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
@@ -1103,7 +1104,7 @@ function MembersPage() {
                   ? "bg-green-100 dark:bg-green-900/40 ring-2 ring-green-400 dark:ring-green-500 shadow-md shadow-green-500/10"
                   : "bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30"
               }`}
-              onClick={() => setActiveFilter("Actifs")}
+              {...keyboardClickable(() => setActiveFilter("Actifs"))}
             >
               <div className="p-2 rounded-xl bg-green-500/15">
                 <FaUserCheck className="text-green-600 dark:text-green-400" size={18} />
@@ -1119,7 +1120,7 @@ function MembersPage() {
                   ? "bg-red-100 dark:bg-red-900/40 ring-2 ring-red-400 dark:ring-red-500 shadow-md shadow-red-500/10"
                   : "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30"
               }`}
-              onClick={() => setActiveFilter("Expiré")}
+              {...keyboardClickable(() => setActiveFilter("Expiré"))}
             >
               <div className="p-2 rounded-xl bg-red-500/15">
                 <FaUserTimes className="text-red-600 dark:text-red-400" size={18} />
@@ -1142,7 +1143,7 @@ function MembersPage() {
                   ? "bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-400 dark:ring-indigo-500 shadow-md shadow-indigo-500/10"
                   : "bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
               }`}
-              onClick={() => setActiveFilter("Homme")}
+              {...keyboardClickable(() => setActiveFilter("Homme"))}
             >
               <div className="mx-auto w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-2">
                 <FaMale className="text-indigo-600 dark:text-indigo-400" size={18} />
@@ -1156,7 +1157,7 @@ function MembersPage() {
                   ? "bg-pink-100 dark:bg-pink-900/40 ring-2 ring-pink-400 dark:ring-pink-500 shadow-md shadow-pink-500/10"
                   : "bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30"
               }`}
-              onClick={() => setActiveFilter("Femme")}
+              {...keyboardClickable(() => setActiveFilter("Femme"))}
             >
               <div className="mx-auto w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center mb-2">
                 <FaFemale className="text-pink-600 dark:text-pink-400" size={18} />
@@ -1170,7 +1171,7 @@ function MembersPage() {
                   ? "bg-yellow-100 dark:bg-yellow-900/40 ring-2 ring-yellow-400 dark:ring-yellow-500 shadow-md shadow-yellow-500/10"
                   : "bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
               }`}
-              onClick={() => setActiveFilter("Etudiant")}
+              {...keyboardClickable(() => setActiveFilter("Etudiant"))}
             >
               <div className="mx-auto w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center mb-2">
                 <FaGraduationCap className="text-yellow-600 dark:text-yellow-400" size={18} />
@@ -1190,7 +1191,7 @@ function MembersPage() {
               ? "bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400 dark:ring-blue-500 shadow-md shadow-blue-500/10"
               : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
           }`}
-          onClick={() => setActiveFilter("Récent")}
+          {...keyboardClickable(() => setActiveFilter("Récent"))}
         >
           <div className="p-2 rounded-xl bg-blue-500/15">
             <FaClock className="text-blue-600 dark:text-blue-400" size={18} />
@@ -1206,7 +1207,7 @@ function MembersPage() {
               ? "bg-orange-100 dark:bg-orange-900/40 ring-2 ring-orange-400 dark:ring-orange-500 shadow-md shadow-orange-500/10"
               : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-orange-50 dark:hover:bg-orange-900/20"
           }`}
-          onClick={() => setActiveFilter("SansCertif")}
+          {...keyboardClickable(() => setActiveFilter("SansCertif"))}
         >
           <div className="p-2 rounded-xl bg-orange-500/15">
             <FaFileMedical className="text-orange-600 dark:text-orange-400" size={18} />
@@ -1428,7 +1429,7 @@ function MembersPage() {
                         <td className="p-3">
                           <div
                             className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200 flex items-center gap-2 group"
-                            onClick={() => handleEditMember(member)}
+                            {...keyboardClickable(() => handleEditMember(member))}
                             title="Cliquer pour modifier"
                           >
                             <span>
@@ -1635,7 +1636,7 @@ function MembersPage() {
                       <div className="flex-1">
                         <div
                           className="font-semibold text-gray-900 dark:text-white text-lg cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200"
-                          onClick={() => handleEditMember(member)}
+                          {...keyboardClickable(() => handleEditMember(member))}
                           title="Cliquer pour modifier"
                         >
                           {member.name} {member.firstName}

@@ -26,6 +26,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
 import { supabase, supabaseServices } from "../supabaseClient";
+import { keyboardClickable } from "../utils/a11y";
 import { useNavigate } from "react-router-dom";
 import MemberForm from "../components/MemberForm";
 import Avatar from "../components/Avatar";
@@ -1055,7 +1056,7 @@ function PlanningPage() {
                 <div className="min-w-0">
                   <div
                     className="font-semibold text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                    onClick={() => handleEditMember(member)}
+                    {...keyboardClickable(() => handleEditMember(member))}
                   >
                     {member.name} {member.firstName}
                   </div>

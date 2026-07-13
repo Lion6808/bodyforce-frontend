@@ -57,6 +57,7 @@ import {
 } from "recharts";
 
 import { supabaseServices, supabase } from "../supabaseClient";
+import { keyboardClickable } from "../utils/a11y";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
 import MemberForm from "../components/MemberForm";
@@ -1112,13 +1113,13 @@ function HomePage() {
                   className="w-32 h-32 md:w-40 md:h-40 rounded-2xl object-cover shadow-xl ring-4 ring-white dark:ring-gray-700 cursor-pointer hover:opacity-80 hover:scale-105 transition-all duration-200"
                   decoding="async"
                   fetchPriority="high"
-                  onClick={() => memberCtx && handleEditMember(memberCtx)}
+                  {...keyboardClickable(() => memberCtx && handleEditMember(memberCtx))}
                   title="Voir ma fiche"
                 />
               ) : (
                 <div
                   className="w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-white dark:ring-gray-700 cursor-pointer hover:opacity-80 hover:scale-105 transition-all duration-200"
-                  onClick={() => memberCtx && handleEditMember(memberCtx)}
+                  {...keyboardClickable(() => memberCtx && handleEditMember(memberCtx))}
                   title="Voir ma fiche"
                 >
                   {getInitials(memberFirstName, memberLastName)}
@@ -1554,7 +1555,7 @@ function HomePage() {
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         {/* Avatar ou indicateur BP */}
                         <div
-                          onClick={() => m && handleEditMember(m)}
+                          {...(m ? keyboardClickable(() => handleEditMember(m)) : {})}
                           className={`${m ? "cursor-pointer hover:opacity-75 hover:scale-105" : ""} transition-all`}
                           title={
                             isBP
@@ -1671,7 +1672,7 @@ function HomePage() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        onClick={() => handleEditMember(m)}
+                        {...keyboardClickable(() => handleEditMember(m))}
                         className="cursor-pointer hover:opacity-75 hover:scale-105 transition-all"
                         title="Voir les détails du membre"
                       >
@@ -1680,14 +1681,12 @@ function HomePage() {
                           firstName={m.firstName}
                           name={m.name}
                           size={40}
-                          onClick={() => handleEditMember(m)}
-                          title="Voir les détails du membre"
                         />
                       </div>
                       <div className="min-w-0">
                         <div
                           className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                          onClick={() => handleEditMember(m)}
+                          {...keyboardClickable(() => handleEditMember(m))}
                         >
                           {displayName}
                         </div>

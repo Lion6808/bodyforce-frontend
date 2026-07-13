@@ -380,12 +380,12 @@ function PaymentsPage() {
       // Members without photos (egress-friendly)
       const membersData = await supabaseServices.getMembersWithoutPhotos();
 
-      // Payments with joined member data (no photo)
+      // Payments with joined member data (no photo) — colonnes explicites pour limiter l'egress
       const { data: paymentsData, error: paymentsError } = await supabase
         .from("payments")
         .select(
           `
-            *,
+            id, member_id, amount, method, is_paid, date_paiement, encaissement_prevu, commentaire,
             members (id, badgeId, name, firstName, email, phone, mobile)
           `
         )

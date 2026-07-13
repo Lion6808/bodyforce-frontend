@@ -56,6 +56,7 @@ import {
   FaChartBar,
   FaClock,
 } from "react-icons/fa";
+import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import MemberMessagesTab from "../components/MemberMessagesTab";
 
@@ -1028,7 +1029,12 @@ function MemberFormPage() {
       .eq("member_id", memberId)
       .order("date_paiement", { ascending: false });
 
-    if (!error) setPayments(data);
+    if (error) {
+      console.error("Erreur chargement paiements :", error.message);
+      toast.error(`Erreur lors du chargement des paiements : ${error.message}`);
+      return;
+    }
+    setPayments(data);
   };
 
   /** Insert a new payment row, then refresh the payments list. */
@@ -1048,6 +1054,7 @@ function MemberFormPage() {
 
     if (error) {
       console.error("Erreur ajout paiement :", error.message);
+      toast.error(`Erreur lors de l'ajout du paiement : ${error.message}`);
       return;
     }
 
@@ -1067,6 +1074,7 @@ function MemberFormPage() {
     const { error } = await supabase.from("payments").delete().eq("id", id);
     if (error) {
       console.error("Erreur suppression paiement :", error.message);
+      toast.error(`Erreur lors de la suppression du paiement : ${error.message}`);
       return;
     }
     fetchPayments(member.id);
@@ -1084,6 +1092,7 @@ function MemberFormPage() {
         "Erreur mise a jour du statut de paiement :",
         error.message
       );
+      toast.error(`Erreur lors de la mise à jour du statut : ${error.message}`);
       return;
     }
 

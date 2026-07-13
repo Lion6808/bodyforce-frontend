@@ -6,6 +6,7 @@
 
 // 📄 components/Avatar.jsx — MODIFIÉ — Supporte onClick
 import React, { useMemo, useState } from "react";
+import { keyboardClickable } from "../utils/a11y";
 
 function isHttpUrl(value) {
   return typeof value === "string" && /^https?:\/\//i.test(value);
@@ -57,7 +58,7 @@ export default function Avatar({
   const wrapContent = (content) => {
     if (onClick) {
       return (
-        <div onClick={onClick} className={clickClasses} title={title || alt}>
+        <div {...keyboardClickable(onClick)} className={clickClasses} title={title || alt}>
           {content}
         </div>
       );

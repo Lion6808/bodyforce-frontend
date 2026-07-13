@@ -1,6 +1,7 @@
 // 📄 src/pages/MessagesPage.jsx — Version corrigée avec vraies fonctionnalités
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "../supabaseClient";
+import { keyboardClickable } from "../utils/a11y";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO, isToday, isYesterday } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -947,10 +948,10 @@ export default function MessagesPage() {
           {filteredConversations.map((conv) => (
             <div
               key={conv.otherId}
-              onClick={() => {
+              {...keyboardClickable(() => {
                 setActiveOtherId(conv.otherId);
                 setShowMobileChat(true);
-              }}
+              })}
               className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -1043,7 +1044,7 @@ export default function MessagesPage() {
             filteredConversations.map((conv) => (
               <div
                 key={conv.otherId}
-                onClick={() => setActiveOtherId(conv.otherId)}
+                {...keyboardClickable(() => setActiveOtherId(conv.otherId))}
                 className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${activeOtherId === conv.otherId
                   ? "bg-blue-50 dark:bg-blue-900/20 border-r-4 border-blue-500"
                   : "hover:bg-gray-50 dark:hover:bg-gray-700"
