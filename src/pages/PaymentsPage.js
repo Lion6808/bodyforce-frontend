@@ -159,17 +159,17 @@ function getPaymentStatus(payment) {
 const getPaymentMethodIcon = (method) => {
   switch (method) {
     case "carte":
-      return "\uD83D\uDCB3";
+      return "💳";
     case "cheque":
-    case "ch\u00E8que":
-      return "\uD83D\uDCDD";
+    case "chèque":
+      return "📝";
     case "especes":
-    case "esp\u00E8ces":
-      return "\uD83D\uDCB5";
+    case "espèces":
+      return "💵";
     case "autre":
-      return "\uD83D\uDD04";
+      return "🔄";
     default:
-      return "\u2753";
+      return "❓";
   }
 };
 
@@ -177,7 +177,7 @@ const getPaymentMethodIcon = (method) => {
 const getStatusLabel = (status) => {
   switch (status) {
     case "paid":
-      return "Pay\u00E9";
+      return "Payé";
     case "pending":
       return "En attente";
     case "overdue":
@@ -191,7 +191,7 @@ const getStatusLabel = (status) => {
 
 /** Format a date string to French locale (date only). */
 const formatDate = (dateString) => {
-  if (!dateString) return "Non d\u00E9finie";
+  if (!dateString) return "Non définie";
   try {
     return new Date(dateString).toLocaleDateString("fr-FR");
   } catch {
@@ -201,7 +201,7 @@ const formatDate = (dateString) => {
 
 /** Format a date string to French locale (date + time). */
 const formatDateTime = (dateString) => {
-  if (!dateString) return "Non d\u00E9finie";
+  if (!dateString) return "Non définie";
   try {
     return new Date(dateString).toLocaleString("fr-FR");
   } catch {
@@ -226,7 +226,7 @@ function SearchHints({ search }) {
       {/* Active badge indicators */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-          Recherche avanc\u00E9e
+          Recherche avancée
         </span>
         {info.hasWildcards && (
           <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700">
@@ -264,9 +264,9 @@ function SearchHints({ search }) {
         {info.clauses.length > 1 && (
           <span
             className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"
-            title="Groupes reli\u00E9s par OR"
+            title="Groupes reliés par OR"
           >
-            (Groupes reli\u00E9s par OR)
+            (Groupes reliés par OR)
           </span>
         )}
       </div>
@@ -278,8 +278,8 @@ function SearchHints({ search }) {
         <code className="font-mono">mar?</code> (mar + 1 char),{" "}
         <code className="font-mono">homme mar*</code> (AND),{" "}
         <code className="font-mono">b* OR mar*</code> (OR),{" "}
-        <code className="font-mono">^mar*</code> (ancr\u00E9 d\u00E9but),{" "}
-        <code className="font-mono">*tin$</code> (ancr\u00E9 fin).
+        <code className="font-mono">^mar*</code> (ancré début),{" "}
+        <code className="font-mono">*tin$</code> (ancré fin).
       </div>
     </div>
   );
@@ -398,7 +398,7 @@ function PaymentsPage() {
       setPayments(paymentsData || []);
       setRetryCount(0);
     } catch (e) {
-      setError(e.message || "Erreur de connexion \u00E0 la base de donn\u00E9es");
+      setError(e.message || "Erreur de connexion à la base de données");
     } finally {
       setLoading(false);
       setIsRetrying(false);
@@ -636,19 +636,19 @@ function PaymentsPage() {
       doc.setDrawColor(200, 200, 200);
       doc.rect(15, yPos - 2, 267, 35);
       doc.setFontSize(10);
-      doc.text(`Total Attendu: ${stats.totalExpected.toLocaleString("fr-FR")} \u20AC`, 20, yPos + 5);
+      doc.text(`Total Attendu: ${stats.totalExpected.toLocaleString("fr-FR")} €`, 20, yPos + 5);
       doc.text(
-        `Total Recu: ${stats.totalReceived.toLocaleString("fr-FR")} \u20AC (${stats.collectionRate.toFixed(1)}%)`,
+        `Total Recu: ${stats.totalReceived.toLocaleString("fr-FR")} € (${stats.collectionRate.toFixed(1)}%)`,
         150,
         yPos + 5
       );
       doc.text(
-        `En Attente: ${stats.totalPending.toLocaleString("fr-FR")} \u20AC (${stats.pendingCount} paiements)`,
+        `En Attente: ${stats.totalPending.toLocaleString("fr-FR")} € (${stats.pendingCount} paiements)`,
         20,
         yPos + 15
       );
       doc.text(
-        `En Retard: ${stats.totalOverdue.toLocaleString("fr-FR")} \u20AC (${stats.overdueCount} paiements)`,
+        `En Retard: ${stats.totalOverdue.toLocaleString("fr-FR")} € (${stats.overdueCount} paiements)`,
         150,
         yPos + 15
       );
@@ -664,19 +664,19 @@ function PaymentsPage() {
       doc.setFontSize(10);
       let xPos = 20;
 
-      ["carte", "ch\u00E8que", "esp\u00E8ces", "autre"].forEach((method) => {
+      ["carte", "chèque", "espèces", "autre"].forEach((method) => {
         const methodPayments = payments.filter(
           (p) =>
             p.is_paid &&
             (p.method === method ||
-              (method === "ch\u00E8que" && p.method === "cheque") ||
-              (method === "esp\u00E8ces" && p.method === "especes"))
+              (method === "chèque" && p.method === "cheque") ||
+              (method === "espèces" && p.method === "especes"))
         );
         const total = methodPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
         const percentage = stats.totalReceived > 0 ? (total / stats.totalReceived) * 100 : 0;
 
         doc.text(`${method.toUpperCase()}:`, xPos, yPos + 8);
-        doc.text(`${total.toFixed(2)} \u20AC`, xPos, yPos + 15);
+        doc.text(`${total.toFixed(2)} €`, xPos, yPos + 15);
         doc.text(`${percentage.toFixed(1)}%`, xPos, yPos + 22);
         xPos += 65;
       });
@@ -739,7 +739,7 @@ function PaymentsPage() {
         doc.text(statusText, 110, yPos);
         doc.text(`${member.progressPercentage.toFixed(0)}%`, 145, yPos);
         doc.text(
-          `${member.totalPaid.toFixed(0)}\u20AC/${member.totalDue.toFixed(0)}\u20AC`,
+          `${member.totalPaid.toFixed(0)}€/${member.totalDue.toFixed(0)}€`,
           185,
           yPos
         );
@@ -775,7 +775,7 @@ function PaymentsPage() {
       doc.save(`Rapport_Paiements_${timestamp}.pdf`);
     } catch (err) {
       console.error("Erreur export PDF:", err);
-      toast.error("Erreur lors de la g\u00E9n\u00E9ration du PDF.");
+      toast.error("Erreur lors de la génération du PDF.");
     }
   };
 
@@ -788,17 +788,17 @@ function PaymentsPage() {
     try {
       const csvData = filteredMembers.map((member) => ({
         Nom: member.name || "",
-        "Pr\u00E9nom": member.firstName || "",
+        "Prénom": member.firstName || "",
         Badge: member.badgeId || "",
         Email: member.email || "",
-        "T\u00E9l\u00E9phone": member.phone ?? member.mobile ?? "",
+        "Téléphone": member.phone ?? member.mobile ?? "",
         Statut: getStatusLabel(member.overallStatus),
         "Progression (%)": member.progressPercentage.toFixed(1),
-        "Total D\u00FB (\u20AC)": member.totalDue.toFixed(2),
-        "Total Pay\u00E9 (\u20AC)": member.totalPaid.toFixed(2),
-        "Reste \u00E0 Payer (\u20AC)": (member.totalDue - member.totalPaid).toFixed(2),
+        "Total Dû (€)": member.totalDue.toFixed(2),
+        "Total Payé (€)": member.totalPaid.toFixed(2),
+        "Reste à Payer (€)": (member.totalDue - member.totalPaid).toFixed(2),
         "Nombre de Paiements": member.payments.length,
-        "Paiements Effectu\u00E9s": member.payments.filter((p) => p.is_paid).length,
+        "Paiements Effectués": member.payments.filter((p) => p.is_paid).length,
         "Paiements en Retard": member.payments.filter((p) => !p.is_paid && isOverdue(p)).length,
         "Dernier Paiement": member.lastPaymentDate
           ? formatDate(member.lastPaymentDate)
@@ -820,7 +820,7 @@ function PaymentsPage() {
       link.click();
     } catch (err) {
       console.error("Erreur export CSV:", err);
-      toast.error("Erreur lors de la g\u00E9n\u00E9ration du CSV.");
+      toast.error("Erreur lors de la génération du CSV.");
     }
   };
 
@@ -882,7 +882,7 @@ function PaymentsPage() {
             isDarkMode ? "text-white" : "text-gray-800"
           } mb-4`}
         >
-          Probl\u00E8me de connexion
+          Problème de connexion
         </h2>
         <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"} mb-8`}>
           {error}
@@ -900,7 +900,7 @@ function PaymentsPage() {
           ) : (
             <>
               <RefreshCw className="w-5 h-5" />
-              R\u00E9essayer
+              Réessayer
             </>
           )}
         </button>
@@ -938,7 +938,7 @@ function PaymentsPage() {
           {isRetrying ? "Reconnexion en cours..." : "Chargement des paiements..."}
         </h2>
         <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-          Mode optimis\u00E9 egress
+          Mode optimisé egress
         </p>
       </div>
     </div>
@@ -979,7 +979,7 @@ function PaymentsPage() {
             } disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
           >
             <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Pr\u00E9c\u00E9dent</span>
+            <span className="hidden sm:inline">Précédent</span>
           </button>
 
           {/* Page number buttons with ellipsis */}
@@ -1062,7 +1062,7 @@ function PaymentsPage() {
                       isDarkMode ? "text-white" : "text-gray-900"
                     } truncate`}
                   >
-                    {member.firstName || "Pr\u00E9nom"} {member.name || "Nom"}
+                    {member.firstName || "Prénom"} {member.name || "Nom"}
                   </h4>
                   <p
                     className={`text-sm ${
@@ -1144,14 +1144,14 @@ function PaymentsPage() {
                   </div>
                   <div className="text-sm">
                     <div className="font-bold text-green-600">
-                      {member.totalPaid.toFixed(2)} \u20AC
+                      {member.totalPaid.toFixed(2)} €
                     </div>
                     <div
                       className={`${
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       }`}
                     >
-                      sur {member.totalDue.toFixed(2)} \u20AC
+                      sur {member.totalDue.toFixed(2)} €
                     </div>
                   </div>
                 </div>
@@ -1200,12 +1200,12 @@ function PaymentsPage() {
                 {expandedMember === member.id ? (
                   <>
                     <EyeOff className="w-4 h-4" />
-                    Masquer les d\u00E9tails
+                    Masquer les détails
                   </>
                 ) : (
                   <>
                     <Eye className="w-4 h-4" />
-                    Voir les d\u00E9tails
+                    Voir les détails
                   </>
                 )}
               </button>
@@ -1238,7 +1238,7 @@ function PaymentsPage() {
                   } flex items-center gap-2`}
                 >
                   <CreditCard className="w-4 h-4" />
-                  D\u00E9tail des paiements
+                  Détail des paiements
                 </h5>
 
                 {member.payments.length > 0 ? (
@@ -1280,7 +1280,7 @@ function PaymentsPage() {
                               Montant:
                             </span>
                             <div className="font-bold">
-                              {parseFloat(payment.amount || 0).toFixed(2)} \u20AC
+                              {parseFloat(payment.amount || 0).toFixed(2)} €
                             </div>
                           </div>
                           <div>
@@ -1289,7 +1289,7 @@ function PaymentsPage() {
                                 isDarkMode ? "text-gray-400" : "text-gray-500"
                               }`}
                             >
-                              M\u00E9thode:
+                              Méthode:
                             </span>
                             <div className="flex items-center gap-1">
                               <span>{getPaymentMethodIcon(payment.method)}</span>
@@ -1307,7 +1307,7 @@ function PaymentsPage() {
                             <div className="font-medium">
                               {payment.is_paid
                                 ? formatDate(payment.date_paiement)
-                                : "Non pay\u00E9"}
+                                : "Non payé"}
                             </div>
                           </div>
                           <div>
@@ -1316,7 +1316,7 @@ function PaymentsPage() {
                                 isDarkMode ? "text-gray-400" : "text-gray-500"
                               }`}
                             >
-                              \u00C9ch\u00E9ance:
+                              Échéance:
                             </span>
                             <div className="font-medium">
                               {formatDate(payment.encaissement_prevu)}
@@ -1361,7 +1361,7 @@ function PaymentsPage() {
                         isDarkMode ? "text-gray-400" : "text-gray-500"
                       } text-sm`}
                     >
-                      Aucun paiement enregistr\u00E9
+                      Aucun paiement enregistré
                     </p>
                   </div>
                 )}
@@ -1398,7 +1398,7 @@ function PaymentsPage() {
                 Suivi des Paiements
               </h1>
               <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                Mode optimis\u00E9 egress &bull; {members.length} membres &bull; Pagination{" "}
+                Mode optimisé egress &bull; {members.length} membres &bull; Pagination{" "}
                 {ITEMS_PER_PAGE}/page
               </p>
             </div>
@@ -1460,7 +1460,7 @@ function PaymentsPage() {
                     isDarkMode ? "text-white" : "text-gray-900"
                   }`}
                 >
-                  {stats.totalExpected.toLocaleString()} \u20AC
+                  {stats.totalExpected.toLocaleString()} €
                 </p>
                 <p
                   className={`text-xs ${
@@ -1493,10 +1493,10 @@ function PaymentsPage() {
                     isDarkMode ? "text-gray-400" : "text-gray-600"
                   }`}
                 >
-                  Total Re\u00E7u
+                  Total Reçu
                 </p>
                 <p className="text-lg lg:text-2xl font-bold text-green-600">
-                  {stats.totalReceived.toLocaleString()} \u20AC
+                  {stats.totalReceived.toLocaleString()} €
                 </p>
                 <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" />
@@ -1529,7 +1529,7 @@ function PaymentsPage() {
                   En Attente
                 </p>
                 <p className="text-lg lg:text-2xl font-bold text-yellow-600">
-                  {stats.totalPending.toLocaleString()} \u20AC
+                  {stats.totalPending.toLocaleString()} €
                 </p>
                 <p
                   className={`text-xs ${
@@ -1565,7 +1565,7 @@ function PaymentsPage() {
                   En Retard
                 </p>
                 <p className="text-lg lg:text-2xl font-bold text-red-600">
-                  {stats.totalOverdue.toLocaleString()} \u20AC
+                  {stats.totalOverdue.toLocaleString()} €
                 </p>
                 <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                   <TrendingDown className="w-3 h-3" />
@@ -1616,8 +1616,8 @@ function PaymentsPage() {
               isDarkMode ? "text-gray-400" : "text-gray-600"
             } mt-2`}
           >
-            <span>{stats.totalReceived.toLocaleString()} \u20AC re\u00E7us</span>
-            <span>{stats.totalExpected.toLocaleString()} \u20AC attendus</span>
+            <span>{stats.totalReceived.toLocaleString()} € reçus</span>
+            <span>{stats.totalExpected.toLocaleString()} € attendus</span>
           </div>
         </div>
 
@@ -1639,7 +1639,7 @@ function PaymentsPage() {
                   />
                   <input
                     type="text"
-                    placeholder="Rechercher par nom, pr\u00E9nom ou badge..."
+                    placeholder="Rechercher par nom, prénom ou badge..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className={`w-full pl-10 pr-4 py-2 border ${
@@ -1663,7 +1663,7 @@ function PaymentsPage() {
                 } rounded-lg sm:w-48`}
               >
                 <option value="all">Tous les statuts</option>
-                <option value="paid">Pay\u00E9</option>
+                <option value="paid">Payé</option>
                 <option value="pending">En attente</option>
                 <option value="overdue">En retard</option>
                 <option value="no_payments">Aucun paiement</option>
@@ -1692,7 +1692,7 @@ function PaymentsPage() {
                   isDarkMode ? "text-gray-400" : "text-gray-600"
                 }`}
               >
-                {filteredMembers.length} membre(s) affich\u00E9(s) sur {members.length}
+                {filteredMembers.length} membre(s) affiché(s) sur {members.length}
                 {loadingPhotos && (
                   <span className="ml-2 text-blue-500">
                     &bull; Chargement photos...
@@ -1707,7 +1707,7 @@ function PaymentsPage() {
                   }}
                   className="text-sm text-blue-600 hover:text-blue-800 font-medium self-start sm:self-auto"
                 >
-                  R\u00E9initialiser les filtres
+                  Réinitialiser les filtres
                 </button>
               )}
             </div>
@@ -1752,14 +1752,14 @@ function PaymentsPage() {
                       isDarkMode ? "text-white" : "text-gray-900"
                     } mb-2`}
                   >
-                    Aucun membre trouv\u00E9
+                    Aucun membre trouvé
                   </h3>
                   <p
                     className={`${
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     }`}
                   >
-                    Essayez de modifier vos crit\u00E8res de recherche
+                    Essayez de modifier vos critères de recherche
                   </p>
                 </div>
               )}
@@ -1782,7 +1782,7 @@ function PaymentsPage() {
                   isDarkMode ? "text-white" : "text-gray-900"
                 }`}
               >
-                D\u00E9tail par Membre ({filteredMembers.length})
+                Détail par Membre ({filteredMembers.length})
               </h3>
             </div>
 
@@ -1868,7 +1868,7 @@ function PaymentsPage() {
                                   isDarkMode ? "text-white" : "text-gray-900"
                                 }`}
                               >
-                                {member.firstName || "Pr\u00E9nom"}{" "}
+                                {member.firstName || "Prénom"}{" "}
                                 {member.name || "Nom"}
                               </div>
                               <div
@@ -1910,8 +1910,8 @@ function PaymentsPage() {
                                   isDarkMode ? "text-gray-400" : "text-gray-500"
                                 } text-xs`}
                               >
-                                {member.totalPaid.toFixed(0)}\u20AC/
-                                {member.totalDue.toFixed(0)}\u20AC
+                                {member.totalPaid.toFixed(0)}€/
+                                {member.totalDue.toFixed(0)}€
                               </span>
                             </div>
                             <div
@@ -1943,8 +1943,8 @@ function PaymentsPage() {
                                 isDarkMode ? "text-white" : "text-gray-900"
                               }`}
                             >
-                              {member.totalPaid.toFixed(2)} \u20AC /{" "}
-                              {member.totalDue.toFixed(2)} \u20AC
+                              {member.totalPaid.toFixed(2)} € /{" "}
+                              {member.totalDue.toFixed(2)} €
                             </div>
                             <div
                               className={`${
@@ -2002,7 +2002,7 @@ function PaymentsPage() {
                               )}
                               {expandedMember === member.id
                                 ? "Masquer"
-                                : "D\u00E9tails"}
+                                : "Détails"}
                             </button>
 
                             <button
@@ -2032,7 +2032,7 @@ function PaymentsPage() {
                                 } flex items-center gap-2`}
                               >
                                 <CreditCard className="w-4 h-4" />
-                                D\u00E9tail des paiements de {member.firstName}{" "}
+                                Détail des paiements de {member.firstName}{" "}
                                 {member.name}
                               </h4>
 
@@ -2088,7 +2088,7 @@ function PaymentsPage() {
                                                 {parseFloat(
                                                   payment.amount || 0
                                                 ).toFixed(2)}{" "}
-                                                \u20AC
+                                                €
                                               </div>
                                             </div>
                                             <div>
@@ -2099,7 +2099,7 @@ function PaymentsPage() {
                                                     : "text-gray-500"
                                                 }`}
                                               >
-                                                M\u00E9thode:
+                                                Méthode:
                                               </span>
                                               <div className="font-medium flex items-center gap-1">
                                                 <span>
@@ -2127,7 +2127,7 @@ function PaymentsPage() {
                                                   ? formatDateTime(
                                                       payment.date_paiement
                                                     )
-                                                  : "Non pay\u00E9"}
+                                                  : "Non payé"}
                                               </div>
                                             </div>
                                             <div>
@@ -2138,7 +2138,7 @@ function PaymentsPage() {
                                                     : "text-gray-500"
                                                 }`}
                                               >
-                                                Encaissement pr\u00E9vu:
+                                                Encaissement prévu:
                                               </span>
                                               <div className="font-medium">
                                                 {formatDate(
@@ -2197,7 +2197,7 @@ function PaymentsPage() {
                                         : "text-gray-500"
                                     }`}
                                   >
-                                    Aucun paiement enregistr\u00E9 pour ce membre
+                                    Aucun paiement enregistré pour ce membre
                                   </p>
                                 </div>
                               )}
@@ -2224,14 +2224,14 @@ function PaymentsPage() {
                     isDarkMode ? "text-white" : "text-gray-900"
                   } mb-2`}
                 >
-                  Aucun membre trouv\u00E9
+                  Aucun membre trouvé
                 </h3>
                 <p
                   className={`${
                     isDarkMode ? "text-gray-400" : "text-gray-500"
                   }`}
                 >
-                  Essayez de modifier vos crit\u00E8res de recherche
+                  Essayez de modifier vos critères de recherche
                 </p>
               </div>
             )}
@@ -2254,16 +2254,16 @@ function PaymentsPage() {
                 isDarkMode ? "text-white" : "text-gray-900"
               } mb-4`}
             >
-              R\u00E9partition par M\u00E9thode
+              Répartition par Méthode
             </h3>
             <div className="space-y-3">
-              {["carte", "ch\u00E8que", "esp\u00E8ces", "autre"].map((method) => {
+              {["carte", "chèque", "espèces", "autre"].map((method) => {
                 const methodPayments = payments.filter(
                   (p) =>
                     p.is_paid &&
                     (p.method === method ||
-                      (method === "ch\u00E8que" && p.method === "cheque") ||
-                      (method === "esp\u00E8ces" && p.method === "especes"))
+                      (method === "chèque" && p.method === "cheque") ||
+                      (method === "espèces" && p.method === "especes"))
                 );
                 const total = methodPayments.reduce(
                   (sum, p) => sum + parseFloat(p.amount || 0),
@@ -2295,7 +2295,7 @@ function PaymentsPage() {
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-sm lg:text-base">
-                        {total.toFixed(2)} \u20AC
+                        {total.toFixed(2)} €
                       </div>
                       <div
                         className={`text-xs lg:text-sm ${
@@ -2323,7 +2323,7 @@ function PaymentsPage() {
                 isDarkMode ? "text-white" : "text-gray-900"
               } mb-4`}
             >
-              Paiements R\u00E9cents
+              Paiements Récents
             </h3>
             <div className="space-y-3">
               {payments
@@ -2359,7 +2359,7 @@ function PaymentsPage() {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <div className="font-medium text-sm lg:text-base text-green-600">
-                        {parseFloat(payment.amount).toFixed(2)} \u20AC
+                        {parseFloat(payment.amount).toFixed(2)} €
                       </div>
                     </div>
                   </div>
@@ -2375,7 +2375,7 @@ function PaymentsPage() {
                       isDarkMode ? "text-gray-600" : "text-gray-300"
                     }`}
                   />
-                  <p className="text-sm">Aucun paiement r\u00E9cent</p>
+                  <p className="text-sm">Aucun paiement récent</p>
                 </div>
               )}
             </div>
@@ -2419,14 +2419,14 @@ function PaymentsPage() {
               isDarkMode ? "text-gray-400" : "text-gray-500"
             }`}
           >
-            Derni\u00E8re mise \u00E0 jour : {new Date().toLocaleString("fr-FR")}
+            Dernière mise à jour : {new Date().toLocaleString("fr-FR")}
           </p>
           <p
             className={`text-xs ${
               isDarkMode ? "text-gray-500" : "text-gray-400"
             } mt-1`}
           >
-            Club Body Force - Syst\u00E8me de Gestion des Paiements v2.1 (Optimis\u00E9
+            Club Body Force - Système de Gestion des Paiements v2.1 (Optimisé
             Egress)
           </p>
         </div>
