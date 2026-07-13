@@ -42,6 +42,7 @@ import {
   FaHome,
   FaUser,
   FaUserFriends,
+  FaUsersCog,
   FaUserPlus,
   FaChartBar,
   FaCalendarAlt,
@@ -153,8 +154,10 @@ const getMoreMenuItems = () => [
 /**
  * Retourne les liens de navigation (sidebar desktop + menu mobile).
  * Factorise la liste dupliquee entre EnhancedSidebar et AnimatedMobileMenu.
+ * @param {boolean} isDesktop - true pour la sidebar PC : ajoute les entrees
+ *                              reservees au desktop (ex. Gestion des utilisateurs).
  */
-const getMenuItems = (isAdmin) => [
+const getMenuItems = (isAdmin, isDesktop = false) => [
   { path: "/", icon: FaHome, label: "Accueil" },
   ...(isAdmin
     ? [
@@ -166,6 +169,10 @@ const getMenuItems = (isAdmin) => [
         { path: "/emails", icon: FaPaperPlane, label: "Emails" },
         { path: "/invitations", icon: FaUserPlus, label: "Invitations" },
         { path: "/messages", icon: FaComments, label: "Messages" },
+        // Reserve au desktop : absent du menu mobile
+        ...(isDesktop
+          ? [{ path: "/admin/users", icon: FaUsersCog, label: "Utilisateurs" }]
+          : []),
       ]
     : [
         { path: "/messages", icon: FaComments, label: "Messages" },
@@ -685,7 +692,7 @@ function EnhancedSidebar({
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
-  const menuItems = getMenuItems(isAdmin);
+  const menuItems = getMenuItems(isAdmin, true); // true = sidebar PC (inclut Utilisateurs)
 
   return (
     <aside
