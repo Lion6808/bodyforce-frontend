@@ -25,6 +25,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import { useNavigate } from "react-router-dom";
@@ -539,7 +540,7 @@ function PlanningPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        alert("Vous devez etre connecte pour importer des presences.");
+        toast.error("Vous devez être connecté pour importer des présences.");
         return;
       }
     } catch (e) {
@@ -635,16 +636,11 @@ function PlanningPage() {
         }
 
         if (payload.length === 0) {
-          alert(
-            [
-              "Aucune ligne importee.",
-              `Lignes totales: ${totalRows}`,
-              `- Gardees: ${kept}`,
-              `- Filtrees (type): ${filteredOtherType}`,
-              `- Sans badge: ${skippedNoBadge}`,
-              `- Sans date: ${skippedNoDate}`,
-              `- Date illisible: ${unparsableDate}`,
-            ].join("\n")
+          console.info("Import présences — détail:", {
+            totalRows, kept, filteredOtherType, skippedNoBadge, skippedNoDate, unparsableDate,
+          });
+          toast.error(
+            `Aucune ligne importée sur ${totalRows} lue(s) — détail dans la console.`
           );
           return;
         }
@@ -662,21 +658,18 @@ function PlanningPage() {
 
           if (error) {
             console.error("Upsert error:", error);
-            alert("Erreur lors de l'upsert: " + (error.message || "inconnue"));
+            toast.error("Erreur lors de l'upsert : " + (error.message || "inconnue"));
             return;
           }
 
           affected += Array.isArray(upserted) ? upserted.length : 0;
         }
 
-        alert(
-          [
-            "Import termine.",
-            `Lignes totales lues: ${totalRows}`,
-            `- Retenues pour import: ${kept}`,
-            `- Upsertees (insert+update): ${affected} (doublons ignores)`,
-            `- Filtrees type: ${filteredOtherType} | Sans badge: ${skippedNoBadge} | Sans date: ${skippedNoDate} | Date illisible: ${unparsableDate}`,
-          ].join("\n")
+        console.info("Import présences — détail:", {
+          totalRows, kept, affected, filteredOtherType, skippedNoBadge, skippedNoDate, unparsableDate,
+        });
+        toast.success(
+          `Import terminé : ${affected} présence(s) importée(s) sur ${totalRows} ligne(s) lue(s).`
         );
 
         loadData();
@@ -685,7 +678,7 @@ function PlanningPage() {
       reader.readAsArrayBuffer(file);
     } catch (err) {
       console.error("Erreur import Excel:", err);
-      alert("Erreur lors de l'import.");
+      toast.error("Erreur lors de l'import.");
     } finally {
       // Allow re-importing the same file without page reload
       try { event.target.value = ""; } catch { }

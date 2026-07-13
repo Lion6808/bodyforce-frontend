@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 
 import Avatar from "../components/Avatar";
+import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import MemberForm from "../components/MemberForm";
 
@@ -774,7 +775,7 @@ function PaymentsPage() {
       doc.save(`Rapport_Paiements_${timestamp}.pdf`);
     } catch (err) {
       console.error("Erreur export PDF:", err);
-      alert("Erreur lors de la g\u00E9n\u00E9ration du PDF.");
+      toast.error("Erreur lors de la g\u00E9n\u00E9ration du PDF.");
     }
   };
 
@@ -819,7 +820,7 @@ function PaymentsPage() {
       link.click();
     } catch (err) {
       console.error("Erreur export CSV:", err);
-      alert("Erreur lors de la g\u00E9n\u00E9ration du CSV.");
+      toast.error("Erreur lors de la g\u00E9n\u00E9ration du CSV.");
     }
   };
 
@@ -2464,7 +2465,7 @@ function PaymentsPage() {
                   await loadData();
                 } catch (saveError) {
                   console.error("Erreur sauvegarde membre:", saveError);
-                  alert(`Erreur lors de la sauvegarde: ${saveError.message}`);
+                  toast.error(`Erreur lors de la sauvegarde : ${saveError.message}`);
                 }
               }}
               onCancel={() => {

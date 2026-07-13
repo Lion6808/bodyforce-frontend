@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'react-toastify';
 import { supabase } from '../supabaseClient';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -484,7 +485,7 @@ const StatsReportGenerator = () => {
       const fileName = `BodyForce_Rapport_${startDate}_${endDate}.pdf`;
       doc.save(fileName);
 
-      alert(' Rapport PDF généré avec succès !');
+      toast.success('Rapport PDF généré avec succès !');
 
     } catch (err) {
       console.error('Erreur:', err);

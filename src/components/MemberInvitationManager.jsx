@@ -1,5 +1,6 @@
 // src/components/MemberInvitationManager.jsx
 import React, { useState } from 'react';
+import { toast } from 'react-toastify';
 import { inviteMember, resendInvitation, cancelInvitation } from '../utils/invitationService';
 import './MemberInvitationManager.css'; // On créera le CSS après
 
@@ -10,7 +11,7 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
 
   const handleInvite = async () => {
     if (!email.trim()) {
-      alert('Veuillez saisir un email');
+      toast.warning('Veuillez saisir un email');
       return;
     }
 
@@ -18,11 +19,11 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
     const result = await inviteMember(member.id, email);
     
     if (result.success) {
-      alert(result.message);
+      toast.success(result.message);
       onUpdate?.(result.member);
       setShowEmailInput(false);
     } else {
-      alert('Erreur: ' + result.error);
+      toast.error('Erreur : ' + result.error);
     }
     setLoading(false);
   };
@@ -32,9 +33,9 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
     const result = await resendInvitation(member.id);
     
     if (result.success) {
-      alert(result.message);
+      toast.success(result.message);
     } else {
-      alert('Erreur: ' + result.error);
+      toast.error('Erreur : ' + result.error);
     }
     setLoading(false);
   };
@@ -46,11 +47,11 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
     const result = await cancelInvitation(member.id);
     
     if (result.success) {
-      alert(result.message);
+      toast.success(result.message);
       onUpdate?.({...member, invitation_status: 'not_invited', invitation_token: null});
       setShowEmailInput(true);
     } else {
-      alert('Erreur: ' + result.error);
+      toast.error('Erreur : ' + result.error);
     }
     setLoading(false);
   };

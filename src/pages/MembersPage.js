@@ -13,6 +13,7 @@
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import MemberForm from "../components/MemberForm";
@@ -730,11 +731,8 @@ function MembersPage() {
           }
 
           if (badges.length === 0) {
-            alert(
-              "Aucun badge trouve dans le fichier.\n\n" +
-              "Verifiez que le fichier contient les colonnes:\n" +
-              "- Appartement (adherent001, adherent002, ...)\n" +
-              "- Badges ou Telecommandes"
+            toast.error(
+              "Aucun badge trouvé dans le fichier. Vérifiez les colonnes « Appartement » et « Badges ou Télécommandes »."
             );
             return;
           }
@@ -752,22 +750,19 @@ function MembersPage() {
             if (error) throw error;
           }
 
-          alert(
-            `Import termine avec succes !\n\n` +
-            `Total badges: ${badges.length}\n` +
-            `Lignes ignorees: ${skipped}\n\n` +
-            `Les badges sont maintenant disponibles dans les formulaires.`
+          toast.success(
+            `Import terminé : ${badges.length} badge(s), ${skipped} ligne(s) ignorée(s).`
           );
         } catch (err) {
           console.error("Error processing badge file:", err);
-          alert(`Erreur lors du traitement du fichier:\n${err.message}`);
+          toast.error(`Erreur lors du traitement du fichier : ${err.message}`);
         }
       };
 
       reader.readAsArrayBuffer(file);
     } catch (err) {
       console.error("Error reading badge file:", err);
-      alert(`Erreur lors de la lecture du fichier:\n${err.message}`);
+      toast.error(`Erreur lors de la lecture du fichier : ${err.message}`);
     }
 
     // Reset input so the same file can be re-imported
@@ -938,7 +933,7 @@ function MembersPage() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error exporting members:", err);
-      alert(`Erreur lors de l'export: ${err.message}`);
+      toast.error(`Erreur lors de l'export : ${err.message}`);
     }
   };
 
@@ -956,7 +951,7 @@ function MembersPage() {
         await fetchMembers();
       } catch (err) {
         console.error("Error deleting member:", err);
-        alert(`Erreur lors de la suppression: ${err.message}`);
+        toast.error(`Erreur lors de la suppression : ${err.message}`);
       }
     }
   };
@@ -976,7 +971,7 @@ function MembersPage() {
         await fetchMembers();
       } catch (err) {
         console.error("Error bulk-deleting members:", err);
-        alert(`Erreur lors de la suppression: ${err.message}`);
+        toast.error(`Erreur lors de la suppression : ${err.message}`);
       }
     }
   };
@@ -1001,10 +996,10 @@ function MembersPage() {
       await supabaseServices.updateMember(member.id, updatedData);
       await fetchMembers();
 
-      alert(`${member.firstName} ${member.name} réabonné(e) avec succès !`);
+      toast.success(`${member.firstName} ${member.name} réabonné(e) avec succès !`);
     } catch (err) {
       console.error("Error renewing subscription:", err);
-      alert(`Erreur lors du réabonnement: ${err.message}`);
+      toast.error(`Erreur lors du réabonnement : ${err.message}`);
     }
   };
 
@@ -1889,7 +1884,7 @@ function MembersPage() {
                   }
                 } catch (saveError) {
                   console.error("Error saving member:", saveError);
-                  alert(`Erreur lors de la sauvegarde: ${saveError.message}`);
+                  toast.error(`Erreur lors de la sauvegarde : ${saveError.message}`);
                 }
               }}
               onCancel={handleCloseForm}
