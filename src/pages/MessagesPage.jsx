@@ -161,24 +161,22 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
     }
 
     // Étape 2: Récupérer les derniers messages pour chaque membre
-    const memberIds = members.map(m => m.id);
-    const { data: lastMessages, error: lastMsgError } = await supabase
-      .from("messages")
-      .select(`
-        id,
-        author_member_id,
-        subject,
-        body,
-        created_at,
-        message_recipients!inner(recipient_member_id)
-      `)
-      .or(`author_member_id.eq.${adminMemberId},message_recipients.recipient_member_id.eq.${adminMemberId}`)
-      .or(`author_member_id.in.(${memberIds.join(',')}),message_recipients.recipient_member_id.in.(${memberIds.join(',')})`)
-      .order("created_at", { ascending: false });
+    // PostgREST ne sait pas filtrer une table imbriquee dans un .or() : on fait
+    // donc deux requetes simples (messages ENVOYES par l'admin / messages RECUS
+    // par l'admin) et on fusionne cote client.
+    const [sentRes, receivedRes] = await Promise.all([
+      supabase
+        .from("messages")
+        .select("id, author_member_id, subject, body, created_at, message_recipients!inner(recipient_member_id)")
+        .eq("author_member_id", adminMemberId),
+      supabase
+        .from("message_recipients")
+        .select("recipient_member_id, messages!inner(id, author_member_id, subject, body, created_at)")
+        .eq("recipient_member_id", adminMemberId),
+    ]);
 
-    if (lastMsgError) {
-      console.error("⚠️ Erreur derniers messages:", lastMsgError);
-    }
+    if (sentRes.error) console.error("⚠️ Erreur messages envoyés:", sentRes.error);
+    if (receivedRes.error) console.error("⚠️ Erreur messages reçus:", receivedRes.error);
 
     // Étape 3: Compter les messages non lus pour chaque conversation
     const { data: unreadCounts, error: unreadError } = await supabase
@@ -200,31 +198,31 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
     const lastMessageMap = new Map();
     const unreadMap = new Map();
 
-    // Traiter les derniers messages
-    if (lastMessages) {
-      lastMessages.forEach(msg => {
-        // Déterminer l'autre membre de la conversation
-        let otherMemberId;
-        if (msg.author_member_id === adminMemberId) {
-          // Message envoyé par l’admin, trouver le destinataire
-          const recipient = msg.message_recipients?.[0];
-          if (recipient) {
-            otherMemberId = recipient.recipient_member_id;
-          }
-        } else {
-          // Message reçu par l’admin
-          otherMemberId = msg.author_member_id;
-        }
+    // Conserve le message le plus récent pour chaque interlocuteur
+    const noterDernier = (otherId, body, subject, createdAt) => {
+      if (!otherId || otherId === adminMemberId) return;
+      const existant = lastMessageMap.get(otherId);
+      if (!existant || new Date(createdAt) > new Date(existant.date)) {
+        lastMessageMap.set(otherId, {
+          preview: body?.substring(0, 100) || subject || "Message",
+          date: createdAt,
+          subject,
+        });
+      }
+    };
 
-        if (otherMemberId && !lastMessageMap.has(otherMemberId)) {
-          lastMessageMap.set(otherMemberId, {
-            preview: msg.body?.substring(0, 100) || msg.subject || "Message",
-            date: msg.created_at,
-            subject: msg.subject
-          });
-        }
-      });
-    }
+    // Messages envoyés par l'admin → l'autre est le destinataire
+    (sentRes.data || []).forEach(msg => {
+      (msg.message_recipients || []).forEach(r =>
+        noterDernier(r.recipient_member_id, msg.body, msg.subject, msg.created_at)
+      );
+    });
+
+    // Messages reçus par l'admin → l'autre est l'auteur
+    (receivedRes.data || []).forEach(row => {
+      const msg = row.messages;
+      if (msg) noterDernier(msg.author_member_id, msg.body, msg.subject, msg.created_at);
+    });
 
     // Traiter les compteurs non lus
     if (unreadCounts) {
@@ -302,23 +300,23 @@ const getEnhancedMemberConversations = async (memberId) => {
     console.log("🔍 Récupération conversations membre...");
 
     // Pour un membre standard, une seule conversation avec le staff
-    const { data: lastMessages, error } = await supabase
-      .from("messages")
-      .select(`
-        id,
-        subject,
-        body,
-        created_at,
-        author_member_id,
-        message_recipients!inner(recipient_member_id)
-      `)
-      .or(`author_member_id.eq.${memberId},message_recipients.recipient_member_id.eq.${memberId}`)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    // Deux requetes simples (envoyes / recus) puis on garde le plus recent —
+    // PostgREST ne sait pas filtrer une table imbriquee dans un .or().
+    const [sentRes, receivedRes] = await Promise.all([
+      supabase
+        .from("messages")
+        .select("id, subject, body, created_at, author_member_id")
+        .eq("author_member_id", memberId)
+        .order("created_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("message_recipients")
+        .select("messages!inner(id, subject, body, created_at, author_member_id)")
+        .eq("recipient_member_id", memberId),
+    ]);
 
-    if (error) {
-      console.error("⚠️ Erreur messages membre:", error);
-    }
+    if (sentRes.error) console.error("⚠️ Erreur messages membre (envoyés):", sentRes.error);
+    if (receivedRes.error) console.error("⚠️ Erreur messages membre (reçus):", receivedRes.error);
 
     // Compter les non lus du staff
     const { data: unreadFromStaff, error: unreadError } = await supabase
@@ -338,8 +336,15 @@ const getEnhancedMemberConversations = async (memberId) => {
     let lastMessagePreview = "Contactez l'équipe BodyForce";
     let lastMessageDate = null;
 
-    if (lastMessages && lastMessages.length > 0) {
-      const lastMsg = lastMessages[0];
+    // Garde le message le plus récent entre l'envoyé et les reçus
+    const candidats = [
+      sentRes.data?.[0],
+      ...(receivedRes.data || []).map((r) => r.messages),
+    ].filter(Boolean);
+    if (candidats.length > 0) {
+      const lastMsg = candidats.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      )[0];
       lastMessagePreview = lastMsg.body?.substring(0, 100) || lastMsg.subject || "Message";
       lastMessageDate = lastMsg.created_at;
     }
