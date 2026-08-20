@@ -132,7 +132,6 @@ const OnlineIndicator = ({ isOnline }) => (
 
 const getEnhancedAdminConversations = async (adminMemberId) => {
   try {
-    console.log("🔍 Récupération conversations admin avec vraies données...");
 
     // Étape 1: Récupérer tous les membres (sauf l'admin)
     const { data: members, error: membersError } = await supabase
@@ -146,7 +145,6 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
       throw membersError;
     }
 
-    console.log(`👥 ${members?.length || 0} membres récupérés`);
 
     if (!members || members.length === 0) {
       return [{
@@ -279,7 +277,6 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
       return new Date(b.lastMessageDate) - new Date(a.lastMessageDate);
     });
 
-    console.log(`✅ ${conversations.length} conversations construites`);
     return conversations;
 
   } catch (error) {
@@ -297,7 +294,6 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
 };
 const getEnhancedMemberConversations = async (memberId) => {
   try {
-    console.log("🔍 Récupération conversations membre...");
 
     // Pour un membre standard, une seule conversation avec le staff
     // Deux requetes simples (envoyes / recus) puis on garde le plus recent —
@@ -424,7 +420,6 @@ export default function MessagesPage() {
         .update({ last_seen_at: new Date().toISOString() })
         .eq("id", me.id);
 
-      console.log("💓 Heartbeat envoyé pour membre", me.id);
     } catch (error) {
       console.error("❌ Erreur heartbeat:", error);
     }
@@ -446,7 +441,6 @@ export default function MessagesPage() {
       }
 
       const onlineSet = new Set(onlineMembersData?.map(m => m.id) || []);
-      console.log("👥 Membres en ligne:", onlineSet.size);
       setOnlineMembers(onlineSet);
     } catch (error) {
       console.error("💥 Erreur checkMemberPresence:", error);
@@ -478,7 +472,6 @@ export default function MessagesPage() {
       } else {
         conversations = await getEnhancedMemberConversations(me.id);
       }
-      console.log("✅ Conversations récupérées:", conversations.length);
       setConvs(conversations || []);
     } catch (error) {
       console.error("❌ Erreur fetchConversations:", error);
@@ -681,7 +674,6 @@ export default function MessagesPage() {
       timeoutId = setTimeout(async () => {
         if (!mounted) return;
         try {
-          console.log("🔄 Mise à jour realtime...");
           await fetchConversations();
           const current = activeOtherIdRef.current;
           if (current != null && mounted) {
@@ -923,13 +915,17 @@ export default function MessagesPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowBroadcastModal(true)}
-                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  aria-label="Diffusion générale"
+                  title="Diffusion générale"
+                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors inline-flex items-center justify-center min-w-[44px] min-h-[44px]"
                 >
                   <Radio className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setShowMemberSelector(true)}
-                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  aria-label="Nouveau groupe"
+                  title="Nouveau groupe"
+                  className="p-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors inline-flex items-center justify-center min-w-[44px] min-h-[44px]"
                 >
                   <UserPlus className="w-5 h-5" />
                 </button>

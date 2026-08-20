@@ -269,14 +269,14 @@ function SearchHints({ search }) {
                 {t}
               </span>
             ))}
-            <span className="ml-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <span className="ml-1 text-[11px] uppercase tracking-wide text-gray-600 dark:text-gray-300">
               AND
             </span>
           </div>
         ))}
         {info.clauses.length > 1 && (
           <span
-            className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"
+            className="text-[11px] uppercase tracking-wide text-gray-600 dark:text-gray-300"
             title="Groupes reliés par OR"
           >
             (Groupes reliés par OR)

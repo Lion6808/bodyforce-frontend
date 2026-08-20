@@ -40,7 +40,6 @@ function UserManagementPage() {
     setError(null);
 
     try {
-      console.log("🔍 Récupération des utilisateurs via RPC...");
 
       // ✅ Utilisation de la fonction RPC au lieu de l'API Admin
       const { data: usersData, error: usersError } = await supabase
@@ -60,7 +59,6 @@ function UserManagementPage() {
         is_disabled: !u.is_active // Inversion car vous aviez is_disabled dans l'ancien code
       }));
 
-      console.log("✅ Utilisateurs récupérés via RPC:", usersWithRoles);
       setUsers(usersWithRoles || []);
 
     } catch (err) {
@@ -89,9 +87,7 @@ function UserManagementPage() {
   };
 
 const updateRole = async (userId, newRole) => {
-  console.log("🚀 FONCTION updateRole VERSION RPC CHARGÉE !");
   try {
-    console.log(`🔄 Mise à jour du rôle pour ${userId}: ${newRole}`);
 
     // ✅ CORRECTION : Utiliser la fonction RPC au lieu de l'upsert direct
     const { data, error } = await supabase
@@ -102,7 +98,6 @@ const updateRole = async (userId, newRole) => {
 
     if (error) throw error;
 
-    console.log("✅ Rôle mis à jour avec succès");
     toast.success(`Rôle mis à jour vers: ${newRole}`);
 
     // ✅ Recharger les données via RPC
@@ -116,7 +111,6 @@ const updateRole = async (userId, newRole) => {
 
   const toggleUserStatus = async (userId, currentStatus) => {
     try {
-      console.log(`🔄 ${currentStatus ? 'Désactivation' : 'Activation'} de l'utilisateur: ${userId}`);
 
       const { error } = await supabase
         .from("user_roles")
@@ -131,7 +125,6 @@ const updateRole = async (userId, newRole) => {
 
       if (error) throw error;
 
-      console.log("✅ Statut utilisateur mis à jour avec succès");
       toast.success(`Utilisateur ${currentStatus ? 'désactivé' : 'activé'} avec succès`);
 
       // ✅ Recharger les données via RPC
@@ -216,7 +209,6 @@ const updateRole = async (userId, newRole) => {
     }
 
     try {
-      console.log(`🚫 Suppression de l'utilisateur: ${userEmail}`);
 
       // ⚠️ ATTENTION: Cette partie nécessite toujours l'API Admin
       // Vous devrez peut-être créer une fonction RPC pour la suppression
@@ -237,7 +229,6 @@ const updateRole = async (userId, newRole) => {
       // const { error } = await supabase.auth.admin.deleteUser(userId);
       // if (error) throw error;
 
-      console.log("✅ Utilisateur désactivé avec succès (suppression complète nécessite une fonction RPC)");
       toast.success(`Utilisateur "${userEmail}" désactivé. Pour une suppression complète, créez une fonction RPC.`);
 
       await fetchUsers();

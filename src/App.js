@@ -1120,7 +1120,7 @@ function AppRoutes() {
           <NotificationBell />
           <button
             onClick={toggleDarkMode}
-            className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            className="text-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg inline-flex items-center justify-center min-w-[44px] min-h-[44px]"
             title={getDarkModeLabel()}
             aria-label={getDarkModeLabel()}
           >
@@ -1128,7 +1128,7 @@ function AppRoutes() {
           </button>
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            className="text-2xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg inline-flex items-center justify-center min-w-[44px] min-h-[44px]"
             aria-label="Ouvrir le menu"
           >
             <FaBars />

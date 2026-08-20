@@ -203,11 +203,6 @@ const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
       const compressed = canvas.toDataURL("image/jpeg", quality);
 
       const sizeKB = Math.round((compressed.length * 0.75) / 1024);
-      console.log(
-        `Photo optimisee: ${sizeKB} KB (${Math.round(width)}x${Math.round(height)} @ ${
-          quality * 100
-        }%)`
-      );
 
       resolve(compressed);
     };
@@ -917,13 +912,11 @@ function MemberFormPage() {
         .single();
 
       if (error) {
-        console.log("Badge non trouve:", badgeNumber);
         setForm((f) => ({ ...f, badgeId: "" }));
         return;
       }
 
       if (data) {
-        console.log("Badge trouve:", data.badge_real_id);
         setForm((f) => ({ ...f, badgeId: data.badge_real_id }));
       }
     } catch (err) {
@@ -970,9 +963,6 @@ function MemberFormPage() {
       if (member?.id) {
         // Check if badge was reassigned
         if (preparedForm.badgeId && preparedForm.badgeId !== member.badgeId) {
-          console.log(
-            `Reassignation du badge ${preparedForm.badgeId} au membre ${member.id}`
-          );
 
           await supabaseServices.reassignBadge(preparedForm.badgeId, member.id);
 

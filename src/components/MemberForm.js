@@ -88,11 +88,6 @@ const compressImageData = (imageData, maxSize = 256, quality = 0.6) => {
 
       // Log pour monitoring egress
       const sizeKB = Math.round((compressed.length * 0.75) / 1024);
-      console.log(
-        `📸 Photo optimisée: ${sizeKB} KB (${Math.round(width)}x${Math.round(height)} @ ${
-          quality * 100
-        }%)`
-      );
 
       resolve(compressed);
     };
@@ -521,13 +516,6 @@ function StatusBadge({ isExpired, isStudent }) {
 
 // 🔹 Fonction MemberForm principale
 function MemberForm({ member, onSave, onCancel }) {
-  console.log(
-    "🚀 MemberForm chargé - member:",
-    member?.id,
-    "photo:",
-    !!member?.photo
-  );
-
   const [activeTab, setActiveTab] = useState("identity");
   const [form, setForm] = useState({
     name: "",
@@ -616,17 +604,9 @@ function MemberForm({ member, onSave, onCancel }) {
 
       if (!form.name && !form.firstName) {
         try {
-          console.log("🔍 Chargement membre complet depuis DB:", member.id);
           const fullMember = await supabaseServices.getMemberById(member.id);
 
           if (fullMember) {
-            console.log(
-              "✅ Membre chargé:",
-              fullMember.id,
-              "- Photo:",
-              !!fullMember.photo,
-              fullMember.photo?.substring(0, 50)
-            );
             setForm({
               ...fullMember,
               badge_number: fullMember.badge_number || "",
@@ -867,13 +847,11 @@ function MemberForm({ member, onSave, onCancel }) {
         .single();
 
       if (error) {
-        console.log("Badge non trouvé:", badgeNumber);
         setForm((f) => ({ ...f, badgeId: "" }));
         return;
       }
 
       if (data) {
-        console.log("✅ Badge trouvé:", data.badge_real_id);
         setForm((f) => ({ ...f, badgeId: data.badge_real_id }));
       }
     } catch (err) {
@@ -904,7 +882,6 @@ function MemberForm({ member, onSave, onCancel }) {
 
     // 🎯 Détecter si le badge a changé
     if (member?.id && preparedForm.badgeId && preparedForm.badgeId !== member.badgeId) {
-      console.log(`🔄 Badge modifié: ${member.badgeId} → ${preparedForm.badgeId}`);
 
       if (
         typeof supabaseServices !== "undefined" &&

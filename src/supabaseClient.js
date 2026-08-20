@@ -442,7 +442,6 @@ export const supabaseServices = {
       const maxHourly = Math.max(...matrix.flat(), 0);
       const maxDaily = Math.max(...dayTotals.map(d => d.total), 0);
 
-      console.log(`📊 [RPC] getYearlyPresenceStats(${year}): ${totalPresences} présences`);
 
       return {
         year,
@@ -478,7 +477,6 @@ export const supabaseServices = {
 
       if (error) throw error;
 
-      console.log(`📊 [Supabase] getPresenceCountUntilDate(${year}, ${month}, ${day}): ${count} présences`);
       return count || 0;
     } catch (error) {
       console.error(`Erreur getPresenceCountUntilDate(${year}, ${month}, ${day}):`, error);
@@ -628,7 +626,6 @@ export const supabaseServices = {
     try {
       const { error } = await supabase.from("members").select("id").limit(1);
       if (error) throw error;
-      console.log("✅ Connexion Supabase OK");
       return true;
     } catch (error) {
       console.error("❌ Erreur connexion Supabase:", error);
@@ -697,7 +694,6 @@ export const supabaseServices = {
       const maxHourly = Math.max(...matrix.flat());
       const maxDaily = Math.max(...dayTotals.map(d => d.total));
 
-      console.log(`📊 [Supabase] getHourlyStatsByDayOfWeek(${currentYear}): ${allPresences.length} présences, max horaire: ${maxHourly}`);
 
       return {
         year: currentYear,

@@ -136,8 +136,6 @@ const StatsReportGenerator = () => {
       const statsData = stats[0];
 
       // DEBUG - Ajoute ces 2 lignes
-      console.log('📊 statsData:', statsData);
-      console.log('📊 Clés:', Object.keys(statsData));
 
       const { data: allMembers, error: membersError } = await supabase.rpc('get_all_members_presences', {
         p_start_date: startDate,
@@ -149,7 +147,6 @@ const StatsReportGenerator = () => {
         throw new Error(`Erreur lors de la récupération des membres: ${membersError.message}`);
       }
 
-      console.log('✅ Membres récupérés:', allMembers?.length || 0);
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -332,9 +329,7 @@ const StatsReportGenerator = () => {
       }
 
       // ============= TOUS LES MEMBRES =============
-      console.log('🔍 Génération tableau membres, longueur:', allMembers?.length);
       if (allMembers && allMembers.length > 0) {
-        console.log('✅ Génération du tableau avec', allMembers.length, 'membres');
         doc.addPage();
         yPos = 20;
 
