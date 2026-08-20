@@ -28,7 +28,7 @@
 // SECTION 1 — Imports
 // =============================================================================
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -69,23 +69,26 @@ import {
 import { supabase } from "./supabaseClient";
 import { useAuth } from "./contexts/AuthContext";
 
-// Pages
-import MessagesPage from "./pages/MessagesPage";
+// Composant de header (léger, chargé immédiatement)
 import NotificationBell from "./components/NotificationBell";
-import HomePage from "./pages/HomePage";
-import MembersPage from "./pages/MembersPage";
-import PlanningPage from "./pages/PlanningPage";
-import PaymentsPage from "./pages/PaymentsPage";
-import StatisticsPage from "./pages/StatisticsPage";
-import UserManagementPage from "./pages/UserManagementPage";
-import UserProfilePage from "./pages/UserProfilePage";
-import MyAttendancesPage from "./pages/MyAttendancesPage";
-import InvitationsPage from "./pages/InvitationsPage";
-import InvitationSignupPage from "./pages/InvitationSignupPage";
-import MemberFormPage from "./pages/MemberFormPage";
-import ReportsPage from "./pages/ReportsPage";
-import EmailPage from "./pages/EmailPage";
-import WorkoutEndPage from "./pages/WorkoutEndPage";
+
+// Pages chargées à la demande (code splitting) — allège fortement le bundle initial.
+// Chaque page ne se télécharge que lorsqu'on la visite.
+const MessagesPage = lazy(() => import("./pages/MessagesPage"));
+const HomePage = lazy(() => import("./pages/HomePage"));
+const MembersPage = lazy(() => import("./pages/MembersPage"));
+const PlanningPage = lazy(() => import("./pages/PlanningPage"));
+const PaymentsPage = lazy(() => import("./pages/PaymentsPage"));
+const StatisticsPage = lazy(() => import("./pages/StatisticsPage"));
+const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
+const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
+const MyAttendancesPage = lazy(() => import("./pages/MyAttendancesPage"));
+const InvitationsPage = lazy(() => import("./pages/InvitationsPage"));
+const InvitationSignupPage = lazy(() => import("./pages/InvitationSignupPage"));
+const MemberFormPage = lazy(() => import("./pages/MemberFormPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const EmailPage = lazy(() => import("./pages/EmailPage"));
+const WorkoutEndPage = lazy(() => import("./pages/WorkoutEndPage"));
 
 // Styles & notifications
 import { ToastContainer, toast as showToast } from "react-toastify";
@@ -95,6 +98,15 @@ import "./App.css";
 // =============================================================================
 // SECTION 2 — Constants & Configuration
 // =============================================================================
+
+/** Indicateur affiché pendant le chargement paresseux d'une page (Suspense). */
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+    </div>
+  );
+}
 
 const APP_VERSION = "2.8.0";
 
@@ -1166,6 +1178,7 @@ function AppRoutes() {
         <div className={isMobile ? "swipe-container pb-20" : ""}>
           <div className="swipe-content">
             {/* Definitions des routes */}
+            <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<HomePage />} />
 
@@ -1194,6 +1207,7 @@ function AppRoutes() {
               {/* Catch-all */}
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
+            </Suspense>
           </div>
         </div>
       </main>
@@ -1317,14 +1331,16 @@ function App() {
   return (
     <Router>
       {/* Routes de premier niveau */}
-      <Routes>
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/" /> : <LoginPage />}
-        />
-        <Route path="/invitation" element={<InvitationSignupPage />} />
-        <Route path="/*" element={<AppRoutes />} />
-      </Routes>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/" /> : <LoginPage />}
+          />
+          <Route path="/invitation" element={<InvitationSignupPage />} />
+          <Route path="/*" element={<AppRoutes />} />
+        </Routes>
+      </Suspense>
 
       {/* Banniere d'installation PWA */}
       <InstallPrompt
