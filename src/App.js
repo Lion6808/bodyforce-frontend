@@ -298,113 +298,11 @@ function useDarkMode() {
 // SECTION 4 — Hook useSwipeNavigation
 // =============================================================================
 
-/**
- * Gere la navigation par swipe horizontal sur mobile.
- * Permet de changer d'onglet en glissant le doigt.
- */
-function useSwipeNavigation(isAdmin) {
-  const [touchStart, setTouchStart] = useState(null);
-  const [touchEnd, setTouchEnd] = useState(null);
-  const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwipping, setIsSwipping] = useState(false);
-  const [swipeDirection, setSwipeDirection] = useState(null);
-
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const minSwipeDistance = 50;
-  const maxVerticalDistance = 100;
-  const tabs = getBottomNavTabs(isAdmin);
-
-  const getCurrentTabIndex = () => {
-    const currentPath = location.pathname;
-    const index = tabs.findIndex((tab) => tab.path === currentPath);
-    return index !== -1 ? index : 0;
-  };
-
-  const onTouchStart = (e) => {
-    if (!isSwipeEnabled) return;
-    setTouchEnd(null);
-    setTouchStart({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    });
-    setIsSwipping(false);
-    setSwipeDirection(null);
-  };
-
-  const onTouchMove = (e) => {
-    if (!isSwipeEnabled || !touchStart) return;
-
-    const currentTouch = {
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    };
-
-    const diffX = touchStart.x - currentTouch.x;
-    const diffY = Math.abs(touchStart.y - currentTouch.y);
-
-    if (Math.abs(diffX) > 10 && diffY < maxVerticalDistance) {
-      setIsSwipping(true);
-      setSwipeDirection(diffX > 0 ? "left" : "right");
-      const offset = Math.max(Math.min(-diffX, 100), -100);
-      setSwipeOffset(offset);
-    }
-
-    setTouchEnd(currentTouch);
-  };
-
-  const onTouchEnd = () => {
-    if (!isSwipeEnabled || !touchStart || !touchEnd) {
-      setSwipeOffset(0);
-      setIsSwipping(false);
-      setSwipeDirection(null);
-      return;
-    }
-
-    const diffX = touchStart.x - touchEnd.x;
-    const diffY = Math.abs(touchStart.y - touchEnd.y);
-
-    const isHorizontalSwipe =
-      Math.abs(diffX) > minSwipeDistance && diffY < maxVerticalDistance;
-
-    if (isHorizontalSwipe) {
-      const currentIndex = getCurrentTabIndex();
-      let newIndex = currentIndex;
-
-      if (diffX > 0 && currentIndex < tabs.length - 1) {
-        newIndex = currentIndex + 1;
-      } else if (diffX < 0 && currentIndex > 0) {
-        newIndex = currentIndex - 1;
-      }
-
-      if (newIndex !== currentIndex && tabs[newIndex]) {
-        navigate(tabs[newIndex].path);
-      }
-    }
-
-    setTimeout(() => {
-      setSwipeOffset(0);
-      setIsSwipping(false);
-      setSwipeDirection(null);
-    }, 100);
-
-    setTouchStart(null);
-    setTouchEnd(null);
-  };
-
-  return {
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd,
-    isSwipeEnabled,
-    setIsSwipeEnabled,
-    swipeOffset,
-    isSwipping,
-    swipeDirection,
-  };
-}
+// Navigation par swipe RETIRÉE (v2.8) : le décalage horizontal appliqué pendant
+// le geste se déclenchait aussi sur les scrolls verticaux (tremblement latéral),
+// provoquant une déviation gênante. Le changement d'onglet se fait via la barre
+// du bas. Les classes CSS .swipe-container / .swipe-content sont conservées
+// (touch-action: pan-y, overflow-x maîtrisé, padding de dégagement du bas).
 
 // =============================================================================
 // SECTION 5 — LoginPage
@@ -1163,17 +1061,6 @@ function AppRoutes() {
 
   const { toggleDarkMode, getDarkModeIcon, getDarkModeLabel } = useDarkMode();
 
-  const {
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd,
-    isSwipeEnabled,
-    setIsSwipeEnabled,
-    swipeOffset,
-    isSwipping,
-    swipeDirection,
-  } = useSwipeNavigation(isAdmin);
-
   // Detection mobile (breakpoint 768px)
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -1181,11 +1068,6 @@ function AppRoutes() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-
-  // Desactiver le swipe quand le menu mobile est ouvert
-  useEffect(() => {
-    setIsSwipeEnabled(!mobileMenuOpen);
-  }, [mobileMenuOpen, setIsSwipeEnabled]);
 
   const handleLogout = async () => {
     try {
@@ -1281,21 +1163,8 @@ function AppRoutes() {
 
       {/* Zone de contenu principal */}
       <main className="flex-1 overflow-y-auto p-4">
-        <div
-          className={isMobile ? "swipe-container pb-20" : ""}
-          onTouchStart={isMobile ? onTouchStart : undefined}
-          onTouchMove={isMobile ? onTouchMove : undefined}
-          onTouchEnd={isMobile ? onTouchEnd : undefined}
-        >
-          <div
-            className={`swipe-content ${isSwipping ? "swiping" : ""}`}
-            style={{
-              transform:
-                isMobile && swipeOffset !== 0
-                  ? `translateX(${swipeOffset}px)`
-                  : "translateX(0)",
-            }}
-          >
+        <div className={isMobile ? "swipe-container pb-20" : ""}>
+          <div className="swipe-content">
             {/* Definitions des routes */}
             <Routes>
               <Route path="/" element={<HomePage />} />
