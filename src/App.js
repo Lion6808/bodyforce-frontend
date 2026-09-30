@@ -108,12 +108,13 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.9.1";
+const APP_VERSION = "2.9.2";
 
 const CHANGELOG = {
-  version: "2.9.1",
+  version: "2.9.2",
   date: "Septembre 2026",
   changes: [
+    "Widget Synthèse des adhérents actifs (accueil et page Membres)",
     "Compteurs Hommes/Femmes/Étudiants alignés sur les membres actifs",
     "Type de membre sur la fiche : Adhérent, Comité ou Maintenance",
     "Personnel de maintenance exclu des statistiques, compteurs et relances",

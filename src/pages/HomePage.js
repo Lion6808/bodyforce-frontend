@@ -61,6 +61,7 @@ import { keyboardClickable } from "../utils/a11y";
 import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
+import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MemberForm from "../components/MemberForm";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -1310,6 +1311,17 @@ function HomePage() {
             </>
           )}
         </div>
+      )}
+
+      {/* Synthèse des adhérents actifs (H / F / étudiants H / étudiantes F) */}
+      {user && !loading.stats && (
+        <ActiveMembersSummary
+          actifs={stats.actifs}
+          hommes={stats.hommes}
+          femmes={stats.femmes}
+          etudiantsHommes={stats.etudiantsHommes}
+          etudiantsFemmes={stats.etudiantsFemmes}
+        />
       )}
 
       {/* ------------------------------------------------------------------ */}

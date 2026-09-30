@@ -46,6 +46,7 @@ import {
   MemberTypeTag,
 } from "../utils/memberTypes";
 import Avatar from "../components/Avatar";
+import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 
@@ -417,6 +418,12 @@ function MembersPage() {
   const maleCount = countedMembers.filter((m) => m.gender === "Homme" && !isMemberExpired(m)).length;
   const femaleCount = countedMembers.filter((m) => m.gender === "Femme" && !isMemberExpired(m)).length;
   const studentCount = countedMembers.filter((m) => m.etudiant && !isMemberExpired(m)).length;
+  const maleStudentCount = countedMembers.filter(
+    (m) => m.etudiant && m.gender === "Homme" && !isMemberExpired(m)
+  ).length;
+  const femaleStudentCount = countedMembers.filter(
+    (m) => m.etudiant && m.gender === "Femme" && !isMemberExpired(m)
+  ).length;
 
   const noCertCount = filteredMembers.filter((m) => !memberHasFiles(m)).length;
 
@@ -1200,6 +1207,15 @@ function MembersPage() {
           </div>
         </div>
       </div>
+
+      {/* 6.2a -- Synthèse des adhérents actifs */}
+      <ActiveMembersSummary
+        actifs={activeCount}
+        hommes={maleCount}
+        femmes={femaleCount}
+        etudiantsHommes={maleStudentCount}
+        etudiantsFemmes={femaleStudentCount}
+      />
 
       {/* 6.2b -- Filtres spéciaux (Badges récents, Sans certif) */}
       <div className="grid grid-cols-2 gap-4 mb-6">
