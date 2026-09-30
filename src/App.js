@@ -108,16 +108,17 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.8.0";
+const APP_VERSION = "2.9.0";
 
 const CHANGELOG = {
-  version: "2.8.0",
-  date: "Mai 2026",
+  version: "2.9.0",
+  date: "Septembre 2026",
   changes: [
-    "Rappels d'entraînement : notification push 1h30 après chaque entrée",
-    "Validation de la durée de séance (OK ou heure personnalisée)",
-    "Bouton 'Activer les rappels' sur la page d'accueil",
-    "Enregistrement de l'heure de fin dans les présences",
+    "Type de membre sur la fiche : Adhérent, Comité ou Maintenance",
+    "Personnel de maintenance exclu des statistiques, compteurs et relances",
+    "Statistiques et rapport PDF : choix d'inclure ou non le comité",
+    "Filtres Comité et Maintenance dans la liste des membres",
+    "Étiquette « Maintenance » dans les derniers passages et le planning",
   ],
 };
 

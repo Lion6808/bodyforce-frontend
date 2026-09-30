@@ -28,6 +28,7 @@ import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
+import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import { useNavigate } from "react-router-dom";
 import MemberForm from "../components/MemberForm";
 import Avatar from "../components/Avatar";
@@ -355,7 +356,7 @@ function PlanningPage() {
       // C) Load members by their IDs (pas par badgeId)
       const { data: periodMembersAll, error: membersErr } = await supabase
         .from("members")
-        .select("id,name,firstName,badgeId,badge_number,photo")
+        .select("id,name,firstName,badgeId,badge_number,photo,member_type")
         .in("id", allMemberIdsInPeriod)
         .order("name", { ascending: true });
 
@@ -1057,6 +1058,7 @@ function PlanningPage() {
                     <span className="text-gray-500 dark:text-gray-400">
                       Badge: {member?.badgeId}{member?.badge_number ? ` (${member.badge_number})` : ''}
                     </span>
+                    {isMaintenance(member) && <MemberTypeTag type="maintenance" />}
                     <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">
                       {times.length} présence(s)
                     </span>
@@ -1207,6 +1209,7 @@ function PlanningPage() {
                     <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {member.firstName}
                     </div>
+                    {isMaintenance(member) && <MemberTypeTag type="maintenance" className="mt-0.5" />}
                   </div>
                 </div>
 

@@ -9,6 +9,7 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 const StatsReportGenerator = () => {
   const [startDate, setStartDate] = useState('2025-01-01');
   const [endDate, setEndDate] = useState('2025-12-31');
+  const [includeComite, setIncludeComite] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -127,7 +128,8 @@ const StatsReportGenerator = () => {
 
       const { data: stats, error: rpcError } = await supabase.rpc('generate_stats_report', {
         p_start_date: startDate,
-        p_end_date: endDate
+        p_end_date: endDate,
+        p_include_comite: includeComite
       });
 
       if (rpcError) throw rpcError;
@@ -139,7 +141,8 @@ const StatsReportGenerator = () => {
 
       const { data: allMembers, error: membersError } = await supabase.rpc('get_all_members_presences', {
         p_start_date: startDate,
-        p_end_date: endDate
+        p_end_date: endDate,
+        p_include_comite: includeComite
       });
 
       if (membersError) {
@@ -196,6 +199,16 @@ const StatsReportGenerator = () => {
       const startFormatted = new Date(startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
       const endFormatted = new Date(endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
       doc.text(`Du ${startFormatted} au ${endFormatted}`, pageWidth / 2, yPos, { align: 'center' });
+
+      // Périmètre des membres pris en compte
+      doc.setFontSize(10);
+      doc.setTextColor(127, 140, 141);
+      doc.text(
+        `Comité ${includeComite ? 'inclus' : 'exclu'} - personnel de maintenance exclu`,
+        pageWidth / 2,
+        yPos + 22,
+        { align: 'center' }
+      );
 
       // Date de génération
       yPos = pageHeight - 40;
@@ -560,6 +573,21 @@ const StatsReportGenerator = () => {
             Mois en cours
           </button>
         </div>
+
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={includeComite}
+            onChange={(e) => setIncludeComite(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+          />
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            Inclure les membres du comité
+            <span className="block text-xs text-gray-500 dark:text-gray-400">
+              Le personnel de maintenance est toujours exclu du rapport.
+            </span>
+          </span>
+        </label>
 
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-md p-4 dark:from-blue-900/20 dark:to-cyan-900/20 dark:border-blue-800">
           <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2 dark:text-blue-300">

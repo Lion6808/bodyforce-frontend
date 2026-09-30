@@ -18,6 +18,7 @@ import {
 } from "react-icons/fa";
 import { supabaseServices } from "../supabaseClient";
 import { sendEmail, getEmailStatus } from "../services/emailService";
+import { isCountedMember } from "../utils/memberTypes";
 
 function EmailPage() {
   // État des membres
@@ -52,8 +53,9 @@ function EmailPage() {
       setLoading(true);
 
       // Charger les membres en priorité (rapide - Supabase direct)
+      // Personnel de maintenance exclu : pas d'abonnement, pas de relance
       const membersData = await supabaseServices.getMembersWithoutPhotos();
-      setMembers(membersData);
+      setMembers(membersData.filter(isCountedMember));
       setLoading(false); // Page affichée immédiatement
 
       // Vérifier le statut email en arrière-plan (peut être lent - cold start Render)

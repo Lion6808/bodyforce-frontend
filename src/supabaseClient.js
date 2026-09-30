@@ -76,7 +76,7 @@ export const supabaseServices = {
     const { data, error } = await supabase
       .from("members")
       .select(
-        "id, name, firstName, birthdate, gender, address, phone, mobile, email, subscriptionType, startDate, endDate, badgeId, files, etudiant, badge_number"
+        "id, name, firstName, birthdate, gender, address, phone, mobile, email, subscriptionType, startDate, endDate, badgeId, files, etudiant, badge_number, member_type"
       )
       .order("name", { ascending: true });
 
@@ -378,9 +378,11 @@ export const supabaseServices = {
   },
 
   // ✅ VERSION DÉTAILLÉE : Pour StatisticsPage (avec graphiques optimisés via RPC)
-  async getDetailedStatistics() {
+  async getDetailedStatistics(includeComite = true) {
     try {
-      const { data, error } = await supabase.rpc('get_detailed_statistics');
+      const { data, error } = await supabase.rpc('get_detailed_statistics', {
+        p_include_comite: includeComite,
+      });
 
       if (error) {
         console.error("Erreur getDetailedStatistics RPC:", error);
@@ -395,7 +397,7 @@ export const supabaseServices = {
   },
 
   // ✅ RPC : Statistiques de présences par année — agrégation côté serveur
-  async getYearlyPresenceStats(year) {
+  async getYearlyPresenceStats(year, includeComite = true) {
     try {
       const startDate = `${year}-01-01T00:00:00`;
       const endDate = `${year}-12-31T23:59:59`;
@@ -403,6 +405,7 @@ export const supabaseServices = {
       const { data, error } = await supabase.rpc('get_yearly_presence_stats', {
         p_start_date: startDate,
         p_end_date: endDate,
+        p_include_comite: includeComite,
       });
 
       if (error) throw error;
@@ -463,21 +466,22 @@ export const supabaseServices = {
     }
   },
 
-  // ✅ NOUVEAU : Compte les présences d'une année jusqu'à une date précise (pour comparaison équitable)
-  async getPresenceCountUntilDate(year, month, day) {
+  // ✅ RPC : Compte les présences d'une année jusqu'à une date précise (pour comparaison équitable)
+  // Hors maintenance et 'Résidents', comité selon includeComite
+  async getPresenceCountUntilDate(year, month, day, includeComite = true) {
     try {
       const startDate = `${year}-01-01T00:00:00`;
       const endDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T23:59:59`;
 
-      const { count, error } = await supabase
-        .from('presences')
-        .select('*', { count: 'exact', head: true })
-        .gte('timestamp', startDate)
-        .lte('timestamp', endDate);
+      const { data, error } = await supabase.rpc('count_presences', {
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_include_comite: includeComite,
+      });
 
       if (error) throw error;
 
-      return count || 0;
+      return Number(data) || 0;
     } catch (error) {
       console.error(`Erreur getPresenceCountUntilDate(${year}, ${month}, ${day}):`, error);
       throw error;
@@ -485,12 +489,13 @@ export const supabaseServices = {
   },
 
   // ✅ RPC : Top membres par année — délègue à get_top_members_by_period côté serveur
-  async getTopMembersByYear(year, limit = 10) {
+  async getTopMembersByYear(year, limit = 10, includeComite = true) {
     try {
       const { data, error } = await supabase.rpc('get_top_members_by_period', {
         p_start_date: `${year}-01-01T00:00:00`,
         p_end_date: `${year}-12-31T23:59:59`,
         p_limit: limit,
+        p_include_comite: includeComite,
       });
       if (error) throw error;
       return data || [];
@@ -501,12 +506,13 @@ export const supabaseServices = {
   },
 
   // ✅ RPC : Top membres par période — délègue à get_top_members_by_period côté serveur
-  async getTopMembersByPeriod(startDate, endDate, limit = 10) {
+  async getTopMembersByPeriod(startDate, endDate, limit = 10, includeComite = true) {
     try {
       const { data, error } = await supabase.rpc('get_top_members_by_period', {
         p_start_date: startDate,
         p_end_date: endDate,
         p_limit: limit,
+        p_include_comite: includeComite,
       });
       if (error) throw error;
       return data || [];
@@ -514,6 +520,20 @@ export const supabaseServices = {
       console.error('Erreur getTopMembersByPeriod:', error);
       return [];
     }
+  },
+
+  // ✅ RPC : Présences par jour (heure de Paris) — hors maintenance et 'Résidents'
+  // Retourne [{ day: 'yyyy-MM-dd', count }], jours sans présence absents
+  async getAttendanceByDay(start, end) {
+    const { data, error } = await supabase.rpc('get_attendance_by_day', {
+      p_start: start,
+      p_end: end,
+    });
+    if (error) {
+      console.error('Erreur getAttendanceByDay:', error);
+      throw error;
+    }
+    return data || [];
   },
 
   // ✅ VERSION COMPLETE : Pour StatisticsPage (toutes les données)

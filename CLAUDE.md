@@ -1,6 +1,6 @@
 # 🦞 CLAUDE.md — BODYFORCE FRONTEND
 > Fichier de contexte Claude Code pour le dossier `bodyforce-frontend/`.
-> **Version** : 2.7.0 | **Mainteneur** : Lionel | **Mis à jour** : 18 février 2026
+> **Version** : 2.9.0 | **Mainteneur** : Lionel | **Mis à jour** : 30 septembre 2026
 > ℹ️ Pour l'architecture globale et les règles BDD, consulter `../DOCS/ARCHITECTURE.md`
 
 ---
@@ -95,6 +95,9 @@ await supabase.rpc('get_member_presences', { member_id })
 await supabase.rpc('get_all_members_presences')
 await supabase.rpc('generate_stats_report', { start_date, end_date })
 await supabase.rpc('get_top_members_by_period', { p_start_date, p_end_date, p_limit })
+await supabase.rpc('count_presences', { p_start_date, p_end_date })
+await supabase.rpc('get_attendance_by_day', { p_start, p_end })
+// Toutes acceptent p_include_comite (true par défaut)
 
 // ❌ NE PAS charger toutes les présences côté client
 await supabase.from('presences').select('*')  // 15 000 lignes = egress explosé
@@ -123,6 +126,18 @@ await supabase.from('presences').select('*')  // 15 000 lignes = egress explosé
 
 // ✅ PASSER PAR badge_history avec filtres de dates
 ```
+
+### Types de membre et présences comptées (v2.9.0)
+- `members.member_type` : `adherent` (défaut) | `comite` | `maintenance` (contrainte CHECK).
+  Constantes, étiquette et helpers dans `src/utils/memberTypes.js`.
+- Toutes les stats passent par la fonction SQL **`presences_counted(p_start, p_end, p_include_comite)`** :
+  rattachement présence → membre via `badge_history` avec dates, et exclut les sorties
+  bouton poussoir (badge vide), `'Résidents'`, la maintenance, et le comité si demandé.
+  ✅ Toute nouvelle stat de présences doit s'appuyer dessus (jamais `COUNT(*) FROM presences`).
+- Comité : interrupteur uniquement sur StatisticsPage et le rapport PDF (`p_include_comite`).
+- Maintenance : exclue des stats, compteurs, relances et « derniers inscrits », mais visible
+  avec l'étiquette grise « Maintenance » dans les journaux (derniers passages, planning).
+- Scripts SQL : `Script/sql/2026-09-30_member_type_*.sql` (migration, fix_bp, rollback).
 
 ### Egress Supabase
 - Limite plan gratuit : **5GB/mois** (~2-3GB consommés actuellement)

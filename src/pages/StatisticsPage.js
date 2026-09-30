@@ -386,6 +386,27 @@ function PeriodSelector({ value, onChange }) {
   );
 }
 
+// Interrupteur : inclure ou non les membres du comité dans les stats
+function ComiteToggle({ value, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      aria-pressed={value}
+      title="Inclure les membres du comité dans les statistiques"
+      className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+        value
+          ? "bg-purple-600 text-white shadow-md"
+          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+      }`}
+    >
+      {value ? "Comité inclus" : "Comité exclu"}
+    </button>
+  );
+}
+
+const COMITE_STORAGE_KEY = "bodyforce_stats_includeComite";
+
 function NoDataMessage() {
   return (
     <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -725,6 +746,13 @@ export default function StatisticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [period, setPeriod] = useState("comparison");
+  const [includeComite, setIncludeComite] = useState(() => {
+    try {
+      return localStorage.getItem(COMITE_STORAGE_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
 
   // Data states
   const [baseData, setBaseData] = useState(null);
@@ -736,10 +764,15 @@ export default function StatisticsPage() {
   const [exactPreviousPresences, setExactPreviousPresences] = useState(0); // Présences N-1 même période exacte
   const [heatmapData, setHeatmapData] = useState(null); // Données pour la heatmap radiale
 
-  // Fetch all data on mount
+  // Fetch all data on mount and when the committee toggle changes
   useEffect(() => {
+    try {
+      localStorage.setItem(COMITE_STORAGE_KEY, String(includeComite));
+    } catch {
+      // stockage indisponible (navigation privée) : on garde l'état en mémoire
+    }
     fetchAllData();
-  }, []);
+  }, [includeComite]);
 
   const fetchAllData = async () => {
     try {
@@ -748,13 +781,13 @@ export default function StatisticsPage() {
 
       // ✅ OPTIMISATION EGRESS : heatmapData inclus dans getYearlyPresenceStats (évite double fetch)
       const [baseResult, currentYear, previousYear, topCurrent, topPrevious, prevExact] = await Promise.all([
-        supabaseServices.getDetailedStatistics(),
-        supabaseServices.getYearlyPresenceStats(CURRENT_YEAR),
-        supabaseServices.getYearlyPresenceStats(PREVIOUS_YEAR),
-        supabaseServices.getTopMembersByYear(CURRENT_YEAR, 10),
-        supabaseServices.getTopMembersByYear(PREVIOUS_YEAR, 10),
+        supabaseServices.getDetailedStatistics(includeComite),
+        supabaseServices.getYearlyPresenceStats(CURRENT_YEAR, includeComite),
+        supabaseServices.getYearlyPresenceStats(PREVIOUS_YEAR, includeComite),
+        supabaseServices.getTopMembersByYear(CURRENT_YEAR, 10, includeComite),
+        supabaseServices.getTopMembersByYear(PREVIOUS_YEAR, 10, includeComite),
         // Récupérer présences N-1 jusqu'au même jour (comparaison équitable)
-        supabaseServices.getPresenceCountUntilDate(PREVIOUS_YEAR, CURRENT_MONTH, CURRENT_DAY),
+        supabaseServices.getPresenceCountUntilDate(PREVIOUS_YEAR, CURRENT_MONTH, CURRENT_DAY, includeComite),
       ]);
 
       setBaseData(baseResult);
@@ -799,7 +832,7 @@ export default function StatisticsPage() {
       const endDate = `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, '0')}-${lastDay}T23:59:59`;
 
       // Utiliser la fonction côté client qui passe par badge_history
-      const data = await supabaseServices.getTopMembersByPeriod(startDate, endDate, 1);
+      const data = await supabaseServices.getTopMembersByPeriod(startDate, endDate, 1, includeComite);
 
       if (data && data.length > 0 && (data[0].badge_number || data[0].badgeId)) {
         setChampionOfMonth(data[0]);
@@ -917,8 +950,9 @@ export default function StatisticsPage() {
           <FaChartBar />
           Tableau de bord
         </h2>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <PeriodSelector value={period} onChange={setPeriod} />
+          <ComiteToggle value={includeComite} onChange={setIncludeComite} />
           <button
             onClick={fetchAllData}
             className="bg-blue-600 text-white p-2.5 rounded-lg hover:bg-blue-700 transition-colors"

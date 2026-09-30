@@ -58,6 +58,7 @@ import {
 
 import { supabaseServices, supabase } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
+import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
 import MemberForm from "../components/MemberForm";
@@ -620,20 +621,26 @@ function HomePage() {
         start.setDate(end.getDate() - 6);
         start.setHours(0, 0, 0, 0);
 
-        const { data: presencesData, error } = await supabase
-          .from("presences")
-          .select("id,badgeId,timestamp")
-          .gte("timestamp", start.toISOString())
-          .lte("timestamp", end.toISOString())
-          .order("timestamp", { ascending: false })
-          .limit(500);
+        // Comptage par jour cote serveur (hors maintenance, 'Residents', sorties BP)
+        // et 10 derniers passages (journal : maintenance etiquetee, sorties BP exclues)
+        const [dailyCounts, recentRes] = await Promise.all([
+          supabaseServices.getAttendanceByDay(
+            start.toISOString(),
+            end.toISOString()
+          ),
+          supabase
+            .from("presences")
+            .select("id,badgeId,timestamp")
+            .gte("timestamp", start.toISOString())
+            .lte("timestamp", end.toISOString())
+            .not("badgeId", "is", null)
+            .neq("badgeId", "")
+            .order("timestamp", { ascending: false })
+            .limit(10),
+        ]);
 
-        if (error) {
-          console.error("Error loading presences:", error);
-          setAttendance7d([]);
-          setRecentPresences([]);
-          setLoading((s) => ({ ...s, presences: false }));
-          return;
+        if (recentRes.error) {
+          console.error("Error loading presences:", recentRes.error);
         }
 
         // Construction du tableau jour par jour
@@ -647,13 +654,10 @@ function HomePage() {
           countsByKey[key(d)] = 0;
         }
 
-        (presencesData || []).forEach((row) => {
-          const ts =
-            typeof row.timestamp === "string"
-              ? parseISO(row.timestamp)
-              : new Date(row.timestamp);
-          const k = key(ts);
-          if (countsByKey[k] !== undefined) countsByKey[k] += 1;
+        (dailyCounts || []).forEach((row) => {
+          if (countsByKey[row.day] !== undefined) {
+            countsByKey[row.day] = Number(row.count) || 0;
+          }
         });
 
         setAttendance7d(
@@ -664,7 +668,7 @@ function HomePage() {
         );
 
         // 10 derniers passages avec resolution des membres (sans photo)
-        const recent = (presencesData || []).slice(0, 10);
+        const recent = recentRes.data || [];
         const badgeIds = Array.from(
           new Set(recent.map((r) => r.badgeId).filter(Boolean))
         );
@@ -673,7 +677,7 @@ function HomePage() {
         if (badgeIds.length > 0) {
           const { data: membersData, error: mErr } = await supabase
             .from("members")
-            .select("id, firstName, name, badgeId")
+            .select("id, firstName, name, badgeId, member_type")
             .in("badgeId", badgeIds);
           if (!mErr && membersData) {
             membersByBadge = membersData.reduce((acc, m) => {
@@ -768,6 +772,7 @@ function HomePage() {
               .from("members")
               .select("id, firstName, name, badge_number")
               .not("badge_number", "is", null)
+              .neq("member_type", "maintenance")
               .order("badge_number", { ascending: false })
               .limit(10);
             if (latestErr) {
@@ -824,6 +829,8 @@ function HomePage() {
         const { data: presencesData } = await supabase
           .from("presences")
           .select("id,badgeId,timestamp")
+          .not("badgeId", "is", null)
+          .neq("badgeId", "")
           .order("timestamp", { ascending: false })
           .limit(10);
 
@@ -837,7 +844,7 @@ function HomePage() {
         if (badgeIds.length > 0) {
           const { data: membersData } = await supabase
             .from("members")
-            .select("id, firstName, name, badgeId")
+            .select("id, firstName, name, badgeId, member_type")
             .in("badgeId", badgeIds);
           if (membersData) {
             membersByBadge = membersData.reduce((acc, m) => {
@@ -1588,8 +1595,13 @@ function HomePage() {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {displayName}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {displayName}
+                            </span>
+                            {isMaintenance(m) && (
+                              <MemberTypeTag type="maintenance" className="flex-shrink-0" />
+                            )}
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
                             {isBP

@@ -37,7 +37,14 @@ import {
   FaGraduationCap,
   FaClock,
   FaFileMedical,
+  FaUserTie,
+  FaTools,
 } from "react-icons/fa";
+import {
+  isMaintenance,
+  isCountedMember,
+  MemberTypeTag,
+} from "../utils/memberTypes";
 import Avatar from "../components/Avatar";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -393,9 +400,10 @@ function MembersPage() {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
 
-  // Statistics — computed on ALL members (not filtered)
-  const totalAll = members.length;
-  const expiredCount = members.filter((m) => {
+  // Statistics — computed on ALL members (not filtered), maintenance excluded
+  const countedMembers = members.filter(isCountedMember);
+  const totalAll = countedMembers.length;
+  const expiredCount = countedMembers.filter((m) => {
     if (!m.endDate) return true;
     try {
       return isBefore(parseISO(m.endDate), new Date());
@@ -404,14 +412,17 @@ function MembersPage() {
     }
   }).length;
   const activeCount = totalAll - expiredCount;
-  const maleCount = members.filter((m) => m.gender === "Homme" && !isMemberExpired(m)).length;
-  const femaleCount = members.filter((m) => m.gender === "Femme" && !isMemberExpired(m)).length;
-  const studentCount = members.filter((m) => m.etudiant && !isMemberExpired(m)).length;
+  const maleCount = countedMembers.filter((m) => m.gender === "Homme" && !isMemberExpired(m)).length;
+  const femaleCount = countedMembers.filter((m) => m.gender === "Femme" && !isMemberExpired(m)).length;
+  const studentCount = countedMembers.filter((m) => m.etudiant && !isMemberExpired(m)).length;
 
   const noCertCount = filteredMembers.filter((m) => !memberHasFiles(m)).length;
 
-  const membersWithBadge = members.filter((m) => m.badge_number != null).length;
+  const membersWithBadge = countedMembers.filter((m) => m.badge_number != null).length;
   const recentCount = Math.min(20, membersWithBadge);
+
+  const comiteCount = members.filter((m) => m.member_type === "comite").length;
+  const maintenanceCount = members.filter(isMaintenance).length;
 
   // ---------------------------------------------------------------------------
   // 5.4 -- Effects
@@ -523,9 +534,15 @@ function MembersPage() {
     const compiledClauses = parseSearch(search);
 
     // Base: apply search
-    let result = members.filter((m) => matchesSearch(m, compiledClauses));
+    const searched = members.filter((m) => matchesSearch(m, compiledClauses));
+    // Maintenance staff only appear in their own filter (or via a name search)
+    let result = searched.filter(isCountedMember);
 
-    if (activeFilter === "Homme") {
+    if (activeFilter === "Maintenance") {
+      result = searched.filter(isMaintenance);
+    } else if (activeFilter === "Comité") {
+      result = result.filter((m) => m.member_type === "comite");
+    } else if (activeFilter === "Homme") {
       result = result.filter((m) => m.gender === "Homme" && !isMemberExpired(m));
     } else if (activeFilter === "Femme") {
       result = result.filter((m) => m.gender === "Femme" && !isMemberExpired(m));
@@ -536,7 +553,7 @@ function MembersPage() {
     } else if (activeFilter === "Récent") {
       // 20 most recently assigned badges by badge_number descending
       result = [...members]
-        .filter((m) => m.badge_number != null)
+        .filter((m) => m.badge_number != null && isCountedMember(m))
         .sort((a, b) => (b.badge_number || 0) - (a.badge_number || 0))
         .slice(0, 20);
     } else if (activeFilter === "SansCertif") {
@@ -547,6 +564,10 @@ function MembersPage() {
     } else if (activeFilter === "Actifs" || !activeFilter) {
       // Default: all active (non-expired)
       result = result.filter((m) => !isMemberExpired(m));
+      // A name search still finds maintenance staff
+      if (search.trim()) {
+        result = result.concat(searched.filter(isMaintenance));
+      }
     }
 
     // Sort by name (except "Recent" which keeps badge_number order)
@@ -1212,6 +1233,38 @@ function MembersPage() {
             <p className="text-xl font-bold text-gray-900 dark:text-white">{noCertCount}</p>
           </div>
         </div>
+        <div
+          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
+            activeFilter === "Comité"
+              ? "bg-purple-100 dark:bg-purple-900/40 ring-2 ring-purple-400 dark:ring-purple-500 shadow-md shadow-purple-500/10"
+              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+          }`}
+          {...keyboardClickable(() => setActiveFilter("Comité"))}
+        >
+          <div className="p-2 rounded-xl bg-purple-500/15">
+            <FaUserTie className="text-purple-600 dark:text-purple-400" size={18} />
+          </div>
+          <div>
+            <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Comité</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">{comiteCount}</p>
+          </div>
+        </div>
+        <div
+          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
+            activeFilter === "Maintenance"
+              ? "bg-gray-200 dark:bg-gray-700 ring-2 ring-gray-400 dark:ring-gray-500 shadow-md shadow-gray-500/10"
+              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+          }`}
+          {...keyboardClickable(() => setActiveFilter("Maintenance"))}
+        >
+          <div className="p-2 rounded-xl bg-gray-500/15">
+            <FaTools className="text-gray-600 dark:text-gray-400" size={18} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Maintenance</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">{maintenanceCount}</p>
+          </div>
+        </div>
       </div>
 
       {/* 6.3 -- Action bar */}
@@ -1430,6 +1483,7 @@ function MembersPage() {
                             <span>
                               {member.name} {member.firstName}
                             </span>
+                            <MemberTypeTag type={member.member_type} />
                             <FaExternalLinkAlt className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200" />
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
@@ -1514,7 +1568,11 @@ function MembersPage() {
                         {/* Status */}
                         <td className="p-3">
                           <div className="flex flex-col gap-1">
-                            {isExpired ? (
+                            {isMaintenance(member) ? (
+                              <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs font-medium">
+                                Maintenance
+                              </span>
+                            ) : isExpired ? (
                               <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
                                 Expiré
                               </span>
@@ -1538,7 +1596,7 @@ function MembersPage() {
                         {/* Actions */}
                         <td className="p-3">
                           <div className="flex items-center gap-2">
-                            {isExpired && (
+                            {isExpired && !isMaintenance(member) && (
                               <button
                                 onClick={() => handleQuickRenew(member)}
                                 className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 transition-colors p-2 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"
@@ -1636,6 +1694,7 @@ function MembersPage() {
                         >
                           {member.name} {member.firstName}
                         </div>
+                        <MemberTypeTag type={member.member_type} />
                         <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
                       </div>
                     </div>
@@ -1725,7 +1784,11 @@ function MembersPage() {
 
                   {/* Card status badges */}
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {isExpired ? (
+                    {isMaintenance(member) ? (
+                      <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs font-medium">
+                        Maintenance
+                      </span>
+                    ) : isExpired ? (
                       <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
                         Expiré
                       </span>
@@ -1747,7 +1810,7 @@ function MembersPage() {
 
                   {/* Card actions */}
                   <div className="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2">
-                    {isExpired && (
+                    {isExpired && !isMaintenance(member) && (
                       <button
                         onClick={() => handleQuickRenew(member)}
                         className="w-full bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white px-3 py-2.5 rounded-lg inline-flex items-center justify-center gap-2 transition-colors font-medium"

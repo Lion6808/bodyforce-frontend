@@ -59,6 +59,11 @@ import {
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import MemberMessagesTab from "../components/MemberMessagesTab";
+import {
+  MEMBER_TYPES,
+  DEFAULT_MEMBER_TYPE,
+  MemberTypeTag,
+} from "../utils/memberTypes";
 
 // ===================================================================
 // SECTION 2 -- Date Utilities
@@ -566,11 +571,16 @@ function SelectField({ label, options, icon: Icon, error, ...props }) {
               : "border-gray-200 dark:border-gray-600 hover:border-gray-300 focus:border-blue-500"
           }`}
         >
-          {options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
+          {options.map((opt) => {
+            // Accepts plain strings or { value, label } objects
+            const value = typeof opt === "string" ? opt : opt.value;
+            const text = typeof opt === "string" ? opt : opt.label;
+            return (
+              <option key={value} value={value}>
+                {text}
+              </option>
+            );
+          })}
         </select>
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       </div>
@@ -714,6 +724,7 @@ function MemberFormPage() {
     files: [],
     photo: null,
     etudiant: false,
+    member_type: DEFAULT_MEMBER_TYPE,
   });
 
   const [payments, setPayments] = useState([]);
@@ -1457,7 +1468,21 @@ function MemberFormPage() {
             options={["Homme", "Femme"]}
             icon={FaUser}
           />
+          <SelectField
+            label="Type de membre"
+            name="member_type"
+            value={form.member_type || DEFAULT_MEMBER_TYPE}
+            onChange={handleChange}
+            options={MEMBER_TYPES}
+            icon={FaUser}
+          />
         </div>
+        {form.member_type === "maintenance" && (
+          <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+            Personnel de maintenance : exclu des statistiques, des compteurs
+            et des relances. Ses passages restent visibles sur cette fiche.
+          </p>
+        )}
         {age !== null && (
           <div className="mt-6 bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
             <div className="flex items-center gap-3">
@@ -2569,6 +2594,11 @@ function MemberFormPage() {
             </div>
 
             <StatusBadge isExpired={isExpired} isStudent={form.etudiant} />
+            {form.member_type && form.member_type !== DEFAULT_MEMBER_TYPE && (
+              <div className="mt-2">
+                <MemberTypeTag type={form.member_type} className="text-sm px-3 py-1" />
+              </div>
+            )}
           </div>
         </div>
 
