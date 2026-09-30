@@ -1,6 +1,6 @@
 {
   "name": "bodyforce-frontend",
-  "version": "2.9.2",
+  "version": "2.9.3",
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.50.5",

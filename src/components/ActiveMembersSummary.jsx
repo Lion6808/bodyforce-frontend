@@ -1,9 +1,10 @@
 // ===================================================================
 // ActiveMembersSummary — synthèse des adhérents actifs
 // -------------------------------------------------------------------
-// Affiché sur HomePage (chiffres de la RPC get_statistics) et sur
-// MembersPage (chiffres calculés côté client). Maintenance exclue en
-// amont ; « actif » = date de fin postérieure à aujourd'hui.
+// Affiché sur HomePage (get_statistics → stats.synthese) et sur
+// MembersPage (calcul côté client). Compte uniquement les adhérents
+// (member_type = 'adherent') ; le comité actif est indiqué à part,
+// la maintenance est exclue. « Actif » = date de fin postérieure à aujourd'hui.
 // ===================================================================
 
 import { FaUserCheck, FaMale, FaFemale, FaGraduationCap } from "react-icons/fa";
@@ -53,6 +54,7 @@ const TONES = {
  * @param {number} props.femmes
  * @param {number} props.etudiantsHommes
  * @param {number} props.etudiantsFemmes
+ * @param {number} props.comite - membres du comité actifs (hors synthèse)
  */
 export default function ActiveMembersSummary({
   actifs = 0,
@@ -60,6 +62,7 @@ export default function ActiveMembersSummary({
   femmes = 0,
   etudiantsHommes = 0,
   etudiantsFemmes = 0,
+  comite = 0,
 }) {
   const menShare = pct(hommes, hommes + femmes);
 
@@ -79,6 +82,11 @@ export default function ActiveMembersSummary({
             </span>
             adhérents actifs
           </p>
+          {comite > 0 && (
+            <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
+              + {comite} membre{comite > 1 ? "s" : ""} du comité (compté{comite > 1 ? "s" : ""} à part)
+            </p>
+          )}
         </div>
       </div>
 

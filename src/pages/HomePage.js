@@ -1314,14 +1314,8 @@ function HomePage() {
       )}
 
       {/* Synthèse des adhérents actifs (H / F / étudiants H / étudiantes F) */}
-      {user && !loading.stats && (
-        <ActiveMembersSummary
-          actifs={stats.actifs}
-          hommes={stats.hommes}
-          femmes={stats.femmes}
-          etudiantsHommes={stats.etudiantsHommes}
-          etudiantsFemmes={stats.etudiantsFemmes}
-        />
+      {user && !loading.stats && stats.synthese && (
+        <ActiveMembersSummary {...stats.synthese} />
       )}
 
       {/* ------------------------------------------------------------------ */}

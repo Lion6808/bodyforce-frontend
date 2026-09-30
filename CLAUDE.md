@@ -1,6 +1,6 @@
 # 🦞 CLAUDE.md — BODYFORCE FRONTEND
 > Fichier de contexte Claude Code pour le dossier `bodyforce-frontend/`.
-> **Version** : 2.9.2 | **Mainteneur** : Lionel | **Mis à jour** : 30 septembre 2026
+> **Version** : 2.9.3 | **Mainteneur** : Lionel | **Mis à jour** : 30 septembre 2026
 > ℹ️ Pour l'architecture globale et les règles BDD, consulter `../DOCS/ARCHITECTURE.md`
 
 ---
@@ -139,10 +139,11 @@ await supabase.from('presences').select('*')  // 15 000 lignes = egress explosé
   avec l'étiquette grise « Maintenance » dans les journaux (derniers passages, planning).
 - Actif = `endDate` postérieure à aujourd'hui ; sans `endDate` = expiré. Hommes/Femmes/Étudiants
   = actifs uniquement (RPC et `isMemberExpired` de MembersPage alignés, v2.9.1).
-- Widget `components/ActiveMembersSummary.jsx` (actifs, H, F, étudiants H/F) : HomePage via
-  `get_statistics` (`etudiantsHommes`, `etudiantsFemmes`), MembersPage calcul client (v2.9.2).
+- Widget `components/ActiveMembersSummary.jsx` : adhérents actifs uniquement (`member_type =
+  'adherent'`), H, F, étudiants H/F, comité actif affiché à part. HomePage via
+  `get_statistics` → `stats.synthese`, MembersPage calcul client (v2.9.3).
 - Scripts SQL : `Script/sql/2026-09-30_member_type_*.sql` (migration, fix_bp, fix_actifs,
-  fix_etudiants_hf, rollback).
+  fix_etudiants_hf, fix_synthese, rollback).
 
 ### Egress Supabase
 - Limite plan gratuit : **5GB/mois** (~2-3GB consommés actuellement)
