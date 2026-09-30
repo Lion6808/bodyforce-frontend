@@ -1,6 +1,6 @@
 # 🦞 CLAUDE.md — BODYFORCE FRONTEND
 > Fichier de contexte Claude Code pour le dossier `bodyforce-frontend/`.
-> **Version** : 2.9.0 | **Mainteneur** : Lionel | **Mis à jour** : 30 septembre 2026
+> **Version** : 2.9.1 | **Mainteneur** : Lionel | **Mis à jour** : 30 septembre 2026
 > ℹ️ Pour l'architecture globale et les règles BDD, consulter `../DOCS/ARCHITECTURE.md`
 
 ---
@@ -137,7 +137,9 @@ await supabase.from('presences').select('*')  // 15 000 lignes = egress explosé
 - Comité : interrupteur uniquement sur StatisticsPage et le rapport PDF (`p_include_comite`).
 - Maintenance : exclue des stats, compteurs, relances et « derniers inscrits », mais visible
   avec l'étiquette grise « Maintenance » dans les journaux (derniers passages, planning).
-- Scripts SQL : `Script/sql/2026-09-30_member_type_*.sql` (migration, fix_bp, rollback).
+- Actif = `endDate` postérieure à aujourd'hui ; sans `endDate` = expiré. Hommes/Femmes/Étudiants
+  = actifs uniquement (RPC et `isMemberExpired` de MembersPage alignés, v2.9.1).
+- Scripts SQL : `Script/sql/2026-09-30_member_type_*.sql` (migration, fix_bp, fix_actifs, rollback).
 
 ### Egress Supabase
 - Limite plan gratuit : **5GB/mois** (~2-3GB consommés actuellement)

@@ -108,12 +108,13 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.9.0";
+const APP_VERSION = "2.9.1";
 
 const CHANGELOG = {
-  version: "2.9.0",
+  version: "2.9.1",
   date: "Septembre 2026",
   changes: [
+    "Compteurs Hommes/Femmes/Étudiants alignés sur les membres actifs",
     "Type de membre sur la fiche : Adhérent, Comité ou Maintenance",
     "Personnel de maintenance exclu des statistiques, compteurs et relances",
     "Statistiques et rapport PDF : choix d'inclure ou non le comité",

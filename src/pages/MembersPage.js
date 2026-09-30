@@ -202,15 +202,17 @@ const getBadgeColor = (type) => {
 
 /**
  * Check whether a member's subscription has expired.
+ * No end date counts as expired (same rule as the counters and the
+ * get_statistics RPC used by the home page).
  * @param {object} m - Member record.
  * @returns {boolean}
  */
 const isMemberExpired = (m) => {
-  if (!m.endDate) return false;
+  if (!m.endDate) return true;
   try {
     return isBefore(parseISO(m.endDate), new Date());
   } catch {
-    return false;
+    return true;
   }
 };
 

@@ -1279,13 +1279,13 @@ export default function StatisticsPage() {
           icon={<FaMars className="text-blue-600 text-2xl" />}
           label="Hommes"
           value={stats.hommes || 0}
-          subtitle={`${stats.total ? ((stats.hommes / stats.total) * 100).toFixed(0) : 0}% du total`}
+          subtitle={`${stats.actifs ? ((stats.hommes / stats.actifs) * 100).toFixed(0) : 0}% des actifs`}
         />
         <StatCard
           icon={<FaVenus className="text-pink-500 text-2xl" />}
           label="Femmes"
           value={stats.femmes || 0}
-          subtitle={`${stats.total ? ((stats.femmes / stats.total) * 100).toFixed(0) : 0}% du total`}
+          subtitle={`${stats.actifs ? ((stats.femmes / stats.actifs) * 100).toFixed(0) : 0}% des actifs`}
         />
         <StatCard
           icon={<FaGraduationCap className="text-yellow-500 text-2xl" />}
