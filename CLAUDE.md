@@ -1,6 +1,6 @@
 # 🦞 CLAUDE.md — BODYFORCE FRONTEND
 > Fichier de contexte Claude Code pour le dossier `bodyforce-frontend/`.
-> **Version** : 2.9.3 | **Mainteneur** : Lionel | **Mis à jour** : 30 septembre 2026
+> **Version** : 2.10.0 | **Mainteneur** : Lionel | **Mis à jour** : 2 octobre 2026
 > ℹ️ Pour l'architecture globale et les règles BDD, consulter `../DOCS/ARCHITECTURE.md`
 
 ---
@@ -18,20 +18,40 @@ Application React (PWA) de gestion de club de sport BodyForce.
 
 ```
 src/
-├── App.js                  # Router principal — 43KB, toutes les routes ici
-├── App.css                 # Styles globaux — 28KB, safe-area bottom nav
+├── App.js                  # Router principal + layout authentifié (~490 l. depuis v2.10)
+├── App.css                 # Styles globaux — safe-area bottom nav
 ├── index.js                # Point d'entrée React
-├── supabaseClient.js       # ⭐ Fichier critique — tous les appels Supabase (15.8KB)
-├── contexts/
-│   ├── AuthContext.js      # Auth + rôles (admin/user) + données membre connecté
-│   └── ThemeContext.js     # Gestion dark mode
-├── pages/                  # 20 pages (voir liste ci-dessous)
-├── components/             # Composants réutilisables
-├── services/
-│   └── messagesService.js  # API messagerie (15.5KB)
+├── supabaseClient.js       # ⭐ Fichier critique — tous les appels Supabase
+├── contexts/               # AuthContext (auth, rôles, membre), ThemeContext (dark mode)
+├── hooks/                  # useDarkMode, usePWA
+├── pages/                  # Pages (voir liste ci-dessous)
+├── components/
+│   ├── ui/                 # ⭐ Briques communes : Card, MetricTile, StatBox, Pill, Skeleton,
+│   │                       #    EmptyState (index.jsx + tones.js), FormFields, SearchHints
+│   ├── layout/             # Navigation (barre du bas, sidebar, menu mobile), PwaBanners
+│   ├── auth/               # LoginPage
+│   ├── memberForm/         # CameraModal, MemberFormParts, tabs/ (un fichier par onglet)
+│   ├── home/ statistics/   # Sous-composants de l'accueil et des statistiques
+│   └── MembersOverview, ActiveMembersSummary, MemberStatusPills…
+├── services/               # messagesService, emailService
 └── utils/
-    └── invitationService.js # Génération tokens, envoi invitations
+    ├── memberRules.js      # ⭐ SOURCE UNIQUE actif / expiré / compteurs (alignée SQL)
+    ├── memberTypes.js      # Types adherent / comite / maintenance + étiquette
+    ├── subscription.js     # ⭐ Durées + fin « Année civile » = permanence de janvier N+1
+    │                       #    (1er samedi, le 8 si le 1er est un samedi ; PERMANENCE_OVERRIDES)
+    ├── memberSearch.js     # Recherche avancée (jokers * ?, ^ $, OR) — Membres + Paiements
+    ├── dateUtils.js, imageUtils.js, statisticsUtils.js, statisticsPeriods.js, userPhoto.js
+    └── invitationService.js
 ```
+
+### Règles issues de la refacto v2.10
+- **Une règle métier = un seul endroit** (`utils/`). Ne jamais recalculer « actif / expiré » ou une
+  date de fin dans une page : importer `memberRules` / `subscription`.
+- **Mobile : aucun défilement horizontal** (onglets en grille, pastilles en `flex-wrap`).
+- **Le build CRA ne détecte pas les variables non définies** (pas d'`eslintConfig`) : après tout
+  déplacement de code, lancer ESLint `react-app` + `no-undef` (méthode dans la mémoire du projet).
+- **Vérification** : `node tour-bf.mjs http://localhost:3000 <dossier> <fichier-identifiants> [mobile]`
+  (build + `npx serve -s build -l 3000` d'abord).
 
 ### Pages principales
 | Page | Rôle |

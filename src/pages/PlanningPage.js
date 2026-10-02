@@ -22,15 +22,14 @@
 // SECTION 1 -- Imports
 // ============================================================================
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
-import { supabase, supabaseServices } from "../supabaseClient";
+import { supabase } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import { useNavigate } from "react-router-dom";
-import MemberForm from "../components/MemberForm";
 import Avatar from "../components/Avatar";
 
 import {
@@ -56,6 +55,7 @@ import {
   startOfYear,
   endOfYear,
 } from "date-fns";
+import { formatDate, parseTimestamp, toDateString, isWeekend, isToday } from "../utils/dateUtils";
 
 // ============================================================================
 // SECTION 2 -- Constants & Configuration
@@ -76,47 +76,6 @@ const PAGE_SIZE = 10;
 
 /** Concatenate CSS class names, filtering out falsy values */
 const cn = (...classes) => classes.filter(Boolean).join(" ");
-
-/**
- * Format a Date object according to a predefined format key.
- * Uses Intl.DateTimeFormat with locale "fr-FR".
- * @param {Date} date
- * @param {string} fmt - One of: "yyyy-MM-dd", "dd/MM/yyyy", "EEE dd/MM",
- *                        "EEE dd", "HH:mm", "MMMM yyyy", "EEEE dd MMMM"
- * @returns {string}
- */
-const formatDate = (date, fmt) => {
-  const map = {
-    "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
-    "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
-    "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
-    "EEE dd": { weekday: "short", day: "2-digit" },
-    "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
-    "MMMM yyyy": { month: "long", year: "numeric" },
-    "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
-  };
-  if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
-  return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
-};
-
-/** Parse a timestamp string into a Date object */
-const parseTimestamp = (ts) => new Date(ts);
-
-/**
- * Convert a Date to "YYYY-MM-DD" string (local timezone).
- * @param {Date|null} date
- * @returns {string}
- */
-const toDateString = (date) => {
-  if (!date) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
-
-/** Check if a date falls on a weekend (Saturday or Sunday) */
-const isWeekend = (date) => [0, 6].includes(date.getDay());
 
 /** Check if a date falls within the given interval (inclusive) */
 const isWithinInterval = (date, interval) =>
@@ -170,9 +129,6 @@ const addYears = (d, n) => {
 
 /** Subtract n weeks from a date */
 const subWeeks = (d, n) => addWeeks(d, -n);
-
-/** Check if a date is today */
-const isToday = (d) => d.toDateString() === new Date().toDateString();
 
 // ============================================================================
 // SECTION 4 -- Tailwind CSS class maps
@@ -249,10 +205,6 @@ function PlanningPage() {
   const [page, setPage] = useState(1);
   const [totalMembers, setTotalMembers] = useState(0);
 
-  // Member detail modal state
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-
   // Monthly view tooltip and expansion state
   const [expandedDays, setExpandedDays] = useState(new Set());
   const [hoveredMember, setHoveredMember] = useState(null);
@@ -261,41 +213,15 @@ function PlanningPage() {
   const navigate = useNavigate();
 
   // --------------------------------------------------------------------------
-  // 5.2 -- Member edit / modal handlers
+  // 5.2 -- Member edit handler
   // --------------------------------------------------------------------------
 
-  /** Open the member edit form (modal on mobile, navigation on desktop) */
-  const handleEditMember = async (member) => {
+  /** Open the member page (same page on mobile and desktop) */
+  const handleEditMember = (member) => {
     if (!member || !member.id) return;
-
-    if (isMobile) {
-      try {
-        const fullMember = await supabaseServices.getMemberById(member.id);
-        setSelectedMember(fullMember || member);
-        setShowForm(true);
-      } catch (err) {
-        console.error("Erreur chargement membre:", err);
-        setSelectedMember(member);
-        setShowForm(true);
-      }
-    } else {
-      navigate("/members/edit", {
-        state: { member, returnPath: "/planning", memberId: member.id },
-      });
-    }
-  };
-
-  /** Close the member edit modal */
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setSelectedMember(null);
-  };
-
-  /** Save handler after member edit -- reload data to reflect changes */
-  const handleSaveMember = async () => {
-    setShowForm(false);
-    setSelectedMember(null);
-    await loadData();
+    navigate("/members/edit", {
+      state: { member, returnPath: "/planning", memberId: member.id },
+    });
   };
 
   // --------------------------------------------------------------------------
@@ -2149,15 +2075,6 @@ function PlanningPage() {
             {viewMode === "compact" && !isMobile && <CompactView />}
             {viewMode === "monthly" && !isMobile && <MonthlyView />}
           </>
-        )}
-
-        {/* Member edit modal (mobile only) */}
-        {showForm && selectedMember && (
-          <MemberForm
-            member={selectedMember}
-            onSave={handleSaveMember}
-            onCancel={handleCloseForm}
-          />
         )}
       </div>
     </div>

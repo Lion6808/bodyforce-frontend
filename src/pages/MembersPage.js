@@ -15,8 +15,6 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
-import { keyboardClickable } from "../utils/a11y";
-import MemberForm from "../components/MemberForm";
 import {
   FaEdit,
   FaTrash,
@@ -28,12 +26,6 @@ import {
   FaSearch,
   FaFileImport,
   FaFileExport,
-  FaUsers,
-  FaUserCheck,
-  FaUserTimes,
-  FaMale,
-  FaFemale,
-  FaGraduationCap,
   FaClock,
   FaFileMedical,
   FaUserTie,
@@ -47,110 +39,15 @@ import {
 import { isMemberExpired, computeMemberStats } from "../utils/memberRules";
 import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
+import MembersOverview from "../components/MembersOverview";
+import { MetricTile } from "../components/ui";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
-
-// =============================================================================
-// SECTION 2 -- Search utilities (stateless helpers)
-// =============================================================================
-
-/**
- * Normalise a string for accent-insensitive, lowercase comparison.
- * @param {string} s - Input string.
- * @returns {string} Normalised string.
- */
-const normalize = (s = "") =>
-  s
-    .toString()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-/** Escape regex-special characters but leave wildcard markers intact. */
-const escapeForWildcard = (s) => s.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&");
-
-/**
- * Convert a single user-facing search token to a RegExp.
- * Supports `*` (any chars), `?` (one char), `^` / `$` anchors.
- * @param {string} tokenRaw - Raw token typed by the user.
- * @returns {RegExp|null}
- */
-const tokenToRegex = (tokenRaw) => {
-  if (!tokenRaw) return null;
-  let t = tokenRaw.trim();
-  const anchoredStart = t.startsWith("^");
-  const anchoredEnd = t.endsWith("$");
-  if (anchoredStart) t = t.slice(1);
-  if (anchoredEnd) t = t.slice(0, -1);
-  t = escapeForWildcard(t);
-  t = t.replace(/\*/g, ".*").replace(/\?/g, ".");
-  if (!anchoredStart) t = ".*" + t;
-  if (!anchoredEnd) t = t + ".*";
-  return new RegExp("^" + t + "$", "i");
-};
-
-/**
- * Parse a search string into an array of OR-clauses.
- * Each clause is an array of RegExp (AND tokens).
- * @param {string} search - Raw search input.
- * @returns {RegExp[][]}
- */
-const parseSearch = (search) => {
-  const raw = (search || "").trim();
-  if (!raw) return [];
-  const orClauses = raw
-    .split(/\s+OR\s+/i)
-    .map((c) => c.trim())
-    .filter(Boolean);
-  return orClauses.map((clause) =>
-    clause
-      .split(/\s+/)
-      .map((tok) => tok.trim())
-      .filter(Boolean)
-      .map(tokenToRegex)
-      .filter(Boolean)
-  );
-};
-
-/**
- * Test whether a member matches a set of compiled search clauses.
- * @param {object} member - Member record.
- * @param {RegExp[][]} compiledClauses - Output of parseSearch().
- * @returns {boolean}
- */
-const matchesSearch = (member, compiledClauses) => {
-  if (!compiledClauses.length) return true;
-  const haystack = normalize(
-    [member.name, member.firstName, member.badgeId, member.email, member.mobile]
-      .filter(Boolean)
-      .join(" ")
-  );
-  return compiledClauses.some((tokens) => tokens.every((rx) => rx.test(haystack)));
-};
-
-/**
- * Analyse raw search text and return metadata for the SearchHints component.
- * @param {string} raw - Raw search input.
- * @returns {{ active: boolean, clauses: string[][], hasWildcards: boolean, hasAnchors: boolean }}
- */
-const analyzeSearch = (raw) => {
-  const text = (raw || "").trim();
-  if (!text)
-    return { active: false, clauses: [], hasWildcards: false, hasAnchors: false };
-  const orParts = text
-    .split(/\s+OR\s+/i)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const clauses = orParts.map((p) =>
-    p.split(/\s+/).map((t) => t.trim()).filter(Boolean)
-  );
-  return {
-    active: true,
-    clauses,
-    hasWildcards: /[*?]/.test(text),
-    hasAnchors: /(\^|\$)/.test(text),
-  };
-};
+import { parseSearch, matchesSearch } from "../utils/memberSearch";
+import { SearchHints } from "../components/ui/SearchHints";
+import { keyboardClickable } from "../utils/a11y";
+import { getSubscriptionEndDate, formatIsoDateFr } from "../utils/subscription";
+import MemberStatusPills from "../components/MemberStatusPills";
 
 // =============================================================================
 // SECTION 3 -- Constants & configuration
@@ -159,26 +56,6 @@ const analyzeSearch = (raw) => {
 /** Number of members displayed per page. */
 const ITEMS_PER_PAGE = 20;
 
-/** Subscription end-date overrides keyed by subscription year. */
-const SUBSCRIPTION_END_DATES = {
-  2025: "2026-01-01",
-  2026: "2027-01-10",
-  2027: "2028-01-15",
-};
-
-/**
- * Return the configured subscription end date for a given year.
- * Falls back to December 31st if no override exists.
- * @param {number} year
- * @returns {string} ISO date string.
- */
-const getSubscriptionEndDate = (year) => {
-  if (SUBSCRIPTION_END_DATES[year]) {
-    return SUBSCRIPTION_END_DATES[year];
-  }
-  console.warn(`No subscription end date configured for ${year}, using fallback`);
-  return `${year}-12-31`;
-};
 
 /**
  * Return a Tailwind badge-colour class string for a subscription type.
@@ -215,124 +92,6 @@ const memberHasFiles = (member) => {
 };
 
 // =============================================================================
-// SECTION 4 -- Sub-components
-// =============================================================================
-
-// 4.1 -- SearchHints
-// -----------------------------------------------------------------------------
-
-/**
- * Inline component that renders contextual hints about the current search query.
- * @param {{ search: string }} props
- */
-function SearchHints({ search }) {
-  const info = analyzeSearch(search);
-  if (!info.active) return null;
-
-  return (
-    <div className="w-full sm:w-auto sm:max-w-[36rem] text-xs mt-1 space-y-1">
-      {/* Active-mode badges */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-          Recherche avancée
-        </span>
-        {info.hasWildcards && (
-          <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700">
-            Jokers * et ?
-          </span>
-        )}
-        {info.hasAnchors && (
-          <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
-            Ancres ^ et $
-          </span>
-        )}
-      </div>
-
-      {/* Clause visualisation */}
-      <div className="flex flex-wrap items-center gap-2">
-        {info.clauses.map((tokens, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-            title="Tous les tokens d'un groupe = AND"
-          >
-            {tokens.map((t, j) => (
-              <span
-                key={j}
-                className="px-1.5 py-0.5 rounded bg-white/70 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 font-mono"
-              >
-                {t}
-              </span>
-            ))}
-            <span className="ml-1 text-[11px] uppercase tracking-wide text-gray-600 dark:text-gray-300">
-              AND
-            </span>
-          </div>
-        ))}
-        {info.clauses.length > 1 && (
-          <span
-            className="text-[11px] uppercase tracking-wide text-gray-600 dark:text-gray-300"
-            title="Groupes reliés par OR"
-          >
-            (Groupes reliés par OR)
-          </span>
-        )}
-      </div>
-
-      {/* Usage examples */}
-      <div className="text-[11px] text-gray-500 dark:text-gray-400">
-        Exemples : <code className="font-mono">b*</code> (commence par b),{" "}
-        <code className="font-mono">*son</code> (finit par son),{" "}
-        <code className="font-mono">mar?</code> (mar + 1 char),{" "}
-        <code className="font-mono">homme mar*</code> (AND),{" "}
-        <code className="font-mono">b* OR mar*</code> (OR),{" "}
-        <code className="font-mono">^mar*</code> (ancré début),{" "}
-        <code className="font-mono">*tin$</code> (ancré fin).
-      </div>
-    </div>
-  );
-}
-
-// 4.2 -- Widget
-// -----------------------------------------------------------------------------
-
-/**
- * Clickable stat widget used in the filter bar.
- * @param {{ title: string, value: number, onClick: Function, active: boolean }} props
- */
-function Widget({ title, value, onClick, active = false }) {
-  return (
-    <div
-      {...keyboardClickable(onClick)}
-      className={`p-3 rounded-3xl text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
-        active
-          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-      }`}
-    >
-      <div
-        className={`text-sm ${
-          active
-            ? "text-blue-700 dark:text-blue-300 font-medium"
-            : "text-gray-500 dark:text-gray-400"
-        }`}
-      >
-        {title}
-      </div>
-      <div
-        className={`text-xl font-bold ${
-          active
-            ? "text-blue-800 dark:text-blue-200"
-            : "text-gray-800 dark:text-gray-200"
-        }`}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
 // SECTION 5 -- Main component
 // =============================================================================
 
@@ -362,9 +121,6 @@ function MembersPage() {
   const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   // Mobile modal
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   // ---------------------------------------------------------------------------
   // 5.2 -- Refs
@@ -410,14 +166,6 @@ function MembersPage() {
   // ---------------------------------------------------------------------------
   // 5.4 -- Effects
   // ---------------------------------------------------------------------------
-
-  // Detect mobile breakpoint
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Disable browser scroll restoration
   useEffect(() => {
@@ -671,30 +419,20 @@ function MembersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /** Open the edit view for a member (modal on mobile, route on desktop). */
+  /** Open the member page (same page on mobile and desktop). */
   const handleEditMember = (member) => {
-    if (isMobile) {
-      setSelectedMember(member);
-      setShowForm(true);
-    } else {
-      sessionStorage.setItem("membersLastId", String(member.id));
-      saveMembersPageContext({ editedMemberId: member.id });
-      navigate("/members/edit", {
-        state: { member, returnPath: "/members", memberId: member.id },
-      });
-    }
+    sessionStorage.setItem("membersLastId", String(member.id));
+    saveMembersPageContext({ editedMemberId: member.id });
+    navigate("/members/edit", {
+      state: { member, returnPath: "/members", memberId: member.id },
+    });
   };
 
-  /** Open the creation view (modal on mobile, route on desktop). */
+  /** Open the creation page (same page on mobile and desktop). */
   const handleAddMember = () => {
-    if (isMobile) {
-      setSelectedMember(null);
-      setShowForm(true);
-    } else {
-      sessionStorage.removeItem("membersLastId");
-      saveMembersPageContext({ editedMemberId: null });
-      navigate("/members/new", { state: { member: null, returnPath: "/members" } });
-    }
+    sessionStorage.removeItem("membersLastId");
+    saveMembersPageContext({ editedMemberId: null });
+    navigate("/members/new", { state: { member: null, returnPath: "/members" } });
   };
 
   /** Import badge mappings from an Excel file. */
@@ -941,12 +679,6 @@ function MembersPage() {
     }
   };
 
-  /** Close the mobile member form modal. */
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setSelectedMember(null);
-  };
-
   /** Delete a single member after confirmation. */
   const handleDelete = async (id) => {
     if (window.confirm("Supprimer ce membre ? Cette action est irréversible.")) {
@@ -985,7 +717,7 @@ function MembersPage() {
     const currentYear = new Date().getFullYear();
     const confirmMsg =
       `Réabonner ${member.firstName} ${member.name} pour l'année ${currentYear} ?\n\n` +
-      `Abonnement : Année civile\nDu 01/01/${currentYear} au 31/12/${currentYear}`;
+      `Abonnement : Année civile\nDu 01/01/${currentYear} au ${formatIsoDateFr(getSubscriptionEndDate(currentYear))} (permanence de janvier)`;
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -1086,171 +818,62 @@ function MembersPage() {
         </button>
       </div>
 
-      {/* 6.2 -- Filter widgets (grouped like HomePage) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Widget 1 : Total + Actifs / Expirés */}
-        <div
-          className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
-        >
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Membres</h2>
-          <div className="flex items-baseline gap-2 mb-4">
-            <span className="text-4xl font-bold text-gray-900 dark:text-white">{totalAll}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div
-              className={`rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-                activeFilter === "Actifs" || !activeFilter
-                  ? "bg-green-100 dark:bg-green-900/40 ring-2 ring-green-400 dark:ring-green-500 shadow-md shadow-green-500/10"
-                  : "bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Actifs"))}
-            >
-              <div className="p-2 rounded-xl bg-green-500/15">
-                <FaUserCheck className="text-green-600 dark:text-green-400" size={18} />
-              </div>
-              <div>
-                <p className="text-xs text-green-600 dark:text-green-400 font-medium">Actifs</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{activeCount}</p>
-              </div>
-            </div>
-            <div
-              className={`rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-                activeFilter === "Expiré"
-                  ? "bg-red-100 dark:bg-red-900/40 ring-2 ring-red-400 dark:ring-red-500 shadow-md shadow-red-500/10"
-                  : "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Expiré"))}
-            >
-              <div className="p-2 rounded-xl bg-red-500/15">
-                <FaUserTimes className="text-red-600 dark:text-red-400" size={18} />
-              </div>
-              <div>
-                <p className="text-xs text-red-600 dark:text-red-400 font-medium">Expirés</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{expiredCount}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Widget 2 : Répartition (Hommes, Femmes, Étudiants) */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border-2 border-gray-100 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Répartition</h2>
-          <div className="grid grid-cols-3 gap-3">
-            <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
-                activeFilter === "Homme"
-                  ? "bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-400 dark:ring-indigo-500 shadow-md shadow-indigo-500/10"
-                  : "bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Homme"))}
-            >
-              <div className="mx-auto w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-2">
-                <FaMale className="text-indigo-600 dark:text-indigo-400" size={18} />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{maleCount}</p>
-              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1">Hommes</p>
-            </div>
-            <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
-                activeFilter === "Femme"
-                  ? "bg-pink-100 dark:bg-pink-900/40 ring-2 ring-pink-400 dark:ring-pink-500 shadow-md shadow-pink-500/10"
-                  : "bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Femme"))}
-            >
-              <div className="mx-auto w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center mb-2">
-                <FaFemale className="text-pink-600 dark:text-pink-400" size={18} />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{femaleCount}</p>
-              <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mt-1">Femmes</p>
-            </div>
-            <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
-                activeFilter === "Etudiant"
-                  ? "bg-yellow-100 dark:bg-yellow-900/40 ring-2 ring-yellow-400 dark:ring-yellow-500 shadow-md shadow-yellow-500/10"
-                  : "bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Etudiant"))}
-            >
-              <div className="mx-auto w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center mb-2">
-                <FaGraduationCap className="text-yellow-600 dark:text-yellow-400" size={18} />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{studentCount}</p>
-              <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-1">Étudiants</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* 6.2 -- Filter widgets (shared with HomePage) */}
+      <MembersOverview
+        className="mb-6"
+        stats={{
+          total: totalAll,
+          actifs: activeCount,
+          expires: expiredCount,
+          hommes: maleCount,
+          femmes: femaleCount,
+          etudiants: studentCount,
+        }}
+        activeFilter={activeFilter}
+        onSelect={setActiveFilter}
+      />
 
       {/* 6.2a -- Synthèse des adhérents actifs */}
       <ActiveMembersSummary {...synthese} />
 
-      {/* 6.2b -- Filtres spéciaux (Badges récents, Sans certif) */}
+      {/* 6.2b -- Filtres spéciaux (Badges récents, Sans certif, Comité, Maintenance) */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-            activeFilter === "Récent"
-              ? "bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400 dark:ring-blue-500 shadow-md shadow-blue-500/10"
-              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          }`}
-          {...keyboardClickable(() => setActiveFilter("Récent"))}
-        >
-          <div className="p-2 rounded-xl bg-blue-500/15">
-            <FaClock className="text-blue-600 dark:text-blue-400" size={18} />
-          </div>
-          <div>
-            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Badges récents</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{recentCount}</p>
-          </div>
-        </div>
-        <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-            activeFilter === "SansCertif"
-              ? "bg-orange-100 dark:bg-orange-900/40 ring-2 ring-orange-400 dark:ring-orange-500 shadow-md shadow-orange-500/10"
-              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-          }`}
-          {...keyboardClickable(() => setActiveFilter("SansCertif"))}
-        >
-          <div className="p-2 rounded-xl bg-orange-500/15">
-            <FaFileMedical className="text-orange-600 dark:text-orange-400" size={18} />
-          </div>
-          <div>
-            <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Sans certif</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{noCertCount}</p>
-          </div>
-        </div>
-        <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-            activeFilter === "Comité"
-              ? "bg-purple-100 dark:bg-purple-900/40 ring-2 ring-purple-400 dark:ring-purple-500 shadow-md shadow-purple-500/10"
-              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-          }`}
-          {...keyboardClickable(() => setActiveFilter("Comité"))}
-        >
-          <div className="p-2 rounded-xl bg-purple-500/15">
-            <FaUserTie className="text-purple-600 dark:text-purple-400" size={18} />
-          </div>
-          <div>
-            <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Comité</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{comiteCount}</p>
-          </div>
-        </div>
-        <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-            activeFilter === "Maintenance"
-              ? "bg-gray-200 dark:bg-gray-700 ring-2 ring-gray-400 dark:ring-gray-500 shadow-md shadow-gray-500/10"
-              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40"
-          }`}
-          {...keyboardClickable(() => setActiveFilter("Maintenance"))}
-        >
-          <div className="p-2 rounded-xl bg-gray-500/15">
-            <FaTools className="text-gray-600 dark:text-gray-400" size={18} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Maintenance</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{maintenanceCount}</p>
-          </div>
-        </div>
+        <MetricTile
+          variant="plain"
+          icon={FaClock}
+          label="Badges récents"
+          value={recentCount}
+          tone="blue"
+          active={activeFilter === "Récent"}
+          onClick={() => setActiveFilter("Récent")}
+        />
+        <MetricTile
+          variant="plain"
+          icon={FaFileMedical}
+          label="Sans certif"
+          value={noCertCount}
+          tone="orange"
+          active={activeFilter === "SansCertif"}
+          onClick={() => setActiveFilter("SansCertif")}
+        />
+        <MetricTile
+          variant="plain"
+          icon={FaUserTie}
+          label="Comité"
+          value={comiteCount}
+          tone="purple"
+          active={activeFilter === "Comité"}
+          onClick={() => setActiveFilter("Comité")}
+        />
+        <MetricTile
+          variant="plain"
+          icon={FaTools}
+          label="Maintenance"
+          value={maintenanceCount}
+          tone="gray"
+          active={activeFilter === "Maintenance"}
+          onClick={() => setActiveFilter("Maintenance")}
+        />
       </div>
 
       {/* 6.3 -- Action bar */}
@@ -1546,28 +1169,7 @@ function MembersPage() {
                         {/* Status */}
                         <td className="p-3">
                           <div className="flex flex-col gap-1">
-                            {isMaintenance(member) ? (
-                              <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Maintenance
-                              </span>
-                            ) : isExpired ? (
-                              <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Expiré
-                              </span>
-                            ) : (
-                              <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Actif
-                              </span>
-                            )}
-                            {hasFiles ? (
-                              <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Docs OK
-                              </span>
-                            ) : (
-                              <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Manquant
-                              </span>
-                            )}
+                            <MemberStatusPills member={member} isExpired={isExpired} hasFiles={hasFiles} />
                           </div>
                         </td>
 
@@ -1754,28 +1356,7 @@ function MembersPage() {
 
                   {/* Card status badges */}
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {isMaintenance(member) ? (
-                      <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Maintenance
-                      </span>
-                    ) : isExpired ? (
-                      <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Expiré
-                      </span>
-                    ) : (
-                      <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Actif
-                      </span>
-                    )}
-                    {hasFiles ? (
-                      <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Docs OK
-                      </span>
-                    ) : (
-                      <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Manquant
-                      </span>
-                    )}
+                    <MemberStatusPills member={member} isExpired={isExpired} hasFiles={hasFiles} />
                   </div>
 
                   {/* Card actions */}
@@ -1888,43 +1469,6 @@ function MembersPage() {
         </div>
       )}
 
-      {/* 6.8 -- Mobile member form modal */}
-      {showForm && isMobile && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
-            <MemberForm
-              member={selectedMember}
-              onSave={async (memberData, closeModal) => {
-                try {
-                  let memberId;
-                  if (selectedMember?.id) {
-                    await supabaseServices.updateMember(selectedMember.id, memberData);
-                    memberId = selectedMember.id;
-                  } else {
-                    const newMember = await supabaseServices.createMember(memberData);
-                    memberId = newMember.id;
-                  }
-
-                  if (closeModal) {
-                    setShowForm(false);
-                    setSelectedMember(null);
-                  }
-
-                  await fetchMembers();
-
-                  if (memberId) {
-                    setTimeout(() => scrollToMember(memberId), 200);
-                  }
-                } catch (saveError) {
-                  console.error("Error saving member:", saveError);
-                  toast.error(`Erreur lors de la sauvegarde : ${saveError.message}`);
-                }
-              }}
-              onCancel={handleCloseForm}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

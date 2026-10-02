@@ -39,103 +39,9 @@ import {
 import Avatar from "../components/Avatar";
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
-import MemberForm from "../components/MemberForm";
-
-// =============================================================================
-// SECTION 2 -- Search utilities (stateless helpers)
-// =============================================================================
-
-/**
- * Normalize a string for accent-insensitive comparison.
- * Strips diacritics and lowercases the result.
- */
-const normalize = (s = "") =>
-  s
-    .toString()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-/** Escape special regex characters so they are treated as literals. */
-const escapeForWildcard = (s) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
-
-/**
- * Convert a single search token (possibly with wildcards * / ? and
- * anchors ^ / $) into a RegExp.
- */
-const tokenToRegex = (tokenRaw) => {
-  if (!tokenRaw) return null;
-  let t = tokenRaw.trim();
-  const anchoredStart = t.startsWith("^");
-  const anchoredEnd = t.endsWith("$");
-  if (anchoredStart) t = t.slice(1);
-  if (anchoredEnd) t = t.slice(0, -1);
-  t = escapeForWildcard(t);
-  t = t.replace(/\*/g, ".*").replace(/\?/g, ".");
-  if (!anchoredStart) t = ".*" + t;
-  if (!anchoredEnd) t = t + ".*";
-  return new RegExp("^" + t + "$", "i");
-};
-
-/**
- * Parse a raw search string into an array of OR-clauses,
- * where each clause is an array of AND-token regexes.
- */
-const parseSearch = (search) => {
-  const raw = (search || "").trim();
-  if (!raw) return [];
-  const orClauses = raw
-    .split(/\s+OR\s+/i)
-    .map((c) => c.trim())
-    .filter(Boolean);
-  return orClauses.map((clause) =>
-    clause
-      .split(/\s+/)
-      .map((tok) => tok.trim())
-      .filter(Boolean)
-      .map(tokenToRegex)
-      .filter(Boolean)
-  );
-};
-
-/**
- * Test whether a member matches the compiled search clauses.
- * Returns true if any OR-clause is fully satisfied (all AND-tokens match).
- */
-const matchesSearch = (member, compiledClauses) => {
-  if (!compiledClauses.length) return true;
-  const haystack = normalize(
-    [member.name, member.firstName, member.badgeId, member.email, member.mobile]
-      .filter(Boolean)
-      .join(" ")
-  );
-  return compiledClauses.some((tokens) => tokens.every((rx) => rx.test(haystack)));
-};
-
-/**
- * Analyze raw search text and return metadata used by the SearchHints component.
- */
-const analyzeSearch = (raw) => {
-  const text = (raw || "").trim();
-  if (!text)
-    return { active: false, clauses: [], hasWildcards: false, hasAnchors: false };
-  const orParts = text
-    .split(/\s+OR\s+/i)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const clauses = orParts.map((p) =>
-    p
-      .split(/\s+/)
-      .map((t) => t.trim())
-      .filter(Boolean)
-  );
-  return {
-    active: true,
-    clauses,
-    hasWildcards: /[*?]/.test(text),
-    hasAnchors: /(\^|\$)/.test(text),
-  };
-};
+import { useNavigate } from "react-router-dom";
+import { parseSearch, matchesSearch } from "../utils/memberSearch";
+import { SearchHints } from "../components/ui/SearchHints";
 
 // =============================================================================
 // SECTION 3 -- Payment helper functions (stateless)
@@ -210,82 +116,6 @@ const formatDateTime = (dateString) => {
 };
 
 // =============================================================================
-// SECTION 4 -- SearchHints component
-// =============================================================================
-
-/**
- * Displays visual badges describing the active search query
- * (wildcards, anchors, OR / AND groups) with usage examples.
- */
-function SearchHints({ search }) {
-  const info = analyzeSearch(search);
-  if (!info.active) return null;
-
-  return (
-    <div className="w-full sm:w-auto sm:max-w-[36rem] text-xs mt-1 space-y-1">
-      {/* Active badge indicators */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-          Recherche avancée
-        </span>
-        {info.hasWildcards && (
-          <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700">
-            Jokers * et ?
-          </span>
-        )}
-        {info.hasAnchors && (
-          <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
-            Ancres ^ et $
-          </span>
-        )}
-      </div>
-
-      {/* Token groups visualization */}
-      <div className="flex flex-wrap items-center gap-2">
-        {info.clauses.map((tokens, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-            title="Tous les tokens d'un groupe = AND"
-          >
-            {tokens.map((t, j) => (
-              <span
-                key={j}
-                className="px-1.5 py-0.5 rounded bg-white/70 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 font-mono"
-              >
-                {t}
-              </span>
-            ))}
-            <span className="ml-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              AND
-            </span>
-          </div>
-        ))}
-        {info.clauses.length > 1 && (
-          <span
-            className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"
-            title="Groupes reliés par OR"
-          >
-            (Groupes reliés par OR)
-          </span>
-        )}
-      </div>
-
-      {/* Usage examples */}
-      <div className="text-[11px] text-gray-500 dark:text-gray-400">
-        Exemples : <code className="font-mono">b*</code> (commence par b),{" "}
-        <code className="font-mono">*son</code> (finit par son),{" "}
-        <code className="font-mono">mar?</code> (mar + 1 char),{" "}
-        <code className="font-mono">homme mar*</code> (AND),{" "}
-        <code className="font-mono">b* OR mar*</code> (OR),{" "}
-        <code className="font-mono">^mar*</code> (ancré début),{" "}
-        <code className="font-mono">*tin$</code> (ancré fin).
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
 // SECTION 5 -- Constants
 // =============================================================================
 
@@ -352,8 +182,7 @@ function PaymentsPage() {
   // ---------------------------------------------------------------------------
 
   const [expandedMember, setExpandedMember] = useState(null);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+  const navigate = useNavigate();
 
   // ---------------------------------------------------------------------------
   // 6.5 -- Pagination & lazy photo cache
@@ -828,34 +657,12 @@ function PaymentsPage() {
   // 6.16 -- Member edit handler
   // ---------------------------------------------------------------------------
 
-  /**
-   * Open the MemberForm modal pre-populated with the selected member's data.
-   * Pulls the cached photo if available.
-   */
+  /** Open the member page (the page reloads the full record from Supabase). */
   const handleEditMember = (member) => {
-    const memberOnlyData = {
-      id: member.id,
-      name: member.name,
-      firstName: member.firstName,
-      email: member.email,
-      phone: member.phone ?? member.mobile ?? "",
-      mobile: member.mobile ?? member.phone ?? "",
-      badgeId: member.badgeId,
-      photo: photosCache[member.id] || null,
-      dateOfBirth: member.dateOfBirth,
-      address: member.address,
-      subscriptionType: member.subscriptionType || member.membershipType || "Mensuel",
-      membershipType: member.membershipType,
-      startDate: member.startDate,
-      endDate: member.endDate,
-      status: member.status,
-      emergencyContact: member.emergencyContact,
-      emergencyPhone: member.emergencyPhone,
-      medicalInfo: member.medicalInfo,
-      files: member.files,
-    };
-    setSelectedMember(memberOnlyData);
-    setShowForm(true);
+    if (!member?.id) return;
+    navigate("/members/edit", {
+      state: { member, returnPath: "/payments", memberId: member.id },
+    });
   };
 
   // ---------------------------------------------------------------------------
@@ -2431,51 +2238,6 @@ function PaymentsPage() {
           </p>
         </div>
       </div>
-
-      {/* Member edit modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div
-            className={`${
-              isDarkMode ? "bg-gray-800" : "bg-white"
-            } mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4`}
-          >
-            <MemberForm
-              member={selectedMember}
-              onSave={async (memberData, closeModal) => {
-                try {
-                  if (selectedMember?.id) {
-                    const { error } = await supabase
-                      .from("members")
-                      .update(memberData)
-                      .eq("id", selectedMember.id);
-                    if (error) throw error;
-                  } else {
-                    const { error } = await supabase
-                      .from("members")
-                      .insert([memberData])
-                      .select();
-                    if (error) throw error;
-                  }
-
-                  if (closeModal) {
-                    setShowForm(false);
-                    setSelectedMember(null);
-                  }
-                  await loadData();
-                } catch (saveError) {
-                  console.error("Erreur sauvegarde membre:", saveError);
-                  toast.error(`Erreur lors de la sauvegarde : ${saveError.message}`);
-                }
-              }}
-              onCancel={() => {
-                setShowForm(false);
-                setSelectedMember(null);
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

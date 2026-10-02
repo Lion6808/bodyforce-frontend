@@ -14,27 +14,21 @@
 //   - Composant Avatar reutilisable pour l'affichage des photos/initiales
 // =============================================================================
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { parseISO, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  FaUsers,
-  FaUserCheck,
-  FaUserTimes,
-  FaMale,
-  FaFemale,
-  FaGraduationCap,
   FaCreditCard,
   FaExclamationTriangle,
-  FaFire,
-  FaBullseye,
-  FaRocket,
-  FaDollarSign,
   FaArrowRight,
   FaBell,
-  FaBellSlash,
   FaChartBar,
 } from "react-icons/fa";
+import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
+import ActiveMembersSummary from "../components/ActiveMembersSummary";
+import MembersOverview from "../components/MembersOverview";
+import { SkeletonPulse, SkeletonListItem } from "../components/home/HomeSkeletons";
+import { AdminMotivationWidgets } from "../components/home/AdminMotivationWidgets";
 
 const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || "BFm-sjydQw6LfYtniSytrr9K7WU_WHzgWvj95tw7YWfchRokgQXjTwbETOWrlSJhXe9c5ohTr0Z_d4hm2JADVec";
 
@@ -58,265 +52,10 @@ import {
 
 import { supabaseServices, supabase } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
-import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
-import ActiveMembersSummary from "../components/ActiveMembersSummary";
-import MemberForm from "../components/MemberForm";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-
-// =============================================================================
-// SECTION 1 — Composants Skeleton (placeholders de chargement)
-// =============================================================================
-
-/** Barre pulsante generique pour les etats de chargement */
-const SkeletonPulse = ({ className = "" }) => (
-  <div
-    className={`bg-gray-200 dark:bg-gray-700 animate-pulse ${className}`}
-  />
-);
-
-/** Skeleton d'une carte de statistique (StatCard) */
-const SkeletonCard = () => (
-  <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-100 dark:border-gray-700 animate-pulse">
-    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
-    <div className="ml-4 flex-1">
-      <SkeletonPulse className="h-4 w-24 mb-2 rounded" />
-      <SkeletonPulse className="h-6 w-16 rounded" />
-    </div>
-  </div>
-);
-
-/** Skeleton d'un element de liste (passages, membres, paiements) */
-const SkeletonListItem = () => (
-  <div className="flex items-center justify-between p-3 rounded-lg border border-transparent">
-    <div className="flex items-center gap-3 min-w-0 flex-1">
-      <SkeletonPulse className="w-10 h-10 rounded-full" />
-      <div className="min-w-0 flex-1">
-        <SkeletonPulse className="h-4 w-40 mb-2 rounded" />
-        <SkeletonPulse className="h-3 w-24 rounded" />
-      </div>
-    </div>
-    <div className="text-right flex-shrink-0 ml-3">
-      <SkeletonPulse className="h-4 w-12 mb-1 rounded" />
-      <SkeletonPulse className="h-3 w-10 rounded" />
-    </div>
-  </div>
-);
-
-// =============================================================================
-// SECTION 2 — Widgets de motivation admin (bandeau en haut du dashboard)
-// =============================================================================
-
-/**
- * Bandeau motivationnel affiche uniquement pour les admins.
- * Calcule des metriques (progression objectif membres, taux de paiement,
- * frequentation) et affiche des badges de performance.
- */
-const AdminMotivationWidgets = ({
-  stats,
-  paymentSummary,
-  attendance7d,
-  latestMembers,
-}) => {
-  // --- Calcul des metriques de motivation ---
-  const calculateMotivationMetrics = () => {
-    const memberGoal = 250;
-    const currentMembers = stats?.total || 0;
-    const goalProgress = (currentMembers / memberGoal) * 100;
-
-    const newMembersThisMonth = latestMembers?.length || 0;
-    const growthRate =
-      currentMembers > 0
-        ? Math.round((newMembersThisMonth / currentMembers) * 100)
-        : 0;
-
-    const totalAttendances =
-      attendance7d?.reduce((sum, d) => sum + (d.count || 0), 0) || 0;
-    const avgPerDay =
-      attendance7d?.length > 0
-        ? Math.round(totalAttendances / attendance7d.length)
-        : 0;
-    const maxPossibleDaily = currentMembers * 0.4;
-    const attendanceRate =
-      maxPossibleDaily > 0
-        ? Math.min(Math.round((avgPerDay / maxPossibleDaily) * 100), 100)
-        : 0;
-
-    const paymentRate =
-      paymentSummary?.totalAmount > 0
-        ? Math.round(
-            (paymentSummary.paidAmount / paymentSummary.totalAmount) * 100
-          )
-        : 0;
-
-    return {
-      currentMembers,
-      memberGoal,
-      goalProgress,
-      newMembersThisMonth,
-      growthRate,
-      totalAttendances,
-      avgPerDay,
-      attendanceRate,
-      paymentRate,
-    };
-  };
-
-  const metrics = calculateMotivationMetrics();
-
-  // --- Message motivationnel contextuel ---
-  const getMotivationalMessage = () => {
-    if (metrics.paymentRate >= 98 && metrics.attendanceRate >= 90) {
-      return {
-        emoji: "🏆",
-        title: "Performance exceptionnelle !",
-        desc: "Votre club affiche d'excellents résultats",
-      };
-    }
-    if (metrics.goalProgress >= 90) {
-      return {
-        emoji: "🎯",
-        title: "Objectif presque atteint !",
-        desc: `Plus que ${metrics.memberGoal - metrics.currentMembers} membres pour atteindre 250`,
-      };
-    }
-    if (metrics.newMembersThisMonth >= 5) {
-      return {
-        emoji: "📈",
-        title: "Forte croissance !",
-        desc: `${metrics.newMembersThisMonth} nouveaux membres récemment`,
-      };
-    }
-    if (metrics.totalAttendances > 150) {
-      return {
-        emoji: "🔥",
-        title: "Club très actif !",
-        desc: `${metrics.totalAttendances} passages cette semaine`,
-      };
-    }
-    return {
-      emoji: "💪",
-      title: "Continuez sur cette lancée !",
-      desc: "Votre club progresse bien",
-    };
-  };
-
-  const motivationMessage = getMotivationalMessage();
-
-  // --- Badges de performance ---
-  const getAdminBadges = () => {
-    const badges = [];
-    if (metrics.paymentRate >= 95)
-      badges.push({
-        icon: <FaDollarSign />,
-        name: "Gestion parfaite",
-        desc: `${metrics.paymentRate}% encaissés`,
-        color: "from-emerald-500 to-green-600",
-      });
-    if (metrics.attendanceRate >= 80 || metrics.totalAttendances >= 150)
-      badges.push({
-        icon: <FaFire />,
-        name: "Club actif",
-        desc: `${metrics.totalAttendances} passages/sem`,
-        color: "from-orange-500 to-red-600",
-      });
-    if (metrics.newMembersThisMonth >= 5)
-      badges.push({
-        icon: <FaRocket />,
-        name: "Forte croissance",
-        desc: `+${metrics.newMembersThisMonth} membres`,
-        color: "from-purple-500 to-pink-600",
-      });
-    if (metrics.currentMembers >= 200)
-      badges.push({
-        icon: <FaUsers />,
-        name: "Cap des 200",
-        desc: `${metrics.currentMembers} membres`,
-        color: "from-blue-500 to-indigo-600",
-      });
-    if (metrics.goalProgress >= 80)
-      badges.push({
-        icon: <FaBullseye />,
-        name: "Objectif proche",
-        desc: `${Math.round(metrics.goalProgress)}% atteint`,
-        color: "from-cyan-500 to-blue-600",
-      });
-    return badges;
-  };
-
-  const adminBadges = getAdminBadges();
-
-  // --- Rendu du bandeau ---
-  return (
-    <div className="space-y-6 mb-8">
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 rounded-3xl p-6 text-white shadow-lg border border-blue-400/20">
-        <div className="flex items-start gap-4">
-          {/* Emoji principal */}
-          <div className="text-5xl flex-shrink-0">
-            {motivationMessage.emoji}
-          </div>
-
-          {/* Message + mini-stats */}
-          <div className="flex-1 min-w-0">
-            <h3 className="text-2xl font-bold mb-1">
-              {motivationMessage.title}
-            </h3>
-            <p className="text-blue-100 dark:text-blue-200 text-sm">
-              {motivationMessage.desc}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2">
-                <div className="text-xs text-blue-100">Membres</div>
-                <div className="text-lg font-bold">{stats?.total || 0}</div>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2">
-                <div className="text-xs text-blue-100">Passages/jour</div>
-                <div className="text-lg font-bold">
-                  {attendance7d?.length
-                    ? Math.round(
-                        attendance7d.reduce((s, d) => s + (d.count || 0), 0) /
-                          attendance7d.length
-                      )
-                    : 0}
-                </div>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2">
-                <div className="text-xs text-blue-100">Taux paiement</div>
-                <div className="text-lg font-bold">
-                  {paymentSummary?.totalAmount > 0
-                    ? Math.round(
-                        (paymentSummary.paidAmount /
-                          paymentSummary.totalAmount) *
-                          100
-                      )
-                    : 0}
-                  %
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Badges de performance (desktop uniquement) */}
-          {adminBadges.length > 0 && (
-            <div className="hidden lg:flex gap-2 flex-shrink-0">
-              {adminBadges.slice(0, 3).map((badge, idx) => (
-                <div
-                  key={idx}
-                  className={`w-14 h-14 rounded-xl bg-gradient-to-br ${badge.color} flex items-center justify-center text-white text-xl shadow-lg transform hover:scale-110 transition-transform cursor-pointer`}
-                  title={`${badge.name}: ${badge.desc}`}
-                >
-                  {badge.icon}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // =============================================================================
 // SECTION 3 — Utilitaires
@@ -346,25 +85,6 @@ const getTimeAgo = (date) => {
 };
 
 // =============================================================================
-// SECTION 4 — Sous-composants de presentation
-// =============================================================================
-
-/** Carte de statistique avec icone, label et valeur */
-const StatCard = ({ icon: Icon, label, value, color }) => (
-  <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg shadow p-4 transition-colors duration-200 border border-gray-100 dark:border-gray-700">
-    <div className={`p-3 rounded-full ${color} text-white`}>
-      <Icon size={24} />
-    </div>
-    <div className="ml-4">
-      <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="text-xl font-semibold text-gray-900 dark:text-white">
-        {value}
-      </p>
-    </div>
-  </div>
-);
-
-// =============================================================================
 // SECTION 5 — Composant principal HomePage
 // =============================================================================
 
@@ -376,8 +96,6 @@ function HomePage() {
   // ---------------------------------------------------------------------------
   // 5.1 — State
   // ---------------------------------------------------------------------------
-
-  const [isMobile, setIsMobile] = useState(false);
 
   // Push notifications
   const [pushStatus, setPushStatus]   = useState("loading");
@@ -495,10 +213,6 @@ function HomePage() {
   const [photosCache, setPhotosCache] = useState({});
   const photosLoadingRef = useRef(false);
 
-  // Modal de detail/edition d'un membre (mobile)
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-
   // Stats personnelles de l'admin (streak, niveau, etc.)
   const [adminPersonalStats, setAdminPersonalStats] = useState({
     currentStreak: 0,
@@ -511,35 +225,12 @@ function HomePage() {
   // 5.2 — Handlers d'interaction
   // ---------------------------------------------------------------------------
 
-  /** Ouvre le detail d'un membre (modal mobile / navigation desktop) */
-  const handleEditMember = async (member) => {
+  /** Ouvre la fiche d'un membre (meme page sur mobile et desktop) */
+  const handleEditMember = (member) => {
     if (!member || !member.id) return;
-
-    if (isMobile) {
-      try {
-        const fullMember = await supabaseServices.getMemberById(member.id);
-        setSelectedMember(fullMember || member);
-        setShowForm(true);
-      } catch (err) {
-        console.error("Erreur chargement membre:", err);
-        setSelectedMember(member);
-        setShowForm(true);
-      }
-    } else {
-      navigate("/members/edit", {
-        state: { member, returnPath: "/", memberId: member.id },
-      });
-    }
-  };
-
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setSelectedMember(null);
-  };
-
-  const handleSaveMember = async () => {
-    setShowForm(false);
-    setSelectedMember(null);
+    navigate("/members/edit", {
+      state: { member, returnPath: "/", memberId: member.id },
+    });
   };
 
   // ---------------------------------------------------------------------------
@@ -1071,17 +762,6 @@ function HomePage() {
   }, [isAdmin, memberCtx?.badgeId]);
 
   // ---------------------------------------------------------------------------
-  // 5.9 — Effect : detection mobile (breakpoint 1024px)
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  // ---------------------------------------------------------------------------
   // 5.10 — Variables derivees pour le rendu
   // ---------------------------------------------------------------------------
 
@@ -1231,86 +911,38 @@ function HomePage() {
       {/* 6.2 — Widgets statistiques groupés                                 */}
       {/* ------------------------------------------------------------------ */}
       {user && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {loading.stats ? (
-            <>
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
-                <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
-                <SkeletonPulse className="h-10 w-20 mb-4 rounded" />
-                <div className="grid grid-cols-2 gap-3">
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                </div>
+        loading.stats ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+              <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
+              <SkeletonPulse className="h-10 w-20 mb-4 rounded" />
+              <div className="grid grid-cols-2 gap-3">
+                <SkeletonPulse className="h-20 rounded-2xl" />
+                <SkeletonPulse className="h-20 rounded-2xl" />
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
-                <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
-                <div className="grid grid-cols-3 gap-3">
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+              <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
+              <div className="grid grid-cols-3 gap-3">
+                <SkeletonPulse className="h-20 rounded-2xl" />
+                <SkeletonPulse className="h-20 rounded-2xl" />
+                <SkeletonPulse className="h-20 rounded-2xl" />
               </div>
-            </>
-          ) : (
-            <>
-              {/* Widget 1 : Membres (Total, Actifs, Expirés) */}
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Membres</h2>
-                <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">{stats.total}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-green-500/15">
-                      <FaUserCheck className="text-green-600 dark:text-green-400" size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Actifs</p>
-                      <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.actifs}</p>
-                    </div>
-                  </div>
-                  <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-red-500/15">
-                      <FaUserTimes className="text-red-600 dark:text-red-400" size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-red-600 dark:text-red-400 font-medium">Expirés</p>
-                      <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.expirés}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Widget 2 : Répartition (Hommes, Femmes, Étudiants) */}
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Répartition</h2>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-center">
-                    <div className="mx-auto w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-2">
-                      <FaMale className="text-indigo-600 dark:text-indigo-400" size={18} />
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.hommes}</p>
-                    <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1">Hommes</p>
-                  </div>
-                  <div className="bg-pink-50 dark:bg-pink-900/20 rounded-2xl p-4 text-center">
-                    <div className="mx-auto w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center mb-2">
-                      <FaFemale className="text-pink-600 dark:text-pink-400" size={18} />
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.femmes}</p>
-                    <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mt-1">Femmes</p>
-                  </div>
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl p-4 text-center">
-                    <div className="mx-auto w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center mb-2">
-                      <FaGraduationCap className="text-yellow-600 dark:text-yellow-400" size={18} />
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.etudiants}</p>
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-1">Étudiants</p>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        ) : (
+          <MembersOverview
+            className="mb-8"
+            stats={{
+              total: stats.total,
+              actifs: stats.actifs,
+              expires: stats.expirés,
+              hommes: stats.hommes,
+              femmes: stats.femmes,
+              etudiants: stats.etudiants,
+            }}
+          />
+        )
       )}
 
       {/* Synthèse des adhérents actifs (H / F / étudiants H / étudiantes F) */}
@@ -1770,17 +1402,6 @@ function HomePage() {
             </p>
           )}
         </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* 6.8 — Modal d'edition d'un membre (mobile)                         */}
-      {/* ------------------------------------------------------------------ */}
-      {showForm && selectedMember && (
-        <MemberForm
-          member={selectedMember}
-          onSave={handleSaveMember}
-          onCancel={handleCloseForm}
-        />
       )}
     </div>
   );
