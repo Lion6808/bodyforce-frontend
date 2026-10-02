@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import MemberIdentity from "../MemberIdentity";
 import { keyboardClickable } from "../../utils/a11y";
 import DayCalendar from "./DayCalendar";
+import PeriodList from "./PeriodList";
 import useMemberPhotos from "../../hooks/useMemberPhotos";
 import { toDateString } from "../../utils/dateUtils";
 import {
@@ -24,6 +25,10 @@ import {
   passageKind,
   plural,
   sameDay,
+  PERIODS,
+  periodIncludesToday,
+  periodLabel,
+  shiftPeriod,
 } from "./planningData";
 
 const cx = (...c) => c.filter(Boolean).join(" ");
@@ -75,6 +80,33 @@ function PassageIdentity({ r, photos, size }) {
   );
 }
 
+/** Jour / Semaine / Mois / Année */
+function PeriodTabs({ period, onChange }) {
+  return (
+    <div role="group" aria-label="Période" className="grid grid-cols-4 gap-1 bg-gray-100 dark:bg-gray-700 lg:bg-gray-200/70 rounded-2xl p-1">
+      {PERIODS.map((p) => {
+        const on = p.id === period;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(p.id)}
+            className={cx(
+              "h-9 rounded-xl text-sm",
+              on
+                ? "bg-white dark:bg-gray-800 shadow-sm font-semibold text-gray-900 dark:text-white"
+                : "font-medium text-gray-600 dark:text-gray-300"
+            )}
+          >
+            {p.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function TodayView({
   day,
   onChangeDay,
@@ -87,6 +119,10 @@ export default function TodayView({
   onSelectRow,
   desktop = false,
   aside = null,
+  period = "day",
+  onChangePeriod = () => {},
+  attendance = [],
+  attendanceLoading = false,
 }) {
   const [filter, setFilter] = useState("all");
   const isTodayView = sameDay(day, new Date());
@@ -120,12 +156,40 @@ export default function TodayView({
 
   const lastTodayTs = isTodayView && entries[0] ? entries[0].ts : lastReceived;
 
+  // Période (semaine, mois, année) : une ligne par personne
+  const isDay = period === "day";
+  const periodRows = useMemo(
+    () =>
+      attendance.map((r) => ({
+        ...r,
+        who: r.member_id ? `m${r.member_id}` : `b${r.badge_id}`,
+        kind: r.member_id ? r.member_type || "adherent" : "inconnu",
+      })),
+    [attendance]
+  );
+  const periodVisible = periodRows.filter((r) => filter === "all" || r.kind === filter);
+  const totalPassages = isDay ? entries.length : periodRows.reduce((n, r) => n + Number(r.passages || 0), 0);
+  const totalPeople = isDay ? people : periodRows.length;
+  const totalToCheck = isDay ? toCheck : periodRows.filter((r) => r.invalid_passages > 0 || !r.member_id).length;
+  const countFor = (id) => {
+    const list = isDay ? entries : periodRows;
+    return id === "all" ? list.length : list.filter((r) => r.kind === id).length;
+  };
+  const atPresent = periodIncludesToday(period, day);
+
   if (desktop) {
     return (
       <div className={cx("grid gap-5 flex-1 min-h-0 h-full", aside ? "grid-cols-[260px_minmax(0,1fr)_320px]" : "grid-cols-[260px_minmax(0,1fr)]")}>
         {/* Colonne 1 : calendrier, résumé, filtres (fixe ; défile seulement si l'écran est trop bas) */}
         <div className="min-h-0 overflow-y-auto space-y-4 pb-1">
-          <DayCalendar day={day} onChangeDay={onChangeDay} />
+          <PeriodTabs period={period} onChange={onChangePeriod} />
+          <DayCalendar
+            day={day}
+            onChangeDay={(d) => {
+              onChangePeriod("day");
+              onChangeDay(d);
+            }}
+          />
 
           <section
             aria-label="Résumé de la journée"
@@ -133,19 +197,19 @@ export default function TodayView({
           >
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{entries.length}</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalPassages}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">passages</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{people}</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalPeople}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">personnes</div>
               </div>
-              <div className={toCheck ? "text-orange-700 dark:text-orange-400" : "text-gray-900 dark:text-white"}>
-                <div className="text-2xl font-bold">{toCheck}</div>
+              <div className={totalToCheck ? "text-orange-700 dark:text-orange-400" : "text-gray-900 dark:text-white"}>
+                <div className="text-2xl font-bold">{totalToCheck}</div>
                 <div className="text-xs font-semibold">à vérifier</div>
               </div>
             </div>
-            <div>
+            {isDay && (<div>
               <div className="flex items-end gap-[3px] h-8">
                 {hours.map(({ h, n }) => (
                   <div
@@ -169,7 +233,7 @@ export default function TodayView({
                 <span>18 h</span>
                 <span>23 h</span>
               </div>
-            </div>
+            </div>)}
           </section>
 
           <section
@@ -178,7 +242,7 @@ export default function TodayView({
             className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-2 flex flex-col gap-0.5"
           >
             {FILTERS.map((f) => {
-              const n = f.id === "all" ? entries.length : entries.filter((r) => r.kind === f.id).length;
+              const n = countFor(f.id);
               const on = f.id === filter;
               return (
                 <button
@@ -209,23 +273,36 @@ export default function TodayView({
           <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300">
             <span className={cx("w-2 h-2 rounded-full flex-shrink-0", lastReceived ? "bg-green-600" : "bg-gray-400")} />
             <span className="flex-1 min-w-0 truncate">
-              {isTodayView
-                ? lastTodayTs
-                  ? `À jour · reçu à ${fmtTime(lastTodayTs)}`
-                  : "Aucun passage reçu pour l'instant"
-                : `${fmtDayLong(day)} · ${plural(entries.length, "passage", "passages")}`}
+              {!isDay
+                ? `${periodLabel(period, day)} · ${plural(totalPeople, "personne", "personnes")}, du plus assidu au moins assidu`
+                : isTodayView
+                  ? lastTodayTs
+                    ? `À jour · reçu à ${fmtTime(lastTodayTs)}`
+                    : "Aucun passage reçu pour l'instant"
+                  : `${fmtDayLong(day)} · ${plural(entries.length, "passage", "passages")}`}
             </span>
             <button
               type="button"
               onClick={onRefresh}
               className="flex items-center gap-1 text-blue-700 dark:text-blue-400 font-semibold px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30"
             >
-              <RefreshCw className={cx("w-4 h-4", loading && "animate-spin")} />
+              <RefreshCw className={cx("w-4 h-4", (loading || attendanceLoading) && "animate-spin")} />
               Actualiser
             </button>
           </div>
 
+          {!isDay && (
+            <PeriodList
+              rows={periodVisible}
+              loading={attendanceLoading}
+              selectedWho={selectedWho}
+              onSelectRow={onSelectRow}
+              scrollable
+            />
+          )}
+
           {/* Seule la liste défile */}
+          {isDay && (
           <div className="flex-1 min-h-0 overflow-y-auto pb-3">
           {loading && rows.length === 0 && (
             <div className="space-y-2 px-2">
@@ -272,6 +349,7 @@ export default function TodayView({
             </div>
           )}
           </div>
+          )}
         </section>
 
         {/* Colonne 3 : assiduité du membre sélectionné (écran large) */}
@@ -291,48 +369,52 @@ export default function TodayView({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            aria-label="Jour précédent"
-            onClick={() => onChangeDay(addDays(day, -1))}
+            aria-label={isDay ? "Jour précédent" : "Période précédente"}
+            onClick={() => onChangeDay(shiftPeriod(period, day, -1))}
             className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <label className="flex-1 min-w-0 text-center relative cursor-pointer">
             <span className="block text-base font-semibold text-gray-900 dark:text-white truncate">
-              {fmtDayLong(day)}
+              {periodLabel(period, day)}
             </span>
             <span className="block text-xs text-gray-500 dark:text-gray-400">
-              {isTodayView ? "Aujourd'hui" : "Toucher pour choisir une date"}
+              {isDay ? (isTodayView ? "Aujourd'hui" : "Toucher pour choisir une date") : atPresent ? "En cours" : "\u00a0"}
             </span>
-            <input
+            {isDay && <input
               type="date"
               aria-label="Choisir une date"
               value={toDateString(day)}
               max={toDateString(new Date())}
               onChange={(e) => e.target.value && onChangeDay(new Date(`${e.target.value}T12:00:00`))}
               className="absolute inset-0 opacity-0 cursor-pointer"
-            />
+            />}
           </label>
           <button
             type="button"
-            aria-label="Jour suivant"
-            disabled={isTodayView}
-            onClick={() => onChangeDay(addDays(day, 1))}
+            aria-label={isDay ? "Jour suivant" : "Période suivante"}
+            disabled={atPresent}
+            onClick={() => onChangeDay(shiftPeriod(period, day, 1))}
             className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center flex-shrink-0 disabled:text-gray-300 dark:disabled:text-gray-600"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
+        <PeriodTabs period={period} onChange={onChangePeriod} />
+
         {/* Fraîcheur des données */}
         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <span className={cx("w-2 h-2 rounded-full flex-shrink-0", lastReceived ? "bg-green-600" : "bg-gray-400")} />
           <span className="flex-1 min-w-0 truncate">
-            {lastTodayTs
-              ? isTodayView
-                ? `À jour · reçu à ${fmtTime(lastTodayTs)}`
-                : `${plural(entries.length, "passage", "passages")} ce jour-là`
-              : "Aucun passage reçu pour l'instant"}
+            {!isDay
+              ? `${plural(totalPeople, "personne", "personnes")}, du plus assidu au moins assidu`
+              : lastTodayTs
+                ? isTodayView
+                  ? `À jour · reçu à ${fmtTime(lastTodayTs)}`
+                  : `${plural(entries.length, "passage", "passages")} ce jour-là`
+                : "Aucun passage reçu pour l'instant"}
           </span>
           <button
             type="button"
@@ -351,19 +433,19 @@ export default function TodayView({
         >
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{entries.length}</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{totalPassages}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">passages</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{people}</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white leading-none">{totalPeople}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">personnes</div>
             </div>
-            <div className={toCheck ? "text-orange-700 dark:text-orange-400" : "text-gray-900 dark:text-white"}>
-              <div className="text-2xl font-bold leading-none">{toCheck}</div>
+            <div className={totalToCheck ? "text-orange-700 dark:text-orange-400" : "text-gray-900 dark:text-white"}>
+              <div className="text-2xl font-bold leading-none">{totalToCheck}</div>
               <div className="text-xs mt-1 font-semibold">à vérifier</div>
             </div>
           </div>
-          <div>
+          {isDay && (<div>
             <div className="flex items-end gap-[3px] h-9">
               {hours.map(({ h, n }) => (
                 <div
@@ -387,13 +469,13 @@ export default function TodayView({
               <span>18 h</span>
               <span>23 h</span>
             </div>
-          </div>
+          </div>)}
         </section>
 
         {/* Filtres */}
         <div role="group" aria-label="Filtrer les passages" className="flex flex-wrap gap-2">
           {FILTERS.map((f) => {
-            const n = f.id === "all" ? entries.length : entries.filter((r) => r.kind === f.id).length;
+            const n = countFor(f.id);
             const on = f.id === filter;
             return (
               <button
@@ -415,7 +497,14 @@ export default function TodayView({
         </div>
       </div>
 
+      {!isDay && (
+        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <PeriodList rows={periodVisible} loading={attendanceLoading} selectedWho={null} onSelectRow={onSelectRow} />
+        </div>
+      )}
+
       {/* Fil des passages */}
+      {isDay && (
       <div className="space-y-3">
         {loading && rows.length === 0 && (
           <div className="space-y-2">
@@ -462,6 +551,7 @@ export default function TodayView({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

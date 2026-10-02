@@ -347,3 +347,81 @@ export function computeAttendance(timestamps, member, now = new Date()) {
     slot,
   };
 }
+
+// -------------------------------------------------------------------
+// Périodes (vue Aujourd'hui) : jour, semaine, mois, année
+// -------------------------------------------------------------------
+
+export const PERIODS = [
+  { id: "day", label: "Jour" },
+  { id: "week", label: "Semaine" },
+  { id: "month", label: "Mois" },
+  { id: "year", label: "Année" },
+];
+
+const MONTH_NAMES = [
+  "janvier", "février", "mars", "avril", "mai", "juin",
+  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+];
+
+/** Début et fin (inclus) de la période contenant `anchor`. */
+export function periodRange(period, anchor) {
+  const d = startOfLocalDay(anchor);
+  if (period === "week") {
+    const start = addDays(d, -((d.getDay() + 6) % 7));
+    return { start, end: endOfLocalDay(addDays(start, 6)) };
+  }
+  if (period === "month") {
+    return {
+      start: new Date(d.getFullYear(), d.getMonth(), 1),
+      end: endOfLocalDay(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+    };
+  }
+  if (period === "year") {
+    return {
+      start: new Date(d.getFullYear(), 0, 1),
+      end: endOfLocalDay(new Date(d.getFullYear(), 11, 31)),
+    };
+  }
+  return { start: d, end: endOfLocalDay(d) };
+}
+
+/** Période précédente (-1) ou suivante (+1). */
+export function shiftPeriod(period, anchor, dir) {
+  const d = new Date(anchor);
+  if (period === "week") return addDays(d, 7 * dir);
+  if (period === "month") return new Date(d.getFullYear(), d.getMonth() + dir, 1, 12);
+  if (period === "year") return new Date(d.getFullYear() + dir, 0, 1, 12);
+  return addDays(d, dir);
+}
+
+/** La période contient-elle aujourd'hui ? (pas de « suivant » au-delà) */
+export const periodIncludesToday = (period, anchor) => {
+  const { start, end } = periodRange(period, anchor);
+  const now = new Date();
+  return now >= start && now <= end;
+};
+
+export function periodLabel(period, anchor) {
+  const { start, end } = periodRange(period, anchor);
+  if (period === "week") {
+    const f = (x) => x.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    return `Semaine du ${f(start)} au ${f(end)}`;
+  }
+  if (period === "month") {
+    const m = MONTH_NAMES[start.getMonth()];
+    return `${m.charAt(0).toUpperCase()}${m.slice(1)} ${start.getFullYear()}`;
+  }
+  if (period === "year") return `Année ${start.getFullYear()}`;
+  return fmtDayLong(anchor);
+}
+
+/** Une ligne par personne (ou badge inconnu) venue sur la période. */
+export async function fetchAttendance(start, end) {
+  const { data, error } = await supabase.rpc("get_planning_attendance", {
+    p_start: start.toISOString(),
+    p_end: end.toISOString(),
+  });
+  if (error) throw new Error(`Présences de la période : ${error.message}`);
+  return data || [];
+}

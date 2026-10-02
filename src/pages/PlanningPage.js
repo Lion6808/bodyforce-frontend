@@ -31,8 +31,11 @@ import {
   fetchDayPassages,
   fetchLastPassageTime,
   fetchSeen,
-  addDays,
-  fmtDayLong,
+  fetchAttendance,
+  periodIncludesToday,
+  periodLabel,
+  periodRange,
+  shiftPeriod,
   sameDay,
 } from "../components/planning/planningData";
 
@@ -87,6 +90,11 @@ function PlanningPage() {
   const [lastReceived, setLastReceived] = useState(null);
   const [desktopWho, setDesktopWho] = useState(null);
 
+  // Période : jour (fil des passages) ou semaine / mois / année (une ligne par personne)
+  const [period, setPeriod] = useState("day");
+  const [attendance, setAttendance] = useState([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+
   const [showExits, setShowExits] = useState(() => {
     try {
       return localStorage.getItem(EXITS_KEY) === "1";
@@ -109,18 +117,32 @@ function PlanningPage() {
     }
   }, []);
 
+  const loadAttendance = useCallback(async (p, d) => {
+    setAttendanceLoading(true);
+    setDayError("");
+    try {
+      const { start, end } = periodRange(p, d);
+      setAttendance(await fetchAttendance(start, end));
+    } catch (e) {
+      setDayError(e.message);
+    } finally {
+      setAttendanceLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    loadDay(day);
-  }, [day, loadDay]);
+    if (period === "day") loadDay(day);
+    else loadAttendance(period, day);
+  }, [period, day, loadDay, loadAttendance]);
 
   // Rafraîchissement automatique quand on regarde aujourd'hui
   useEffect(() => {
-    if (view !== "aujourdhui" || !sameDay(day, new Date())) return undefined;
+    if (view !== "aujourdhui" || period !== "day" || !sameDay(day, new Date())) return undefined;
     const id = setInterval(() => {
       if (document.visibilityState === "visible") loadDay(day);
     }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [view, day, loadDay]);
+  }, [view, period, day, loadDay]);
 
   // ------------------------------------------------------------------
   // Contrôle (chargé dès l'ouverture : la pastille du nombre de points)
@@ -180,12 +202,13 @@ function PlanningPage() {
 
   const openDay = (d) => {
     setDesktopWho(null);
+    setPeriod("day");
     setDay(d);
     setView("aujourdhui");
   };
 
   // Grand écran : sans clic, le panneau montre le dernier membre passé ce jour-là
-  const firstMember = passages.find((p) => p.member_id);
+  const firstMember = (period === "day" ? passages : attendance).find((p) => p.member_id);
   const effectiveWho = desktopWho || (firstMember ? `m${firstMember.member_id}` : null);
   const desktopMemberId = effectiveWho?.startsWith("m") ? Number(effectiveWho.slice(1)) : null;
 
@@ -193,7 +216,12 @@ function PlanningPage() {
     setDesktopWho(null);
     setDay(d);
   };
-  const isTodayShown = sameDay(day, new Date());
+  const changePeriod = (p) => {
+    setDesktopWho(null);
+    setPeriod(p);
+  };
+  const isTodayShown = period === "day" && sameDay(day, new Date());
+  const atPresent = periodIncludesToday(period, day);
   // PC, vue Aujourd'hui : page à hauteur d'écran, seule la liste des passages défile
   const fixedLayout = isDesktop && view === "aujourdhui";
 
@@ -255,16 +283,16 @@ function PlanningPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                aria-label="Jour précédent"
-                onClick={() => changeDay(addDays(day, -1))}
+                aria-label={period === "day" ? "Jour précédent" : "Période précédente"}
+                onClick={() => changeDay(shiftPeriod(period, day, -1))}
                 className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center justify-center"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <div className="min-w-[200px] text-center">
-                <div className="text-[15px] font-semibold text-gray-900 dark:text-white">{fmtDayLong(day)}</div>
+                <div className="text-[15px] font-semibold text-gray-900 dark:text-white">{periodLabel(period, day)}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {isTodayShown ? "Aujourd'hui" : (
+                  {isTodayShown ? "Aujourd'hui" : atPresent ? "En cours" : (
                     <button type="button" onClick={() => changeDay(new Date())} className="text-blue-700 dark:text-blue-400 font-semibold hover:underline">
                       Revenir à aujourd'hui
                     </button>
@@ -273,9 +301,9 @@ function PlanningPage() {
               </div>
               <button
                 type="button"
-                aria-label="Jour suivant"
-                disabled={isTodayShown}
-                onClick={() => changeDay(addDays(day, 1))}
+                aria-label={period === "day" ? "Jour suivant" : "Période suivante"}
+                disabled={atPresent}
+                onClick={() => changeDay(shiftPeriod(period, day, 1))}
                 className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center justify-center disabled:text-gray-300 dark:disabled:text-gray-600"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -298,17 +326,21 @@ function PlanningPage() {
               passages={passages}
               loading={dayLoading}
               lastReceived={lastReceived}
-              onRefresh={() => loadDay(day)}
+              onRefresh={() => (period === "day" ? loadDay(day) : loadAttendance(period, day))}
               showExits={showExits}
               selectedWho={withAside ? effectiveWho : null}
               onSelectRow={onSelectRow}
               desktop={isDesktop}
+              period={period}
+              onChangePeriod={changePeriod}
+              attendance={attendance}
+              attendanceLoading={attendanceLoading}
               aside={
                 !withAside ? null : desktopMemberId ? (
                   <MemberAttendance memberId={desktopMemberId} compact />
                 ) : (
                   <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
-                    Aucun membre passé ce jour-là.
+                    Aucun membre sur cette période.
                   </div>
                 )
               }

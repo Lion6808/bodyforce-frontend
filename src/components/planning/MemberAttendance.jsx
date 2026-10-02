@@ -60,6 +60,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selDay, setSelDay] = useState(null);
+  const [scope, setScope] = useState("month"); // "month" | "year"
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -87,9 +88,13 @@ export default function MemberAttendance({ memberId, compact = false }) {
     if (!memberId) return undefined;
     let cancelled = false;
     const now = new Date();
-    const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59, 999);
-    const from = new Date(Math.min(startOfLocalDay(addDays(now, -89)).getTime(), month.getTime()));
-    const to = new Date(Math.max(now.getTime(), monthEnd.getTime()));
+    const rangeStart = scope === "year" ? new Date(month.getFullYear(), 0, 1) : month;
+    const rangeEnd =
+      scope === "year"
+        ? new Date(month.getFullYear(), 11, 31, 23, 59, 59, 999)
+        : new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59, 999);
+    const from = new Date(Math.min(startOfLocalDay(addDays(now, -89)).getTime(), rangeStart.getTime()));
+    const to = new Date(Math.max(now.getTime(), rangeEnd.getTime()));
 
     setLoading(true);
     setError("");
@@ -100,7 +105,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
     return () => {
       cancelled = true;
     };
-  }, [memberId, month]);
+  }, [memberId, month, scope]);
 
   const photos = useMemberPhotos([memberId]);
 
@@ -147,11 +152,21 @@ export default function MemberAttendance({ memberId, compact = false }) {
   const nbDays = new Date(y, mo + 1, 0).getDate();
   const monthDays = [];
   for (let d = 1; d <= nbDays; d++) monthDays.push(toDateString(new Date(y, mo, d)));
-  const cameKeys = monthDays.filter((k) => byDay[k]);
+  const isYear = scope === "year";
+  const yearPrefix = `${y}-`;
+  const cameKeys = isYear
+    ? Object.keys(byDay).filter((k) => k.startsWith(yearPrefix)).sort()
+    : monthDays.filter((k) => byDay[k]);
   const invalidKey = (k) => isAdh && (!endKey || k >= endKey);
   const sel = selDay && byDay[selDay] ? selDay : cameKeys[cameKeys.length - 1] || null;
   const selTimes = sel ? byDay[sel] : [];
-  const isCurrentMonth = y === new Date().getFullYear() && mo === new Date().getMonth();
+  const isCurrentMonth = isYear
+    ? y === new Date().getFullYear()
+    : y === new Date().getFullYear() && mo === new Date().getMonth();
+  const shift = (dir) => {
+    setSelDay(null);
+    setMonth(isYear ? new Date(y + dir, mo, 1) : new Date(y, mo + dir, 1));
+  };
 
   const maxWeek = Math.max(1, ...stats.week);
   const recent = timestamps.slice(0, compact ? 4 : 6);
@@ -257,34 +272,106 @@ export default function MemberAttendance({ memberId, compact = false }) {
 
       {/* Calendrier du mois */}
       <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 lg:p-5 space-y-2.5 lg:col-start-2 lg:row-start-1 lg:row-span-4">
+        <div role="group" aria-label="Affichage du calendrier" className="grid grid-cols-2 gap-1 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1">
+          {[
+            ["month", "Mois"],
+            ["year", "Année"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={scope === id}
+              onClick={() => {
+                setSelDay(null);
+                setScope(id);
+              }}
+              className={cx(
+                "h-9 rounded-xl text-sm",
+                scope === id
+                  ? "bg-white dark:bg-gray-800 shadow-sm font-semibold text-gray-900 dark:text-white"
+                  : "font-medium text-gray-600 dark:text-gray-300"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex items-center justify-between">
           <button
             type="button"
-            aria-label="Mois précédent"
-            onClick={() => {
-              setSelDay(null);
-              setMonth(new Date(y, mo - 1, 1));
-            }}
+            aria-label={isYear ? "Année précédente" : "Mois précédent"}
+            onClick={() => shift(-1)}
             className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-            {MONTHS[mo]} {y}
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white text-center">
+            {isYear ? y : `${MONTHS[mo]} ${y}`}
+            {isYear && (
+              <span className="block text-xs font-medium text-gray-500 dark:text-gray-400">
+                {plural(cameKeys.length, "jour de venue", "jours de venue")}
+              </span>
+            )}
           </h3>
           <button
             type="button"
-            aria-label="Mois suivant"
+            aria-label={isYear ? "Année suivante" : "Mois suivant"}
             disabled={isCurrentMonth}
-            onClick={() => {
-              setSelDay(null);
-              setMonth(new Date(y, mo + 1, 1));
-            }}
+            onClick={() => shift(1)}
             className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center disabled:text-gray-300 dark:disabled:text-gray-600"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+        {isYear && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3">
+            {MONTHS.map((name, m) => {
+              const mLead = (new Date(y, m, 1).getDay() + 6) % 7;
+              const mDays = new Date(y, m + 1, 0).getDate();
+              const nCame = Array.from({ length: mDays }).filter((_, i) => byDay[toDateString(new Date(y, m, i + 1))]).length;
+              return (
+                <div key={name}>
+                  <div className="flex items-baseline justify-between mb-1">
+                    <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{name}</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">{nCame || ""}</span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-[2px]">
+                    {Array.from({ length: mLead }).map((_, i) => (
+                      <span key={`e${i}`} className="h-[18px]" />
+                    ))}
+                    {Array.from({ length: mDays }).map((_, i) => {
+                      const k = toDateString(new Date(y, m, i + 1));
+                      const times = byDay[k];
+                      if (!times) {
+                        return <span key={k} className="h-[18px] rounded-[4px] bg-gray-100 dark:bg-gray-700/60" />;
+                      }
+                      const invalid = invalidKey(k);
+                      const title = `${fmtDayLong(new Date(`${k}T12:00:00`))} : ${times.map(fmtTime).join(", ")}${
+                        invalid ? " (sans abonnement valide)" : ""
+                      }`;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          title={title}
+                          aria-label={title}
+                          aria-pressed={k === sel}
+                          onClick={() => setSelDay(k)}
+                          className={cx(
+                            "h-[18px] rounded-[4px]",
+                            invalid ? "bg-orange-300" : "bg-blue-600",
+                            k === sel && "ring-2 ring-offset-1 ring-blue-900 dark:ring-blue-300 dark:ring-offset-gray-800"
+                          )}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {!isYear && (<>
         <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">
           {WEEKDAYS.map((d, i) => (
             <span key={i}>{d}</span>
@@ -333,6 +420,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
             );
           })}
         </div>
+        </>)}
 
         {/* Horaires du jour choisi */}
         {sel ? (
@@ -362,7 +450,9 @@ export default function MemberAttendance({ memberId, compact = false }) {
             )}
           </div>
         ) : (
-          <div className="text-sm text-gray-500 dark:text-gray-400">Aucun passage ce mois-ci.</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {isYear ? "Aucun passage cette année." : "Aucun passage ce mois-ci."}
+          </div>
         )}
 
         <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
