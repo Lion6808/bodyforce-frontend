@@ -18,8 +18,28 @@ export const formatDate = (date, fmt) => {
     "MMMM yyyy": { month: "long", year: "numeric" },
     "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
   };
-  if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
-  return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
+  try {
+    if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
+    return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
+  } catch {
+    return "";
+  }
+};
+
+/** "02/10/2026" à partir d'une date ou d'une chaîne ISO ; `empty` si absente ou invalide. */
+export const formatDateFr = (value, empty = "") => {
+  if (!value) return empty;
+  const d = new Date(value);
+  return isNaN(d) ? empty : d.toLocaleDateString("fr-FR");
+};
+
+/** "02/10/2026 15:32" à partir d'une date ou d'une chaîne ISO ; `empty` si absente ou invalide. */
+export const formatDateTimeFr = (value, empty = "") => {
+  if (!value) return empty;
+  const d = new Date(value);
+  return isNaN(d)
+    ? empty
+    : d.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
 /** Parse an ISO timestamp string into a Date. */

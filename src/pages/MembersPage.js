@@ -40,6 +40,7 @@ import { isMemberExpired, isAdherent, computeMemberStats } from "../utils/member
 import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MembersOverview from "../components/MembersOverview";
+import useMemberPhotos from "../hooks/useMemberPhotos";
 import { MetricTile } from "../components/ui";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -117,8 +118,6 @@ function MembersPage() {
 
   // Pagination & photos
   const [currentPage, setCurrentPage] = useState(1);
-  const [photosCache, setPhotosCache] = useState({});
-  const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   // Mobile modal
 
@@ -128,7 +127,6 @@ function MembersPage() {
 
   const memberRefs = useRef({});
   const restoreRef = useRef(null);
-  const photosLoadingRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // 5.3 -- Derived / memoised values
@@ -320,48 +318,8 @@ function MembersPage() {
     setCurrentPage(1);
   }, [members, search, sortAsc, activeFilter]);
 
-  // Lazy-load photos for the current page
-  useEffect(() => {
-    if (loading || paginatedMembers.length === 0) return;
-    if (photosLoadingRef.current) return;
-
-    const loadPhotosForCurrentPage = async () => {
-      const memberIds = paginatedMembers.map((m) => m.id);
-      const missingIds = memberIds.filter((id) => !(id in photosCache));
-
-      if (missingIds.length === 0) return;
-
-      try {
-        photosLoadingRef.current = true;
-        setLoadingPhotos(true);
-
-        const newPhotos = (await supabaseServices.getMemberPhotos(missingIds)) || {};
-
-        const nextCache = { ...photosCache, ...newPhotos };
-        for (const id of missingIds) {
-          if (!(id in newPhotos)) nextCache[id] = null;
-        }
-
-        // Only update state if the cache actually changed
-        let changed = false;
-        const keys = new Set([...Object.keys(photosCache), ...Object.keys(nextCache)]);
-        for (const k of keys) {
-          if (photosCache[k] !== nextCache[k]) {
-            changed = true;
-            break;
-          }
-        }
-        if (changed) setPhotosCache(nextCache);
-      } catch (err) {
-        console.error("Error loading photos:", err);
-      } finally {
-        setLoadingPhotos(false);
-        photosLoadingRef.current = false;
-      }
-    };
-
-    loadPhotosForCurrentPage();
-  }, [currentPage, paginatedMembers, loading, photosCache]);
+  // Photos des seuls membres de la page affichée (cache commun à toute l'appli)
+  const photosCache = useMemberPhotos(loading ? [] : paginatedMembers.map((m) => m.id));
 
   // ---------------------------------------------------------------------------
   // 5.5 -- Handlers
@@ -1458,12 +1416,6 @@ function MembersPage() {
               Affichage de {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membre
               {filteredMembers.length !== 1 ? "s" : ""} filtrés — {members.length} total
             </div>
-            {loadingPhotos && (
-              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                Chargement photos...
-              </div>
-            )}
           </div>
           {selectedIds.length > 0 && (
             <div className="mt-2 text-blue-600 dark:text-blue-400 font-medium">
