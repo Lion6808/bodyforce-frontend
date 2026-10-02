@@ -29,11 +29,6 @@ import {
   FaFileImport,
   FaFileExport,
   FaUsers,
-  FaUserCheck,
-  FaUserTimes,
-  FaMale,
-  FaFemale,
-  FaGraduationCap,
   FaClock,
   FaFileMedical,
   FaUserTie,
@@ -47,6 +42,8 @@ import {
 import { isMemberExpired, computeMemberStats } from "../utils/memberRules";
 import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
+import MembersOverview from "../components/MembersOverview";
+import { MetricTile } from "../components/ui";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 
@@ -1086,171 +1083,62 @@ function MembersPage() {
         </button>
       </div>
 
-      {/* 6.2 -- Filter widgets (grouped like HomePage) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Widget 1 : Total + Actifs / Expirés */}
-        <div
-          className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
-        >
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Membres</h2>
-          <div className="flex items-baseline gap-2 mb-4">
-            <span className="text-4xl font-bold text-gray-900 dark:text-white">{totalAll}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div
-              className={`rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-                activeFilter === "Actifs" || !activeFilter
-                  ? "bg-green-100 dark:bg-green-900/40 ring-2 ring-green-400 dark:ring-green-500 shadow-md shadow-green-500/10"
-                  : "bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Actifs"))}
-            >
-              <div className="p-2 rounded-xl bg-green-500/15">
-                <FaUserCheck className="text-green-600 dark:text-green-400" size={18} />
-              </div>
-              <div>
-                <p className="text-xs text-green-600 dark:text-green-400 font-medium">Actifs</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{activeCount}</p>
-              </div>
-            </div>
-            <div
-              className={`rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-                activeFilter === "Expiré"
-                  ? "bg-red-100 dark:bg-red-900/40 ring-2 ring-red-400 dark:ring-red-500 shadow-md shadow-red-500/10"
-                  : "bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Expiré"))}
-            >
-              <div className="p-2 rounded-xl bg-red-500/15">
-                <FaUserTimes className="text-red-600 dark:text-red-400" size={18} />
-              </div>
-              <div>
-                <p className="text-xs text-red-600 dark:text-red-400 font-medium">Expirés</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{expiredCount}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Widget 2 : Répartition (Hommes, Femmes, Étudiants) */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border-2 border-gray-100 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Répartition</h2>
-          <div className="grid grid-cols-3 gap-3">
-            <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
-                activeFilter === "Homme"
-                  ? "bg-indigo-100 dark:bg-indigo-900/40 ring-2 ring-indigo-400 dark:ring-indigo-500 shadow-md shadow-indigo-500/10"
-                  : "bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Homme"))}
-            >
-              <div className="mx-auto w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-2">
-                <FaMale className="text-indigo-600 dark:text-indigo-400" size={18} />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{maleCount}</p>
-              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1">Hommes</p>
-            </div>
-            <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
-                activeFilter === "Femme"
-                  ? "bg-pink-100 dark:bg-pink-900/40 ring-2 ring-pink-400 dark:ring-pink-500 shadow-md shadow-pink-500/10"
-                  : "bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Femme"))}
-            >
-              <div className="mx-auto w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center mb-2">
-                <FaFemale className="text-pink-600 dark:text-pink-400" size={18} />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{femaleCount}</p>
-              <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mt-1">Femmes</p>
-            </div>
-            <div
-              className={`rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 ${
-                activeFilter === "Etudiant"
-                  ? "bg-yellow-100 dark:bg-yellow-900/40 ring-2 ring-yellow-400 dark:ring-yellow-500 shadow-md shadow-yellow-500/10"
-                  : "bg-yellow-50 dark:bg-yellow-900/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
-              }`}
-              {...keyboardClickable(() => setActiveFilter("Etudiant"))}
-            >
-              <div className="mx-auto w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center mb-2">
-                <FaGraduationCap className="text-yellow-600 dark:text-yellow-400" size={18} />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{studentCount}</p>
-              <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-1">Étudiants</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* 6.2 -- Filter widgets (shared with HomePage) */}
+      <MembersOverview
+        className="mb-6"
+        stats={{
+          total: totalAll,
+          actifs: activeCount,
+          expires: expiredCount,
+          hommes: maleCount,
+          femmes: femaleCount,
+          etudiants: studentCount,
+        }}
+        activeFilter={activeFilter}
+        onSelect={setActiveFilter}
+      />
 
       {/* 6.2a -- Synthèse des adhérents actifs */}
       <ActiveMembersSummary {...synthese} />
 
-      {/* 6.2b -- Filtres spéciaux (Badges récents, Sans certif) */}
+      {/* 6.2b -- Filtres spéciaux (Badges récents, Sans certif, Comité, Maintenance) */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-            activeFilter === "Récent"
-              ? "bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-400 dark:ring-blue-500 shadow-md shadow-blue-500/10"
-              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-          }`}
-          {...keyboardClickable(() => setActiveFilter("Récent"))}
-        >
-          <div className="p-2 rounded-xl bg-blue-500/15">
-            <FaClock className="text-blue-600 dark:text-blue-400" size={18} />
-          </div>
-          <div>
-            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Badges récents</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{recentCount}</p>
-          </div>
-        </div>
-        <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-            activeFilter === "SansCertif"
-              ? "bg-orange-100 dark:bg-orange-900/40 ring-2 ring-orange-400 dark:ring-orange-500 shadow-md shadow-orange-500/10"
-              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-          }`}
-          {...keyboardClickable(() => setActiveFilter("SansCertif"))}
-        >
-          <div className="p-2 rounded-xl bg-orange-500/15">
-            <FaFileMedical className="text-orange-600 dark:text-orange-400" size={18} />
-          </div>
-          <div>
-            <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Sans certif</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{noCertCount}</p>
-          </div>
-        </div>
-        <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-            activeFilter === "Comité"
-              ? "bg-purple-100 dark:bg-purple-900/40 ring-2 ring-purple-400 dark:ring-purple-500 shadow-md shadow-purple-500/10"
-              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-          }`}
-          {...keyboardClickable(() => setActiveFilter("Comité"))}
-        >
-          <div className="p-2 rounded-xl bg-purple-500/15">
-            <FaUserTie className="text-purple-600 dark:text-purple-400" size={18} />
-          </div>
-          <div>
-            <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">Comité</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{comiteCount}</p>
-          </div>
-        </div>
-        <div
-          className={`rounded-3xl p-4 flex items-center gap-3 cursor-pointer transition-all duration-200 ${
-            activeFilter === "Maintenance"
-              ? "bg-gray-200 dark:bg-gray-700 ring-2 ring-gray-400 dark:ring-gray-500 shadow-md shadow-gray-500/10"
-              : "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40"
-          }`}
-          {...keyboardClickable(() => setActiveFilter("Maintenance"))}
-        >
-          <div className="p-2 rounded-xl bg-gray-500/15">
-            <FaTools className="text-gray-600 dark:text-gray-400" size={18} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Maintenance</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{maintenanceCount}</p>
-          </div>
-        </div>
+        <MetricTile
+          variant="plain"
+          icon={FaClock}
+          label="Badges récents"
+          value={recentCount}
+          tone="blue"
+          active={activeFilter === "Récent"}
+          onClick={() => setActiveFilter("Récent")}
+        />
+        <MetricTile
+          variant="plain"
+          icon={FaFileMedical}
+          label="Sans certif"
+          value={noCertCount}
+          tone="orange"
+          active={activeFilter === "SansCertif"}
+          onClick={() => setActiveFilter("SansCertif")}
+        />
+        <MetricTile
+          variant="plain"
+          icon={FaUserTie}
+          label="Comité"
+          value={comiteCount}
+          tone="purple"
+          active={activeFilter === "Comité"}
+          onClick={() => setActiveFilter("Comité")}
+        />
+        <MetricTile
+          variant="plain"
+          icon={FaTools}
+          label="Maintenance"
+          value={maintenanceCount}
+          tone="gray"
+          active={activeFilter === "Maintenance"}
+          onClick={() => setActiveFilter("Maintenance")}
+        />
       </div>
 
       {/* 6.3 -- Action bar */}

@@ -19,11 +19,6 @@ import { parseISO, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   FaUsers,
-  FaUserCheck,
-  FaUserTimes,
-  FaMale,
-  FaFemale,
-  FaGraduationCap,
   FaCreditCard,
   FaExclamationTriangle,
   FaFire,
@@ -62,6 +57,7 @@ import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
+import MembersOverview from "../components/MembersOverview";
 import MemberForm from "../components/MemberForm";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -1231,86 +1227,38 @@ function HomePage() {
       {/* 6.2 — Widgets statistiques groupés                                 */}
       {/* ------------------------------------------------------------------ */}
       {user && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {loading.stats ? (
-            <>
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
-                <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
-                <SkeletonPulse className="h-10 w-20 mb-4 rounded" />
-                <div className="grid grid-cols-2 gap-3">
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                </div>
+        loading.stats ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+              <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
+              <SkeletonPulse className="h-10 w-20 mb-4 rounded" />
+              <div className="grid grid-cols-2 gap-3">
+                <SkeletonPulse className="h-20 rounded-2xl" />
+                <SkeletonPulse className="h-20 rounded-2xl" />
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
-                <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
-                <div className="grid grid-cols-3 gap-3">
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                  <SkeletonPulse className="h-20 rounded-2xl" />
-                </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+              <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
+              <div className="grid grid-cols-3 gap-3">
+                <SkeletonPulse className="h-20 rounded-2xl" />
+                <SkeletonPulse className="h-20 rounded-2xl" />
+                <SkeletonPulse className="h-20 rounded-2xl" />
               </div>
-            </>
-          ) : (
-            <>
-              {/* Widget 1 : Membres (Total, Actifs, Expirés) */}
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Membres</h2>
-                <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">{stats.total}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-green-500/15">
-                      <FaUserCheck className="text-green-600 dark:text-green-400" size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-green-600 dark:text-green-400 font-medium">Actifs</p>
-                      <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.actifs}</p>
-                    </div>
-                  </div>
-                  <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-red-500/15">
-                      <FaUserTimes className="text-red-600 dark:text-red-400" size={18} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-red-600 dark:text-red-400 font-medium">Expirés</p>
-                      <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.expirés}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Widget 2 : Répartition (Hommes, Femmes, Étudiants) */}
-              <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Répartition</h2>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-center">
-                    <div className="mx-auto w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center mb-2">
-                      <FaMale className="text-indigo-600 dark:text-indigo-400" size={18} />
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.hommes}</p>
-                    <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1">Hommes</p>
-                  </div>
-                  <div className="bg-pink-50 dark:bg-pink-900/20 rounded-2xl p-4 text-center">
-                    <div className="mx-auto w-10 h-10 rounded-xl bg-pink-500/15 flex items-center justify-center mb-2">
-                      <FaFemale className="text-pink-600 dark:text-pink-400" size={18} />
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.femmes}</p>
-                    <p className="text-xs text-pink-600 dark:text-pink-400 font-medium mt-1">Femmes</p>
-                  </div>
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl p-4 text-center">
-                    <div className="mx-auto w-10 h-10 rounded-xl bg-yellow-500/15 flex items-center justify-center mb-2">
-                      <FaGraduationCap className="text-yellow-600 dark:text-yellow-400" size={18} />
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.etudiants}</p>
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium mt-1">Étudiants</p>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        ) : (
+          <MembersOverview
+            className="mb-8"
+            stats={{
+              total: stats.total,
+              actifs: stats.actifs,
+              expires: stats.expirés,
+              hommes: stats.hommes,
+              femmes: stats.femmes,
+              etudiants: stats.etudiants,
+            }}
+          />
+        )
       )}
 
       {/* Synthèse des adhérents actifs (H / F / étudiants H / étudiantes F) */}
