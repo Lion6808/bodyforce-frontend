@@ -30,7 +30,6 @@ import { supabase, supabaseServices } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import { useNavigate } from "react-router-dom";
-import MemberForm from "../components/MemberForm";
 import Avatar from "../components/Avatar";
 
 import {
@@ -249,10 +248,6 @@ function PlanningPage() {
   const [page, setPage] = useState(1);
   const [totalMembers, setTotalMembers] = useState(0);
 
-  // Member detail modal state
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-
   // Monthly view tooltip and expansion state
   const [expandedDays, setExpandedDays] = useState(new Set());
   const [hoveredMember, setHoveredMember] = useState(null);
@@ -261,41 +256,15 @@ function PlanningPage() {
   const navigate = useNavigate();
 
   // --------------------------------------------------------------------------
-  // 5.2 -- Member edit / modal handlers
+  // 5.2 -- Member edit handler
   // --------------------------------------------------------------------------
 
-  /** Open the member edit form (modal on mobile, navigation on desktop) */
-  const handleEditMember = async (member) => {
+  /** Open the member page (same page on mobile and desktop) */
+  const handleEditMember = (member) => {
     if (!member || !member.id) return;
-
-    if (isMobile) {
-      try {
-        const fullMember = await supabaseServices.getMemberById(member.id);
-        setSelectedMember(fullMember || member);
-        setShowForm(true);
-      } catch (err) {
-        console.error("Erreur chargement membre:", err);
-        setSelectedMember(member);
-        setShowForm(true);
-      }
-    } else {
-      navigate("/members/edit", {
-        state: { member, returnPath: "/planning", memberId: member.id },
-      });
-    }
-  };
-
-  /** Close the member edit modal */
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setSelectedMember(null);
-  };
-
-  /** Save handler after member edit -- reload data to reflect changes */
-  const handleSaveMember = async () => {
-    setShowForm(false);
-    setSelectedMember(null);
-    await loadData();
+    navigate("/members/edit", {
+      state: { member, returnPath: "/planning", memberId: member.id },
+    });
   };
 
   // --------------------------------------------------------------------------
@@ -2149,15 +2118,6 @@ function PlanningPage() {
             {viewMode === "compact" && !isMobile && <CompactView />}
             {viewMode === "monthly" && !isMobile && <MonthlyView />}
           </>
-        )}
-
-        {/* Member edit modal (mobile only) */}
-        {showForm && selectedMember && (
-          <MemberForm
-            member={selectedMember}
-            onSave={handleSaveMember}
-            onCancel={handleCloseForm}
-          />
         )}
       </div>
     </div>

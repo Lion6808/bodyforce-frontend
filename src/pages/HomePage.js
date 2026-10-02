@@ -58,7 +58,6 @@ import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MembersOverview from "../components/MembersOverview";
-import MemberForm from "../components/MemberForm";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -373,8 +372,6 @@ function HomePage() {
   // 5.1 — State
   // ---------------------------------------------------------------------------
 
-  const [isMobile, setIsMobile] = useState(false);
-
   // Push notifications
   const [pushStatus, setPushStatus]   = useState("loading");
   const [pushLoading, setPushLoading] = useState(false);
@@ -491,10 +488,6 @@ function HomePage() {
   const [photosCache, setPhotosCache] = useState({});
   const photosLoadingRef = useRef(false);
 
-  // Modal de detail/edition d'un membre (mobile)
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-
   // Stats personnelles de l'admin (streak, niveau, etc.)
   const [adminPersonalStats, setAdminPersonalStats] = useState({
     currentStreak: 0,
@@ -507,35 +500,12 @@ function HomePage() {
   // 5.2 — Handlers d'interaction
   // ---------------------------------------------------------------------------
 
-  /** Ouvre le detail d'un membre (modal mobile / navigation desktop) */
-  const handleEditMember = async (member) => {
+  /** Ouvre la fiche d'un membre (meme page sur mobile et desktop) */
+  const handleEditMember = (member) => {
     if (!member || !member.id) return;
-
-    if (isMobile) {
-      try {
-        const fullMember = await supabaseServices.getMemberById(member.id);
-        setSelectedMember(fullMember || member);
-        setShowForm(true);
-      } catch (err) {
-        console.error("Erreur chargement membre:", err);
-        setSelectedMember(member);
-        setShowForm(true);
-      }
-    } else {
-      navigate("/members/edit", {
-        state: { member, returnPath: "/", memberId: member.id },
-      });
-    }
-  };
-
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setSelectedMember(null);
-  };
-
-  const handleSaveMember = async () => {
-    setShowForm(false);
-    setSelectedMember(null);
+    navigate("/members/edit", {
+      state: { member, returnPath: "/", memberId: member.id },
+    });
   };
 
   // ---------------------------------------------------------------------------
@@ -1065,17 +1035,6 @@ function HomePage() {
 
     fetchAdminPersonalStats();
   }, [isAdmin, memberCtx?.badgeId]);
-
-  // ---------------------------------------------------------------------------
-  // 5.9 — Effect : detection mobile (breakpoint 1024px)
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // ---------------------------------------------------------------------------
   // 5.10 — Variables derivees pour le rendu
@@ -1718,17 +1677,6 @@ function HomePage() {
             </p>
           )}
         </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* 6.8 — Modal d'edition d'un membre (mobile)                         */}
-      {/* ------------------------------------------------------------------ */}
-      {showForm && selectedMember && (
-        <MemberForm
-          member={selectedMember}
-          onSave={handleSaveMember}
-          onCancel={handleCloseForm}
-        />
       )}
     </div>
   );

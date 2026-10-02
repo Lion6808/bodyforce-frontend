@@ -39,7 +39,7 @@ import {
 import Avatar from "../components/Avatar";
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
-import MemberForm from "../components/MemberForm";
+import { useNavigate } from "react-router-dom";
 
 // =============================================================================
 // SECTION 2 -- Search utilities (stateless helpers)
@@ -352,8 +352,7 @@ function PaymentsPage() {
   // ---------------------------------------------------------------------------
 
   const [expandedMember, setExpandedMember] = useState(null);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+  const navigate = useNavigate();
 
   // ---------------------------------------------------------------------------
   // 6.5 -- Pagination & lazy photo cache
@@ -828,34 +827,12 @@ function PaymentsPage() {
   // 6.16 -- Member edit handler
   // ---------------------------------------------------------------------------
 
-  /**
-   * Open the MemberForm modal pre-populated with the selected member's data.
-   * Pulls the cached photo if available.
-   */
+  /** Open the member page (the page reloads the full record from Supabase). */
   const handleEditMember = (member) => {
-    const memberOnlyData = {
-      id: member.id,
-      name: member.name,
-      firstName: member.firstName,
-      email: member.email,
-      phone: member.phone ?? member.mobile ?? "",
-      mobile: member.mobile ?? member.phone ?? "",
-      badgeId: member.badgeId,
-      photo: photosCache[member.id] || null,
-      dateOfBirth: member.dateOfBirth,
-      address: member.address,
-      subscriptionType: member.subscriptionType || member.membershipType || "Mensuel",
-      membershipType: member.membershipType,
-      startDate: member.startDate,
-      endDate: member.endDate,
-      status: member.status,
-      emergencyContact: member.emergencyContact,
-      emergencyPhone: member.emergencyPhone,
-      medicalInfo: member.medicalInfo,
-      files: member.files,
-    };
-    setSelectedMember(memberOnlyData);
-    setShowForm(true);
+    if (!member?.id) return;
+    navigate("/members/edit", {
+      state: { member, returnPath: "/payments", memberId: member.id },
+    });
   };
 
   // ---------------------------------------------------------------------------
@@ -2431,51 +2408,6 @@ function PaymentsPage() {
           </p>
         </div>
       </div>
-
-      {/* Member edit modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div
-            className={`${
-              isDarkMode ? "bg-gray-800" : "bg-white"
-            } mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4`}
-          >
-            <MemberForm
-              member={selectedMember}
-              onSave={async (memberData, closeModal) => {
-                try {
-                  if (selectedMember?.id) {
-                    const { error } = await supabase
-                      .from("members")
-                      .update(memberData)
-                      .eq("id", selectedMember.id);
-                    if (error) throw error;
-                  } else {
-                    const { error } = await supabase
-                      .from("members")
-                      .insert([memberData])
-                      .select();
-                    if (error) throw error;
-                  }
-
-                  if (closeModal) {
-                    setShowForm(false);
-                    setSelectedMember(null);
-                  }
-                  await loadData();
-                } catch (saveError) {
-                  console.error("Erreur sauvegarde membre:", saveError);
-                  toast.error(`Erreur lors de la sauvegarde : ${saveError.message}`);
-                }
-              }}
-              onCancel={() => {
-                setShowForm(false);
-                setSelectedMember(null);
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

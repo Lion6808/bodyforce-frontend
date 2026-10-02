@@ -2542,11 +2542,11 @@ function MemberFormPage() {
   // -----------------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      {/* ============ Left sidebar ============ */}
-      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col lg:flex-row">
+      {/* ============ Left sidebar (stacked header on mobile) ============ */}
+      <div className="w-full lg:w-80 lg:flex-shrink-0 bg-white dark:bg-gray-800 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 flex flex-col">
         {/* Sidebar header: back button + member photo + name */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => handleBack()}
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-4"
@@ -2555,14 +2555,14 @@ function MemberFormPage() {
             Retour a la liste
           </button>
 
-          <div className="text-center">
-            <div className="relative mx-auto mb-4">
+          <div className="flex items-center gap-4 lg:block lg:text-center">
+            <div className="relative flex-shrink-0 lg:mx-auto lg:mb-4">
               {form.photo ? (
                 <div className="relative">
                   <img
                     src={form.photo}
                     alt="Photo du membre"
-                    className="w-32 h-32 object-cover rounded-full border-4 border-gray-200 dark:border-gray-600 shadow-lg mx-auto"
+                    className="w-20 h-20 lg:w-32 lg:h-32 object-cover rounded-full border-4 border-gray-200 dark:border-gray-600 shadow-lg mx-auto"
                   />
                   <button
                     type="button"
@@ -2573,39 +2573,43 @@ function MemberFormPage() {
                   </button>
                 </div>
               ) : (
-                <div className="w-32 h-32 flex items-center justify-center border-4 border-dashed border-gray-300 dark:border-gray-600 rounded-full text-gray-400 bg-gray-50 dark:bg-gray-700 mx-auto">
+                <div className="w-20 h-20 lg:w-32 lg:h-32 flex items-center justify-center border-4 border-dashed border-gray-300 dark:border-gray-600 rounded-full text-gray-400 bg-gray-50 dark:bg-gray-700 mx-auto">
                   <div className="text-center">
-                    <User className="w-12 h-12 mx-auto mb-2" />
-                    <p className="text-xs">Pas de photo</p>
+                    <User className="w-8 h-8 lg:w-12 lg:h-12 mx-auto lg:mb-2" />
+                    <p className="text-xs hidden lg:block">Pas de photo</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            <div className="min-w-0">
+            <h1 className="text-lg lg:text-xl font-bold text-gray-900 dark:text-white mb-1 lg:mb-2">
               {form.firstName || form.name
                 ? `${form.firstName} ${form.name}`
                 : "Nouveau membre"}
             </h1>
 
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-2 lg:mb-4">
               {member?.id
                 ? `Membre depuis ${new Date().toLocaleDateString()}`
                 : "Nouveau membre"}
             </div>
 
-            <StatusBadge isExpired={isExpired} isStudent={form.etudiant} />
-            {form.member_type && form.member_type !== DEFAULT_MEMBER_TYPE && (
-              <div className="mt-2">
-                <MemberTypeTag type={form.member_type} className="text-sm px-3 py-1" />
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2 lg:block">
+              <StatusBadge isExpired={isExpired} isStudent={form.etudiant} />
+              {form.member_type && form.member_type !== DEFAULT_MEMBER_TYPE && (
+                <div className="lg:mt-2">
+                  <MemberTypeTag type={form.member_type} className="text-sm px-3 py-1" />
+                </div>
+              )}
+            </div>
+            </div>
           </div>
         </div>
 
         {/* Photo capture / upload buttons */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="space-y-3">
+        <div className="p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
             <button
               type="button"
               onClick={() => setShowCamera("photo")}
@@ -2678,8 +2682,8 @@ function MemberFormPage() {
           </div>
         </div>
 
-        {/* Sidebar: personal details summary */}
-        <div className="p-6 space-y-4 flex-1">
+        {/* Sidebar: personal details summary (desktop only, duplicates the form) */}
+        <div className="hidden lg:block p-6 space-y-4 flex-1">
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wide">
             Details personnels
           </h3>
@@ -2732,8 +2736,8 @@ function MemberFormPage() {
           </div>
         </div>
 
-        {/* Sidebar: quick action buttons */}
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+        {/* Sidebar: quick action buttons (desktop only) */}
+        <div className="hidden lg:block p-6 border-t border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-4 gap-2">
             <button className="p-3 text-gray-600 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex flex-col items-center gap-1">
               <FaPaperPlane className="w-4 h-4" />
@@ -2756,15 +2760,15 @@ function MemberFormPage() {
       </div>
 
       {/* ============ Main content area ============ */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Page header with save / cancel buttons */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between">
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 lg:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                 {member?.id ? "Modifier le membre" : "Nouveau membre"}
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
+              <p className="hidden sm:block text-gray-600 dark:text-gray-400 mt-1">
                 Gerez les informations et documents du membre
               </p>
             </div>
@@ -2772,14 +2776,14 @@ function MemberFormPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => handleBack()}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="flex-1 sm:flex-none px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Annuler
               </button>
               <button
                 onClick={handleSave}
                 disabled={uploadStatus.loading}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors flex items-center gap-2"
+                className="flex-1 sm:flex-none px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 {uploadStatus.loading ? (
                   <>
@@ -2799,12 +2803,12 @@ function MemberFormPage() {
 
         {/* Tab navigation */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex space-x-8 px-6" aria-label="Tabs">
+          <nav className="flex space-x-6 lg:space-x-8 px-4 lg:px-6 overflow-x-auto" aria-label="Tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.id
                     ? "border-blue-500 text-blue-600 dark:text-blue-400"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
@@ -2858,7 +2862,8 @@ function MemberFormPage() {
 
         {/* Active tab content */}
         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-          <div className="p-6">{renderCurrentTab()}</div>
+          {/* pb-28 on mobile: keep the end of the form above the floating bottom nav */}
+          <div className="p-4 pb-28 lg:p-6">{renderCurrentTab()}</div>
         </div>
       </div>
 

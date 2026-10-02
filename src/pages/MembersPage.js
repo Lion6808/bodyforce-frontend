@@ -16,7 +16,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
-import MemberForm from "../components/MemberForm";
 import {
   FaEdit,
   FaTrash,
@@ -359,9 +358,6 @@ function MembersPage() {
   const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   // Mobile modal
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
   // ---------------------------------------------------------------------------
   // 5.2 -- Refs
@@ -407,14 +403,6 @@ function MembersPage() {
   // ---------------------------------------------------------------------------
   // 5.4 -- Effects
   // ---------------------------------------------------------------------------
-
-  // Detect mobile breakpoint
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Disable browser scroll restoration
   useEffect(() => {
@@ -668,30 +656,20 @@ function MembersPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /** Open the edit view for a member (modal on mobile, route on desktop). */
+  /** Open the member page (same page on mobile and desktop). */
   const handleEditMember = (member) => {
-    if (isMobile) {
-      setSelectedMember(member);
-      setShowForm(true);
-    } else {
-      sessionStorage.setItem("membersLastId", String(member.id));
-      saveMembersPageContext({ editedMemberId: member.id });
-      navigate("/members/edit", {
-        state: { member, returnPath: "/members", memberId: member.id },
-      });
-    }
+    sessionStorage.setItem("membersLastId", String(member.id));
+    saveMembersPageContext({ editedMemberId: member.id });
+    navigate("/members/edit", {
+      state: { member, returnPath: "/members", memberId: member.id },
+    });
   };
 
-  /** Open the creation view (modal on mobile, route on desktop). */
+  /** Open the creation page (same page on mobile and desktop). */
   const handleAddMember = () => {
-    if (isMobile) {
-      setSelectedMember(null);
-      setShowForm(true);
-    } else {
-      sessionStorage.removeItem("membersLastId");
-      saveMembersPageContext({ editedMemberId: null });
-      navigate("/members/new", { state: { member: null, returnPath: "/members" } });
-    }
+    sessionStorage.removeItem("membersLastId");
+    saveMembersPageContext({ editedMemberId: null });
+    navigate("/members/new", { state: { member: null, returnPath: "/members" } });
   };
 
   /** Import badge mappings from an Excel file. */
@@ -936,12 +914,6 @@ function MembersPage() {
       console.error("Error exporting members:", err);
       toast.error(`Erreur lors de l'export : ${err.message}`);
     }
-  };
-
-  /** Close the mobile member form modal. */
-  const handleCloseForm = () => {
-    setShowForm(false);
-    setSelectedMember(null);
   };
 
   /** Delete a single member after confirmation. */
@@ -1776,43 +1748,6 @@ function MembersPage() {
         </div>
       )}
 
-      {/* 6.8 -- Mobile member form modal */}
-      {showForm && isMobile && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-start justify-center overflow-auto">
-          <div className="bg-white dark:bg-gray-800 mt-4 mb-4 rounded-xl shadow-xl w-full max-w-4xl mx-4">
-            <MemberForm
-              member={selectedMember}
-              onSave={async (memberData, closeModal) => {
-                try {
-                  let memberId;
-                  if (selectedMember?.id) {
-                    await supabaseServices.updateMember(selectedMember.id, memberData);
-                    memberId = selectedMember.id;
-                  } else {
-                    const newMember = await supabaseServices.createMember(memberData);
-                    memberId = newMember.id;
-                  }
-
-                  if (closeModal) {
-                    setShowForm(false);
-                    setSelectedMember(null);
-                  }
-
-                  await fetchMembers();
-
-                  if (memberId) {
-                    setTimeout(() => scrollToMember(memberId), 200);
-                  }
-                } catch (saveError) {
-                  console.error("Error saving member:", saveError);
-                  toast.error(`Erreur lors de la sauvegarde : ${saveError.message}`);
-                }
-              }}
-              onCancel={handleCloseForm}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
