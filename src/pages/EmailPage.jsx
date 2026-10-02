@@ -19,6 +19,11 @@ import {
 import { supabaseServices } from "../supabaseClient";
 import { sendEmail, getEmailStatus } from "../services/emailService";
 import { isCountedMember } from "../utils/memberTypes";
+import {
+  isMemberActive,
+  isMemberExpired,
+  isExpiringSoon,
+} from "../utils/memberRules";
 
 function EmailPage() {
   // État des membres
@@ -78,30 +83,18 @@ function EmailPage() {
 
   // Filtrage des membres
   const filteredMembers = useMemo(() => {
-    const today = new Date();
-    const in30Days = new Date();
-    in30Days.setDate(today.getDate() + 30);
-
     let filtered = members.filter((m) => m.email); // Seulement ceux avec email
 
-    // Filtre par type
+    // Filtre par type (règles communes : utils/memberRules)
     switch (filterType) {
       case "active":
-        filtered = filtered.filter(
-          (m) => m.endDate && new Date(m.endDate) >= today
-        );
+        filtered = filtered.filter((m) => isMemberActive(m));
         break;
       case "expiring":
-        filtered = filtered.filter((m) => {
-          if (!m.endDate) return false;
-          const endDate = new Date(m.endDate);
-          return endDate >= today && endDate <= in30Days;
-        });
+        filtered = filtered.filter((m) => isExpiringSoon(m, 30));
         break;
       case "expired":
-        filtered = filtered.filter(
-          (m) => !m.endDate || new Date(m.endDate) < today
-        );
+        filtered = filtered.filter((m) => isMemberExpired(m));
         break;
       default:
         break;
@@ -206,14 +199,9 @@ function EmailPage() {
 
   // Statistiques
   const stats = useMemo(() => {
-    const today = new Date();
     const withEmail = members.filter((m) => m.email);
-    const active = withEmail.filter(
-      (m) => m.endDate && new Date(m.endDate) >= today
-    );
-    const expired = withEmail.filter(
-      (m) => !m.endDate || new Date(m.endDate) < today
-    );
+    const active = withEmail.filter((m) => isMemberActive(m));
+    const expired = withEmail.filter((m) => isMemberExpired(m));
 
     return {
       total: withEmail.length,
@@ -421,14 +409,12 @@ function EmailPage() {
                   {member.endDate && (
                     <span
                       className={`text-xs px-2 py-1 rounded-full ${
-                        new Date(member.endDate) >= new Date()
+                        isMemberActive(member)
                           ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                           : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                       }`}
                     >
-                      {new Date(member.endDate) >= new Date()
-                        ? "Actif"
-                        : "Expiré"}
+                      {isMemberActive(member) ? "Actif" : "Expiré"}
                     </span>
                   )}
                 </label>

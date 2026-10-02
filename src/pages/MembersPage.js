@@ -17,7 +17,6 @@ import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import MemberForm from "../components/MemberForm";
-import { isBefore, parseISO } from "date-fns";
 import {
   FaEdit,
   FaTrash,
@@ -45,6 +44,7 @@ import {
   isCountedMember,
   MemberTypeTag,
 } from "../utils/memberTypes";
+import { isMemberExpired, computeMemberStats } from "../utils/memberRules";
 import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import * as XLSX from "xlsx";
@@ -201,21 +201,6 @@ const getBadgeColor = (type) => {
   }
 };
 
-/**
- * Check whether a member's subscription has expired.
- * No end date counts as expired (same rule as the counters and the
- * get_statistics RPC used by the home page).
- * @param {object} m - Member record.
- * @returns {boolean}
- */
-const isMemberExpired = (m) => {
-  if (!m.endDate) return true;
-  try {
-    return isBefore(parseISO(m.endDate), new Date());
-  } catch {
-    return true;
-  }
-};
 
 /**
  * Check whether a member has attached files / certificates.
@@ -403,33 +388,16 @@ function MembersPage() {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
 
-  // Statistics — computed on ALL members (not filtered), maintenance excluded
+  // Statistics — computed on ALL members (not filtered), rules in utils/memberRules
+  const memberStats = computeMemberStats(members);
   const countedMembers = members.filter(isCountedMember);
-  const totalAll = countedMembers.length;
-  const expiredCount = countedMembers.filter((m) => {
-    if (!m.endDate) return true;
-    try {
-      return isBefore(parseISO(m.endDate), new Date());
-    } catch {
-      return true;
-    }
-  }).length;
-  const activeCount = totalAll - expiredCount;
-  const maleCount = countedMembers.filter((m) => m.gender === "Homme" && !isMemberExpired(m)).length;
-  const femaleCount = countedMembers.filter((m) => m.gender === "Femme" && !isMemberExpired(m)).length;
-  const studentCount = countedMembers.filter((m) => m.etudiant && !isMemberExpired(m)).length;
-  // Synthesis widget: active adherents only (committee shown separately)
-  const activeAdherents = countedMembers.filter(
-    (m) => (m.member_type || "adherent") === "adherent" && !isMemberExpired(m)
-  );
-  const synthese = {
-    actifs: activeAdherents.length,
-    hommes: activeAdherents.filter((m) => m.gender === "Homme").length,
-    femmes: activeAdherents.filter((m) => m.gender === "Femme").length,
-    etudiantsHommes: activeAdherents.filter((m) => m.etudiant && m.gender === "Homme").length,
-    etudiantsFemmes: activeAdherents.filter((m) => m.etudiant && m.gender === "Femme").length,
-    comite: countedMembers.filter((m) => m.member_type === "comite" && !isMemberExpired(m)).length,
-  };
+  const totalAll = memberStats.total;
+  const expiredCount = memberStats.expires;
+  const activeCount = memberStats.actifs;
+  const maleCount = memberStats.hommes;
+  const femaleCount = memberStats.femmes;
+  const studentCount = memberStats.etudiants;
+  const synthese = memberStats.synthese;
 
   const noCertCount = filteredMembers.filter((m) => !memberHasFiles(m)).length;
 
@@ -1448,15 +1416,7 @@ function MembersPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
                   {paginatedMembers.map((member) => {
-                    const isExpired = member.endDate
-                      ? (() => {
-                          try {
-                            return isBefore(parseISO(member.endDate), new Date());
-                          } catch {
-                            return true;
-                          }
-                        })()
-                      : true;
+                    const isExpired = isMemberExpired(member);
 
                     const hasFiles = memberHasFiles(member);
 
@@ -1666,15 +1626,7 @@ function MembersPage() {
             </div>
 
             {paginatedMembers.map((member) => {
-              const isExpired = member.endDate
-                ? (() => {
-                    try {
-                      return isBefore(parseISO(member.endDate), new Date());
-                    } catch {
-                      return true;
-                    }
-                  })()
-                : true;
+              const isExpired = isMemberExpired(member);
 
               const hasFiles = memberHasFiles(member);
 

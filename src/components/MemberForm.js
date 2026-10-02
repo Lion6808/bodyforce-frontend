@@ -35,6 +35,7 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 import { supabase, supabaseServices } from "../supabaseClient";
+import { isMemberExpired } from "../utils/memberRules";
 
 const subscriptionDurations = {
   Mensuel: 1,
@@ -866,7 +867,7 @@ function MemberForm({ member, onSave, onCancel }) {
       )
     : null;
 
-  const isExpired = form.endDate && new Date(form.endDate) < new Date();
+  const isExpired = isMemberExpired(form);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
