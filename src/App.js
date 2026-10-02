@@ -79,17 +79,18 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.11.0";
+const APP_VERSION = "2.11.1";
 
 const CHANGELOG = {
-  version: "2.11.0",
+  version: "2.11.1",
   date: "Octobre 2026",
   changes: [
-    "Planning repensé : Aujourd'hui (qui est venu), Membre (assiduité), Contrôle (anomalies)",
-    "Calendrier d'un membre : toucher un jour affiche ses horaires de passage",
-    "Contrôle : expirés qui passent encore, badges inconnus, passages de nuit, badges hors période",
-    "Points de contrôle « Marquer vu », rouverts si la personne repasse",
-    "Outils regroupés : import Excel, export de la journée, affichage des sorties",
+    "Fiche membre : « Abonnement depuis le … » au lieu d'une date erronée, textes accentués",
+    "Utilisateurs sur mobile : une fiche par compte, sans défilement horizontal",
+    "Paiements : tableau entièrement visible sur ordinateur, textes techniques retirés",
+    "Statistiques : grands nombres lisibles (9 694, 23 659)",
+    "Accueil : paiements du membre chargés en une seule requête (plus d'erreurs en arrière-plan)",
+    "Recherche par n° de badge court et long ; Synthèse des adhérents cliquable",
   ],
 };
 

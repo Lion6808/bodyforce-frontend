@@ -38,6 +38,9 @@ export function TrendBadge({ current, previous, suffix = "", inverted = false })
   );
 }
 
+/** Nombre affiché à la française (espace des milliers) ; texte laissé tel quel. */
+const fmtNumber = (v) => (typeof v === "number" ? v.toLocaleString("fr-FR") : v);
+
 export function StatCard({ icon, label, value, previousValue, subtitle, showTrend = false, highlight = false }) {
   return (
     <div className={`bg-white dark:bg-gray-800 shadow-lg rounded-xl p-5 hover:shadow-xl transition-all duration-200 border ${
@@ -49,7 +52,7 @@ export function StatCard({ icon, label, value, previousValue, subtitle, showTren
             {label}
           </div>
           <div className="text-3xl font-bold text-gray-900 dark:text-white">
-            {value}
+            {fmtNumber(value)}
           </div>
           <div className="mt-2 flex items-center gap-2">
             {showTrend && previousValue !== undefined && (
@@ -61,7 +64,7 @@ export function StatCard({ icon, label, value, previousValue, subtitle, showTren
           </div>
           {showTrend && previousValue !== undefined && (
             <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              vs {previousValue} l'an dernier
+              vs {fmtNumber(previousValue)} l'an dernier
             </div>
           )}
         </div>

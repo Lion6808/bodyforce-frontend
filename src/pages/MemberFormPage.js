@@ -51,7 +51,7 @@ import { CameraModal } from "../components/memberForm/CameraModal";
 import { StatusBadge, ConfirmDialog } from "../components/memberForm/MemberFormParts";
 import { sanitizeFileName, compressImageData } from "../utils/imageUtils";
 import { formatDate, parseTimestamp, toDateString } from "../utils/dateUtils";
-import { subscriptionDurations, getSubscriptionEndDate } from "../utils/subscription";
+import { subscriptionDurations, getSubscriptionEndDate, formatIsoDateFr } from "../utils/subscription";
 import { ProfileTab } from "../components/memberForm/tabs/ProfileTab";
 import { DocumentsTab } from "../components/memberForm/tabs/DocumentsTab";
 import { SubscriptionTab } from "../components/memberForm/tabs/SubscriptionTab";
@@ -147,7 +147,7 @@ function MemberFormPage() {
     { id: "subscription", label: "Abonnement", icon: FaCreditCard },
     {
       id: "attendance",
-      label: "Presence",
+      label: "Présence",
       icon: FaClipboardList,
       count: attendanceData.stats?.totalVisits || 0,
     },
@@ -362,7 +362,7 @@ function MemberFormPage() {
         setUploadStatus({
           loading: false,
           error: null,
-          success: "Membre modifie avec succes !",
+          success: "Membre modifié avec succès !",
         });
       } else {
         const newMember = await supabaseServices.createMember({
@@ -373,7 +373,7 @@ function MemberFormPage() {
         setUploadStatus({
           loading: false,
           error: null,
-          success: "Nouveau membre cree avec succes !",
+          success: "Nouveau membre créé avec succès !",
         });
       }
 
@@ -512,7 +512,7 @@ function MemberFormPage() {
       setUploadStatus({
         loading: false,
         error: null,
-        success: `${newFiles.length} fichier(s) ajoute(s) !`,
+        success: `${newFiles.length} fichier(s) ajouté(s) !`,
       });
       setTimeout(
         () => setUploadStatus({ loading: false, error: null, success: null }),
@@ -533,7 +533,7 @@ function MemberFormPage() {
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Photo capturee et optimisee !",
+        success: "Photo capturée et optimisée !",
       });
     } catch (err) {
       setUploadStatus({
@@ -582,7 +582,7 @@ function MemberFormPage() {
       setUploadStatus({
         loading: false,
         error: null,
-        success: "Document capture et optimise !",
+        success: "Document capturé et optimisé !",
       });
 
       setTimeout(
@@ -626,7 +626,7 @@ function MemberFormPage() {
         setUploadStatus({
           loading: false,
           error: null,
-          success: "Photo supprimee !",
+          success: "Photo supprimée !",
         });
       } else if (type === "file" && item) {
         const url = item.url;
@@ -650,7 +650,7 @@ function MemberFormPage() {
         setUploadStatus({
           loading: false,
           error: null,
-          success: "Fichier supprime !",
+          success: "Fichier supprimé !",
         });
       }
 
@@ -847,7 +847,7 @@ function MemberFormPage() {
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Retour a la liste
+            Retour à la liste
           </button>
 
           <div className="flex items-center gap-4 lg:block lg:text-center">
@@ -885,9 +885,11 @@ function MemberFormPage() {
             </h1>
 
             <div className="text-sm text-gray-500 dark:text-gray-400 mb-2 lg:mb-4">
-              {member?.id
-                ? `Membre depuis ${new Date().toLocaleDateString()}`
-                : "Nouveau membre"}
+              {!member?.id
+                ? "Nouveau membre"
+                : form.startDate
+                  ? `Abonnement depuis le ${formatIsoDateFr(form.startDate)}`
+                  : ""}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 lg:block">
@@ -942,7 +944,7 @@ function MemberFormPage() {
                           setUploadStatus({
                             loading: false,
                             error: null,
-                            success: "Photo optimisee et ajoutee",
+                            success: "Photo optimisée et ajoutée",
                           });
                           setTimeout(
                             () =>
@@ -980,7 +982,7 @@ function MemberFormPage() {
         {/* Sidebar: personal details summary (desktop only, duplicates the form) */}
         <div className="hidden lg:block p-6 space-y-4 flex-1">
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm uppercase tracking-wide">
-            Details personnels
+            Détails personnels
           </h3>
 
           <div className="space-y-3">
@@ -999,7 +1001,7 @@ function MemberFormPage() {
             {form.phone && (
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Telephone
+                  Téléphone
                 </dt>
                 <dd className="text-sm text-gray-900 dark:text-white">
                   {form.phone}
@@ -1194,8 +1196,8 @@ function MemberFormPage() {
         }
         message={
           confirmDialog.type === "photo"
-            ? "Etes-vous sur de vouloir supprimer cette photo ? Cette action est irreversible."
-            : `Etes-vous sur de vouloir supprimer le document "${confirmDialog.item?.name}" ? Cette action est irreversible.`
+            ? "Êtes-vous sûr de vouloir supprimer cette photo ? Cette action est irréversible."
+            : `Êtes-vous sûr de vouloir supprimer le document "${confirmDialog.item?.name}" ? Cette action est irréversible.`
         }
         type="danger"
       />

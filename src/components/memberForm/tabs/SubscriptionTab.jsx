@@ -38,7 +38,7 @@ export function SubscriptionTab({ member, form, handleChange, handleBadgeNumberC
         />
         <div>
           <InputField
-            label="Numero de Badge"
+            label="Numéro de badge"
             name="badge_number"
             type="number"
             value={form.badge_number}
@@ -117,7 +117,7 @@ export function SubscriptionTab({ member, form, handleChange, handleBadgeNumberC
               step="0.01"
             />
             <SelectField
-              label="Methode de paiement"
+              label="Méthode de paiement"
               name="method"
               value={newPayment.method}
               onChange={(e) =>
@@ -179,7 +179,7 @@ export function SubscriptionTab({ member, form, handleChange, handleBadgeNumberC
                   )}
                 </div>
               </div>
-              Paiement deja encaisse
+              Paiement déjà encaissé
             </label>
 
             <button

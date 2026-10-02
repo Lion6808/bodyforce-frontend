@@ -595,3 +595,54 @@
     cursor: not-allowed;
   }
 }
+/* ===== MOBILE : le tableau devient une pile de fiches (pas de défilement horizontal) ===== */
+@media (max-width: 768px) {
+  .tableContainer {
+    overflow-x: visible;
+  }
+
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    overflow: hidden;
+  }
+
+  .dark .table tr {
+    border-color: #4b5563;
+  }
+
+  .table td {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    padding: 0.625rem 0.875rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    flex: 0 0 6.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+  }
+
+  .table td select {
+    max-width: 100%;
+  }
+}

@@ -19,7 +19,7 @@ const VIEWPORTS = {
   mobile: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, serviceWorkers: "block" },
 };
 
-const ROUTES = ["/", "/members", "/planning", "/payments", "/statistics", "/emails", "/reports"];
+const ROUTES = ["/", "/members", "/planning", "/payments", "/statistics", "/emails", "/reports", "/messages", "/invitations", "/admin/users", "/profile", "/my-attendances", "/workout-end"];
 const pause = (p, ms) => p.waitForTimeout(ms);
 
 async function measure(page) {
@@ -97,7 +97,7 @@ for (const [name, opts] of Object.entries(VIEWPORTS)) {
     await open.click();
     await page.waitForLoadState("networkidle");
     await shot("fiche-profil");
-    for (const tab of ["Documents", "Abonnement", "Presence", "Messages"]) {
+    for (const tab of ["Documents", "Abonnement", "Présence", "Messages"]) {
       const b = page.locator('nav[aria-label="Tabs"]').getByRole("button", { name: new RegExp("^" + tab) }).first();
       if (await b.count()) { await b.click(); await shot("fiche-" + tab.toLowerCase()); }
       else console.log(`[${name}] onglet ${tab} introuvable`);

@@ -237,61 +237,23 @@ function HomePage() {
   // ---------------------------------------------------------------------------
 
   /**
-   * Charge les paiements d'un membre en essayant differentes colonnes
-   * de liaison (member_id / memberId) et de tri (date_paiement, etc.).
-   * Fallback sur les services Supabase si la requete directe echoue.
+   * Charge les paiements d'un membre (colonnes réelles de la table payments,
+   * une seule requête — l'ancienne version essayait des noms de colonnes
+   * au hasard et provoquait des erreurs 400).
    */
   const fetchMemberPayments = async (memberId) => {
     if (!memberId) return [];
-
-    const memberCols = ["member_id", "memberId"];
-    const dateCols = [
-      "date_paiement",
-      "payment_date",
-      "due_date",
-      "date",
-      "created_at",
-    ];
-    const SELECT_PAYMENT_COLS =
-      "id, member_id, memberId, amount, is_paid, label, libelle, created_at, date_paiement, payment_date, due_date, date";
-
-    for (const mcol of memberCols) {
-      try {
-        const { data, error } = await supabase
-          .from("payments")
-          .select(SELECT_PAYMENT_COLS)
-          .eq(mcol, memberId);
-        if (error) continue;
-
-        // Essai de tri par chaque colonne de date possible
-        for (const dcol of dateCols) {
-          const { data: ordered, error: orderErr } = await supabase
-            .from("payments")
-            .select(SELECT_PAYMENT_COLS)
-            .eq(mcol, memberId)
-            .order(dcol, { ascending: false });
-          if (!orderErr && ordered) return ordered;
-        }
-        return data || [];
-      } catch (e) {
-        console.error(e);
-      }
+    const { data, error } = await supabase
+      .from("payments")
+      .select("id, member_id, amount, is_paid, method, commentaire, date_paiement, encaissement_prevu")
+      .eq("member_id", memberId)
+      .order("date_paiement", { ascending: false })
+      .limit(50);
+    if (error) {
+      console.error("Paiements du membre :", error.message);
+      return [];
     }
-
-    // Fallback : utilisation des services
-    try {
-      if (supabaseServices?.payments?.listByMemberId) {
-        const list = await supabaseServices.payments.listByMemberId(memberId);
-        if (Array.isArray(list)) return list;
-      }
-      if (supabaseServices?.getPaymentsByMemberId) {
-        const list = await supabaseServices.getPaymentsByMemberId(memberId);
-        if (Array.isArray(list)) return list;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return [];
+    return data || [];
   };
 
   // ---------------------------------------------------------------------------
@@ -991,12 +953,7 @@ function HomePage() {
               {userPayments.map((p) => {
                 const isPaid = !!p.is_paid;
                 const amount = Number(p.amount) || 0;
-                const dateRaw =
-                  p.date_paiement ||
-                  p.payment_date ||
-                  p.due_date ||
-                  p.date ||
-                  p.created_at;
+                const dateRaw = p.date_paiement || p.encaissement_prevu;
                 let dateStr = "";
                 try {
                   if (dateRaw) {
@@ -1017,7 +974,7 @@ function HomePage() {
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {p.label || p.libelle || "Paiement"}
+                        {p.commentaire || "Paiement"}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
                         {dateStr || "—"}

@@ -331,7 +331,7 @@ const updateRole = async (userId, newRole) => {
 
                     return (
                       <tr key={u.id} className={rowClass}>
-                        <td className={styles.tableCell}>
+                        <td className={styles.tableCell} data-label="Email">
                           <div className={styles.userInfo}>
                             <FaUserCircle className={styles.userIcon} />
                             <span className={styles.userEmail}>
@@ -345,7 +345,7 @@ const updateRole = async (userId, newRole) => {
                           </div>
                         </td>
 
-                        <td className={styles.tableCell}>
+                        <td className={styles.tableCell} data-label="Rôle">
                           <select
                             value={u.role || 'user'}
                             onChange={(e) => updateRole(u.id, e.target.value)}
@@ -357,7 +357,7 @@ const updateRole = async (userId, newRole) => {
                           </select>
                         </td>
 
-                        <td className={styles.tableCell}>
+                        <td className={styles.tableCell} data-label="Membre lié">
                           {linkedMember ? (
                             <div className={styles.linkedMember}>
                               <span className={styles.linkedMemberName}>
@@ -391,7 +391,7 @@ const updateRole = async (userId, newRole) => {
                           )}
                         </td>
 
-                        <td className={styles.tableCell}>
+                        <td className={styles.tableCell} data-label="Statut">
                           <div className={styles.statusContainer}>
                             {/* Statut de confirmation */}
                             {u.confirmed_at ? (
@@ -418,7 +418,7 @@ const updateRole = async (userId, newRole) => {
                           </div>
                         </td>
 
-                        <td className={styles.tableCell}>
+                        <td className={styles.tableCell} data-label="Actions">
                           <button
                             onClick={() => deleteUser(u.id, u.email)}
                             disabled={u.id === user.id}

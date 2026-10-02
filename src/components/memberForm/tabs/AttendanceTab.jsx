@@ -24,7 +24,7 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
             Membre non sauvegarde
           </h3>
           <p className="text-gray-500 dark:text-gray-400">
-            Veuillez d'abord enregistrer le membre pour voir ses presences
+            Veuillez d'abord enregistrer le membre pour voir ses présences
           </p>
         </div>
       </div>
@@ -42,7 +42,7 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Suivi des presences
+                Suivi des présences
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Membre: {form.firstName} {form.name}{" "}
@@ -147,7 +147,7 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
             }}
             className="px-3 py-1 text-xs bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 hover:from-blue-100 hover:to-purple-100 dark:hover:from-blue-900/50 dark:hover:to-purple-900/50 text-blue-700 dark:text-blue-400 rounded border-2 border-blue-300 dark:border-blue-600 transition-colors font-semibold"
           >
-            Annee en cours
+            Année en cours
           </button>
         </div>
       </div>
@@ -158,7 +158,7 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
             <p className="text-gray-600 dark:text-gray-400">
-              Chargement des presences...
+              Chargement des présences...
             </p>
           </div>
         </div>
@@ -257,7 +257,7 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
             <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <FaChartBar className="w-5 h-5 text-blue-600" />
-              Repartition par jour de la semaine
+              Répartition par jour de la semaine
             </h4>
 
             <div className="space-y-3">
@@ -301,7 +301,7 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
             {stats.peakDay && (
               <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <strong>Jour prefere:</strong> {stats.peakDay}
+                  <strong>Jour préféré :</strong> {stats.peakDay}
                 </p>
               </div>
             )}
@@ -311,7 +311,7 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
             <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <FaClock className="w-5 h-5 text-purple-600" />
-              Repartition par heure
+              Répartition par heure
             </h4>
 
             <div className="grid grid-cols-6 gap-1">
@@ -350,7 +350,7 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
 
             <div className="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
               <p className="text-sm text-purple-700 dark:text-purple-300">
-                <strong>Heure de pointe:</strong> {stats.peakHour}h00 (
+                <strong>Heure de pointe :</strong> {stats.peakHour}h00 (
                 {stats.hourlyDistribution[stats.peakHour]} visite
                 {stats.hourlyDistribution[stats.peakHour] > 1 ? "s" : ""})
               </p>
@@ -468,11 +468,11 @@ export function AttendanceTab({ member, form, attendanceData, attendanceFilters,
               Aucune presence trouvee
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-4">
-              Aucune visite enregistree pour cette periode
+              Aucune visite enregistrée pour cette période
               {form.badgeId ? ` avec le badge ${form.badgeId}` : ""}
             </p>
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-              Les presences apparaitront ici des que le membre utilisera son
+              Les présences apparaîtront ici dès que le membre utilisera son
               badge d'acces
             </div>
           </div>
