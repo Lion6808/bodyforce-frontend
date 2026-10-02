@@ -46,6 +46,7 @@ import ExcelJS from "exceljs";
 import { parseSearch, matchesSearch } from "../utils/memberSearch";
 import { SearchHints } from "../components/ui/SearchHints";
 import { keyboardClickable } from "../utils/a11y";
+import { getSubscriptionEndDate } from "../utils/subscription";
 import MemberStatusPills from "../components/MemberStatusPills";
 
 // =============================================================================
@@ -55,26 +56,6 @@ import MemberStatusPills from "../components/MemberStatusPills";
 /** Number of members displayed per page. */
 const ITEMS_PER_PAGE = 20;
 
-/** Subscription end-date overrides keyed by subscription year. */
-const SUBSCRIPTION_END_DATES = {
-  2025: "2026-01-01",
-  2026: "2027-01-10",
-  2027: "2028-01-15",
-};
-
-/**
- * Return the configured subscription end date for a given year.
- * Falls back to December 31st if no override exists.
- * @param {number} year
- * @returns {string} ISO date string.
- */
-const getSubscriptionEndDate = (year) => {
-  if (SUBSCRIPTION_END_DATES[year]) {
-    return SUBSCRIPTION_END_DATES[year];
-  }
-  console.warn(`No subscription end date configured for ${year}, using fallback`);
-  return `${year}-12-31`;
-};
 
 /**
  * Return a Tailwind badge-colour class string for a subscription type.
@@ -736,7 +717,7 @@ function MembersPage() {
     const currentYear = new Date().getFullYear();
     const confirmMsg =
       `Réabonner ${member.firstName} ${member.name} pour l'année ${currentYear} ?\n\n` +
-      `Abonnement : Année civile\nDu 01/01/${currentYear} au 31/12/${currentYear}`;
+      `Abonnement : Année civile\nDu 01/01/${currentYear} au 01/01/${currentYear + 1}`;
 
     if (!window.confirm(confirmMsg)) return;
 

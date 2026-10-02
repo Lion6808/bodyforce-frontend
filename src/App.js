@@ -79,20 +79,18 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.9.3";
+const APP_VERSION = "2.10.0";
 
 const CHANGELOG = {
-  version: "2.9.3",
-  date: "Septembre 2026",
+  version: "2.10.0",
+  date: "Octobre 2026",
   changes: [
-    "Synthèse : adhérents seuls, comité indiqué à part",
-    "Widget Synthèse des adhérents actifs (accueil et page Membres)",
-    "Compteurs Hommes/Femmes/Étudiants alignés sur les membres actifs",
-    "Type de membre sur la fiche : Adhérent, Comité ou Maintenance",
-    "Personnel de maintenance exclu des statistiques, compteurs et relances",
-    "Statistiques et rapport PDF : choix d'inclure ou non le comité",
-    "Filtres Comité et Maintenance dans la liste des membres",
-    "Étiquette « Maintenance » dans les derniers passages et le planning",
+    "Fiche membre complète aussi sur mobile et depuis Paiements (type de membre, présences, messages)",
+    "Fiche membre adaptée au mobile : onglets visibles d'un coup, sans défilement horizontal",
+    "Recherche : les jokers * et ? fonctionnent sur Membres et Paiements",
+    "Réabonnement « Année civile » : du 01/01 au 01/01 suivant, partout",
+    "Statut actif / expiré calculé de la même façon sur toutes les pages",
+    "Application réorganisée pour plus de fiabilité (sans changement visuel)",
   ],
 };
 

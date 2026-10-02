@@ -1,6 +1,5 @@
-// Abonnements : durées et dates de fin « Année civile » — extraits de MemberFormPage
-
-
+// Abonnements : durées et date de fin « Année civile » — source unique
+// (fiche membre et bouton « Réabonner » de la page Membres).
 
 /** Map of subscription type labels to their duration in months (0 = civil year). */
 export const subscriptionDurations = {
@@ -12,27 +11,13 @@ export const subscriptionDurations = {
 };
 
 /**
- * Configured end dates for "Année civile" subscriptions, keyed by start year.
- * Adjust these values as needed for each season.
- */
-export const SUBSCRIPTION_END_DATES = {
-  2025: "2026-01-01",
-  2026: "2027-01-01",
-  2027: "2028-01-01",
-  2028: "2029-01-01",
-  2029: "2030-01-01",
-};
-
-/**
- * Return the configured subscription end date for a given year.
- * Falls back to Dec 31 of the given year if no entry exists.
+ * End date of an "Année civile" subscription started in `year`:
+ * from 01/01/year to 01/01/(year + 1).
+ * (In practice registrations open at the club's permanence on the first
+ * Saturday of January; the club treats the season as 01/01 -> 01/01.)
+ * With the "active = end date after today" rule (utils/memberRules), the
+ * subscription expires on 01/01 of the following year.
  * @param {number} year
  * @returns {string} ISO date string "yyyy-MM-dd"
  */
-export const getSubscriptionEndDate = (year) => {
-  if (SUBSCRIPTION_END_DATES[year]) {
-    return SUBSCRIPTION_END_DATES[year];
-  }
-  console.warn(`Pas de date configuree pour ${year}`);
-  return `${year}-12-31`;
-};
+export const getSubscriptionEndDate = (year) => `${Number(year) + 1}-01-01`;
