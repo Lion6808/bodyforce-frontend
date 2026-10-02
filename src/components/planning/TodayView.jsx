@@ -180,109 +180,75 @@ export default function TodayView({
   if (desktop) {
     return (
       <div className={cx("grid gap-5 flex-1 min-h-0 h-full", aside ? "grid-cols-[260px_minmax(0,1fr)_320px]" : "grid-cols-[260px_minmax(0,1fr)]")}>
-        {/* Colonne 1 : calendrier, résumé, filtres (fixe ; défile seulement si l'écran est trop bas) */}
-        <div className="min-h-0 overflow-y-auto space-y-4 pb-1">
-          <PeriodTabs period={period} onChange={onChangePeriod} />
-          <DayCalendar
-            day={day}
-            onChangeDay={(d) => {
-              onChangePeriod("day");
-              onChangeDay(d);
-            }}
-          />
+        {/* Colonne 1 : uniquement les réglages, dans l'ordre d'usage */}
+        <div className="min-h-0 overflow-y-auto space-y-5 pb-1">
+          <div className="space-y-2">
+            <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Période</h2>
+            <PeriodTabs period={period} onChange={onChangePeriod} />
+          </div>
 
-          <section
-            aria-label="Résumé de la période"
-            aria-busy={!isDay && attendanceLoading}
-            className={cx("bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3 transition-opacity", !isDay && attendanceLoading && "opacity-40")}
-          >
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalPassages}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">passages</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalPeople}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">personnes</div>
-              </div>
-              <div className={totalToCheck ? "text-orange-700 dark:text-orange-400" : "text-gray-900 dark:text-white"}>
-                <div className="text-2xl font-bold">{totalToCheck}</div>
-                <div className="text-xs font-semibold">à vérifier</div>
-              </div>
-            </div>
-            {isDay && (<div>
-              <div className="flex items-end gap-[3px] h-8">
-                {hours.map(({ h, n }) => (
-                  <div
-                    key={h}
-                    title={`${h} h : ${plural(n, "passage", "passages")}`}
+          <div className="space-y-2">
+            <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Jour</h2>
+            <DayCalendar
+              day={day}
+              onChangeDay={(d) => {
+                onChangePeriod("day");
+                onChangeDay(d);
+              }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Type de personne
+            </h2>
+            <section
+              role="group"
+              aria-label="Filtrer par type de personne"
+              className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-2 flex flex-col gap-0.5"
+            >
+              {FILTERS.map((f) => {
+                const n = countFor(f.id);
+                const on = f.id === filter;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setFilter(f.id)}
                     className={cx(
-                      "flex-1 rounded-sm",
-                      isTodayView && h === nowHour
-                        ? "bg-blue-700"
-                        : !isTodayView || h < nowHour
-                          ? "bg-blue-300 dark:bg-blue-500/60"
-                          : "bg-gray-200 dark:bg-gray-700"
+                      "h-10 rounded-xl px-3 flex items-center justify-between text-sm",
+                      on
+                        ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold"
+                        : "text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     )}
-                    style={{ height: `${Math.max(3, (n / maxHour) * 32)}px` }}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                <span>6 h</span>
-                <span>12 h</span>
-                <span>18 h</span>
-                <span>23 h</span>
-              </div>
-            </div>)}
-          </section>
-
-          <section
-            role="group"
-            aria-label="Filtrer les passages"
-            className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-2 flex flex-col gap-0.5"
-          >
-            {FILTERS.map((f) => {
-              const n = countFor(f.id);
-              const on = f.id === filter;
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setFilter(f.id)}
-                  className={cx(
-                    "h-10 rounded-xl px-3 flex items-center justify-between text-sm",
-                    on
-                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold"
-                      : "text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                  )}
-                >
-                  <span>{f.label}</span>
-                  <span className="tabular-nums">{n}</span>
-                </button>
-              );
-            })}
-          </section>
+                  >
+                    <span>{f.label}</span>
+                    <span className="tabular-nums">{n}</span>
+                  </button>
+                );
+              })}
+            </section>
+          </div>
         </div>
 
-        {/* Colonne 2 : fil du jour */}
+        {/* Colonne 2 : totaux de ce qui est affiché, puis la liste */}
         <section
           aria-label="Passages du jour"
           className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm px-2 pt-2 min-w-0 min-h-0 flex flex-col"
         >
-          <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300">
+          <div className="flex items-center gap-2 px-3 pt-2.5 text-sm text-gray-700 dark:text-gray-300">
             <span className={cx("w-2 h-2 rounded-full flex-shrink-0", lastReceived ? "bg-green-600" : "bg-gray-400")} />
             <span className="flex-1 min-w-0 truncate">
               {!isDay && attendanceLoading
                 ? `${periodLabel(period, day)} · chargement…`
                 : !isDay
-                ? `${periodLabel(period, day)} · ${plural(totalPeople, "personne", "personnes")}, du plus assidu au moins assidu`
-                : isTodayView
-                  ? lastTodayTs
-                    ? `À jour · reçu à ${fmtTime(lastTodayTs)}`
-                    : "Aucun passage reçu pour l'instant"
-                  : `${fmtDayLong(day)} · ${plural(entries.length, "passage", "passages")}`}
+                  ? `${periodLabel(period, day)} · du plus assidu au moins assidu`
+                  : isTodayView
+                    ? lastTodayTs
+                      ? `À jour · reçu à ${fmtTime(lastTodayTs)}`
+                      : "Aucun passage reçu pour l'instant"
+                    : fmtDayLong(day)}
             </span>
             <button
               type="button"
@@ -292,6 +258,55 @@ export default function TodayView({
               <RefreshCw className={cx("w-4 h-4", (loading || attendanceLoading) && "animate-spin")} />
               Actualiser
             </button>
+          </div>
+
+          <div
+            aria-label="Résumé de la période"
+            aria-busy={!isDay && attendanceLoading}
+            className={cx(
+              "mx-1 mt-2 mb-1 px-3 pb-3 border-b border-gray-100 dark:border-gray-700 flex items-end gap-6 transition-opacity",
+              !isDay && attendanceLoading && "opacity-40"
+            )}
+          >
+            <div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{totalPassages.toLocaleString("fr-FR")}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">passages</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">{totalPeople}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">personnes</div>
+            </div>
+            <div className={totalToCheck ? "text-orange-700 dark:text-orange-400" : "text-gray-900 dark:text-white"}>
+              <div className="text-2xl font-bold tabular-nums">{totalToCheck}</div>
+              <div className="text-xs font-semibold">à vérifier</div>
+            </div>
+            {isDay && (
+              <div className="flex-1 min-w-0 max-w-[340px] ml-auto" aria-hidden="true">
+                <div className="flex items-end gap-[3px] h-8">
+                  {hours.map(({ h, n }) => (
+                    <div
+                      key={h}
+                      title={`${h} h : ${plural(n, "passage", "passages")}`}
+                      className={cx(
+                        "flex-1 rounded-sm",
+                        isTodayView && h === nowHour
+                          ? "bg-blue-700"
+                          : !isTodayView || h < nowHour
+                            ? "bg-blue-300 dark:bg-blue-500/60"
+                            : "bg-gray-200 dark:bg-gray-700"
+                      )}
+                      style={{ height: `${Math.max(3, (n / maxHour) * 32)}px` }}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                  <span>6 h</span>
+                  <span>12 h</span>
+                  <span>18 h</span>
+                  <span>23 h</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {!isDay && (
