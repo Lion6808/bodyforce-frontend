@@ -36,7 +36,7 @@ import {
   isCountedMember,
   MemberTypeTag,
 } from "../utils/memberTypes";
-import { isMemberExpired, computeMemberStats } from "../utils/memberRules";
+import { isMemberExpired, isAdherent, computeMemberStats } from "../utils/memberRules";
 import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MembersOverview from "../components/MembersOverview";
@@ -279,6 +279,13 @@ function MembersPage() {
       result = result.filter((m) => m.gender === "Femme" && !isMemberExpired(m));
     } else if (activeFilter === "Etudiant") {
       result = result.filter((m) => m.etudiant && !isMemberExpired(m));
+    } else if (["AdhActifs", "AdhHomme", "AdhFemme", "EtuHomme", "EtuFemme"].includes(activeFilter)) {
+      // Synthèse des adhérents actifs : adhérents seuls (ni comité ni maintenance)
+      result = result.filter((m) => isAdherent(m) && !isMemberExpired(m));
+      if (activeFilter === "AdhHomme") result = result.filter((m) => m.gender === "Homme");
+      if (activeFilter === "AdhFemme") result = result.filter((m) => m.gender === "Femme");
+      if (activeFilter === "EtuHomme") result = result.filter((m) => m.etudiant && m.gender === "Homme");
+      if (activeFilter === "EtuFemme") result = result.filter((m) => m.etudiant && m.gender === "Femme");
     } else if (activeFilter === "Expiré") {
       result = result.filter((m) => isMemberExpired(m));
     } else if (activeFilter === "Récent") {
@@ -292,13 +299,12 @@ function MembersPage() {
         if (isMemberExpired(m)) return false;
         return !memberHasFiles(m);
       });
-    } else if (activeFilter === "Actifs" || !activeFilter) {
-      // Default: all active (non-expired)
+    } else if (activeFilter === "Actifs") {
       result = result.filter((m) => !isMemberExpired(m));
-      // A name search still finds maintenance staff
-      if (search.trim()) {
-        result = result.concat(searched.filter(isMaintenance));
-      }
+    } else if (!activeFilter) {
+      // Sans filtre : les actifs ; pendant une recherche, toutes les fiches
+      // (expirées et maintenance comprises) pour retrouver n'importe qui
+      result = search.trim() ? searched : result.filter((m) => !isMemberExpired(m));
     }
 
     // Sort by name (except "Recent" which keeps badge_number order)
@@ -834,7 +840,7 @@ function MembersPage() {
       />
 
       {/* 6.2a -- Synthèse des adhérents actifs */}
-      <ActiveMembersSummary {...synthese} />
+      <ActiveMembersSummary {...synthese} activeFilter={activeFilter} onSelect={setActiveFilter} />
 
       {/* 6.2b -- Filtres spéciaux (Badges récents, Sans certif, Comité, Maintenance) */}
       <div className="grid grid-cols-2 gap-4 mb-6">
@@ -876,20 +882,44 @@ function MembersPage() {
         />
       </div>
 
-      {/* 6.3 -- Action bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 p-4 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {/* Add member — primary action */}
-          <button
-            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors font-medium"
-            onClick={handleAddMember}
-          >
-            <FaPlus />
-            Ajouter un membre
-          </button>
+      {/* 6.3 -- Action bar : ajout + recherche à gauche, outils à droite */}
+      <div className="flex flex-wrap items-start gap-3 mb-6 p-4 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700">
+        {/* Add member — primary action */}
+        <button
+          className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors font-medium flex-shrink-0"
+          onClick={handleAddMember}
+        >
+          <FaPlus />
+          Ajouter un membre
+        </button>
 
-          {/* Separator */}
-          <div className="hidden sm:block w-px h-8 bg-gray-200 dark:bg-gray-600 mx-1" />
+        {/* Search input, juste à côté de l'ajout */}
+        <div className="flex-1 min-w-[220px] sm:max-w-md space-y-1">
+          <div className="relative w-full">
+            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Nom, prénom ou n° de badge"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border border-gray-300 dark:border-gray-600 pl-10 pr-4 py-2.5 rounded-full w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+            />
+          </div>
+          <SearchHints search={search} />
+        </div>
+
+        {/* Outils, à droite */}
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Bulk delete */}
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors text-sm font-medium"
+            >
+              <FaTrash />
+              Supprimer ({selectedIds.length})
+            </button>
+          )}
 
           {/* Import badges — secondary/ghost */}
           <button
@@ -917,32 +947,6 @@ function MembersPage() {
             <FaFileExport />
             <span className="hidden md:inline">Exporter</span>
           </button>
-
-          {/* Bulk delete */}
-          {selectedIds.length > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors text-sm font-medium"
-            >
-              <FaTrash />
-              Supprimer ({selectedIds.length})
-            </button>
-          )}
-        </div>
-
-        {/* Search input */}
-        <div className="flex items-center gap-4 w-full sm:w-auto">
-          <div className="relative w-full sm:w-72">
-            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Rechercher nom, prénom..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border border-gray-300 dark:border-gray-600 pl-10 pr-4 py-2.5 rounded-full w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div>
-          <SearchHints search={search} />
         </div>
       </div>
 

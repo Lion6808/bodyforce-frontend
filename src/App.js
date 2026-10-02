@@ -79,18 +79,17 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.10.0";
+const APP_VERSION = "2.11.0";
 
 const CHANGELOG = {
-  version: "2.10.0",
+  version: "2.11.0",
   date: "Octobre 2026",
   changes: [
-    "Fiche membre complète aussi sur mobile et depuis Paiements (type de membre, présences, messages)",
-    "Fiche membre adaptée au mobile : onglets visibles d'un coup, sans défilement horizontal",
-    "Recherche : les jokers * et ? fonctionnent sur Membres et Paiements",
-    "Réabonnement « Année civile » : valable jusqu'à la permanence de janvier suivante",
-    "Statut actif / expiré calculé de la même façon sur toutes les pages",
-    "Application réorganisée pour plus de fiabilité (sans changement visuel)",
+    "Planning repensé : Aujourd'hui (qui est venu), Membre (assiduité), Contrôle (anomalies)",
+    "Calendrier d'un membre : toucher un jour affiche ses horaires de passage",
+    "Contrôle : expirés qui passent encore, badges inconnus, passages de nuit, badges hors période",
+    "Points de contrôle « Marquer vu », rouverts si la personne repasse",
+    "Outils regroupés : import Excel, export de la journée, affichage des sorties",
   ],
 };
 

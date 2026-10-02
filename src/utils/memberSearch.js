@@ -1,4 +1,7 @@
-// Recherche avancée de membres (jokers * et ?, ancres ^ $, ET / OU) — commune aux pages Membres et Paiements
+// Recherche avancée de membres (jokers * et ?, ancres ^ $, ET / OU) — commune aux pages
+// Membres, Paiements et Planning.
+// Un nombre de 1 à 4 chiffres = n° de badge COURT (égalité exacte, ex. 167) ;
+// un nombre plus long = badge LONG (même partiel, ex. 2208428).
 
 
 
@@ -26,6 +29,12 @@ export const escapeForWildcard = (s) => s.replace(/[-/\\^$+.()|[\]{}]/g, "\\$&")
 export const tokenToRegex = (tokenRaw) => {
   if (!tokenRaw) return null;
   let t = tokenRaw.trim();
+  // N° de badge court : comparé tel quel au champ badge_number
+  if (/^\d{1,4}$/.test(t)) {
+    const rx = new RegExp("^" + t + "$");
+    rx.shortBadge = String(Number(t));
+    return rx;
+  }
   const anchoredStart = t.startsWith("^");
   const anchoredEnd = t.endsWith("$");
   if (anchoredStart) t = t.slice(1);
@@ -73,7 +82,10 @@ export const matchesSearch = (member, compiledClauses) => {
       .filter(Boolean)
       .join(" ")
   );
-  return compiledClauses.some((tokens) => tokens.every((rx) => rx.test(haystack)));
+  const shortBadge = member.badge_number != null ? String(member.badge_number) : null;
+  return compiledClauses.some((tokens) =>
+    tokens.every((rx) => (rx.shortBadge ? rx.shortBadge === shortBadge : rx.test(haystack)))
+  );
 };
 
 /**

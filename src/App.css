@@ -1180,6 +1180,15 @@
   overflow: hidden;
 }
 
+/* Couper seulement en largeur : un en-tête "sticky" peut alors rester en
+   haut de la zone qui défile (main). Navigateurs anciens : inchangé. */
+@supports (overflow: clip) {
+  .swipe-container {
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+}
+
 .swipe-content {
   transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
