@@ -194,10 +194,19 @@ function PlanningPage() {
     setDay(d);
   };
   const isTodayShown = sameDay(day, new Date());
+  // PC, vue Aujourd'hui : page à hauteur d'écran, seule la liste des passages défile
+  const fixedLayout = isDesktop && view === "aujourdhui";
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 pt-4 pb-28 lg:px-8 lg:pt-6 lg:pb-8">
-      <div className="max-w-[1500px] mx-auto space-y-4 lg:space-y-5">
+    <div className={fixedLayout ? "px-4 h-[calc(100vh-2rem)] flex flex-col" : "pb-4 lg:px-4"}>
+      <div
+        className={cx(
+          "max-w-[1500px] w-full mx-auto",
+          fixedLayout ? "flex-1 min-h-0 flex flex-col" : "space-y-4 lg:space-y-5"
+        )}
+      >
+        {/* En-tête collé en haut de la zone qui défile */}
+        <div className="sticky -top-4 z-30 -mx-4 -mt-4 px-4 pt-4 pb-3 lg:-mx-8 lg:px-8 lg:pt-5 lg:pb-5 bg-gray-100 dark:bg-gray-900">
         {/* En-tête */}
         <header className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3 lg:bg-transparent lg:dark:bg-transparent lg:border-0 lg:shadow-none lg:p-0 lg:space-y-0 lg:flex lg:items-center lg:gap-5">
           <div className="flex items-center justify-between lg:contents">
@@ -274,9 +283,10 @@ function PlanningPage() {
             </div>
           )}
         </header>
+        </div>
 
         {view === "aujourdhui" && (
-          <>
+          <div className={fixedLayout ? "flex-1 min-h-0 flex flex-col gap-3" : "space-y-3"}>
             {dayError && (
               <div className="bg-white dark:bg-gray-800 rounded-3xl border border-red-200 dark:border-red-800 p-4 text-sm text-red-600 dark:text-red-400">
                 {dayError}
@@ -303,7 +313,7 @@ function PlanningPage() {
                 )
               }
             />
-          </>
+          </div>
         )}
 
         {view === "membre" && <MemberView memberId={memberId} onSelectMember={openMember} />}

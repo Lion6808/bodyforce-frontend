@@ -10,6 +10,8 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import MemberIdentity from "../MemberIdentity";
+import useMemberPhotos from "../../hooks/useMemberPhotos";
 import { CONTROL_DAYS, markSeen, unmarkSeen } from "./planningData";
 
 const cx = (...c) => c.filter(Boolean).join(" ");
@@ -22,6 +24,9 @@ const ICON_TONES = {
 
 export default function ControlView({ control, loading, error, onSeenChange, onOpenMember, onOpenDay }) {
   const [busy, setBusy] = useState(null);
+  const photos = useMemberPhotos(
+    (control?.sections || []).flatMap((s) => s.items.filter((it) => it.member).map((it) => it.member.id))
+  );
 
   const runAction = async (action) => {
     if (action.type === "member") onOpenMember(action.memberId);
@@ -104,9 +109,15 @@ export default function ControlView({ control, loading, error, onSeenChange, onO
                 it.done ? "bg-green-50 dark:bg-green-900/20" : "bg-gray-50 dark:bg-gray-700/40"
               )}
             >
-              <div>
-                <div className="text-[15px] font-bold text-gray-900 dark:text-white break-words">{it.who}</div>
-                <div className="mt-0.5 text-sm text-gray-700 dark:text-gray-300">{it.detail}</div>
+              <div className="space-y-1.5">
+                <MemberIdentity
+                  kind={it.member ? "member" : "unknown"}
+                  member={it.member}
+                  badgeId={it.badgeId}
+                  photo={it.member ? photos[it.member.id] ?? null : null}
+                  size={40}
+                />
+                <div className="text-sm text-gray-700 dark:text-gray-300">{it.detail}</div>
               </div>
               {it.done ? (
                 <div className="flex items-center justify-between text-sm font-semibold text-green-700 dark:text-green-400">

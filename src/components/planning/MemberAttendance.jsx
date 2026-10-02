@@ -10,9 +10,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import Avatar from "../Avatar";
+import MemberIdentity from "../MemberIdentity";
 import useMemberPhotos from "../../hooks/useMemberPhotos";
-import { MemberTypeTag } from "../../utils/memberTypes";
 import { isMemberActive } from "../../utils/memberRules";
 import { toDateString } from "../../utils/dateUtils";
 import {
@@ -163,27 +162,13 @@ export default function MemberAttendance({ memberId, compact = false }) {
     });
 
   const header = (
-    <div className="flex items-center gap-3.5">
-      <Avatar photo={photos[member.id]} name={member.name} firstName={member.firstName} size={56} />
-      <div className="min-w-0 space-y-1.5">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-          {[member.firstName, member.name].filter(Boolean).join(" ")}
-        </h2>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span
-            className={cx(
-              "text-xs font-semibold px-2.5 py-1 rounded-xl",
-              active || !isAdh
-                ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-                : "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
-            )}
-          >
-            {status}
-          </span>
-          <MemberTypeTag type={member.member_type} />
-        </div>
-      </div>
-    </div>
+    <MemberIdentity
+      member={member}
+      photo={photos[member.id] ?? null}
+      size={56}
+      subtitle={status}
+      subtitleTone={active || !isAdh ? "muted" : "alert"}
+    />
   );
 
   const tiles = (

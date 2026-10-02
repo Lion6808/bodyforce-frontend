@@ -176,6 +176,7 @@ export function buildControlSections(anomalies, seen) {
       items: (anomalies.expired || []).map((x) => ({
         key: `expired:${x.member_id}`,
         who: fullName(x),
+        member: { id: x.member_id, name: x.name, first_name: x.first_name, member_type: "adherent" },
         detail: `${x.end_date ? `Expiré le ${fmtDate(x.end_date)}` : "Sans date de fin"} · ${plural(
           x.count,
           "passage",
@@ -193,6 +194,7 @@ export function buildControlSections(anomalies, seen) {
       items: (anomalies.unknown || []).map((x) => ({
         key: `unknown:${x.badge_id}`,
         who: `Badge ${x.badge_id}`,
+        badgeId: x.badge_id,
         detail: `${plural(x.count, "passage", "passages")} · dernier ${fmtRelative(x.last_ts).toLowerCase()}`,
         lastTs: x.last_ts,
         action: { type: "copy", label: "Copier le n° de badge", value: x.badge_id },
@@ -206,6 +208,8 @@ export function buildControlSections(anomalies, seen) {
       items: (anomalies.night || []).map((x) => ({
         key: `night:${x.presence_id}`,
         who: x.member_id ? fullName(x) : `Badge ${x.badge_id}`,
+        member: x.member_id ? { id: x.member_id, name: x.name, first_name: x.first_name } : null,
+        badgeId: x.badge_id,
         detail: fmtRelative(x.ts),
         lastTs: x.ts,
         action: { type: "day", label: "Voir la journée", day: x.ts },
@@ -219,6 +223,7 @@ export function buildControlSections(anomalies, seen) {
       items: (anomalies.out_of_period || []).map((x) => ({
         key: `period:${x.badge_id}`,
         who: `Badge ${x.badge_id}`,
+        badgeId: x.badge_id,
         detail: `${plural(x.count, "passage", "passages")} sans titulaire à cette date · du ${fmtDate(
           x.first_ts
         )} au ${fmtDate(x.last_ts)}`,

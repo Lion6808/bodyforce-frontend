@@ -8,6 +8,7 @@
 // ===================================================================
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 import { Download, RefreshCw, Upload, X } from "lucide-react";
 import { toDateString } from "../../utils/dateUtils";
@@ -55,8 +56,8 @@ export default function ToolsSheet({ open, onClose, isAdmin, day, passages, last
 
   const fresh = lastReceived && Date.now() - new Date(lastReceived).getTime() < 24 * 3600 * 1000;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center">
       <button type="button" aria-label="Fermer les outils" onClick={onClose} className="absolute inset-0 bg-gray-900/45" />
       <section
         role="dialog"
@@ -169,5 +170,7 @@ export default function ToolsSheet({ open, onClose, isAdmin, day, passages, last
         </div>
       </section>
     </div>
+  ,
+    document.body
   );
 }

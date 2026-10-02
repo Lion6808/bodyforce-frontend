@@ -8,11 +8,11 @@
 // ===================================================================
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import Avatar from "../Avatar";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import MemberIdentity from "../MemberIdentity";
+import { keyboardClickable } from "../../utils/a11y";
 import DayCalendar from "./DayCalendar";
 import useMemberPhotos from "../../hooks/useMemberPhotos";
-import { MemberTypeTag } from "../../utils/memberTypes";
 import { toDateString } from "../../utils/dateUtils";
 import {
   FILTERS,
@@ -20,7 +20,6 @@ import {
   fmtDate,
   fmtDayLong,
   fmtTime,
-  fullName,
   isInvalidPassage,
   passageKind,
   plural,
@@ -55,6 +54,25 @@ function decorate(passages) {
     return { ...p, kind, who, repeat, alert, sub, hour: new Date(p.ts).getHours() };
   });
   return rows.reverse();
+}
+
+/** Identité d'un passage : membre (photo → fiche), badge inconnu ou sortie BP. */
+function PassageIdentity({ r, photos, size }) {
+  return (
+    <MemberIdentity
+      className="flex-1"
+      kind={r.kind === "inconnu" ? "unknown" : r.kind === "exit" ? "exit" : "member"}
+      badgeId={r.badge_id}
+      member={r.member_id ? { id: r.member_id, name: r.name, first_name: r.first_name, member_type: r.member_type } : null}
+      photo={r.member_id ? photos[r.member_id] ?? null : null}
+      size={size}
+      subtitle={r.alert || r.sub}
+      subtitleTone={r.alert ? "alert" : "muted"}
+      extra={
+        r.repeat ? <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">nouveau passage</span> : null
+      }
+    />
+  );
 }
 
 export default function TodayView({
@@ -104,9 +122,9 @@ export default function TodayView({
 
   if (desktop) {
     return (
-      <div className={cx("grid gap-5 items-start", aside ? "grid-cols-[260px_minmax(0,1fr)_320px]" : "grid-cols-[260px_minmax(0,1fr)]")}>
-        {/* Colonne 1 : calendrier, résumé, filtres */}
-        <div className="space-y-4 sticky top-4">
+      <div className={cx("grid gap-5 flex-1 min-h-0 h-full", aside ? "grid-cols-[260px_minmax(0,1fr)_320px]" : "grid-cols-[260px_minmax(0,1fr)]")}>
+        {/* Colonne 1 : calendrier, résumé, filtres (fixe ; défile seulement si l'écran est trop bas) */}
+        <div className="min-h-0 overflow-y-auto space-y-4 pb-1">
           <DayCalendar day={day} onChangeDay={onChangeDay} />
 
           <section
@@ -186,7 +204,7 @@ export default function TodayView({
         {/* Colonne 2 : fil du jour */}
         <section
           aria-label="Passages du jour"
-          className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm px-2 pt-2 pb-3 min-w-0"
+          className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm px-2 pt-2 min-w-0 min-h-0 flex flex-col"
         >
           <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300">
             <span className={cx("w-2 h-2 rounded-full flex-shrink-0", lastReceived ? "bg-green-600" : "bg-gray-400")} />
@@ -207,6 +225,8 @@ export default function TodayView({
             </button>
           </div>
 
+          {/* Seule la liste défile */}
+          <div className="flex-1 min-h-0 overflow-y-auto pb-3">
           {loading && rows.length === 0 && (
             <div className="space-y-2 px-2">
               {[0, 1, 2, 3].map((i) => (
@@ -224,55 +244,23 @@ export default function TodayView({
                 const selected = selectedWho && selectedWho === r.who;
                 const clickable = r.kind !== "exit";
                 return (
-                  <button
+                  <div
                     key={r.presence_id}
-                    type="button"
-                    disabled={!clickable}
+                    {...(clickable ? keyboardClickable(() => onSelectRow(r)) : {})}
                     aria-pressed={clickable ? !!selected : undefined}
-                    onClick={() => clickable && onSelectRow(r)}
                     className={cx(
                       "w-full text-left rounded-2xl px-3 py-2 min-h-[56px] flex items-center gap-3",
+                      clickable && "cursor-pointer",
                       selected
                         ? "bg-blue-50 dark:bg-blue-900/30 ring-2 ring-inset ring-blue-300 dark:ring-blue-700"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50",
-                      !clickable && "opacity-70 cursor-default"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     )}
                   >
                     <span className="w-12 flex-shrink-0 text-[15px] font-semibold tabular-nums text-gray-900 dark:text-white">
                       {fmtTime(r.ts)}
                     </span>
-                    {r.kind === "inconnu" || r.kind === "exit" ? (
-                      <span className="w-9 h-9 rounded-full flex-shrink-0 border-2 border-dashed border-gray-400 flex items-center justify-center text-xs font-bold text-gray-500">
-                        {r.kind === "exit" ? "↦" : "?"}
-                      </span>
-                    ) : (
-                      <Avatar photo={photos[r.member_id]} name={r.name} firstName={r.first_name} size={36} />
-                    )}
-                    <span className="flex-1 min-w-0 flex flex-col">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">
-                          {r.kind === "inconnu" ? `Badge ${r.badge_id}` : r.kind === "exit" ? "Sortie" : fullName(r)}
-                        </span>
-                        <MemberTypeTag type={r.member_type} className="flex-shrink-0" />
-                        {r.kind === "inconnu" && (
-                          <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
-                            Inconnu
-                          </span>
-                        )}
-                        {r.repeat && (
-                          <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">nouveau passage</span>
-                        )}
-                      </span>
-                      <span
-                        className={cx(
-                          "text-[13px] truncate",
-                          r.alert ? "text-orange-700 dark:text-orange-400 font-semibold" : "text-gray-500 dark:text-gray-400"
-                        )}
-                      >
-                        {r.alert || r.sub}
-                      </span>
-                    </span>
-                  </button>
+                    <PassageIdentity r={r} photos={photos} size={40} />
+                  </div>
                 );
               })}
             </div>
@@ -283,11 +271,12 @@ export default function TodayView({
               {rows.length === 0 ? "Aucun passage ce jour-là." : "Aucun passage pour ce filtre."}
             </div>
           )}
+          </div>
         </section>
 
         {/* Colonne 3 : assiduité du membre sélectionné (écran large) */}
         {aside && (
-          <aside aria-label="Assiduité du membre sélectionné" className="sticky top-4">
+          <aside aria-label="Assiduité du membre sélectionné" className="min-h-0 overflow-y-auto pb-1">
             {aside}
           </aside>
         )}
@@ -444,62 +433,23 @@ export default function TodayView({
             </h2>
             <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700">
               {g.rows.map((r) => {
-                const selected = selectedWho && selectedWho === r.who;
                 const clickable = r.kind !== "exit";
                 return (
-                  <button
+                  <div
                     key={r.presence_id}
-                    type="button"
-                    disabled={!clickable}
-                    aria-pressed={clickable ? !!selected : undefined}
-                    onClick={() => clickable && onSelectRow(r)}
+                    {...(clickable ? keyboardClickable(() => onSelectRow(r)) : {})}
                     className={cx(
                       "w-full text-left flex items-center gap-3 px-3.5 py-2.5 min-h-[60px]",
-                      selected ? "bg-blue-50 dark:bg-blue-900/30" : "hover:bg-gray-50 dark:hover:bg-gray-700/50",
-                      !clickable && "opacity-70 cursor-default"
+                      clickable && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     )}
                   >
-                    {r.kind === "inconnu" || r.kind === "exit" ? (
-                      <span className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-dashed border-gray-400 flex items-center justify-center text-sm font-bold text-gray-500">
-                        {r.kind === "exit" ? "↦" : "?"}
-                      </span>
-                    ) : (
-                      <Avatar photo={photos[r.member_id]} name={r.name} firstName={r.first_name} size={40} />
-                    )}
-                    <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-                      <span className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">
-                          {r.kind === "inconnu"
-                            ? `Badge ${r.badge_id}`
-                            : r.kind === "exit"
-                              ? "Sortie"
-                              : fullName(r)}
-                        </span>
-                        <MemberTypeTag type={r.member_type} className="flex-shrink-0" />
-                        {r.kind === "inconnu" && (
-                          <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
-                            Inconnu
-                          </span>
-                        )}
-                      </span>
-                      {r.alert ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-700 dark:text-orange-400">
-                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="truncate">{r.alert}</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{r.sub}</span>
-                      )}
-                    </span>
+                    <PassageIdentity r={r} photos={photos} size={40} />
                     <span className="text-right flex-shrink-0">
                       <span className="block text-[15px] font-semibold tabular-nums text-gray-900 dark:text-white">
                         {fmtTime(r.ts)}
                       </span>
-                      {r.repeat && (
-                        <span className="block text-[11px] text-gray-500 dark:text-gray-400">nouveau passage</span>
-                      )}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>

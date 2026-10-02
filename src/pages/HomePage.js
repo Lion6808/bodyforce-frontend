@@ -24,7 +24,6 @@ import {
   FaBell,
   FaChartBar,
 } from "react-icons/fa";
-import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MembersOverview from "../components/MembersOverview";
 import { SkeletonPulse, SkeletonListItem } from "../components/home/HomeSkeletons";
@@ -53,7 +52,7 @@ import {
 import { supabaseServices, supabase } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import { useAuth } from "../contexts/AuthContext";
-import Avatar from "../components/Avatar";
+import MemberIdentity from "../components/MemberIdentity";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -1185,11 +1184,6 @@ function HomePage() {
                       ? parseISO(r.ts)
                       : new Date(r.ts);
                   const isBP = !r.badgeId;
-                  const displayName = isBP
-                    ? "BP (Sortie)"
-                    : m
-                      ? `${m.firstName || ""} ${m.name || ""}`.trim()
-                      : `Badge ${r.badgeId}`;
                   const timeAgo = getTimeAgo(ts);
 
                   return (
@@ -1197,60 +1191,17 @@ function HomePage() {
                       key={r.id}
                       className="group flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
                     >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {/* Avatar ou indicateur BP */}
-                        <div
-                          {...(m ? keyboardClickable(() => handleEditMember(m)) : {})}
-                          className={`${m ? "cursor-pointer hover:opacity-75 hover:scale-105" : ""} transition-all`}
-                          title={
-                            isBP
-                              ? "Bouton Poussoir"
-                              : m
-                                ? "Voir les détails du membre"
-                                : "Membre inconnu"
-                          }
-                        >
-                          {isBP ? (
-                            <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold text-sm">
-                              BP
-                            </div>
-                          ) : (
-                            <Avatar
-                              photo={photosCache[m?.id] || null}
-                              firstName={m?.firstName}
-                              name={m?.name}
-                              size={40}
-                              onClick={
-                                m ? () => handleEditMember(m) : undefined
-                              }
-                              title={
-                                m
-                                  ? "Voir les détails du membre"
-                                  : "Membre inconnu"
-                              }
-                            />
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                              {displayName}
-                            </span>
-                            {isMaintenance(m) && (
-                              <MemberTypeTag type="maintenance" className="flex-shrink-0" />
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {isBP
-                              ? "Bouton Poussoir • "
-                              : m?.badgeId
-                                ? `Badge ${m.badgeId} • `
-                                : ""}
-                            {timeAgo}
-                          </div>
-                        </div>
-                      </div>
+                      <MemberIdentity
+                        className="flex-1"
+                        kind={isBP ? "exit" : m ? "member" : "unknown"}
+                        member={m}
+                        badgeId={r.badgeId}
+                        photo={m ? photosCache[m.id] || null : null}
+                        size={40}
+                        subtitle={`${
+                          isBP ? "Bouton Poussoir • " : m?.badgeId ? `Badge ${m.badgeId} • ` : ""
+                        }${timeAgo}`}
+                      />
 
                       {/* Heure + date */}
                       <div className="text-right flex-shrink-0 ml-3">
@@ -1312,41 +1263,17 @@ function HomePage() {
           ) : latestMembers.length > 0 ? (
             <ul className="divide-y divide-gray-200 dark:divide-gray-700">
               {latestMembers.map((m) => {
-                const displayName =
-                  `${m.firstName || ""} ${m.name || ""}`.trim() ||
-                  `Membre #${m.id}`;
                 return (
                   <li
                     key={m.id}
                     className="py-3 flex items-center justify-between"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        {...keyboardClickable(() => handleEditMember(m))}
-                        className="cursor-pointer hover:opacity-75 hover:scale-105 transition-all"
-                        title="Voir les détails du membre"
-                      >
-                        <Avatar
-                          photo={photosCache[m.id] || null}
-                          firstName={m.firstName}
-                          name={m.name}
-                          size={40}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <div
-                          className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                          {...keyboardClickable(() => handleEditMember(m))}
-                        >
-                          {displayName}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {m.badge_number
-                            ? `Badge ${m.badge_number}`
-                            : `ID #${m.id}`}
-                        </div>
-                      </div>
-                    </div>
+                    <MemberIdentity
+                      member={m}
+                      photo={photosCache[m.id] || null}
+                      size={40}
+                      subtitle={m.badge_number ? `Badge ${m.badge_number}` : `ID #${m.id}`}
+                    />
                     <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                       Nouveau
                     </span>
