@@ -81,11 +81,11 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           setStream(newStream);
         }
       } catch (err) {
-        let errorMessage = "Impossible d'acccder a la camera.";
+        let errorMessage = "Impossible d'accéder à la caméra.";
         if (err.name === "NotReadableError") {
-          errorMessage = "La camera est deja utilisee.";
+          errorMessage = "La caméra est déjà utilisée.";
         } else if (err.name === "NotAllowedError") {
-          errorMessage = "L'acces a la camera a ete refuse.";
+          errorMessage = "L'accès à la caméra a été refusé.";
         }
         if (isMounted) setError(errorMessage);
       } finally {
@@ -203,7 +203,7 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           {error && (
             <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
-              <p className="font-medium mb-2">Erreur camera</p>
+              <p className="font-medium mb-2">Erreur caméra</p>
               <p className="text-sm">{error}</p>
             </div>
           )}
@@ -214,7 +214,7 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
                   <div className="text-white text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                    <p>Demarrage de la camera...</p>
+                    <p>Démarrage de la caméra...</p>
                   </div>
                 </div>
               )}
@@ -237,7 +237,7 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
               {capturedPhoto && (
                 <img
                   src={capturedPhoto}
-                  alt="Photo capturee"
+                  alt="Photo capturée"
                   className="w-full h-full object-cover"
                 />
               )}

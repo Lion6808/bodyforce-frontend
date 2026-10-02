@@ -92,7 +92,7 @@ export function ProfileTab({ form, setForm, handleChange, age }) {
                 Statut etudiant
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Beneficiez de tarifs preferentiels
+                Bénéficiez de tarifs préférentiels
               </p>
             </div>
           </div>
@@ -128,7 +128,7 @@ export function ProfileTab({ form, setForm, handleChange, age }) {
           value={form.address}
           onChange={handleChange}
           icon={FaHome}
-          placeholder="Numero, rue, ville, code postal"
+          placeholder="Numéro, rue, ville, code postal"
         />
         <InputField
           label="Email"
@@ -140,7 +140,7 @@ export function ProfileTab({ form, setForm, handleChange, age }) {
           placeholder="exemple@email.com"
         />
         <InputField
-          label="Telephone fixe"
+          label="Téléphone fixe"
           name="phone"
           value={form.phone}
           onChange={handleChange}
@@ -148,7 +148,7 @@ export function ProfileTab({ form, setForm, handleChange, age }) {
           placeholder="01 23 45 67 89"
         />
         <InputField
-          label="Telephone portable"
+          label="Téléphone portable"
           name="mobile"
           value={form.mobile}
           onChange={handleChange}

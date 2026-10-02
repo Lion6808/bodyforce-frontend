@@ -745,7 +745,7 @@ function PaymentsPage() {
           {isRetrying ? "Reconnexion en cours..." : "Chargement des paiements..."}
         </h2>
         <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-          Mode optimisé egress
+          Un instant…
         </p>
       </div>
     </div>
@@ -1205,8 +1205,7 @@ function PaymentsPage() {
                 Suivi des Paiements
               </h1>
               <p className={`${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                Mode optimisé egress &bull; {members.length} membres &bull; Pagination{" "}
-                {ITEMS_PER_PAGE}/page
+                {members.length} membres
               </p>
             </div>
 
@@ -1599,42 +1598,42 @@ function PaymentsPage() {
                 <thead className={`${isDarkMode ? "bg-gray-700" : "bg-gray-50"}`}>
                   <tr>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
+                      className={`px-4 py-3 text-left text-xs font-medium ${
                         isDarkMode ? "text-gray-300" : "text-gray-500"
                       } uppercase tracking-wider`}
                     >
                       Membre
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
+                      className={`px-4 py-3 text-left text-xs font-medium ${
                         isDarkMode ? "text-gray-300" : "text-gray-500"
                       } uppercase tracking-wider`}
                     >
                       Statut
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
+                      className={`px-4 py-3 text-left text-xs font-medium ${
                         isDarkMode ? "text-gray-300" : "text-gray-500"
                       } uppercase tracking-wider`}
                     >
                       Progression
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
+                      className={`px-4 py-3 text-left text-xs font-medium ${
                         isDarkMode ? "text-gray-300" : "text-gray-500"
                       } uppercase tracking-wider`}
                     >
                       Montants
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
+                      className={`px-4 py-3 text-left text-xs font-medium ${
                         isDarkMode ? "text-gray-300" : "text-gray-500"
                       } uppercase tracking-wider`}
                     >
                       Dernier Paiement
                     </th>
                     <th
-                      className={`px-6 py-3 text-left text-xs font-medium ${
+                      className={`px-4 py-3 text-left text-xs font-medium ${
                         isDarkMode ? "text-gray-300" : "text-gray-500"
                       } uppercase tracking-wider`}
                     >
@@ -1659,7 +1658,7 @@ function PaymentsPage() {
                         } transition-colors`}
                       >
                         {/* Member identity cell */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
                               <Avatar
@@ -1690,7 +1689,7 @@ function PaymentsPage() {
                         </td>
 
                         {/* Status badge cell */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-4 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
                               member.overallStatus
@@ -1702,7 +1701,7 @@ function PaymentsPage() {
                         </td>
 
                         {/* Progress bar cell */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-4 whitespace-nowrap">
                           <div className="w-32">
                             <div className="flex items-center justify-between text-sm mb-1">
                               <span
@@ -1743,7 +1742,7 @@ function PaymentsPage() {
                         </td>
 
                         {/* Amounts cell */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-4 whitespace-nowrap">
                           <div className="text-sm">
                             <div
                               className={`font-medium ${
@@ -1764,7 +1763,7 @@ function PaymentsPage() {
                         </td>
 
                         {/* Last payment cell */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-4 whitespace-nowrap">
                           <div
                             className={`text-sm ${
                               isDarkMode ? "text-white" : "text-gray-900"
@@ -1792,7 +1791,7 @@ function PaymentsPage() {
                         </td>
 
                         {/* Actions cell */}
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() =>
@@ -1828,7 +1827,7 @@ function PaymentsPage() {
                         <tr>
                           <td
                             colSpan="6"
-                            className={`px-6 py-4 ${
+                            className={`px-4 py-4 ${
                               isDarkMode ? "bg-gray-900" : "bg-gray-50"
                             }`}
                           >
