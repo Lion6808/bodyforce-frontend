@@ -88,7 +88,7 @@ const CHANGELOG = {
     "Fiche membre complète aussi sur mobile et depuis Paiements (type de membre, présences, messages)",
     "Fiche membre adaptée au mobile : onglets visibles d'un coup, sans défilement horizontal",
     "Recherche : les jokers * et ? fonctionnent sur Membres et Paiements",
-    "Réabonnement « Année civile » : du 01/01 au 01/01 suivant, partout",
+    "Réabonnement « Année civile » : valable jusqu'à la permanence de janvier suivante",
     "Statut actif / expiré calculé de la même façon sur toutes les pages",
     "Application réorganisée pour plus de fiabilité (sans changement visuel)",
   ],

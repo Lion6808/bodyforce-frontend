@@ -37,7 +37,8 @@ src/
 └── utils/
     ├── memberRules.js      # ⭐ SOURCE UNIQUE actif / expiré / compteurs (alignée SQL)
     ├── memberTypes.js      # Types adherent / comite / maintenance + étiquette
-    ├── subscription.js     # ⭐ Durées + fin « Année civile » = 01/01 → 01/01 suivant
+    ├── subscription.js     # ⭐ Durées + fin « Année civile » = permanence de janvier N+1
+    │                       #    (1er samedi, le 8 si le 1er est un samedi ; PERMANENCE_OVERRIDES)
     ├── memberSearch.js     # Recherche avancée (jokers * ?, ^ $, OR) — Membres + Paiements
     ├── dateUtils.js, imageUtils.js, statisticsUtils.js, statisticsPeriods.js, userPhoto.js
     └── invitationService.js

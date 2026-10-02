@@ -46,7 +46,7 @@ import ExcelJS from "exceljs";
 import { parseSearch, matchesSearch } from "../utils/memberSearch";
 import { SearchHints } from "../components/ui/SearchHints";
 import { keyboardClickable } from "../utils/a11y";
-import { getSubscriptionEndDate } from "../utils/subscription";
+import { getSubscriptionEndDate, formatIsoDateFr } from "../utils/subscription";
 import MemberStatusPills from "../components/MemberStatusPills";
 
 // =============================================================================
@@ -717,7 +717,7 @@ function MembersPage() {
     const currentYear = new Date().getFullYear();
     const confirmMsg =
       `Réabonner ${member.firstName} ${member.name} pour l'année ${currentYear} ?\n\n` +
-      `Abonnement : Année civile\nDu 01/01/${currentYear} au 01/01/${currentYear + 1}`;
+      `Abonnement : Année civile\nDu 01/01/${currentYear} au ${formatIsoDateFr(getSubscriptionEndDate(currentYear))} (permanence de janvier)`;
 
     if (!window.confirm(confirmMsg)) return;
 
