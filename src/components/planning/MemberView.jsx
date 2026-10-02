@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { MemberTypeTag } from "../../utils/memberTypes";
-import { normalize } from "../../utils/memberSearch";
+import { matchesSearch, parseSearch } from "../../utils/memberSearch";
 import MemberAttendance from "./MemberAttendance";
 import { fetchMembersIndex } from "./planningData";
 
@@ -58,19 +58,11 @@ export default function MemberView({ memberId, onSelectMember }) {
     });
   }, [memberId, index]);
 
+  // Même recherche que les pages Membres et Paiements (utils/memberSearch)
   const matches = useMemo(() => {
-    const q = normalize(query.trim());
-    if (!q) return [];
-    return index
-      .filter((m) => {
-        const hay = normalize(`${m.firstName || ""} ${m.name || ""} ${m.name || ""} ${m.firstName || ""}`);
-        return (
-          hay.includes(q) ||
-          (m.badgeId || "").includes(query.trim()) ||
-          String(m.badge_number ?? "") === query.trim()
-        );
-      })
-      .slice(0, 8);
+    const clauses = parseSearch(query);
+    if (!clauses.length) return [];
+    return index.filter((m) => matchesSearch(m, clauses)).slice(0, 8);
   }, [query, index]);
 
   const pick = (id) => {
