@@ -35,6 +35,18 @@ const MONTHS = [
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
+/** Nombre de passages du jour, en pastille dans le coin de la case. */
+function CountBadge({ n }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-white dark:bg-gray-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 text-[10px] font-bold leading-[16px] text-center tabular-nums shadow-sm"
+    >
+      {n}
+    </span>
+  );
+}
+
 function StatTile({ label, value, tone, small }) {
   return (
     <div className={cx("rounded-2xl p-3", tone.bg)}>
@@ -226,20 +238,25 @@ export default function MemberAttendance({ memberId, compact = false }) {
                 key={k}
                 title={
                   times
-                    ? `${fmtDayLong(new Date(`${k}T12:00:00`))} : ${times.map(fmtTime).join(", ")}`
+                    ? `${fmtDayLong(new Date(`${k}T12:00:00`))} : ${plural(times.length, "passage", "passages")} (${times
+                        .map(fmtTime)
+                        .join(", ")})`
                     : fmtDayLong(new Date(`${k}T12:00:00`))
                 }
                 className={cx(
-                  "h-[22px] rounded-md",
+                  "relative h-8 rounded-md flex items-center justify-center text-xs tabular-nums",
                   times
                     ? invalidKey(k)
-                      ? "bg-orange-300"
-                      : "bg-blue-600"
+                      ? "bg-orange-300 text-orange-950 font-bold"
+                      : "bg-blue-600 text-white font-bold"
                     : future
-                      ? "bg-transparent border border-dashed border-gray-200 dark:border-gray-700"
-                      : "bg-gray-100 dark:bg-gray-700"
+                      ? "bg-transparent border border-dashed border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                 )}
-              />
+              >
+                {Number(k.slice(8))}
+                {times && <CountBadge n={times.length} />}
+              </span>
             ))}
           </div>
         </div>
@@ -408,7 +425,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
                 aria-pressed={on}
                 onClick={() => setSelDay(k)}
                 className={cx(
-                  "h-9 lg:h-11 lg:w-11 lg:mx-auto rounded-xl flex items-center justify-center text-sm font-bold tabular-nums",
+                  "relative h-9 lg:h-11 lg:w-11 lg:mx-auto rounded-xl flex items-center justify-center text-sm font-bold tabular-nums",
                   invalid
                     ? "bg-orange-200 text-orange-900 dark:bg-orange-800/60 dark:text-orange-100"
                     : "bg-blue-600 text-white",
@@ -416,6 +433,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
                 )}
               >
                 {label}
+                <CountBadge n={times.length} />
               </button>
             );
           })}
