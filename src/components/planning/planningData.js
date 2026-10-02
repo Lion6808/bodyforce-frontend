@@ -245,7 +245,7 @@ export function buildControlSections(anomalies, seen) {
 export async function fetchMemberLite(memberId) {
   const { data, error } = await supabase
     .from("members")
-    .select("id,name,firstName,endDate,member_type,photo")
+    .select("id,name,firstName,endDate,member_type")
     .eq("id", memberId)
     .maybeSingle();
   if (error) throw new Error(`Membre : ${error.message}`);

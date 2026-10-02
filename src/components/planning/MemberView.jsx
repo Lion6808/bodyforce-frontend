@@ -79,8 +79,9 @@ export default function MemberView({ memberId, onSelectMember }) {
   };
 
   return (
-    <div className="space-y-3 max-w-xl mx-auto">
-      <div className="space-y-1.5">
+    <div className="space-y-3 lg:space-y-5">
+      <div className="lg:flex lg:items-start lg:gap-5">
+      <div className="space-y-1.5 lg:w-[420px] lg:flex-shrink-0 relative">
         <label htmlFor="planningMemberSearch" className="text-xs font-semibold text-gray-600 dark:text-gray-400">
           Rechercher un membre
         </label>
@@ -97,7 +98,7 @@ export default function MemberView({ memberId, onSelectMember }) {
           />
         </div>
         {query.trim() && (
-          <ul className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+          <ul className="lg:absolute lg:left-0 lg:right-0 lg:z-20 lg:shadow-lg bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
             {matches.length === 0 && (
               <li className="px-3.5 py-3 text-sm text-gray-500 dark:text-gray-400">Aucun membre trouvé.</li>
             )}
@@ -123,7 +124,7 @@ export default function MemberView({ memberId, onSelectMember }) {
       </div>
 
       {recents.length > 0 && (
-        <div role="group" aria-label="Membres consultés récemment" className="flex flex-wrap gap-2">
+        <div role="group" aria-label="Membres consultés récemment" className="flex flex-wrap gap-2 mt-3 lg:mt-[22px]">
           {recents.map((r) => {
             const on = r.id === memberId;
             return (
@@ -145,6 +146,7 @@ export default function MemberView({ memberId, onSelectMember }) {
           })}
         </div>
       )}
+      </div>
 
       {memberId ? (
         <MemberAttendance memberId={memberId} />

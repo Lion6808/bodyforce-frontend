@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { SlidersHorizontal } from "lucide-react";
+import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import TodayView from "../components/planning/TodayView";
 import MemberView from "../components/planning/MemberView";
@@ -31,6 +31,8 @@ import {
   fetchDayPassages,
   fetchLastPassageTime,
   fetchSeen,
+  addDays,
+  fmtDayLong,
   sameDay,
 } from "../components/planning/planningData";
 
@@ -43,24 +45,26 @@ const VIEWS = [
 ];
 
 const EXITS_KEY = "planning.showExits";
-const REFRESH_MS = 2 * 60 * 1000;
+const REFRESH_MS = 5 * 60 * 1000; // egress : ~10 Ko par rafraîchissement
 
-/** Grand écran (≥ 1024 px) : panneau d'assiduité à droite du fil du jour. */
-function useIsDesktop() {
-  const query = "(min-width: 1024px)";
-  const [desktop, setDesktop] = useState(() => window.matchMedia(query).matches);
+/** Vrai si la fenêtre fait au moins `px` de large (suivi en direct). */
+function useMinWidth(px) {
+  const query = `(min-width: ${px}px)`;
+  const [ok, setOk] = useState(() => window.matchMedia(query).matches);
   useEffect(() => {
     const mq = window.matchMedia(query);
-    const onChange = () => setDesktop(mq.matches);
+    const onChange = () => setOk(mq.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
-  }, []);
-  return desktop;
+  }, [query]);
+  return ok;
 }
 
 function PlanningPage() {
   const { role } = useAuth();
-  const isDesktop = useIsDesktop();
+  // ≥ 1024 px : mise en page ordinateur ; ≥ 1360 px : panneau d'assiduité à droite
+  const isDesktop = useMinWidth(1024);
+  const withAside = useMinWidth(1360);
   const [params, setParams] = useSearchParams();
 
   const view = VIEWS.some((v) => v.id === params.get("vue")) ? params.get("vue") : "aujourdhui";
@@ -167,7 +171,7 @@ function PlanningPage() {
       setView("controle");
       return;
     }
-    if (isDesktop) {
+    if (withAside) {
       setDesktopWho(row.who);
       return;
     }
@@ -175,31 +179,41 @@ function PlanningPage() {
   };
 
   const openDay = (d) => {
+    setDesktopWho(null);
     setDay(d);
     setView("aujourdhui");
   };
 
-  const desktopMemberId = desktopWho?.startsWith("m") ? Number(desktopWho.slice(1)) : null;
+  // Grand écran : sans clic, le panneau montre le dernier membre passé ce jour-là
+  const firstMember = passages.find((p) => p.member_id);
+  const effectiveWho = desktopWho || (firstMember ? `m${firstMember.member_id}` : null);
+  const desktopMemberId = effectiveWho?.startsWith("m") ? Number(effectiveWho.slice(1)) : null;
+
+  const changeDay = (d) => {
+    setDesktopWho(null);
+    setDay(d);
+  };
+  const isTodayShown = sameDay(day, new Date());
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 pt-4 pb-28 lg:pb-8">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 pt-4 pb-28 lg:px-8 lg:pt-6 lg:pb-8">
+      <div className="max-w-[1500px] mx-auto space-y-4 lg:space-y-5">
         {/* En-tête */}
-        <header className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3 lg:flex lg:items-center lg:gap-6 lg:space-y-0">
-          <div className="flex items-center justify-between lg:justify-start lg:gap-4">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Planning</h1>
+        <header className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3 lg:bg-transparent lg:dark:bg-transparent lg:border-0 lg:shadow-none lg:p-0 lg:space-y-0 lg:flex lg:items-center lg:gap-5">
+          <div className="flex items-center justify-between lg:contents">
+            <h1 className="text-2xl lg:text-[28px] font-bold tracking-tight text-gray-900 dark:text-white">Planning</h1>
             <button
               type="button"
               onClick={() => setToolsOpen(true)}
               aria-label="Outils (import, export, sorties)"
-              className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center justify-center lg:order-last"
+              className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-700 lg:bg-white lg:dark:bg-gray-800 lg:border lg:border-gray-200 lg:dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center justify-center lg:order-last"
             >
               <SlidersHorizontal className="w-5 h-5" />
             </button>
           </div>
           <nav
             aria-label="Vues du planning"
-            className="grid grid-cols-3 gap-1 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1 lg:w-[460px]"
+            className="grid grid-cols-3 gap-1 bg-gray-100 dark:bg-gray-700 lg:bg-gray-200/70 rounded-2xl p-1 lg:w-[420px] lg:flex-shrink-0"
           >
             {VIEWS.map((v) => {
               const on = v.id === view;
@@ -227,6 +241,38 @@ function PlanningPage() {
               );
             })}
           </nav>
+          <div className="hidden lg:block lg:flex-1" />
+          {isDesktop && view === "aujourdhui" && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Jour précédent"
+                onClick={() => changeDay(addDays(day, -1))}
+                className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center justify-center"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="min-w-[200px] text-center">
+                <div className="text-[15px] font-semibold text-gray-900 dark:text-white">{fmtDayLong(day)}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {isTodayShown ? "Aujourd'hui" : (
+                    <button type="button" onClick={() => changeDay(new Date())} className="text-blue-700 dark:text-blue-400 font-semibold hover:underline">
+                      Revenir à aujourd'hui
+                    </button>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Jour suivant"
+                disabled={isTodayShown}
+                onClick={() => changeDay(addDays(day, 1))}
+                className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center justify-center disabled:text-gray-300 dark:disabled:text-gray-600"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </header>
 
         {view === "aujourdhui" && (
@@ -236,30 +282,27 @@ function PlanningPage() {
                 {dayError}
               </div>
             )}
-            <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 lg:items-start">
-              <TodayView
-                day={day}
-                onChangeDay={setDay}
-                passages={passages}
-                loading={dayLoading}
-                lastReceived={lastReceived}
-                onRefresh={() => loadDay(day)}
-                showExits={showExits}
-                selectedWho={isDesktop ? desktopWho : null}
-                onSelectRow={onSelectRow}
-              />
-              {isDesktop && (
-                <aside aria-label="Assiduité du membre sélectionné" className="lg:sticky lg:top-4">
-                  {desktopMemberId ? (
-                    <MemberAttendance memberId={desktopMemberId} compact />
-                  ) : (
-                    <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
-                      Cliquez sur un passage pour voir l'assiduité du membre.
-                    </div>
-                  )}
-                </aside>
-              )}
-            </div>
+            <TodayView
+              day={day}
+              onChangeDay={changeDay}
+              passages={passages}
+              loading={dayLoading}
+              lastReceived={lastReceived}
+              onRefresh={() => loadDay(day)}
+              showExits={showExits}
+              selectedWho={withAside ? effectiveWho : null}
+              onSelectRow={onSelectRow}
+              desktop={isDesktop}
+              aside={
+                !withAside ? null : desktopMemberId ? (
+                  <MemberAttendance memberId={desktopMemberId} compact />
+                ) : (
+                  <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
+                    Aucun membre passé ce jour-là.
+                  </div>
+                )
+              }
+            />
           </>
         )}
 

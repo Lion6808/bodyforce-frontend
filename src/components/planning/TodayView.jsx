@@ -10,6 +10,8 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import Avatar from "../Avatar";
+import DayCalendar from "./DayCalendar";
+import useMemberPhotos from "../../hooks/useMemberPhotos";
 import { MemberTypeTag } from "../../utils/memberTypes";
 import { toDateString } from "../../utils/dateUtils";
 import {
@@ -65,11 +67,14 @@ export default function TodayView({
   showExits,
   selectedWho,
   onSelectRow,
+  desktop = false,
+  aside = null,
 }) {
   const [filter, setFilter] = useState("all");
   const isTodayView = sameDay(day, new Date());
 
   const rows = useMemo(() => decorate(passages), [passages]);
+  const photos = useMemberPhotos(passages.map((p) => p.member_id));
   const entries = rows.filter((r) => r.kind !== "exit");
   const visible = rows.filter((r) => {
     if (r.kind === "exit") return showExits && filter === "all";
@@ -97,10 +102,203 @@ export default function TodayView({
 
   const lastTodayTs = isTodayView && entries[0] ? entries[0].ts : lastReceived;
 
+  if (desktop) {
+    return (
+      <div className={cx("grid gap-5 items-start", aside ? "grid-cols-[260px_minmax(0,1fr)_320px]" : "grid-cols-[260px_minmax(0,1fr)]")}>
+        {/* Colonne 1 : calendrier, résumé, filtres */}
+        <div className="space-y-4 sticky top-4">
+          <DayCalendar day={day} onChangeDay={onChangeDay} />
+
+          <section
+            aria-label="Résumé de la journée"
+            className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3"
+          >
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{entries.length}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">passages</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{people}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">personnes</div>
+              </div>
+              <div className={toCheck ? "text-orange-700 dark:text-orange-400" : "text-gray-900 dark:text-white"}>
+                <div className="text-2xl font-bold">{toCheck}</div>
+                <div className="text-xs font-semibold">à vérifier</div>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-end gap-[3px] h-8">
+                {hours.map(({ h, n }) => (
+                  <div
+                    key={h}
+                    title={`${h} h : ${plural(n, "passage", "passages")}`}
+                    className={cx(
+                      "flex-1 rounded-sm",
+                      isTodayView && h === nowHour
+                        ? "bg-blue-700"
+                        : !isTodayView || h < nowHour
+                          ? "bg-blue-300 dark:bg-blue-500/60"
+                          : "bg-gray-200 dark:bg-gray-700"
+                    )}
+                    style={{ height: `${Math.max(3, (n / maxHour) * 32)}px` }}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                <span>6 h</span>
+                <span>12 h</span>
+                <span>18 h</span>
+                <span>23 h</span>
+              </div>
+            </div>
+          </section>
+
+          <section
+            role="group"
+            aria-label="Filtrer les passages"
+            className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-2 flex flex-col gap-0.5"
+          >
+            {FILTERS.map((f) => {
+              const n = f.id === "all" ? entries.length : entries.filter((r) => r.kind === f.id).length;
+              const on = f.id === filter;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setFilter(f.id)}
+                  className={cx(
+                    "h-10 rounded-xl px-3 flex items-center justify-between text-sm",
+                    on
+                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold"
+                      : "text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  )}
+                >
+                  <span>{f.label}</span>
+                  <span className="tabular-nums">{n}</span>
+                </button>
+              );
+            })}
+          </section>
+        </div>
+
+        {/* Colonne 2 : fil du jour */}
+        <section
+          aria-label="Passages du jour"
+          className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm px-2 pt-2 pb-3 min-w-0"
+        >
+          <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300">
+            <span className={cx("w-2 h-2 rounded-full flex-shrink-0", lastReceived ? "bg-green-600" : "bg-gray-400")} />
+            <span className="flex-1 min-w-0 truncate">
+              {isTodayView
+                ? lastTodayTs
+                  ? `À jour · reçu à ${fmtTime(lastTodayTs)}`
+                  : "Aucun passage reçu pour l'instant"
+                : `${fmtDayLong(day)} · ${plural(entries.length, "passage", "passages")}`}
+            </span>
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="flex items-center gap-1 text-blue-700 dark:text-blue-400 font-semibold px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30"
+            >
+              <RefreshCw className={cx("w-4 h-4", loading && "animate-spin")} />
+              Actualiser
+            </button>
+          </div>
+
+          {loading && rows.length === 0 && (
+            <div className="space-y-2 px-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-14 rounded-2xl bg-gray-100 dark:bg-gray-700 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {groups.map((g) => (
+            <div key={g.hour}>
+              <h3 className="mx-3 mt-2.5 mb-1 text-sm font-semibold text-gray-500 dark:text-gray-400">
+                {String(g.hour).padStart(2, "0")} h · {plural(g.rows.length, "passage", "passages")}
+              </h3>
+              {g.rows.map((r) => {
+                const selected = selectedWho && selectedWho === r.who;
+                const clickable = r.kind !== "exit";
+                return (
+                  <button
+                    key={r.presence_id}
+                    type="button"
+                    disabled={!clickable}
+                    aria-pressed={clickable ? !!selected : undefined}
+                    onClick={() => clickable && onSelectRow(r)}
+                    className={cx(
+                      "w-full text-left rounded-2xl px-3 py-2 min-h-[56px] flex items-center gap-3",
+                      selected
+                        ? "bg-blue-50 dark:bg-blue-900/30 ring-2 ring-inset ring-blue-300 dark:ring-blue-700"
+                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50",
+                      !clickable && "opacity-70 cursor-default"
+                    )}
+                  >
+                    <span className="w-12 flex-shrink-0 text-[15px] font-semibold tabular-nums text-gray-900 dark:text-white">
+                      {fmtTime(r.ts)}
+                    </span>
+                    {r.kind === "inconnu" || r.kind === "exit" ? (
+                      <span className="w-9 h-9 rounded-full flex-shrink-0 border-2 border-dashed border-gray-400 flex items-center justify-center text-xs font-bold text-gray-500">
+                        {r.kind === "exit" ? "↦" : "?"}
+                      </span>
+                    ) : (
+                      <Avatar photo={photos[r.member_id]} name={r.name} firstName={r.first_name} size={36} />
+                    )}
+                    <span className="flex-1 min-w-0 flex flex-col">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">
+                          {r.kind === "inconnu" ? `Badge ${r.badge_id}` : r.kind === "exit" ? "Sortie" : fullName(r)}
+                        </span>
+                        <MemberTypeTag type={r.member_type} className="flex-shrink-0" />
+                        {r.kind === "inconnu" && (
+                          <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
+                            Inconnu
+                          </span>
+                        )}
+                        {r.repeat && (
+                          <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">nouveau passage</span>
+                        )}
+                      </span>
+                      <span
+                        className={cx(
+                          "text-[13px] truncate",
+                          r.alert ? "text-orange-700 dark:text-orange-400 font-semibold" : "text-gray-500 dark:text-gray-400"
+                        )}
+                      >
+                        {r.alert || r.sub}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+
+          {!loading && groups.length === 0 && (
+            <div className="text-center py-10 px-4 text-sm text-gray-500 dark:text-gray-400">
+              {rows.length === 0 ? "Aucun passage ce jour-là." : "Aucun passage pour ce filtre."}
+            </div>
+          )}
+        </section>
+
+        {/* Colonne 3 : assiduité du membre sélectionné (écran large) */}
+        {aside && (
+          <aside aria-label="Assiduité du membre sélectionné" className="sticky top-4">
+            {aside}
+          </aside>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-6 lg:items-start space-y-3 lg:space-y-0">
+    <div className="space-y-3">
       {/* Colonne jour / résumé / filtres */}
-      <div className="space-y-3 lg:sticky lg:top-4">
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -266,7 +464,7 @@ export default function TodayView({
                         {r.kind === "exit" ? "↦" : "?"}
                       </span>
                     ) : (
-                      <Avatar name={r.name} firstName={r.first_name} size={40} />
+                      <Avatar photo={photos[r.member_id]} name={r.name} firstName={r.first_name} size={40} />
                     )}
                     <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <span className="flex items-center gap-1.5 min-w-0">

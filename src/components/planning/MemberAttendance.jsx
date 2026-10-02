@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Avatar from "../Avatar";
+import useMemberPhotos from "../../hooks/useMemberPhotos";
 import { MemberTypeTag } from "../../utils/memberTypes";
 import { isMemberActive } from "../../utils/memberRules";
 import { toDateString } from "../../utils/dateUtils";
@@ -70,9 +71,21 @@ export default function MemberAttendance({ memberId, compact = false }) {
     setSelDay(null);
   }, [memberId]);
 
-  // Fiche + présences : 90 derniers jours et mois affiché
+  // Fiche (sans photo : voir useMemberPhotos) — une fois par membre
   useEffect(() => {
-    if (!memberId) return;
+    if (!memberId) return undefined;
+    let cancelled = false;
+    fetchMemberLite(memberId)
+      .then((m) => !cancelled && setMember(m))
+      .catch((e) => !cancelled && setError(e.message));
+    return () => {
+      cancelled = true;
+    };
+  }, [memberId]);
+
+  // Présences : 90 derniers jours + mois affiché (horodatages seuls)
+  useEffect(() => {
+    if (!memberId) return undefined;
     let cancelled = false;
     const now = new Date();
     const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -81,18 +94,16 @@ export default function MemberAttendance({ memberId, compact = false }) {
 
     setLoading(true);
     setError("");
-    Promise.all([fetchMemberLite(memberId), fetchMemberTimestamps(memberId, from, to)])
-      .then(([m, ts]) => {
-        if (cancelled) return;
-        setMember(m);
-        setTimestamps(ts);
-      })
+    fetchMemberTimestamps(memberId, from, to)
+      .then((ts) => !cancelled && setTimestamps(ts))
       .catch((e) => !cancelled && setError(e.message))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
   }, [memberId, month]);
+
+  const photos = useMemberPhotos([memberId]);
 
   const stats = useMemo(() => computeAttendance(timestamps, member), [timestamps, member]);
 
@@ -151,41 +162,116 @@ export default function MemberAttendance({ memberId, compact = false }) {
       state: { member: { id: member.id }, returnPath: "/planning", memberId: member.id },
     });
 
-  return (
-    <div className={cx("space-y-3", loading && "opacity-70 transition-opacity")}>
-      {/* Carte membre */}
-      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3.5">
-        <div className="flex items-center gap-3.5">
-          <Avatar photo={member.photo} name={member.name} firstName={member.firstName} size={56} />
-          <div className="min-w-0 space-y-1.5">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-              {[member.firstName, member.name].filter(Boolean).join(" ")}
-            </h2>
-            <div className="flex flex-wrap items-center gap-1.5">
+  const header = (
+    <div className="flex items-center gap-3.5">
+      <Avatar photo={photos[member.id]} name={member.name} firstName={member.firstName} size={56} />
+      <div className="min-w-0 space-y-1.5">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+          {[member.firstName, member.name].filter(Boolean).join(" ")}
+        </h2>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={cx(
+              "text-xs font-semibold px-2.5 py-1 rounded-xl",
+              active || !isAdh
+                ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                : "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
+            )}
+          >
+            {status}
+          </span>
+          <MemberTypeTag type={member.member_type} />
+        </div>
+      </div>
+    </div>
+  );
+
+  const tiles = (
+    <div className="grid grid-cols-2 gap-2">
+      <StatTile label="Venues (30 jours)" value={stats.days30} tone={TONES.blue} />
+      <StatTile label="Moyenne" value={stats.avg} tone={TONES.green} />
+      <StatTile label="Dernier passage" value={stats.last} tone={TONES.gray} small />
+      <StatTile label="Régularité" value={stats.regularity} tone={TONES.purple} small />
+    </div>
+  );
+
+  // Panneau de droite de la vue Aujourd'hui (grand écran)
+  if (compact) {
+    const todayKey = toDateString(new Date());
+    const monday = startOfLocalDay(new Date());
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7) - 21);
+    const grid = Array.from({ length: 28 }).map((_, i) => {
+      const k = toDateString(addDays(monday, i));
+      return { k, times: byDay[k], future: k > todayKey };
+    });
+    return (
+      <div
+        className={cx(
+          "bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-4",
+          loading && "opacity-70 transition-opacity"
+        )}
+      >
+        {header}
+        {tiles}
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Jours de venue (4 dernières semaines)</h3>
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">
+            {WEEKDAYS.map((d, i) => (
+              <span key={i}>{d}</span>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {grid.map(({ k, times, future }) => (
               <span
+                key={k}
+                title={
+                  times
+                    ? `${fmtDayLong(new Date(`${k}T12:00:00`))} : ${times.map(fmtTime).join(", ")}`
+                    : fmtDayLong(new Date(`${k}T12:00:00`))
+                }
                 className={cx(
-                  "text-xs font-semibold px-2.5 py-1 rounded-xl",
-                  active || !isAdh
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
-                    : "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
+                  "h-[22px] rounded-md",
+                  times
+                    ? invalidKey(k)
+                      ? "bg-orange-300"
+                      : "bg-blue-600"
+                    : future
+                      ? "bg-transparent border border-dashed border-gray-200 dark:border-gray-700"
+                      : "bg-gray-100 dark:bg-gray-700"
                 )}
-              >
-                {status}
-              </span>
-              <MemberTypeTag type={member.member_type} />
-            </div>
+              />
+            ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <StatTile label="Jours de venue (30 j)" value={stats.days30} tone={TONES.blue} />
-          <StatTile label="Moyenne" value={stats.avg} tone={TONES.green} />
-          <StatTile label="Dernier passage" value={stats.last} tone={TONES.gray} small />
-          <StatTile label="Régularité" value={stats.regularity} tone={TONES.purple} small />
+        <div className="text-sm text-gray-700 dark:text-gray-300">
+          Créneau habituel : <strong>{stats.slot}</strong>
         </div>
+        <button
+          type="button"
+          onClick={openFile}
+          className="w-full h-11 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
+        >
+          Ouvrir la fiche complète
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cx(
+        "grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-5 lg:items-start",
+        loading && "opacity-70 transition-opacity"
+      )}
+    >
+      {/* Carte membre */}
+      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3.5 lg:col-start-1 lg:row-start-1">
+        {header}
+        {tiles}
       </section>
 
       {/* Calendrier du mois */}
-      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-4 space-y-2.5">
+      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 lg:p-5 space-y-2.5 lg:col-start-2 lg:row-start-1 lg:row-span-4">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -221,7 +307,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
         </div>
         <div className="grid grid-cols-7 gap-1">
           {Array.from({ length: lead }).map((_, i) => (
-            <span key={`e${i}`} className="h-9" />
+            <span key={`e${i}`} className="h-9 lg:h-11" />
           ))}
           {monthDays.map((k, i) => {
             const times = byDay[k];
@@ -230,7 +316,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
               return (
                 <span
                   key={k}
-                  className="h-9 rounded-xl flex items-center justify-center text-sm tabular-nums text-gray-700 dark:text-gray-300"
+                  className="h-9 lg:h-11 lg:w-11 lg:mx-auto rounded-xl flex items-center justify-center text-sm tabular-nums text-gray-700 dark:text-gray-300"
                 >
                   {label}
                 </span>
@@ -250,7 +336,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
                 aria-pressed={on}
                 onClick={() => setSelDay(k)}
                 className={cx(
-                  "h-9 rounded-xl flex items-center justify-center text-sm font-bold tabular-nums",
+                  "h-9 lg:h-11 lg:w-11 lg:mx-auto rounded-xl flex items-center justify-center text-sm font-bold tabular-nums",
                   invalid
                     ? "bg-orange-200 text-orange-900 dark:bg-orange-800/60 dark:text-orange-100"
                     : "bg-blue-600 text-white",
@@ -310,7 +396,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
       </section>
 
       {/* Habitudes (90 jours) */}
-      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
+      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3 lg:col-start-1">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white">Habitudes (90 jours)</h3>
         <div className="grid grid-cols-7 gap-1.5 items-end h-[72px]">
           {stats.week.map((n, i) => (
@@ -334,7 +420,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
       </section>
 
       {/* Derniers passages */}
-      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 px-4 py-2">
+      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm px-4 py-2 lg:col-start-1">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-2 mb-1">Derniers passages</h3>
         {recent.length === 0 && (
           <div className="py-3 text-sm text-gray-500 dark:text-gray-400">Aucun passage sur la période.</div>
@@ -353,7 +439,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
       <button
         type="button"
         onClick={openFile}
-        className="w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-[15px] font-semibold"
+        className="w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-[15px] font-semibold lg:col-start-1"
       >
         Ouvrir la fiche complète
       </button>
