@@ -9,6 +9,17 @@
 
 import { FaUserCheck, FaMale, FaFemale, FaGraduationCap } from "react-icons/fa";
 import { Card, StatBox } from "./ui";
+import { keyboardClickable } from "../utils/a11y";
+
+/** Filtres de la page Membres correspondant à chaque chiffre de la synthèse. */
+export const SYNTHESE_FILTERS = {
+  actifs: "AdhActifs",
+  hommes: "AdhHomme",
+  femmes: "AdhFemme",
+  etudiantsHommes: "EtuHomme",
+  etudiantsFemmes: "EtuFemme",
+  comite: "Comité",
+};
 
 const pct = (value, total) =>
   total > 0 ? Math.round((value / total) * 100) : 0;
@@ -21,6 +32,8 @@ const pct = (value, total) =>
  * @param {number} props.etudiantsHommes
  * @param {number} props.etudiantsFemmes
  * @param {number} props.comite - membres du comité actifs (hors synthèse)
+ * @param {string}   [props.activeFilter] - filtre sélectionné (page Membres)
+ * @param {Function} [props.onSelect] - si fourni, les chiffres deviennent des filtres
  */
 export default function ActiveMembersSummary({
   actifs = 0,
@@ -29,7 +42,21 @@ export default function ActiveMembersSummary({
   etudiantsHommes = 0,
   etudiantsFemmes = 0,
   comite = 0,
+  activeFilter,
+  onSelect,
 }) {
+  const select = (key) => (onSelect ? () => onSelect(SYNTHESE_FILTERS[key]) : undefined);
+  const isActive = (key) => Boolean(onSelect) && activeFilter === SYNTHESE_FILTERS[key];
+  const linkProps = (key) =>
+    onSelect
+      ? {
+          ...keyboardClickable(select(key)),
+          "aria-pressed": isActive(key),
+          className: `cursor-pointer rounded-lg px-1 -mx-1 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+            isActive(key) ? "ring-2 ring-green-400 dark:ring-green-500" : ""
+          }`,
+        }
+      : {};
   const menShare = pct(hommes, hommes + femmes);
   const ofActive = (value) => `${pct(value, actifs)} % des actifs`;
 
@@ -44,14 +71,18 @@ export default function ActiveMembersSummary({
             Synthèse des adhérents actifs
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            <span className="text-2xl font-bold text-gray-900 dark:text-white mr-1">
-              {actifs}
+            <span {...linkProps("actifs")}>
+              <span className="text-2xl font-bold text-gray-900 dark:text-white mr-1">
+                {actifs}
+              </span>
+              adhérents actifs
             </span>
-            adhérents actifs
           </p>
           {comite > 0 && (
             <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
-              + {comite} membre{comite > 1 ? "s" : ""} du comité (compté{comite > 1 ? "s" : ""} à part)
+              <span {...linkProps("comite")}>
+                + {comite} membre{comite > 1 ? "s" : ""} du comité (compté{comite > 1 ? "s" : ""} à part)
+              </span>
             </p>
           )}
         </div>
@@ -72,14 +103,32 @@ export default function ActiveMembersSummary({
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatBox icon={FaMale} label="Hommes" value={hommes} subtitle={ofActive(hommes)} tone="indigo" />
-        <StatBox icon={FaFemale} label="Femmes" value={femmes} subtitle={ofActive(femmes)} tone="pink" />
+        <StatBox
+          icon={FaMale}
+          label="Hommes"
+          value={hommes}
+          subtitle={ofActive(hommes)}
+          tone="indigo"
+          active={isActive("hommes")}
+          onClick={select("hommes")}
+        />
+        <StatBox
+          icon={FaFemale}
+          label="Femmes"
+          value={femmes}
+          subtitle={ofActive(femmes)}
+          tone="pink"
+          active={isActive("femmes")}
+          onClick={select("femmes")}
+        />
         <StatBox
           icon={FaGraduationCap}
           label="Étudiants hommes"
           value={etudiantsHommes}
           subtitle={ofActive(etudiantsHommes)}
           tone="yellow"
+          active={isActive("etudiantsHommes")}
+          onClick={select("etudiantsHommes")}
         />
         <StatBox
           icon={FaGraduationCap}
@@ -87,6 +136,8 @@ export default function ActiveMembersSummary({
           value={etudiantsFemmes}
           subtitle={ofActive(etudiantsFemmes)}
           tone="yellow"
+          active={isActive("etudiantsFemmes")}
+          onClick={select("etudiantsFemmes")}
         />
       </div>
     </Card>

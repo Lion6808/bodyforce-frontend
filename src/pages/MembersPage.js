@@ -36,7 +36,7 @@ import {
   isCountedMember,
   MemberTypeTag,
 } from "../utils/memberTypes";
-import { isMemberExpired, computeMemberStats } from "../utils/memberRules";
+import { isMemberExpired, isAdherent, computeMemberStats } from "../utils/memberRules";
 import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MembersOverview from "../components/MembersOverview";
@@ -279,6 +279,13 @@ function MembersPage() {
       result = result.filter((m) => m.gender === "Femme" && !isMemberExpired(m));
     } else if (activeFilter === "Etudiant") {
       result = result.filter((m) => m.etudiant && !isMemberExpired(m));
+    } else if (["AdhActifs", "AdhHomme", "AdhFemme", "EtuHomme", "EtuFemme"].includes(activeFilter)) {
+      // Synthèse des adhérents actifs : adhérents seuls (ni comité ni maintenance)
+      result = result.filter((m) => isAdherent(m) && !isMemberExpired(m));
+      if (activeFilter === "AdhHomme") result = result.filter((m) => m.gender === "Homme");
+      if (activeFilter === "AdhFemme") result = result.filter((m) => m.gender === "Femme");
+      if (activeFilter === "EtuHomme") result = result.filter((m) => m.etudiant && m.gender === "Homme");
+      if (activeFilter === "EtuFemme") result = result.filter((m) => m.etudiant && m.gender === "Femme");
     } else if (activeFilter === "Expiré") {
       result = result.filter((m) => isMemberExpired(m));
     } else if (activeFilter === "Récent") {
@@ -833,7 +840,7 @@ function MembersPage() {
       />
 
       {/* 6.2a -- Synthèse des adhérents actifs */}
-      <ActiveMembersSummary {...synthese} />
+      <ActiveMembersSummary {...synthese} activeFilter={activeFilter} onSelect={setActiveFilter} />
 
       {/* 6.2b -- Filtres spéciaux (Badges récents, Sans certif, Comité, Maintenance) */}
       <div className="grid grid-cols-2 gap-4 mb-6">
