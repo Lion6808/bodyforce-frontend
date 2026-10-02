@@ -20,7 +20,6 @@ import {
   FaTrash,
   FaPlus,
   FaSync,
-  FaExternalLinkAlt,
   FaChevronLeft,
   FaChevronRight,
   FaSearch,
@@ -34,18 +33,17 @@ import {
 import {
   isMaintenance,
   isCountedMember,
-  MemberTypeTag,
 } from "../utils/memberTypes";
 import { isMemberExpired, isAdherent, computeMemberStats } from "../utils/memberRules";
-import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MembersOverview from "../components/MembersOverview";
+import useMemberPhotos from "../hooks/useMemberPhotos";
+import MemberIdentity from "../components/MemberIdentity";
 import { MetricTile } from "../components/ui";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { parseSearch, matchesSearch } from "../utils/memberSearch";
 import { SearchHints } from "../components/ui/SearchHints";
-import { keyboardClickable } from "../utils/a11y";
 import { getSubscriptionEndDate, formatIsoDateFr } from "../utils/subscription";
 import MemberStatusPills from "../components/MemberStatusPills";
 
@@ -117,8 +115,6 @@ function MembersPage() {
 
   // Pagination & photos
   const [currentPage, setCurrentPage] = useState(1);
-  const [photosCache, setPhotosCache] = useState({});
-  const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   // Mobile modal
 
@@ -128,7 +124,6 @@ function MembersPage() {
 
   const memberRefs = useRef({});
   const restoreRef = useRef(null);
-  const photosLoadingRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // 5.3 -- Derived / memoised values
@@ -320,48 +315,8 @@ function MembersPage() {
     setCurrentPage(1);
   }, [members, search, sortAsc, activeFilter]);
 
-  // Lazy-load photos for the current page
-  useEffect(() => {
-    if (loading || paginatedMembers.length === 0) return;
-    if (photosLoadingRef.current) return;
-
-    const loadPhotosForCurrentPage = async () => {
-      const memberIds = paginatedMembers.map((m) => m.id);
-      const missingIds = memberIds.filter((id) => !(id in photosCache));
-
-      if (missingIds.length === 0) return;
-
-      try {
-        photosLoadingRef.current = true;
-        setLoadingPhotos(true);
-
-        const newPhotos = (await supabaseServices.getMemberPhotos(missingIds)) || {};
-
-        const nextCache = { ...photosCache, ...newPhotos };
-        for (const id of missingIds) {
-          if (!(id in newPhotos)) nextCache[id] = null;
-        }
-
-        // Only update state if the cache actually changed
-        let changed = false;
-        const keys = new Set([...Object.keys(photosCache), ...Object.keys(nextCache)]);
-        for (const k of keys) {
-          if (photosCache[k] !== nextCache[k]) {
-            changed = true;
-            break;
-          }
-        }
-        if (changed) setPhotosCache(nextCache);
-      } catch (err) {
-        console.error("Error loading photos:", err);
-      } finally {
-        setLoadingPhotos(false);
-        photosLoadingRef.current = false;
-      }
-    };
-
-    loadPhotosForCurrentPage();
-  }, [currentPage, paginatedMembers, loading, photosCache]);
+  // Photos des seuls membres de la page affichée (cache commun à toute l'appli)
+  const photosCache = useMemberPhotos(loading ? [] : paginatedMembers.map((m) => m.id));
 
   // ---------------------------------------------------------------------------
   // 5.5 -- Handlers
@@ -1024,13 +979,12 @@ function MembersPage() {
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                     </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Photo</th>
                     <th className="p-3 text-left">
                       <button
                         onClick={() => setSortAsc(!sortAsc)}
                         className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                       >
-                        Nom{" "}
+                        Membre{" "}
                         <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "\u25B2" : "\u25BC"}</span>
                       </button>
                     </th>
@@ -1066,32 +1020,15 @@ function MembersPage() {
                           />
                         </td>
 
-                        {/* Avatar */}
+                        {/* Membre : photo + nom (composant commun, ouvre la fiche) */}
                         <td className="p-3">
-                          <Avatar
-                            photo={photosCache[member.id] || null}
-                            firstName={member.firstName}
-                            name={member.name}
+                          <MemberIdentity
+                            member={member}
+                            photo={photosCache[member.id] ?? null}
                             size={48}
-                            onClick={() => handleEditMember(member)}
-                            title="Cliquer pour modifier"
+                            subtitle={`ID : ${member.id}`}
+                            onOpen={handleEditMember}
                           />
-                        </td>
-
-                        {/* Name */}
-                        <td className="p-3">
-                          <div
-                            className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200 flex items-center gap-2 group"
-                            {...keyboardClickable(() => handleEditMember(member))}
-                            title="Cliquer pour modifier"
-                          >
-                            <span>
-                              {member.name} {member.firstName}
-                            </span>
-                            <MemberTypeTag type={member.member_type} />
-                            <FaExternalLinkAlt className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200" />
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
                         </td>
 
                         {/* Info (gender, student, email, phone) */}
@@ -1254,25 +1191,14 @@ function MembersPage() {
                         onChange={() => toggleSelect(member.id)}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
                       />
-                      <Avatar
-                        photo={photosCache[member.id] || null}
-                        firstName={member.firstName}
-                        name={member.name}
+                      <MemberIdentity
+                        className="flex-1"
+                        member={member}
+                        photo={photosCache[member.id] ?? null}
                         size={48}
-                        onClick={() => handleEditMember(member)}
-                        title="Cliquer pour modifier"
+                        subtitle={`ID : ${member.id}`}
+                            onOpen={handleEditMember}
                       />
-                      <div className="flex-1">
-                        <div
-                          className="font-semibold text-gray-900 dark:text-white text-lg cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200"
-                          {...keyboardClickable(() => handleEditMember(member))}
-                          title="Cliquer pour modifier"
-                        >
-                          {member.name} {member.firstName}
-                        </div>
-                        <MemberTypeTag type={member.member_type} />
-                        <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
-                      </div>
                     </div>
                   </div>
 
@@ -1458,12 +1384,6 @@ function MembersPage() {
               Affichage de {startIndex + 1}-{Math.min(endIndex, filteredMembers.length)} sur {filteredMembers.length} membre
               {filteredMembers.length !== 1 ? "s" : ""} filtrés — {members.length} total
             </div>
-            {loadingPhotos && (
-              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                Chargement photos...
-              </div>
-            )}
           </div>
           {selectedIds.length > 0 && (
             <div className="mt-2 text-blue-600 dark:text-blue-400 font-medium">

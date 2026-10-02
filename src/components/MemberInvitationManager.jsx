@@ -1,10 +1,12 @@
 // src/components/MemberInvitationManager.jsx
 import React, { useState } from 'react';
+import { formatDateTimeFr } from "../utils/dateUtils";
+import MemberIdentity, { badgeLabel } from "./MemberIdentity";
 import { toast } from 'react-toastify';
 import { inviteMember, resendInvitation, cancelInvitation } from '../utils/invitationService';
 import './MemberInvitationManager.css'; // On créera le CSS après
 
-const MemberInvitationManager = ({ member, onUpdate }) => {
+const MemberInvitationManager = ({ member, photo, onUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState(member.email || '');
   const [showEmailInput, setShowEmailInput] = useState(!member.email);
@@ -73,23 +75,13 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
     );
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
 
   const renderActions = () => {
     if (member.user_id) {
       return (
         <div className="invitation-status">
           <span className="account-created">
-            ✅ Compte créé le {formatDate(member.account_created_at)}
+            ✅ Compte créé le {formatDateTimeFr(member.account_created_at)}
           </span>
         </div>
       );
@@ -156,7 +148,7 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
           <div className="invitation-actions">
             <div className="invitation-info">
               <span className="invited-date">
-                📅 Invité le {formatDate(member.invited_at)}
+                📅 Invité le {formatDateTimeFr(member.invited_at)}
               </span>
               <span className="invited-email">
                 📧 {member.email}
@@ -186,7 +178,7 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
           <div className="invitation-actions">
             <div className="invitation-info">
               <span className="expired-info">
-                ⚠️ Invitation expirée - Invité le {formatDate(member.invited_at)}
+                ⚠️ Invitation expirée - Invité le {formatDateTimeFr(member.invited_at)}
               </span>
             </div>
             <button
@@ -207,12 +199,13 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
   return (
     <div className="member-invitation-manager">
       <div className="member-header">
-        <div className="member-info">
-          <h4 className="member-name">
-            {member.firstName} {member.name}
-          </h4>
-          <span className="member-badge">Badge: {member.badgeId}</span>
-        </div>
+        <MemberIdentity
+          className="flex-1"
+          member={member}
+          photo={photo}
+          size={48}
+          subtitle={badgeLabel(member)}
+        />
         {getStatusBadge()}
       </div>
       

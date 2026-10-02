@@ -10,11 +10,11 @@
 // Optimisations egress :
 //   - Les membres sont charges SANS photo (select minimal)
 //   - Les photos sont chargees en lazy-load une fois les listes pretes
-//   - Un cache local (photosCache) evite les rechargements inutiles
+//   - Photos via useMemberPhotos (cache commun à toute l'appli)
 //   - Composant Avatar reutilisable pour l'affichage des photos/initiales
 // =============================================================================
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { parseISO, format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -26,6 +26,7 @@ import {
 } from "react-icons/fa";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MembersOverview from "../components/MembersOverview";
+import useMemberPhotos from "../hooks/useMemberPhotos";
 import { SkeletonPulse, SkeletonListItem } from "../components/home/HomeSkeletons";
 import { AdminMotivationWidgets } from "../components/home/AdminMotivationWidgets";
 
@@ -209,8 +210,6 @@ function HomePage() {
   const [latestMembers, setLatestMembers] = useState([]);
 
   // Cache des photos (lazy-load)
-  const [photosCache, setPhotosCache] = useState({});
-  const photosLoadingRef = useRef(false);
 
   // Stats personnelles de l'admin (streak, niveau, etc.)
   const [adminPersonalStats, setAdminPersonalStats] = useState({
@@ -538,62 +537,9 @@ function HomePage() {
   // 5.6 — Effect : lazy-load des photos pour les membres affiches
   // ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    const loadPhotosForDisplayedMembers = async () => {
-      if (photosLoadingRef.current) return;
-
-      // Collecter tous les IDs de membres visibles
-      const memberIds = new Set();
-      latestMembers.forEach((m) => {
-        if (m.id) memberIds.add(m.id);
-      });
-      recentPresences.forEach((r) => {
-        if (r.member?.id) memberIds.add(r.member.id);
-      });
-
-      // Ne charger que les photos manquantes du cache
-      const missingIds = Array.from(memberIds).filter(
-        (id) => !(id in photosCache)
-      );
-      if (missingIds.length === 0) return;
-
-      try {
-        photosLoadingRef.current = true;
-
-        const newPhotos =
-          (await supabaseServices.getMemberPhotos(missingIds)) || {};
-        const nextCache = { ...photosCache, ...newPhotos };
-
-        // Marquer les IDs sans photo comme null pour eviter de re-charger
-        for (const id of missingIds) {
-          if (!(id in newPhotos)) nextCache[id] = null;
-        }
-
-        // Ne mettre a jour le state que si le cache a reellement change
-        const hasChanged = missingIds.some(
-          (id) => photosCache[id] !== nextCache[id]
-        );
-        if (hasChanged) setPhotosCache(nextCache);
-      } catch (err) {
-        console.error("Erreur chargement photos:", err);
-      } finally {
-        photosLoadingRef.current = false;
-      }
-    };
-
-    if (
-      !loading.latestMembers &&
-      !loading.presences &&
-      (latestMembers.length > 0 || recentPresences.length > 0)
-    ) {
-      loadPhotosForDisplayedMembers();
-    }
-  }, [
-    latestMembers,
-    recentPresences,
-    loading.latestMembers,
-    loading.presences,
-    photosCache,
+  const photosCache = useMemberPhotos([
+    ...latestMembers.map((m) => m.id),
+    ...recentPresences.map((r) => r.member?.id),
   ]);
 
   // ---------------------------------------------------------------------------

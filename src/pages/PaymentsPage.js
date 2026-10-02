@@ -13,7 +13,11 @@
 // SECTION 1 -- Imports
 // =============================================================================
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import useMemberPhotos from "../hooks/useMemberPhotos";
+import MemberIdentity, { badgeLabel } from "../components/MemberIdentity";
+import { formatDateFr, formatDateTimeFr } from "../utils/dateUtils";
+
 import jsPDF from "jspdf";
 import {
   CreditCard,
@@ -36,12 +40,16 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-import Avatar from "../components/Avatar";
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { parseSearch, matchesSearch } from "../utils/memberSearch";
 import { SearchHints } from "../components/ui/SearchHints";
+
+
+/** Dates de la page : format commun, « Non définie » si absente. */
+const fmtDate = (v) => formatDateFr(v, "Non définie");
+const fmtDateTime = (v) => formatDateTimeFr(v, "Non définie");
 
 // =============================================================================
 // SECTION 3 -- Payment helper functions (stateless)
@@ -95,25 +103,7 @@ const getStatusLabel = (status) => {
   }
 };
 
-/** Format a date string to French locale (date only). */
-const formatDate = (dateString) => {
-  if (!dateString) return "Non définie";
-  try {
-    return new Date(dateString).toLocaleDateString("fr-FR");
-  } catch {
-    return "Date invalide";
-  }
-};
 
-/** Format a date string to French locale (date + time). */
-const formatDateTime = (dateString) => {
-  if (!dateString) return "Non définie";
-  try {
-    return new Date(dateString).toLocaleString("fr-FR");
-  } catch {
-    return "Date invalide";
-  }
-};
 
 // =============================================================================
 // SECTION 5 -- Constants
@@ -189,9 +179,6 @@ function PaymentsPage() {
   // ---------------------------------------------------------------------------
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [photosCache, setPhotosCache] = useState({});
-  const [loadingPhotos, setLoadingPhotos] = useState(false);
-  const photosLoadingRef = useRef(false);
 
   // ---------------------------------------------------------------------------
   // 6.6 -- Data loading
@@ -216,7 +203,7 @@ function PaymentsPage() {
         .select(
           `
             id, member_id, amount, method, is_paid, date_paiement, encaissement_prevu, commentaire,
-            members (id, badgeId, name, firstName, email, phone, mobile)
+            members (id, badgeId, badge_number, name, firstName, member_type, email, phone, mobile)
           `
         )
         .order("date_paiement", { ascending: false });
@@ -340,48 +327,8 @@ function PaymentsPage() {
   // 6.11 -- Lazy-load photos for the current page
   // ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    if (loading || paginatedMembers.length === 0) return;
-    if (photosLoadingRef.current) return;
-
-    const loadPhotosForCurrentPage = async () => {
-      const memberIds = paginatedMembers.map((m) => m.id);
-      const missingIds = memberIds.filter((id) => !(id in photosCache));
-
-      if (missingIds.length === 0) return;
-
-      try {
-        photosLoadingRef.current = true;
-        setLoadingPhotos(true);
-
-        const newPhotos = (await supabaseServices.getMemberPhotos(missingIds)) || {};
-        const nextCache = { ...photosCache, ...newPhotos };
-
-        // Mark members with no photo as null so we don't re-fetch
-        for (const id of missingIds) {
-          if (!(id in newPhotos)) nextCache[id] = null;
-        }
-
-        // Only update state if the cache actually changed
-        let changed = false;
-        const keys = new Set([...Object.keys(photosCache), ...Object.keys(nextCache)]);
-        for (const k of keys) {
-          if (photosCache[k] !== nextCache[k]) {
-            changed = true;
-            break;
-          }
-        }
-        if (changed) setPhotosCache(nextCache);
-      } catch (err) {
-        console.error("Erreur chargement photos:", err);
-      } finally {
-        setLoadingPhotos(false);
-        photosLoadingRef.current = false;
-      }
-    };
-
-    loadPhotosForCurrentPage();
-  }, [currentPage, paginatedMembers, loading, photosCache]);
+  // Photos des seuls membres de la page affichée (cache commun à toute l'appli)
+  const photosCache = useMemberPhotos(loading ? [] : paginatedMembers.map((m) => m.id));
 
   // ---------------------------------------------------------------------------
   // 6.12 -- Pagination navigation
@@ -574,7 +521,7 @@ function PaymentsPage() {
         );
 
         const lastPayment = member.lastPaymentDate
-          ? formatDate(member.lastPaymentDate)
+          ? fmtDate(member.lastPaymentDate)
           : "Aucun";
         doc.text(lastPayment, 235, yPos);
 
@@ -630,7 +577,7 @@ function PaymentsPage() {
         "Paiements Effectués": member.payments.filter((p) => p.is_paid).length,
         "Paiements en Retard": member.payments.filter((p) => !p.is_paid && isOverdue(p)).length,
         "Dernier Paiement": member.lastPaymentDate
-          ? formatDate(member.lastPaymentDate)
+          ? fmtDate(member.lastPaymentDate)
           : "Aucun",
       }));
 
@@ -854,32 +801,13 @@ function PaymentsPage() {
           <div className="p-4">
             {/* Member identity row */}
             <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="flex-shrink-0">
-                  <Avatar
-                    photo={photosCache[member.id] || null}
-                    firstName={member.firstName}
-                    name={member.name}
-                    size={48}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4
-                    className={`text-lg font-semibold ${
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    } truncate`}
-                  >
-                    {member.firstName || "Prénom"} {member.name || "Nom"}
-                  </h4>
-                  <p
-                    className={`text-sm ${
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    Badge: {member.badgeId || "N/A"}
-                  </p>
-                </div>
-              </div>
+              <MemberIdentity
+                className="flex-1"
+                member={member}
+                photo={photosCache[member.id] ?? null}
+                size={48}
+                subtitle={badgeLabel(member)}
+              />
               <div className="flex-shrink-0 ml-2">
                 <span
                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
@@ -1113,7 +1041,7 @@ function PaymentsPage() {
                             </span>
                             <div className="font-medium">
                               {payment.is_paid
-                                ? formatDate(payment.date_paiement)
+                                ? fmtDate(payment.date_paiement)
                                 : "Non payé"}
                             </div>
                           </div>
@@ -1126,7 +1054,7 @@ function PaymentsPage() {
                               Échéance:
                             </span>
                             <div className="font-medium">
-                              {formatDate(payment.encaissement_prevu)}
+                              {fmtDate(payment.encaissement_prevu)}
                             </div>
                           </div>
                         </div>
@@ -1499,11 +1427,6 @@ function PaymentsPage() {
                 }`}
               >
                 {filteredMembers.length} membre(s) affiché(s) sur {members.length}
-                {loadingPhotos && (
-                  <span className="ml-2 text-blue-500">
-                    &bull; Chargement photos...
-                  </span>
-                )}
               </p>
               {(searchTerm || statusFilter !== "all") && (
                 <button
@@ -1659,33 +1582,12 @@ function PaymentsPage() {
                       >
                         {/* Member identity cell */}
                         <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <Avatar
-                                photo={photosCache[member.id] || null}
-                                firstName={member.firstName}
-                                name={member.name}
-                                size={40}
-                              />
-                            </div>
-                            <div className="ml-4">
-                              <div
-                                className={`text-sm font-medium ${
-                                  isDarkMode ? "text-white" : "text-gray-900"
-                                }`}
-                              >
-                                {member.firstName || "Prénom"}{" "}
-                                {member.name || "Nom"}
-                              </div>
-                              <div
-                                className={`text-sm ${
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                                }`}
-                              >
-                                Badge: {member.badgeId || "N/A"}
-                              </div>
-                            </div>
-                          </div>
+                          <MemberIdentity
+                            member={member}
+                            photo={photosCache[member.id] ?? null}
+                            size={40}
+                            subtitle={badgeLabel(member)}
+                          />
                         </td>
 
                         {/* Status badge cell */}
@@ -1776,7 +1678,7 @@ function PaymentsPage() {
                                     isDarkMode ? "text-gray-500" : "text-gray-400"
                                   }`}
                                 />
-                                {formatDate(member.lastPaymentDate)}
+                                {fmtDate(member.lastPaymentDate)}
                               </div>
                             ) : (
                               <span
@@ -1930,7 +1832,7 @@ function PaymentsPage() {
                                               </span>
                                               <div className="font-medium">
                                                 {payment.is_paid
-                                                  ? formatDateTime(
+                                                  ? fmtDateTime(
                                                       payment.date_paiement
                                                     )
                                                   : "Non payé"}
@@ -1947,7 +1849,7 @@ function PaymentsPage() {
                                                 Encaissement prévu:
                                               </span>
                                               <div className="font-medium">
-                                                {formatDate(
+                                                {fmtDate(
                                                   payment.encaissement_prevu
                                                 )}
                                               </div>
@@ -2142,27 +2044,13 @@ function PaymentsPage() {
                       isDarkMode ? "bg-gray-700" : "bg-gray-50"
                     } rounded-lg`}
                   >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-lg">
-                        {getPaymentMethodIcon(payment.method)}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div
-                          className={`font-medium text-sm ${
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          } truncate`}
-                        >
-                          {payment.members?.firstName} {payment.members?.name}
-                        </div>
-                        <div
-                          className={`text-xs ${
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
-                          }`}
-                        >
-                          {formatDate(payment.date_paiement)}
-                        </div>
-                      </div>
-                    </div>
+                    <MemberIdentity
+                      className="flex-1"
+                      member={payment.members}
+                      size={36}
+                      subtitle={fmtDate(payment.date_paiement)}
+                      extra={<span className="flex-shrink-0">{getPaymentMethodIcon(payment.method)}</span>}
+                    />
                     <div className="text-right flex-shrink-0">
                       <div className="font-medium text-sm lg:text-base text-green-600">
                         {parseFloat(payment.amount).toFixed(2)} €

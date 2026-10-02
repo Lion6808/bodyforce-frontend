@@ -2,6 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import MemberInvitationManager from '../components/MemberInvitationManager';
+import useMemberPhotos from '../hooks/useMemberPhotos';
+import { parseSearch, matchesSearch } from '../utils/memberSearch';
+
+// Egress : jamais de select('*') sur members (photos ~50 Ko chacune) ;
+// 30 fiches affichées à la fois, photos chargées pour celles-ci seulement.
+const PAGE = 30;
+const MEMBER_COLUMNS =
+  'id, name, firstName, email, mobile, badgeId, badge_number, member_type, invitation_status, invited_at, account_created_at, user_id';
 import { FaUserPlus, FaSearch, FaFilter, FaUsers } from 'react-icons/fa';
 
 const InvitationsPage = () => {
@@ -9,6 +17,7 @@ const InvitationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [shown, setShown] = useState(PAGE);
 
   useEffect(() => {
     fetchMembers();
@@ -19,7 +28,7 @@ const InvitationsPage = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('members')
-        .select('*')
+        .select(MEMBER_COLUMNS)
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -32,29 +41,31 @@ const InvitationsPage = () => {
   };
 
   const handleMemberUpdate = (updatedMember) => {
-    setMembers(prev => 
-      prev.map(member => 
+    setMembers(prev =>
+      prev.map(member =>
         member.id === updatedMember.id ? updatedMember : member
       )
     );
   };
 
-  // Filtrer les membres selon la recherche et le statut
+  // Filtrer les membres : recherche commune (nom, prénom, e-mail, badge court ou long, jokers)
+  const searchClauses = parseSearch(searchTerm);
   const filteredMembers = members.filter(member => {
-    const matchesSearch = 
-      (member.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) || '') ||
-      (member.name?.toLowerCase().includes(searchTerm.toLowerCase()) || '') ||
-      (member.email?.toLowerCase().includes(searchTerm.toLowerCase()) || '') ||
-      (member.badgeId?.toLowerCase().includes(searchTerm.toLowerCase()) || '');
+    const matchesSearchQuery = matchesSearch(member, searchClauses);
 
-    const matchesStatus = statusFilter === 'all' || 
+    const matchesStatus = statusFilter === 'all' ||
       (statusFilter === 'not_invited' && (!member.invitation_status || member.invitation_status === 'not_invited')) ||
       (statusFilter === 'pending' && member.invitation_status === 'pending') ||
       (statusFilter === 'accepted' && member.user_id) ||
       (statusFilter === 'expired' && member.invitation_status === 'expired');
 
-    return matchesSearch && matchesStatus;
+    return matchesSearchQuery && matchesStatus;
   });
+
+  // Revenir aux 30 premières fiches quand la recherche ou le filtre change
+  useEffect(() => setShown(PAGE), [searchTerm, statusFilter]);
+  const visibleMembers = filteredMembers.slice(0, shown);
+  const photos = useMemberPhotos(visibleMembers.map((m) => m.id));
 
   // Statistiques
   const stats = {
@@ -150,7 +161,7 @@ const InvitationsPage = () => {
 
         {/* Résultats de recherche */}
         <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-          {filteredMembers.length} membre{filteredMembers.length > 1 ? 's' : ''} 
+          {filteredMembers.length} membre{filteredMembers.length > 1 ? 's' : ''}
           {searchTerm && ` correspondant${filteredMembers.length > 1 ? 's' : ''} à "${searchTerm}"`}
           {statusFilter !== 'all' && ` avec le statut "${statusFilter}"`}
         </div>
@@ -169,13 +180,23 @@ const InvitationsPage = () => {
             </p>
           </div>
         ) : (
-          filteredMembers.map(member => (
+          visibleMembers.map(member => (
             <MemberInvitationManager
               key={member.id}
               member={member}
+              photo={photos[member.id] ?? null}
               onUpdate={handleMemberUpdate}
             />
           ))
+        )}
+        {filteredMembers.length > shown && (
+          <button
+            type="button"
+            onClick={() => setShown((n) => n + PAGE)}
+            className="w-full h-11 rounded-2xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+          >
+            Afficher plus (encore {filteredMembers.length - shown})
+          </button>
         )}
       </div>
     </div>

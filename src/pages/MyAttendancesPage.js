@@ -13,6 +13,7 @@
 // ============================================================================
 
 import React, { useEffect, useMemo, useState } from "react";
+import { formatDate as formatIntl } from "../utils/dateUtils";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -35,27 +36,6 @@ import {
 // SECTION 2 -- Date helpers
 // ============================================================================
 
-/**
- * Format a Date using Intl.DateTimeFormat for a predefined set of patterns.
- * @param {Date} date - The date to format.
- * @param {string} fmt - One of the supported format keys (e.g. "dd/MM/yyyy").
- * @returns {string} The formatted date string, or "" on error.
- */
-const formatIntl = (date, fmt) => {
-  try {
-    const map = {
-      "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
-      "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
-      "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
-      "MMMM yyyy": { month: "long", year: "numeric" },
-      "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
-    };
-    if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
-    return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
-  } catch {
-    return "";
-  }
-};
 
 /**
  * Convert a Date to a "YYYY-MM-DD" string without relying on toISOString (avoids UTC shift).

@@ -3,6 +3,7 @@
 // 💳 Paiements : même logique que l’admin (colonnes FR supportées)
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { formatDate as formatIntl } from "../utils/dateUtils";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../supabaseClient";
 import {
@@ -78,20 +79,6 @@ const parseFlexibleDate = (value) => {
   return null;
 };
 
-const formatIntl = (date, fmt) => {
-  try {
-    const map = {
-      "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
-      "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
-      "MMMM yyyy": { month: "long", year: "numeric" },
-      "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
-    };
-    if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
-    return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
-  } catch {
-    return "";
-  }
-};
 
 const calcAge = (birthDate) => {
   if (!birthDate) return null;

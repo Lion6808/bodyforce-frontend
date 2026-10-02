@@ -79,18 +79,17 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.11.1";
+const APP_VERSION = "2.12.0";
 
 const CHANGELOG = {
-  version: "2.11.1",
+  version: "2.12.0",
   date: "Octobre 2026",
   changes: [
-    "Fiche membre : « Abonnement depuis le … » au lieu d'une date erronée, textes accentués",
-    "Utilisateurs sur mobile : une fiche par compte, sans défilement horizontal",
-    "Paiements : tableau entièrement visible sur ordinateur, textes techniques retirés",
-    "Statistiques : grands nombres lisibles (9 694, 23 659)",
-    "Accueil : paiements du membre chargés en une seule requête (plus d'erreurs en arrière-plan)",
-    "Recherche par n° de badge court et long ; Synthèse des adhérents cliquable",
+    "Une personne s'affiche partout de la même façon : photo, nom, étiquette, badge, lien vers la fiche",
+    "Messagerie bien plus légère : les photos ne sont plus rechargées pour tous les membres à chaque message",
+    "Invitations : 30 fiches à la fois, recherche par nom, e-mail ou n° de badge",
+    "Photos chargées une seule fois par session, quelle que soit la page",
+    "Badge présent sur deux fiches : la fiche active l'emporte (Planning et statistiques)",
   ],
 };
 
