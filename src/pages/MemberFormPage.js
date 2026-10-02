@@ -64,6 +64,7 @@ import {
   DEFAULT_MEMBER_TYPE,
   MemberTypeTag,
 } from "../utils/memberTypes";
+import { isMemberExpired } from "../utils/memberRules";
 
 // ===================================================================
 // SECTION 2 -- Date Utilities
@@ -889,7 +890,7 @@ function MemberFormPage() {
       )
     : null;
 
-  const isExpired = form.endDate && new Date(form.endDate) < new Date();
+  const isExpired = isMemberExpired(form);
 
   // -----------------------------------------------------------------
   // 9.4 -- Event handlers
