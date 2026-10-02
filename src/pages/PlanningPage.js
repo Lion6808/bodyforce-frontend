@@ -22,11 +22,11 @@
 // SECTION 1 -- Imports
 // ============================================================================
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
-import { supabase, supabaseServices } from "../supabaseClient";
+import { supabase } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import { isMaintenance, MemberTypeTag } from "../utils/memberTypes";
 import { useNavigate } from "react-router-dom";
@@ -55,6 +55,7 @@ import {
   startOfYear,
   endOfYear,
 } from "date-fns";
+import { formatDate, parseTimestamp, toDateString, isWeekend, isToday } from "../utils/dateUtils";
 
 // ============================================================================
 // SECTION 2 -- Constants & Configuration
@@ -75,47 +76,6 @@ const PAGE_SIZE = 10;
 
 /** Concatenate CSS class names, filtering out falsy values */
 const cn = (...classes) => classes.filter(Boolean).join(" ");
-
-/**
- * Format a Date object according to a predefined format key.
- * Uses Intl.DateTimeFormat with locale "fr-FR".
- * @param {Date} date
- * @param {string} fmt - One of: "yyyy-MM-dd", "dd/MM/yyyy", "EEE dd/MM",
- *                        "EEE dd", "HH:mm", "MMMM yyyy", "EEEE dd MMMM"
- * @returns {string}
- */
-const formatDate = (date, fmt) => {
-  const map = {
-    "yyyy-MM-dd": { year: "numeric", month: "2-digit", day: "2-digit" },
-    "dd/MM/yyyy": { day: "2-digit", month: "2-digit", year: "numeric" },
-    "EEE dd/MM": { weekday: "short", day: "2-digit", month: "2-digit" },
-    "EEE dd": { weekday: "short", day: "2-digit" },
-    "HH:mm": { hour: "2-digit", minute: "2-digit", hour12: false },
-    "MMMM yyyy": { month: "long", year: "numeric" },
-    "EEEE dd MMMM": { weekday: "long", day: "numeric", month: "long" },
-  };
-  if (fmt === "yyyy-MM-dd") return date.toISOString().split("T")[0];
-  return new Intl.DateTimeFormat("fr-FR", map[fmt] || {}).format(date);
-};
-
-/** Parse a timestamp string into a Date object */
-const parseTimestamp = (ts) => new Date(ts);
-
-/**
- * Convert a Date to "YYYY-MM-DD" string (local timezone).
- * @param {Date|null} date
- * @returns {string}
- */
-const toDateString = (date) => {
-  if (!date) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
-
-/** Check if a date falls on a weekend (Saturday or Sunday) */
-const isWeekend = (date) => [0, 6].includes(date.getDay());
 
 /** Check if a date falls within the given interval (inclusive) */
 const isWithinInterval = (date, interval) =>
@@ -169,9 +129,6 @@ const addYears = (d, n) => {
 
 /** Subtract n weeks from a date */
 const subWeeks = (d, n) => addWeeks(d, -n);
-
-/** Check if a date is today */
-const isToday = (d) => d.toDateString() === new Date().toDateString();
 
 // ============================================================================
 // SECTION 4 -- Tailwind CSS class maps

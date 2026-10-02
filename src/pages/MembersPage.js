@@ -15,7 +15,6 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
-import { keyboardClickable } from "../utils/a11y";
 import {
   FaEdit,
   FaTrash,
@@ -27,7 +26,6 @@ import {
   FaSearch,
   FaFileImport,
   FaFileExport,
-  FaUsers,
   FaClock,
   FaFileMedical,
   FaUserTie,
@@ -45,108 +43,10 @@ import MembersOverview from "../components/MembersOverview";
 import { MetricTile } from "../components/ui";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
-
-// =============================================================================
-// SECTION 2 -- Search utilities (stateless helpers)
-// =============================================================================
-
-/**
- * Normalise a string for accent-insensitive, lowercase comparison.
- * @param {string} s - Input string.
- * @returns {string} Normalised string.
- */
-const normalize = (s = "") =>
-  s
-    .toString()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-/** Escape regex-special characters but leave wildcard markers intact. */
-const escapeForWildcard = (s) => s.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&");
-
-/**
- * Convert a single user-facing search token to a RegExp.
- * Supports `*` (any chars), `?` (one char), `^` / `$` anchors.
- * @param {string} tokenRaw - Raw token typed by the user.
- * @returns {RegExp|null}
- */
-const tokenToRegex = (tokenRaw) => {
-  if (!tokenRaw) return null;
-  let t = tokenRaw.trim();
-  const anchoredStart = t.startsWith("^");
-  const anchoredEnd = t.endsWith("$");
-  if (anchoredStart) t = t.slice(1);
-  if (anchoredEnd) t = t.slice(0, -1);
-  t = escapeForWildcard(t);
-  t = t.replace(/\*/g, ".*").replace(/\?/g, ".");
-  if (!anchoredStart) t = ".*" + t;
-  if (!anchoredEnd) t = t + ".*";
-  return new RegExp("^" + t + "$", "i");
-};
-
-/**
- * Parse a search string into an array of OR-clauses.
- * Each clause is an array of RegExp (AND tokens).
- * @param {string} search - Raw search input.
- * @returns {RegExp[][]}
- */
-const parseSearch = (search) => {
-  const raw = (search || "").trim();
-  if (!raw) return [];
-  const orClauses = raw
-    .split(/\s+OR\s+/i)
-    .map((c) => c.trim())
-    .filter(Boolean);
-  return orClauses.map((clause) =>
-    clause
-      .split(/\s+/)
-      .map((tok) => tok.trim())
-      .filter(Boolean)
-      .map(tokenToRegex)
-      .filter(Boolean)
-  );
-};
-
-/**
- * Test whether a member matches a set of compiled search clauses.
- * @param {object} member - Member record.
- * @param {RegExp[][]} compiledClauses - Output of parseSearch().
- * @returns {boolean}
- */
-const matchesSearch = (member, compiledClauses) => {
-  if (!compiledClauses.length) return true;
-  const haystack = normalize(
-    [member.name, member.firstName, member.badgeId, member.email, member.mobile]
-      .filter(Boolean)
-      .join(" ")
-  );
-  return compiledClauses.some((tokens) => tokens.every((rx) => rx.test(haystack)));
-};
-
-/**
- * Analyse raw search text and return metadata for the SearchHints component.
- * @param {string} raw - Raw search input.
- * @returns {{ active: boolean, clauses: string[][], hasWildcards: boolean, hasAnchors: boolean }}
- */
-const analyzeSearch = (raw) => {
-  const text = (raw || "").trim();
-  if (!text)
-    return { active: false, clauses: [], hasWildcards: false, hasAnchors: false };
-  const orParts = text
-    .split(/\s+OR\s+/i)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const clauses = orParts.map((p) =>
-    p.split(/\s+/).map((t) => t.trim()).filter(Boolean)
-  );
-  return {
-    active: true,
-    clauses,
-    hasWildcards: /[*?]/.test(text),
-    hasAnchors: /(\^|\$)/.test(text),
-  };
-};
+import { parseSearch, matchesSearch } from "../utils/memberSearch";
+import { SearchHints } from "../components/ui/SearchHints";
+import { keyboardClickable } from "../utils/a11y";
+import MemberStatusPills from "../components/MemberStatusPills";
 
 // =============================================================================
 // SECTION 3 -- Constants & configuration
@@ -209,124 +109,6 @@ const memberHasFiles = (member) => {
   if (typeof member.files === "string") return member.files !== "[]" && member.files !== "";
   return Object.keys(member.files).length > 0;
 };
-
-// =============================================================================
-// SECTION 4 -- Sub-components
-// =============================================================================
-
-// 4.1 -- SearchHints
-// -----------------------------------------------------------------------------
-
-/**
- * Inline component that renders contextual hints about the current search query.
- * @param {{ search: string }} props
- */
-function SearchHints({ search }) {
-  const info = analyzeSearch(search);
-  if (!info.active) return null;
-
-  return (
-    <div className="w-full sm:w-auto sm:max-w-[36rem] text-xs mt-1 space-y-1">
-      {/* Active-mode badges */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-          Recherche avancée
-        </span>
-        {info.hasWildcards && (
-          <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700">
-            Jokers * et ?
-          </span>
-        )}
-        {info.hasAnchors && (
-          <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700">
-            Ancres ^ et $
-          </span>
-        )}
-      </div>
-
-      {/* Clause visualisation */}
-      <div className="flex flex-wrap items-center gap-2">
-        {info.clauses.map((tokens, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-            title="Tous les tokens d'un groupe = AND"
-          >
-            {tokens.map((t, j) => (
-              <span
-                key={j}
-                className="px-1.5 py-0.5 rounded bg-white/70 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 font-mono"
-              >
-                {t}
-              </span>
-            ))}
-            <span className="ml-1 text-[11px] uppercase tracking-wide text-gray-600 dark:text-gray-300">
-              AND
-            </span>
-          </div>
-        ))}
-        {info.clauses.length > 1 && (
-          <span
-            className="text-[11px] uppercase tracking-wide text-gray-600 dark:text-gray-300"
-            title="Groupes reliés par OR"
-          >
-            (Groupes reliés par OR)
-          </span>
-        )}
-      </div>
-
-      {/* Usage examples */}
-      <div className="text-[11px] text-gray-500 dark:text-gray-400">
-        Exemples : <code className="font-mono">b*</code> (commence par b),{" "}
-        <code className="font-mono">*son</code> (finit par son),{" "}
-        <code className="font-mono">mar?</code> (mar + 1 char),{" "}
-        <code className="font-mono">homme mar*</code> (AND),{" "}
-        <code className="font-mono">b* OR mar*</code> (OR),{" "}
-        <code className="font-mono">^mar*</code> (ancré début),{" "}
-        <code className="font-mono">*tin$</code> (ancré fin).
-      </div>
-    </div>
-  );
-}
-
-// 4.2 -- Widget
-// -----------------------------------------------------------------------------
-
-/**
- * Clickable stat widget used in the filter bar.
- * @param {{ title: string, value: number, onClick: Function, active: boolean }} props
- */
-function Widget({ title, value, onClick, active = false }) {
-  return (
-    <div
-      {...keyboardClickable(onClick)}
-      className={`p-3 rounded-3xl text-center cursor-pointer transition-colors duration-150 border-2 transform-gpu ${
-        active
-          ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 shadow-md"
-          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-200 dark:hover:border-blue-700 shadow-sm"
-      }`}
-    >
-      <div
-        className={`text-sm ${
-          active
-            ? "text-blue-700 dark:text-blue-300 font-medium"
-            : "text-gray-500 dark:text-gray-400"
-        }`}
-      >
-        {title}
-      </div>
-      <div
-        className={`text-xl font-bold ${
-          active
-            ? "text-blue-800 dark:text-blue-200"
-            : "text-gray-800 dark:text-gray-200"
-        }`}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
 
 // =============================================================================
 // SECTION 5 -- Main component
@@ -1406,28 +1188,7 @@ function MembersPage() {
                         {/* Status */}
                         <td className="p-3">
                           <div className="flex flex-col gap-1">
-                            {isMaintenance(member) ? (
-                              <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Maintenance
-                              </span>
-                            ) : isExpired ? (
-                              <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Expiré
-                              </span>
-                            ) : (
-                              <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Actif
-                              </span>
-                            )}
-                            {hasFiles ? (
-                              <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Docs OK
-                              </span>
-                            ) : (
-                              <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
-                                Manquant
-                              </span>
-                            )}
+                            <MemberStatusPills member={member} isExpired={isExpired} hasFiles={hasFiles} />
                           </div>
                         </td>
 
@@ -1614,28 +1375,7 @@ function MembersPage() {
 
                   {/* Card status badges */}
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {isMaintenance(member) ? (
-                      <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Maintenance
-                      </span>
-                    ) : isExpired ? (
-                      <span className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Expiré
-                      </span>
-                    ) : (
-                      <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Actif
-                      </span>
-                    )}
-                    {hasFiles ? (
-                      <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Docs OK
-                      </span>
-                    ) : (
-                      <span className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-2 py-1 rounded-full text-xs font-medium">
-                        Manquant
-                      </span>
-                    )}
+                    <MemberStatusPills member={member} isExpired={isExpired} hasFiles={hasFiles} />
                   </div>
 
                   {/* Card actions */}
