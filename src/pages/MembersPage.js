@@ -20,7 +20,6 @@ import {
   FaTrash,
   FaPlus,
   FaSync,
-  FaExternalLinkAlt,
   FaChevronLeft,
   FaChevronRight,
   FaSearch,
@@ -34,19 +33,17 @@ import {
 import {
   isMaintenance,
   isCountedMember,
-  MemberTypeTag,
 } from "../utils/memberTypes";
 import { isMemberExpired, isAdherent, computeMemberStats } from "../utils/memberRules";
-import Avatar from "../components/Avatar";
 import ActiveMembersSummary from "../components/ActiveMembersSummary";
 import MembersOverview from "../components/MembersOverview";
 import useMemberPhotos from "../hooks/useMemberPhotos";
+import MemberIdentity from "../components/MemberIdentity";
 import { MetricTile } from "../components/ui";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { parseSearch, matchesSearch } from "../utils/memberSearch";
 import { SearchHints } from "../components/ui/SearchHints";
-import { keyboardClickable } from "../utils/a11y";
 import { getSubscriptionEndDate, formatIsoDateFr } from "../utils/subscription";
 import MemberStatusPills from "../components/MemberStatusPills";
 
@@ -982,13 +979,12 @@ function MembersPage() {
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                       />
                     </th>
-                    <th className="p-3 text-left text-gray-700 dark:text-gray-300">Photo</th>
                     <th className="p-3 text-left">
                       <button
                         onClick={() => setSortAsc(!sortAsc)}
                         className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                       >
-                        Nom{" "}
+                        Membre{" "}
                         <span className="text-gray-500 dark:text-gray-400">{sortAsc ? "\u25B2" : "\u25BC"}</span>
                       </button>
                     </th>
@@ -1024,32 +1020,15 @@ function MembersPage() {
                           />
                         </td>
 
-                        {/* Avatar */}
+                        {/* Membre : photo + nom (composant commun, ouvre la fiche) */}
                         <td className="p-3">
-                          <Avatar
-                            photo={photosCache[member.id] || null}
-                            firstName={member.firstName}
-                            name={member.name}
+                          <MemberIdentity
+                            member={member}
+                            photo={photosCache[member.id] ?? null}
                             size={48}
-                            onClick={() => handleEditMember(member)}
-                            title="Cliquer pour modifier"
+                            subtitle={`ID : ${member.id}`}
+                            onOpen={handleEditMember}
                           />
-                        </td>
-
-                        {/* Name */}
-                        <td className="p-3">
-                          <div
-                            className="font-medium text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200 flex items-center gap-2 group"
-                            {...keyboardClickable(() => handleEditMember(member))}
-                            title="Cliquer pour modifier"
-                          >
-                            <span>
-                              {member.name} {member.firstName}
-                            </span>
-                            <MemberTypeTag type={member.member_type} />
-                            <FaExternalLinkAlt className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200" />
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
                         </td>
 
                         {/* Info (gender, student, email, phone) */}
@@ -1212,25 +1191,14 @@ function MembersPage() {
                         onChange={() => toggleSelect(member.id)}
                         className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 mt-1"
                       />
-                      <Avatar
-                        photo={photosCache[member.id] || null}
-                        firstName={member.firstName}
-                        name={member.name}
+                      <MemberIdentity
+                        className="flex-1"
+                        member={member}
+                        photo={photosCache[member.id] ?? null}
                         size={48}
-                        onClick={() => handleEditMember(member)}
-                        title="Cliquer pour modifier"
+                        subtitle={`ID : ${member.id}`}
+                            onOpen={handleEditMember}
                       />
-                      <div className="flex-1">
-                        <div
-                          className="font-semibold text-gray-900 dark:text-white text-lg cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition-all duration-200"
-                          {...keyboardClickable(() => handleEditMember(member))}
-                          title="Cliquer pour modifier"
-                        >
-                          {member.name} {member.firstName}
-                        </div>
-                        <MemberTypeTag type={member.member_type} />
-                        <div className="text-sm text-gray-500 dark:text-gray-400">ID: {member.id}</div>
-                      </div>
                     </div>
                   </div>
 

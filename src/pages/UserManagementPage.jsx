@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import styles from "./UserManagementPage.module.css";
+import MemberIdentity from "../components/MemberIdentity";
 
 function UserManagementPage() {
   const { user, role } = useAuth();
@@ -75,7 +76,7 @@ function UserManagementPage() {
     try {
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id,name,firstName,user_id,email,phone,mobile,subscriptionType,startDate,endDate')
+        .select('id,name,firstName,member_type,user_id,email,phone,mobile,subscriptionType,startDate,endDate')
         .order('name', { ascending: true });
 
       if (membersError) throw membersError;
@@ -360,9 +361,7 @@ const updateRole = async (userId, newRole) => {
                         <td className={styles.tableCell} data-label="Membre lié">
                           {linkedMember ? (
                             <div className={styles.linkedMember}>
-                              <span className={styles.linkedMemberName}>
-                                {linkedMember.firstName} {linkedMember.name}
-                              </span>
+                              <MemberIdentity member={linkedMember} size={32} />
                               <button
                                 onClick={() => unlinkUserFromMember(linkedMember.id)}
                                 className={styles.unlinkButton}

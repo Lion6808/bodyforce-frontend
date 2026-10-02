@@ -15,6 +15,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import useMemberPhotos from "../hooks/useMemberPhotos";
+import MemberIdentity, { badgeLabel } from "../components/MemberIdentity";
 import { formatDateFr, formatDateTimeFr } from "../utils/dateUtils";
 
 import jsPDF from "jspdf";
@@ -39,7 +40,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-import Avatar from "../components/Avatar";
 import { toast } from "react-toastify";
 import { supabase, supabaseServices } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
@@ -203,7 +203,7 @@ function PaymentsPage() {
         .select(
           `
             id, member_id, amount, method, is_paid, date_paiement, encaissement_prevu, commentaire,
-            members (id, badgeId, name, firstName, email, phone, mobile)
+            members (id, badgeId, badge_number, name, firstName, member_type, email, phone, mobile)
           `
         )
         .order("date_paiement", { ascending: false });
@@ -801,32 +801,13 @@ function PaymentsPage() {
           <div className="p-4">
             {/* Member identity row */}
             <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="flex-shrink-0">
-                  <Avatar
-                    photo={photosCache[member.id] || null}
-                    firstName={member.firstName}
-                    name={member.name}
-                    size={48}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4
-                    className={`text-lg font-semibold ${
-                      isDarkMode ? "text-white" : "text-gray-900"
-                    } truncate`}
-                  >
-                    {member.firstName || "Prénom"} {member.name || "Nom"}
-                  </h4>
-                  <p
-                    className={`text-sm ${
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    }`}
-                  >
-                    Badge: {member.badgeId || "N/A"}
-                  </p>
-                </div>
-              </div>
+              <MemberIdentity
+                className="flex-1"
+                member={member}
+                photo={photosCache[member.id] ?? null}
+                size={48}
+                subtitle={badgeLabel(member)}
+              />
               <div className="flex-shrink-0 ml-2">
                 <span
                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
@@ -1601,33 +1582,12 @@ function PaymentsPage() {
                       >
                         {/* Member identity cell */}
                         <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <Avatar
-                                photo={photosCache[member.id] || null}
-                                firstName={member.firstName}
-                                name={member.name}
-                                size={40}
-                              />
-                            </div>
-                            <div className="ml-4">
-                              <div
-                                className={`text-sm font-medium ${
-                                  isDarkMode ? "text-white" : "text-gray-900"
-                                }`}
-                              >
-                                {member.firstName || "Prénom"}{" "}
-                                {member.name || "Nom"}
-                              </div>
-                              <div
-                                className={`text-sm ${
-                                  isDarkMode ? "text-gray-400" : "text-gray-500"
-                                }`}
-                              >
-                                Badge: {member.badgeId || "N/A"}
-                              </div>
-                            </div>
-                          </div>
+                          <MemberIdentity
+                            member={member}
+                            photo={photosCache[member.id] ?? null}
+                            size={40}
+                            subtitle={badgeLabel(member)}
+                          />
                         </td>
 
                         {/* Status badge cell */}
@@ -2084,27 +2044,13 @@ function PaymentsPage() {
                       isDarkMode ? "bg-gray-700" : "bg-gray-50"
                     } rounded-lg`}
                   >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-lg">
-                        {getPaymentMethodIcon(payment.method)}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div
-                          className={`font-medium text-sm ${
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          } truncate`}
-                        >
-                          {payment.members?.firstName} {payment.members?.name}
-                        </div>
-                        <div
-                          className={`text-xs ${
-                            isDarkMode ? "text-gray-400" : "text-gray-500"
-                          }`}
-                        >
-                          {fmtDate(payment.date_paiement)}
-                        </div>
-                      </div>
-                    </div>
+                    <MemberIdentity
+                      className="flex-1"
+                      member={payment.members}
+                      size={36}
+                      subtitle={fmtDate(payment.date_paiement)}
+                      extra={<span className="flex-shrink-0">{getPaymentMethodIcon(payment.method)}</span>}
+                    />
                     <div className="text-right flex-shrink-0">
                       <div className="font-medium text-sm lg:text-base text-green-600">
                         {parseFloat(payment.amount).toFixed(2)} €

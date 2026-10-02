@@ -1,11 +1,12 @@
 // src/components/MemberInvitationManager.jsx
 import React, { useState } from 'react';
 import { formatDateTimeFr } from "../utils/dateUtils";
+import MemberIdentity, { badgeLabel } from "./MemberIdentity";
 import { toast } from 'react-toastify';
 import { inviteMember, resendInvitation, cancelInvitation } from '../utils/invitationService';
 import './MemberInvitationManager.css'; // On créera le CSS après
 
-const MemberInvitationManager = ({ member, onUpdate }) => {
+const MemberInvitationManager = ({ member, photo, onUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState(member.email || '');
   const [showEmailInput, setShowEmailInput] = useState(!member.email);
@@ -198,12 +199,13 @@ const MemberInvitationManager = ({ member, onUpdate }) => {
   return (
     <div className="member-invitation-manager">
       <div className="member-header">
-        <div className="member-info">
-          <h4 className="member-name">
-            {member.firstName} {member.name}
-          </h4>
-          <span className="member-badge">Badge: {member.badgeId}</span>
-        </div>
+        <MemberIdentity
+          className="flex-1"
+          member={member}
+          photo={photo}
+          size={48}
+          subtitle={badgeLabel(member)}
+        />
         {getStatusBadge()}
       </div>
       

@@ -1,5 +1,7 @@
 // 📄 src/pages/MessagesPage.jsx — Version corrigée avec vraies fonctionnalités
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import useMemberPhotos from "../hooks/useMemberPhotos";
+import MemberIdentity from "../components/MemberIdentity";
 import { supabase } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import { useAuth } from "../contexts/AuthContext";
@@ -29,6 +31,7 @@ import {
 import * as MsgSvc from "../services/messagesService";
 
 const ADMIN_SENTINEL = -1;
+const CONV_PAGE = 30; // contacts affichés à la fois (egress : photos)
 
 // Déduplique un tableau d’objets sur une clé
 const dedupeBy = (rows, keyFn) => {
@@ -136,7 +139,7 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
     // Étape 1: Récupérer tous les membres (sauf l'admin)
     const { data: members, error: membersError } = await supabase
       .from("members")
-      .select("id, firstName, name, photo, badgeId")
+      .select("id, firstName, name, badgeId")
       .neq("id", adminMemberId)
       .order("name", { ascending: true });
 
@@ -242,7 +245,6 @@ const getEnhancedAdminConversations = async (adminMemberId) => {
         otherId: member.id,
         otherFirstName: member.firstName || "",
         otherName: member.name || "",
-        photo: member.photo || null,
         lastMessagePreview: lastMsg?.preview || "Commencer une conversation",
         lastMessageDate: lastMsg?.date || null,
         unread: unreadCount,
@@ -612,6 +614,17 @@ export default function MessagesPage() {
     });
   }, [convs, searchTerm]);
 
+  // Egress : 30 contacts affichés à la fois, photos chargées pour ceux-ci seulement
+  const [shownConvs, setShownConvs] = useState(CONV_PAGE);
+  useEffect(() => setShownConvs(CONV_PAGE), [searchTerm]);
+  const visibleConversations = filteredConversations.slice(0, shownConvs);
+  const convPhotos = useMemberPhotos(
+    visibleConversations.map((c) => c.otherId).filter((id) => id && id !== ADMIN_SENTINEL)
+  );
+  const visibleWithPhotos = visibleConversations.map((c) =>
+    c.otherId === ADMIN_SENTINEL ? c : { ...c, photo: convPhotos[c.otherId] ?? null }
+  );
+
   // ========= EFFETS =========
 
   // Heartbeat toutes les 90 secondes
@@ -946,7 +959,7 @@ export default function MessagesPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {filteredConversations.map((conv) => (
+          {visibleWithPhotos.map((conv) => (
             <div
               key={conv.otherId}
               {...keyboardClickable(() => {
@@ -988,6 +1001,15 @@ export default function MessagesPage() {
               </div>
             </div>
           ))}
+          {filteredConversations.length > shownConvs && (
+            <button
+              type="button"
+              onClick={() => setShownConvs((n) => n + CONV_PAGE)}
+              className="w-full py-3 text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+            >
+              Afficher plus (encore {filteredConversations.length - shownConvs})
+            </button>
+          )}
         </div>
       </div>
     );
@@ -1086,6 +1108,15 @@ export default function MessagesPage() {
               </div>
             ))
           )}
+          {filteredConversations.length > shownConvs && (
+            <button
+              type="button"
+              onClick={() => setShownConvs((n) => n + CONV_PAGE)}
+              className="w-full py-3 text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+            >
+              Afficher plus (encore {filteredConversations.length - shownConvs})
+            </button>
+          )}
         </div>
       </div>
 
@@ -1114,26 +1145,11 @@ export default function MessagesPage() {
             {/* Header du chat - FIXE */}
             <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
               <div className="flex items-center justify-between">
+                {activeOtherId === ADMIN_SENTINEL ? (
                 <div className="flex items-center gap-4">
-                  <Avatar
-                    member={
-                      activeOtherId === ADMIN_SENTINEL
-                        ? { id: ADMIN_SENTINEL }
-                        : filteredConversations.find((c) => c.otherId === activeOtherId)
-                    }
-                    size="lg"
-                    showOnline={isMemberOnline(activeOtherId)}
-                  />
-
+                  <Avatar member={{ id: ADMIN_SENTINEL }} size="lg" showOnline={isMemberOnline(activeOtherId)} />
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {activeOtherId === ADMIN_SENTINEL
-                        ? "Équipe BodyForce"
-                        : (() => {
-                          const conv = filteredConversations.find((c) => c.otherId === activeOtherId);
-                          return `${conv?.otherFirstName || ""} ${conv?.otherName || ""}`;
-                        })()}
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Équipe BodyForce</h3>
                     <div className="flex items-center gap-2">
                       <OnlineIndicator isOnline={isMemberOnline(activeOtherId)} />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -1142,6 +1158,19 @@ export default function MessagesPage() {
                     </div>
                   </div>
                 </div>
+                ) : (
+                  (() => {
+                    const conv = convs.find((c) => c.otherId === activeOtherId);
+                    return (
+                      <MemberIdentity
+                        member={{ id: activeOtherId, firstName: conv?.otherFirstName, name: conv?.otherName }}
+                        size={48}
+                        subtitle={isMemberOnline(activeOtherId) ? "En ligne" : "Hors ligne"}
+                        extra={<OnlineIndicator isOnline={isMemberOnline(activeOtherId)} />}
+                      />
+                    );
+                  })()
+                )}
 
                 <div className="flex items-center gap-2">
                   <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
@@ -1450,6 +1479,15 @@ export default function MessagesPage() {
                       </div>
                     </label>
                   ))}
+                {filteredConversations.length > shownConvs && (
+                  <button
+                    type="button"
+                    onClick={() => setShownConvs((n) => n + CONV_PAGE)}
+                    className="w-full py-3 text-sm font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                  >
+                    Afficher plus (encore {filteredConversations.length - shownConvs})
+                  </button>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">
