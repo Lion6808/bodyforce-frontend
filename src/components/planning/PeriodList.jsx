@@ -39,7 +39,10 @@ export default function PeriodList({ rows, loading, selectedWho, onSelectRow, sc
   }
 
   return (
-    <div className={cx(scrollable && "flex-1 min-h-0 overflow-y-auto", "pb-3")}>
+    <div
+      aria-busy={loading}
+      className={cx(scrollable && "flex-1 min-h-0 overflow-y-auto", "pb-3 transition-opacity", loading && "opacity-40")}
+    >
       <div className="divide-y divide-gray-100 dark:divide-gray-700">
         {visible.map((r) => {
           const selected = selectedWho && selectedWho === r.who;

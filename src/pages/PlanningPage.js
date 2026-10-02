@@ -16,7 +16,7 @@
  * get_member_presences (lien présence → membre via badge_history daté).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -117,16 +117,23 @@ function PlanningPage() {
     }
   }, []);
 
+  // Seule la dernière demande compte (une réponse lente ne doit pas écraser la suivante)
+  const attendanceReq = useRef(0);
   const loadAttendance = useCallback(async (p, d) => {
+    const req = ++attendanceReq.current;
     setAttendanceLoading(true);
     setDayError("");
     try {
       const { start, end } = periodRange(p, d);
-      setAttendance(await fetchAttendance(start, end));
+      const rows = await fetchAttendance(start, end);
+      if (req === attendanceReq.current) setAttendance(rows);
     } catch (e) {
-      setDayError(e.message);
+      if (req === attendanceReq.current) {
+        setAttendance([]);
+        setDayError(e.message);
+      }
     } finally {
-      setAttendanceLoading(false);
+      if (req === attendanceReq.current) setAttendanceLoading(false);
     }
   }, []);
 

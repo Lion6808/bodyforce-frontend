@@ -192,8 +192,9 @@ export default function TodayView({
           />
 
           <section
-            aria-label="Résumé de la journée"
-            className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3"
+            aria-label="Résumé de la période"
+            aria-busy={!isDay && attendanceLoading}
+            className={cx("bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3 transition-opacity", !isDay && attendanceLoading && "opacity-40")}
           >
             <div className="grid grid-cols-3 gap-2">
               <div>
@@ -273,7 +274,9 @@ export default function TodayView({
           <div className="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300">
             <span className={cx("w-2 h-2 rounded-full flex-shrink-0", lastReceived ? "bg-green-600" : "bg-gray-400")} />
             <span className="flex-1 min-w-0 truncate">
-              {!isDay
+              {!isDay && attendanceLoading
+                ? `${periodLabel(period, day)} · chargement…`
+                : !isDay
                 ? `${periodLabel(period, day)} · ${plural(totalPeople, "personne", "personnes")}, du plus assidu au moins assidu`
                 : isTodayView
                   ? lastTodayTs
@@ -408,7 +411,9 @@ export default function TodayView({
         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <span className={cx("w-2 h-2 rounded-full flex-shrink-0", lastReceived ? "bg-green-600" : "bg-gray-400")} />
           <span className="flex-1 min-w-0 truncate">
-            {!isDay
+            {!isDay && attendanceLoading
+              ? "Chargement…"
+              : !isDay
               ? `${plural(totalPeople, "personne", "personnes")}, du plus assidu au moins assidu`
               : lastTodayTs
                 ? isTodayView
@@ -428,8 +433,9 @@ export default function TodayView({
 
         {/* Résumé */}
         <section
-          aria-label="Résumé de la journée"
-          className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-4"
+          aria-label="Résumé de la période"
+            aria-busy={!isDay && attendanceLoading}
+          className={cx("bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-4 transition-opacity", !isDay && attendanceLoading && "opacity-40")}
         >
           <div className="grid grid-cols-3 gap-2">
             <div>
