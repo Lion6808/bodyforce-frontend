@@ -9,7 +9,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { RefusedTag } from "../ui";
+import { AccessTag } from "../ui";
 import MemberIdentity from "../MemberIdentity";
 import { keyboardClickable } from "../../utils/a11y";
 import DayCalendar from "./DayCalendar";
@@ -87,11 +87,14 @@ function PassageIdentity({ r, photos, size }) {
       subtitle={[r.badgeNo, r.alert || r.sub].filter(Boolean).join(" · ")}
       subtitleTone={r.alert ? "alert" : "muted"}
       extra={
-        r.refused ? (
-          <RefusedTag />
-        ) : r.repeat ? (
-          <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">nouveau passage</span>
-        ) : null
+        r.kind === "exit" ? null : (
+          <>
+            {r.repeat && !r.refused && (
+              <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">nouveau passage</span>
+            )}
+            <AccessTag refused={r.refused} />
+          </>
+        )
       }
     />
   );

@@ -54,7 +54,7 @@ import { supabaseServices, supabase } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import { useAuth } from "../contexts/AuthContext";
 import MemberIdentity from "../components/MemberIdentity";
-import { RefusedTag } from "../components/ui";
+import { AccessTag } from "../components/ui";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -1141,7 +1141,7 @@ function HomePage() {
                               ].join(" · ")} • `
                         }${timeAgo}`}
                         subtitleTone={r.refused ? "alert" : "muted"}
-                        extra={r.refused ? <RefusedTag /> : null}
+                        extra={isBP ? null : <AccessTag refused={r.refused} />}
                       />
 
                       {/* Heure + date */}

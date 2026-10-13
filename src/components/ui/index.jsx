@@ -7,13 +7,13 @@
 // Pill        : petite étiquette arrondie (statut)
 // Skeleton    : bloc de chargement animé
 // EmptyState  : message « aucune donnée »
-// RefusedTag  : étiquette « Refusé » d'un passage refusé par le lecteur de badge
+// AccessTag   : passage accepté (coche verte) ou refusé (étiquette rouge) par le lecteur
 //
 // Design repris à l'identique des pages existantes (voir tones.js).
 // Les tuiles cliquables sont accessibles au clavier (Entrée / Espace).
 // ===================================================================
 
-import { XCircle } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { keyboardClickable } from "../../utils/a11y";
 import { getTone } from "./tones";
 
@@ -167,9 +167,21 @@ export function EmptyState({ icon: Icon, title = "Aucune donnée", children, cla
 }
 
 // -------------------------------------------------------------------
-// RefusedTag — passage refusé par le lecteur (presences.accepte = false)
+// AccessTag — résultat du lecteur de badge (presences.accepte)
+// Accepté : coche verte discrète ; refusé : étiquette rouge « Refusé ».
 // -------------------------------------------------------------------
-export function RefusedTag({ className = "" }) {
+export function AccessTag({ refused = false, className = "" }) {
+  if (!refused) {
+    return (
+      <span
+        className={cx("flex-shrink-0 inline-flex text-green-600 dark:text-green-400", className)}
+        title="Accès accepté par le lecteur"
+      >
+        <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+        <span className="sr-only">Accepté</span>
+      </span>
+    );
+  }
   return (
     <span
       className={cx(
