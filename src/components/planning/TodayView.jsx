@@ -61,8 +61,14 @@ function decorate(passages) {
       alert = p.end_date ? `Abonnement expiré le ${fmtDate(p.end_date)}` : "Aucune date de fin d'abonnement";
     else sub = `Abonnement jusqu'au ${fmtDate(p.end_date)}`;
 
-    // N° court du badge lu (badge_mapping), y compris badge inconnu ou refusé
-    const badgeNo = p.badge_number != null ? `n° ${p.badge_number}` : "";
+    // Badge lu : n° court (badge_mapping) + n° long ; pour un badge inconnu,
+    // le n° long est déjà le titre de la ligne
+    const badgeNo = kind === "exit"
+      ? ""
+      : [
+          p.badge_number != null ? `Badge n° ${p.badge_number}` : kind === "inconnu" ? "" : "Badge",
+          kind === "inconnu" ? "" : p.badge_id,
+        ].filter(Boolean).join(" · ");
     return { ...p, kind, who, refused, repeat, alert, sub, badgeNo, hour: new Date(p.ts).getHours() };
   });
   return rows.reverse();

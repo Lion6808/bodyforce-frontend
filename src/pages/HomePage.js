@@ -1135,11 +1135,10 @@ function HomePage() {
                         }${
                           isBP
                             ? "Bouton Poussoir • "
-                            : r.badgeNumber != null
-                              ? `Badge n° ${r.badgeNumber} • `
-                              : m?.badgeId
-                                ? `Badge ${m.badgeId} • `
-                                : ""
+                            : `${[
+                                r.badgeNumber != null ? `Badge n° ${r.badgeNumber}` : "Badge",
+                                r.badgeId,
+                              ].join(" · ")} • `
                         }${timeAgo}`}
                         subtitleTone={r.refused ? "alert" : "muted"}
                         extra={r.refused ? <RefusedTag /> : null}
