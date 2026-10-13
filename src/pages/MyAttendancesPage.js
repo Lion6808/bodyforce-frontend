@@ -584,7 +584,7 @@ function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
           : "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300";
 
   return (
-    <div className={`p-4 rounded-2xl border dark:border-gray-700 shadow-sm bg-gradient-to-br ${gradient}`}>
+    <div className={`p-4 rounded-2xl border dark:border-gray-700 shadow-lg bg-gradient-to-br ${gradient}`}>
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}>
           <Icon className="text-lg" />
@@ -774,7 +774,7 @@ export default function MyAttendancesPage() {
 
       {!loading && user && userMemberData && badgeId && (
         <>
-          <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
+          <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg mb-6">
             <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
@@ -857,7 +857,7 @@ export default function MyAttendancesPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
               <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
                 Répartition par jour de la semaine
               </div>
@@ -874,7 +874,7 @@ export default function MyAttendancesPage() {
               )}
             </div>
 
-            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
               <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
                 Répartition par heure
               </div>
@@ -901,7 +901,7 @@ export default function MyAttendancesPage() {
           )}
 
           {stats.dailyStats.length > 0 && (
-            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
               <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
                 Historique détaillé des visites
               </div>

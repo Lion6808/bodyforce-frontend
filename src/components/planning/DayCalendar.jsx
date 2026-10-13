@@ -59,7 +59,7 @@ export default function DayCalendar({ day, onChangeDay }) {
   const isCurrentMonth = y === new Date().getFullYear() && mo === new Date().getMonth();
 
   return (
-    <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-2.5">
+    <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-4 space-y-2.5">
       <div className="flex items-center justify-between">
         <button
           type="button"

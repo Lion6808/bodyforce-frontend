@@ -849,7 +849,7 @@ function HomePage() {
       {user && (
         loading.stats ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
               <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
               <SkeletonPulse className="h-10 w-20 mb-4 rounded" />
               <div className="grid grid-cols-2 gap-3">
@@ -857,7 +857,7 @@ function HomePage() {
                 <SkeletonPulse className="h-20 rounded-2xl" />
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
               <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
               <div className="grid grid-cols-3 gap-3">
                 <SkeletonPulse className="h-20 rounded-2xl" />
@@ -902,7 +902,7 @@ function HomePage() {
       {/* 6.4 — Liste des paiements du membre connecte (non-admin)           */}
       {/* ------------------------------------------------------------------ */}
       {user && !isAdmin && (
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 mb-8 border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <FaCreditCard className="text-blue-500" />
@@ -994,7 +994,7 @@ function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
 
           {/* --- Graphique en barres : presences sur 7 jours --- */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Présences — 7 derniers jours
@@ -1079,7 +1079,7 @@ function HomePage() {
           </div>
 
           {/* --- Liste des derniers passages (Realtime) --- */}
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Derniers passages
@@ -1185,7 +1185,7 @@ function HomePage() {
       {/* 6.6 — Derniers badges attribues (admin)                            */}
       {/* ------------------------------------------------------------------ */}
       {isAdmin && (
-        <div className="block w-full bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 mb-8 border border-gray-100 dark:border-gray-700">
+        <div className="block w-full bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Derniers badges attribués
@@ -1234,7 +1234,7 @@ function HomePage() {
       {/* 6.7 — Abonnements echus (admin)                                    */}
       {/* ------------------------------------------------------------------ */}
       {isAdmin && (
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm p-6 mb-8 border border-gray-100 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 mb-8 border border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
             Abonnements échus
           </h2>

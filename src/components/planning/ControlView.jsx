@@ -90,7 +90,7 @@ export default function ControlView({ control, loading, error, onSeenChange, onO
       {sections.map((s) => (
         <section
           key={s.id}
-          className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3"
+          className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-4 space-y-3"
         >
           <div className="flex items-start gap-3">
             <span className={cx("w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center", ICON_TONES[s.tone])}>

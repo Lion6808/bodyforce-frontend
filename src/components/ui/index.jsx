@@ -29,7 +29,7 @@ export function Card({ title, children, className = "" }) {
   return (
     <div
       className={cx(
-        "bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6",
+        "bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 p-6",
         className
       )}
     >

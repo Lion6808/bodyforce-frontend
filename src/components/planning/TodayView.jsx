@@ -231,7 +231,7 @@ export default function TodayView({
             <section
               role="group"
               aria-label="Filtrer par type de personne"
-              className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-2 flex flex-col gap-0.5"
+              className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-2 flex flex-col gap-0.5"
             >
               {filters.map((f) => {
                 const n = countFor(f.id);
@@ -261,7 +261,7 @@ export default function TodayView({
         {/* Colonne 2 : totaux de ce qui est affiché, puis la liste */}
         <section
           aria-label="Passages du jour"
-          className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm px-2 pt-2 min-w-0 min-h-0 flex flex-col"
+          className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg px-2 pt-2 min-w-0 min-h-0 flex flex-col"
         >
           <div className="flex items-center gap-2 px-3 pt-2.5 text-sm text-gray-700 dark:text-gray-300">
             <span className={cx("w-2 h-2 rounded-full flex-shrink-0", lastReceived ? "bg-green-600" : "bg-gray-400")} />
@@ -476,7 +476,7 @@ export default function TodayView({
         <section
           aria-label="Résumé de la période"
             aria-busy={!isDay && attendanceLoading}
-          className={cx("bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-4 transition-opacity", !isDay && attendanceLoading && "opacity-40")}
+          className={cx("bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-4 space-y-4 transition-opacity", !isDay && attendanceLoading && "opacity-40")}
         >
           <div className="grid grid-cols-3 gap-2">
             <div>

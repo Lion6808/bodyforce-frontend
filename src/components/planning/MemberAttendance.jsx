@@ -219,7 +219,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
     return (
       <div
         className={cx(
-          "bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-4",
+          "bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-5 space-y-4",
           loading && "opacity-70 transition-opacity"
         )}
       >
@@ -282,13 +282,13 @@ export default function MemberAttendance({ memberId, compact = false }) {
       )}
     >
       {/* Carte membre */}
-      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3.5 lg:col-start-1 lg:row-start-1">
+      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-4 space-y-3.5 lg:col-start-1 lg:row-start-1">
         {header}
         {tiles}
       </section>
 
       {/* Calendrier du mois */}
-      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 lg:p-5 space-y-2.5 lg:col-start-2 lg:row-start-1 lg:row-span-4">
+      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-4 lg:p-5 space-y-2.5 lg:col-start-2 lg:row-start-1 lg:row-span-4">
         <div role="group" aria-label="Affichage du calendrier" className="grid grid-cols-2 gap-1 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1">
           {[
             ["month", "Mois"],
@@ -489,7 +489,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
       </section>
 
       {/* Habitudes (90 jours) */}
-      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3 lg:col-start-1">
+      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-4 space-y-3 lg:col-start-1">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white">Habitudes (90 jours)</h3>
         <div className="grid grid-cols-7 gap-1.5 items-end h-[72px]">
           {stats.week.map((n, i) => (
@@ -513,7 +513,7 @@ export default function MemberAttendance({ memberId, compact = false }) {
       </section>
 
       {/* Derniers passages */}
-      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm px-4 py-2 lg:col-start-1">
+      <section className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg px-4 py-2 lg:col-start-1">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-2 mb-1">Derniers passages</h3>
         {recent.length === 0 && (
           <div className="py-3 text-sm text-gray-500 dark:text-gray-400">Aucun passage sur la période.</div>

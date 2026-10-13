@@ -838,7 +838,7 @@ function MembersPage() {
       </div>
 
       {/* 6.3 -- Action bar : ajout + recherche à gauche, outils à droite */}
-      <div className="flex flex-wrap items-start gap-3 mb-6 p-4 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="flex flex-wrap items-start gap-3 mb-6 p-4 bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700">
         {/* Add member — primary action */}
         <button
           className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-2 transition-colors font-medium flex-shrink-0"
@@ -958,7 +958,7 @@ function MembersPage() {
 
       {/* 6.5 -- Member list */}
       {filteredMembers.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 dark:text-gray-400">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 dark:text-gray-400">
           {search || activeFilter
             ? "Aucun membre ne correspond aux critères de recherche"
             : "Aucun membre trouvé dans la base de données"}
@@ -966,7 +966,7 @@ function MembersPage() {
       ) : (
         <>
           {/* 6.5.1 -- Desktop table view */}
-          <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
@@ -1180,7 +1180,7 @@ function MembersPage() {
                   ref={(el) => {
                     if (el) memberRefs.current[member.id] = el;
                   }}
-                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow duration-150 transform-gpu member-card"
+                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-xl transition-shadow duration-150 transform-gpu member-card"
                 >
                   {/* Card header: checkbox, avatar, name */}
                   <div className="flex items-start justify-between mb-3">

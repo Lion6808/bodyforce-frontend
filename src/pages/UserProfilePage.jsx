@@ -142,7 +142,7 @@ function StatTile({ icon: Icon, title, value, accent = "indigo" }) {
       : "bg-indigo-500/15 text-indigo-600 dark:text-indigo-300";
 
   return (
-    <div className={`p-4 rounded-2xl border dark:border-gray-700 shadow-sm bg-gradient-to-br ${gradient}`}>
+    <div className={`p-4 rounded-2xl border dark:border-gray-700 shadow-lg bg-gradient-to-br ${gradient}`}>
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}>
           <Icon className="text-lg" />
@@ -470,7 +470,7 @@ export default function UserProfilePage() {
       </div>
 
       {/* Identité & abonnement */}
-      <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
+      <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg mb-6">
         <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
@@ -500,7 +500,7 @@ export default function UserProfilePage() {
 
       {/* Coordonnées & Adresse */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+        <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
           <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Coordonnées</div>
           <div className="divide-y dark:divide-gray-700">
             <InfoRow icon={FaEnvelope} label="Email" value={email} />
@@ -510,7 +510,7 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+        <div className="p-4 md:p-6 rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
           <div className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Adresse</div>
           <div className="divide-y dark:divide-gray-700">
             <InfoRow icon={FaMapMarkerAlt} label="Adresse" value={address || "—"} />
@@ -522,7 +522,7 @@ export default function UserProfilePage() {
 
       {/* Notifications */}
       {pushStatus !== "unsupported" && (
-        <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mb-6">
+        <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg mb-6">
           <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
               <FaBell />
@@ -567,7 +567,7 @@ export default function UserProfilePage() {
       )}
 
       {/* Paiements */}
-      <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+      <div className="rounded-2xl border dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
         <div className="px-4 md:px-6 py-4 border-b dark:border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">

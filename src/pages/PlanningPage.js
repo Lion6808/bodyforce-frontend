@@ -243,7 +243,7 @@ function PlanningPage() {
         {/* En-tête collé en haut de la zone qui défile */}
         <div className="sticky -top-4 z-30 -mx-4 -mt-4 px-4 pt-4 pb-3 lg:-mx-8 lg:px-8 lg:pt-5 lg:pb-5 bg-gray-100 dark:bg-gray-900">
         {/* En-tête */}
-        <header className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3 lg:bg-transparent lg:dark:bg-transparent lg:border-0 lg:shadow-none lg:p-0 lg:space-y-0 lg:flex lg:items-center lg:gap-5">
+        <header className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-4 space-y-3 lg:bg-transparent lg:dark:bg-transparent lg:border-0 lg:shadow-none lg:p-0 lg:space-y-0 lg:flex lg:items-center lg:gap-5">
           <div className="flex items-center justify-between lg:contents">
             <h1 className="text-2xl lg:text-[28px] font-bold tracking-tight text-gray-900 dark:text-white">Planning</h1>
             <button
@@ -346,7 +346,7 @@ function PlanningPage() {
                 !withAside ? null : desktopMemberId ? (
                   <MemberAttendance memberId={desktopMemberId} compact />
                 ) : (
-                  <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
+                  <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-lg p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
                     Aucun membre sur cette période.
                   </div>
                 )
