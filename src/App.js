@@ -79,17 +79,16 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.12.0";
+const APP_VERSION = "2.13.0";
 
 const CHANGELOG = {
-  version: "2.12.0",
+  version: "2.13.0",
   date: "Octobre 2026",
   changes: [
-    "Une personne s'affiche partout de la même façon : photo, nom, étiquette, badge, lien vers la fiche",
-    "Messagerie bien plus légère : les photos ne sont plus rechargées pour tous les membres à chaque message",
-    "Invitations : 30 fiches à la fois, recherche par nom, e-mail ou n° de badge",
-    "Photos chargées une seule fois par session, quelle que soit la page",
-    "Badge présent sur deux fiches : la fiche active l'emporte (Planning et statistiques)",
+    "Passages : chaque lecture de badge indique si l'accès a été accepté (coche verte) ou refusé (« Refusé »)",
+    "Les badges refusés par le lecteur ne comptent plus comme des présences, dans toutes les statistiques",
+    "Planning : filtre « Refusés » et section « Badge refusé par le lecteur » dans le Contrôle",
+    "N° de badge court et n° long affichés ensemble dans les passages (Planning et accueil)",
   ],
 };
 
