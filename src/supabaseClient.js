@@ -681,6 +681,7 @@ export const supabaseServices = {
           .select('timestamp')
           .gte('timestamp', startDate)
           .lte('timestamp', endDate)
+          .eq('accepte', true)
           .order('timestamp', { ascending: true })
           .range(from, from + pageSize - 1);
 

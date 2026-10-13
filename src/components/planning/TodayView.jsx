@@ -9,6 +9,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { RefusedTag } from "../ui";
 import MemberIdentity from "../MemberIdentity";
 import { keyboardClickable } from "../../utils/a11y";
 import DayCalendar from "./DayCalendar";
@@ -16,6 +17,7 @@ import PeriodList from "./PeriodList";
 import useMemberPhotos from "../../hooks/useMemberPhotos";
 import { toDateString } from "../../utils/dateUtils";
 import {
+  DAY_FILTERS,
   FILTERS,
   addDays,
   fmtDate,
@@ -43,12 +45,15 @@ function decorate(passages) {
   const rows = [...passages].reverse().map((p) => {
     const kind = passageKind(p);
     const who = p.member_id ? `m${p.member_id}` : `b${p.badge_id}`;
-    const repeat = kind !== "exit" && seenBefore.has(who);
-    if (kind !== "exit") seenBefore.add(who);
+    // Badge refusé par le lecteur : la porte ne s'est pas ouverte, ce n'est pas une venue
+    const refused = p.accepte === false;
+    const repeat = kind !== "exit" && !refused && seenBefore.has(who);
+    if (kind !== "exit" && !refused) seenBefore.add(who);
 
     let alert = null;
     let sub = "";
-    if (kind === "inconnu") alert = "Badge non rattaché à une fiche";
+    if (refused) alert = "Badge refusé par le lecteur";
+    else if (kind === "inconnu") alert = "Badge non rattaché à une fiche";
     else if (kind === "exit") sub = "Sortie (bouton poussoir)";
     else if (kind === "maintenance") sub = "Ne compte pas dans les stats";
     else if (kind === "comite") sub = "Membre du comité";
@@ -56,7 +61,9 @@ function decorate(passages) {
       alert = p.end_date ? `Abonnement expiré le ${fmtDate(p.end_date)}` : "Aucune date de fin d'abonnement";
     else sub = `Abonnement jusqu'au ${fmtDate(p.end_date)}`;
 
-    return { ...p, kind, who, repeat, alert, sub, hour: new Date(p.ts).getHours() };
+    // N° court du badge lu (badge_mapping), y compris badge inconnu ou refusé
+    const badgeNo = p.badge_number != null ? `n° ${p.badge_number}` : "";
+    return { ...p, kind, who, refused, repeat, alert, sub, badgeNo, hour: new Date(p.ts).getHours() };
   });
   return rows.reverse();
 }
@@ -71,10 +78,14 @@ function PassageIdentity({ r, photos, size }) {
       member={r.member_id ? { id: r.member_id, name: r.name, first_name: r.first_name, member_type: r.member_type } : null}
       photo={r.member_id ? photos[r.member_id] ?? null : null}
       size={size}
-      subtitle={r.alert || r.sub}
+      subtitle={[r.badgeNo, r.alert || r.sub].filter(Boolean).join(" · ")}
       subtitleTone={r.alert ? "alert" : "muted"}
       extra={
-        r.repeat ? <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">nouveau passage</span> : null
+        r.refused ? (
+          <RefusedTag />
+        ) : r.repeat ? (
+          <span className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">nouveau passage</span>
+        ) : null
       }
     />
   );
@@ -124,19 +135,25 @@ export default function TodayView({
   attendance = [],
   attendanceLoading = false,
 }) {
-  const [filter, setFilter] = useState("all");
+  const [chosenFilter, setFilter] = useState("all");
   const isTodayView = sameDay(day, new Date());
+  const isDay = period === "day";
+  // « Refusés » n'existe qu'à la journée (les périodes ne comptent que les passages acceptés)
+  const filters = isDay ? DAY_FILTERS : FILTERS;
+  const filter = !isDay && chosenFilter === "refuse" ? "all" : chosenFilter;
 
   const rows = useMemo(() => decorate(passages), [passages]);
   const photos = useMemberPhotos(passages.map((p) => p.member_id));
-  const entries = rows.filter((r) => r.kind !== "exit");
+  const lines = rows.filter((r) => r.kind !== "exit");
+  const entries = lines.filter((r) => !r.refused);
   const visible = rows.filter((r) => {
     if (r.kind === "exit") return showExits && filter === "all";
+    if (filter === "refuse") return r.refused;
     return filter === "all" || r.kind === filter;
   });
 
   const people = new Set(entries.map((r) => r.who)).size;
-  const toCheck = entries.filter((r) => r.alert).length;
+  const toCheck = lines.filter((r) => r.alert).length;
 
   // Affluence par heure (passages d'entrée)
   const nowHour = new Date().getHours();
@@ -157,7 +174,6 @@ export default function TodayView({
   const lastTodayTs = isTodayView && entries[0] ? entries[0].ts : lastReceived;
 
   // Période (semaine, mois, année) : une ligne par personne
-  const isDay = period === "day";
   const periodRows = useMemo(
     () =>
       attendance.map((r) => ({
@@ -172,7 +188,8 @@ export default function TodayView({
   const totalPeople = isDay ? people : periodRows.length;
   const totalToCheck = isDay ? toCheck : periodRows.filter((r) => r.invalid_passages > 0 || !r.member_id).length;
   const countFor = (id) => {
-    const list = isDay ? entries : periodRows;
+    const list = isDay ? lines : periodRows;
+    if (id === "refuse") return list.filter((r) => r.refused).length;
     return id === "all" ? list.length : list.filter((r) => r.kind === id).length;
   };
   const atPresent = periodIncludesToday(period, day);
@@ -207,7 +224,7 @@ export default function TodayView({
               aria-label="Filtrer par type de personne"
               className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm p-2 flex flex-col gap-0.5"
             >
-              {FILTERS.map((f) => {
+              {filters.map((f) => {
                 const n = countFor(f.id);
                 const on = f.id === filter;
                 return (
@@ -495,7 +512,7 @@ export default function TodayView({
 
         {/* Filtres */}
         <div role="group" aria-label="Filtrer les passages" className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => {
+          {filters.map((f) => {
             const n = countFor(f.id);
             const on = f.id === filter;
             return (

@@ -7,11 +7,13 @@
 // Pill        : petite étiquette arrondie (statut)
 // Skeleton    : bloc de chargement animé
 // EmptyState  : message « aucune donnée »
+// RefusedTag  : étiquette « Refusé » d'un passage refusé par le lecteur de badge
 //
 // Design repris à l'identique des pages existantes (voir tones.js).
 // Les tuiles cliquables sont accessibles au clavier (Entrée / Espace).
 // ===================================================================
 
+import { XCircle } from "lucide-react";
 import { keyboardClickable } from "../../utils/a11y";
 import { getTone } from "./tones";
 
@@ -161,5 +163,23 @@ export function EmptyState({ icon: Icon, title = "Aucune donnée", children, cla
       <p className="font-medium">{title}</p>
       {children && <div className="text-sm mt-1">{children}</div>}
     </div>
+  );
+}
+
+// -------------------------------------------------------------------
+// RefusedTag — passage refusé par le lecteur (presences.accepte = false)
+// -------------------------------------------------------------------
+export function RefusedTag({ className = "" }) {
+  return (
+    <span
+      className={cx(
+        "flex-shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold",
+        "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+        className
+      )}
+    >
+      <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
+      Refusé
+    </span>
   );
 }

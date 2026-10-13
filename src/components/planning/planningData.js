@@ -122,6 +122,9 @@ export const FILTERS = [
   { id: "inconnu", label: "Inconnus" },
 ];
 
+/** Filtres de la journée : + passages refusés par le lecteur de badge. */
+export const DAY_FILTERS = [...FILTERS, { id: "refuse", label: "Refusés" }];
+
 // -------------------------------------------------------------------
 // Contrôle : anomalies + « Marquer vu »
 // -------------------------------------------------------------------
@@ -184,6 +187,23 @@ export function buildControlSections(anomalies, seen) {
         )} depuis · dernier ${fmtRelative(x.last_ts).toLowerCase()}`,
         lastTs: x.last_ts,
         action: { type: "member", label: "Voir la fiche", memberId: x.member_id },
+      })),
+    },
+    {
+      id: "refused",
+      tone: "red",
+      title: "Badge refusé par le lecteur",
+      hint: "La porte ne s'est pas ouverte : badge désactivé dans Intratone, hors plage horaire ou non programmé.",
+      items: (anomalies.refused || []).map((x) => ({
+        key: `refused:${x.badge_id}`,
+        who: x.member_id ? fullName(x) : `Badge ${x.badge_id}`,
+        member: x.member_id ? { id: x.member_id, name: x.name, first_name: x.first_name } : null,
+        badgeId: x.badge_id,
+        detail: `${plural(x.count, "refus", "refus")} · dernier ${fmtRelative(x.last_ts).toLowerCase()}`,
+        lastTs: x.last_ts,
+        action: x.member_id
+          ? { type: "member", label: "Voir la fiche", memberId: x.member_id }
+          : { type: "copy", label: "Copier le n° de badge", value: x.badge_id },
       })),
     },
     {

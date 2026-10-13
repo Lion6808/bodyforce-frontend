@@ -54,6 +54,7 @@ import { supabaseServices, supabase } from "../supabaseClient";
 import { keyboardClickable } from "../utils/a11y";
 import { useAuth } from "../contexts/AuthContext";
 import MemberIdentity from "../components/MemberIdentity";
+import { RefusedTag } from "../components/ui";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
@@ -82,6 +83,25 @@ const getTimeAgo = (date) => {
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays < 7) return `Il y a ${diffInDays}j`;
   return format(date, "dd/MM/yyyy");
+};
+
+/**
+ * N° de badge court (badge_mapping) des badges longs donnés : { badgeId: n° }.
+ * Fonctionne aussi pour un badge sans fiche ou refusé par le lecteur.
+ */
+const fetchShortBadgeNumbers = async (badgeIds) => {
+  if (!badgeIds.length) return {};
+  const { data, error } = await supabase
+    .from("badge_mapping")
+    .select("badge_number,badge_real_id")
+    .in("badge_real_id", badgeIds);
+  if (error || !data) return {};
+  return data.reduce((acc, b) => {
+    if (acc[b.badge_real_id] == null || b.badge_number < acc[b.badge_real_id]) {
+      acc[b.badge_real_id] = b.badge_number;
+    }
+    return acc;
+  }, {});
 };
 
 // =============================================================================
@@ -282,7 +302,7 @@ function HomePage() {
           ),
           supabase
             .from("presences")
-            .select("id,badgeId,timestamp")
+            .select("id,badgeId,timestamp,accepte")
             .gte("timestamp", start.toISOString())
             .lte("timestamp", end.toISOString())
             .not("badgeId", "is", null)
@@ -339,12 +359,16 @@ function HomePage() {
           }
         }
 
+        const shortByBadge = await fetchShortBadgeNumbers(badgeIds);
+
         setRecentPresences(
           recent.map((r) => ({
             id: r.id,
             ts: r.timestamp,
             member: membersByBadge[r.badgeId],
             badgeId: r.badgeId,
+            badgeNumber: shortByBadge[r.badgeId] ?? null,
+            refused: r.accepte === false,
           }))
         );
       } catch (e) {
@@ -480,7 +504,7 @@ function HomePage() {
       try {
         const { data: presencesData } = await supabase
           .from("presences")
-          .select("id,badgeId,timestamp")
+          .select("id,badgeId,timestamp,accepte")
           .not("badgeId", "is", null)
           .neq("badgeId", "")
           .order("timestamp", { ascending: false })
@@ -506,12 +530,16 @@ function HomePage() {
           }
         }
 
+        const shortByBadge = await fetchShortBadgeNumbers(badgeIds);
+
         setRecentPresences(
           presencesData.map((r) => ({
             id: r.id,
             ts: r.timestamp,
             member: membersByBadge[r.badgeId],
             badgeId: r.badgeId,
+            badgeNumber: shortByBadge[r.badgeId] ?? null,
+            refused: r.accepte === false,
           }))
         );
       } catch (e) {
@@ -604,6 +632,7 @@ function HomePage() {
           .from("presences")
           .select("timestamp")
           .eq("badgeId", memberCtx.badgeId)
+          .eq("accepte", true)
           .gte("timestamp", startDate.toISOString())
           .order("timestamp", { ascending: false });
 
@@ -1102,8 +1131,18 @@ function HomePage() {
                         photo={m ? photosCache[m.id] || null : null}
                         size={40}
                         subtitle={`${
-                          isBP ? "Bouton Poussoir • " : m?.badgeId ? `Badge ${m.badgeId} • ` : ""
+                          r.refused ? "Refusé par le lecteur • " : ""
+                        }${
+                          isBP
+                            ? "Bouton Poussoir • "
+                            : r.badgeNumber != null
+                              ? `Badge n° ${r.badgeNumber} • `
+                              : m?.badgeId
+                                ? `Badge ${m.badgeId} • `
+                                : ""
                         }${timeAgo}`}
+                        subtitleTone={r.refused ? "alert" : "muted"}
+                        extra={r.refused ? <RefusedTag /> : null}
                       />
 
                       {/* Heure + date */}
