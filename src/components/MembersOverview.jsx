@@ -21,15 +21,19 @@ import { Card, MetricTile, StatBox } from "./ui";
  * @param {string}   [props.activeFilter] - filtre sélectionné (page Membres)
  * @param {Function} [props.onSelect] - si fourni, les tuiles deviennent des filtres
  * @param {string}   [props.className]
+ * @param {boolean}  [props.bare] - sans cartes autour (intégré dans MembersStatsWidget)
  */
-export default function MembersOverview({ stats, activeFilter, onSelect, className = "" }) {
+export default function MembersOverview({ stats, activeFilter, onSelect, className = "", bare = false }) {
   const select = (filter) => (onSelect ? () => onSelect(filter) : undefined);
   const isActive = (filter) => Boolean(onSelect) && activeFilter === filter;
 
+  // En mode « bare », les deux blocs sont de simples sections (pas de carte dans la carte)
+  const Section = bare ? BareSection : Card;
+
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${className}`}>
+    <div className={`grid grid-cols-1 md:grid-cols-2 ${bare ? "gap-6" : "gap-4"} ${className}`}>
       {/* Total + Actifs / Expirés */}
-      <Card>
+      <Section>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Total Membres</h2>
         <div className="flex items-baseline gap-2 mb-4">
           <span className="text-4xl font-bold text-gray-900 dark:text-white">{stats.total}</span>
@@ -52,10 +56,10 @@ export default function MembersOverview({ stats, activeFilter, onSelect, classNa
             onClick={select("Expiré")}
           />
         </div>
-      </Card>
+      </Section>
 
       {/* Répartition */}
-      <Card title="Répartition">
+      <Section title="Répartition">
         <div className="grid grid-cols-3 gap-3">
           <StatBox
             icon={FaMale}
@@ -82,7 +86,18 @@ export default function MembersOverview({ stats, activeFilter, onSelect, classNa
             onClick={select("Etudiant")}
           />
         </div>
-      </Card>
+      </Section>
+    </div>
+  );
+}
+
+function BareSection({ title, children }) {
+  return (
+    <div>
+      {title && (
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h2>
+      )}
+      {children}
     </div>
   );
 }

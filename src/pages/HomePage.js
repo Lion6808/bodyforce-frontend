@@ -24,8 +24,7 @@ import {
   FaBell,
   FaChartBar,
 } from "react-icons/fa";
-import ActiveMembersSummary from "../components/ActiveMembersSummary";
-import MembersOverview from "../components/MembersOverview";
+import MembersStatsWidget from "../components/MembersStatsWidget";
 import useMemberPhotos from "../hooks/useMemberPhotos";
 import { SkeletonPulse, SkeletonListItem } from "../components/home/HomeSkeletons";
 import { AdminMotivationWidgets } from "../components/home/AdminMotivationWidgets";
@@ -848,26 +847,21 @@ function HomePage() {
       {/* ------------------------------------------------------------------ */}
       {user && (
         loading.stats ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
-              <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
-              <SkeletonPulse className="h-10 w-20 mb-4 rounded" />
-              <div className="grid grid-cols-2 gap-3">
-                <SkeletonPulse className="h-20 rounded-2xl" />
-                <SkeletonPulse className="h-20 rounded-2xl" />
-              </div>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-8 animate-pulse">
+            <div className="flex items-center justify-between mb-5">
+              <SkeletonPulse className="h-6 w-28 rounded" />
+              <SkeletonPulse className="h-11 w-44 sm:w-56 rounded-2xl" />
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
-              <SkeletonPulse className="h-6 w-32 mb-4 rounded" />
-              <div className="grid grid-cols-3 gap-3">
-                <SkeletonPulse className="h-20 rounded-2xl" />
-                <SkeletonPulse className="h-20 rounded-2xl" />
-                <SkeletonPulse className="h-20 rounded-2xl" />
-              </div>
+            <SkeletonPulse className="h-10 w-48 mb-4 rounded" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <SkeletonPulse className="h-24 rounded-2xl" />
+              <SkeletonPulse className="h-24 rounded-2xl" />
+              <SkeletonPulse className="h-24 rounded-2xl" />
+              <SkeletonPulse className="h-24 rounded-2xl" />
             </div>
           </div>
         ) : (
-          <MembersOverview
+          <MembersStatsWidget
             className="mb-8"
             stats={{
               total: stats.total,
@@ -877,13 +871,9 @@ function HomePage() {
               femmes: stats.femmes,
               etudiants: stats.etudiants,
             }}
+            synthese={stats.synthese}
           />
         )
-      )}
-
-      {/* Synthèse des adhérents actifs (H / F / étudiants H / étudiantes F) */}
-      {user && !loading.stats && stats.synthese && (
-        <ActiveMembersSummary {...stats.synthese} />
       )}
 
       {/* ------------------------------------------------------------------ */}

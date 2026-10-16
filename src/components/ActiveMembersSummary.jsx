@@ -34,6 +34,7 @@ const pct = (value, total) =>
  * @param {number} props.comite - membres du comité actifs (hors synthèse)
  * @param {string}   [props.activeFilter] - filtre sélectionné (page Membres)
  * @param {Function} [props.onSelect] - si fourni, les chiffres deviennent des filtres
+ * @param {boolean}  [props.bare] - sans carte autour (intégré dans MembersStatsWidget)
  */
 export default function ActiveMembersSummary({
   actifs = 0,
@@ -44,6 +45,7 @@ export default function ActiveMembersSummary({
   comite = 0,
   activeFilter,
   onSelect,
+  bare = false,
 }) {
   const select = (key) => (onSelect ? () => onSelect(SYNTHESE_FILTERS[key]) : undefined);
   const isActive = (key) => Boolean(onSelect) && activeFilter === SYNTHESE_FILTERS[key];
@@ -60,8 +62,11 @@ export default function ActiveMembersSummary({
   const menShare = pct(hommes, hommes + femmes);
   const ofActive = (value) => `${pct(value, actifs)} % des actifs`;
 
+  const Wrapper = bare ? "div" : Card;
+  const wrapperProps = bare ? {} : { className: "mb-6" };
+
   return (
-    <Card className="mb-6">
+    <Wrapper {...wrapperProps}>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-xl bg-green-500/15">
           <FaUserCheck className="text-green-600 dark:text-green-400" size={18} />
@@ -140,6 +145,6 @@ export default function ActiveMembersSummary({
           onClick={select("etudiantsFemmes")}
         />
       </div>
-    </Card>
+    </Wrapper>
   );
 }
