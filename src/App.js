@@ -79,16 +79,16 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.13.0";
+const APP_VERSION = "2.13.1";
 
 const CHANGELOG = {
-  version: "2.13.0",
+  version: "2.13.1",
   date: "Octobre 2026",
   changes: [
-    "Passages : chaque lecture de badge indique si l'accès a été accepté (coche verte) ou refusé (« Refusé »)",
-    "Les badges refusés par le lecteur ne comptent plus comme des présences, dans toutes les statistiques",
-    "Planning : filtre « Refusés » et section « Badge refusé par le lecteur » dans le Contrôle",
-    "N° de badge court et n° long affichés ensemble dans les passages (Planning et accueil)",
+    "Fiche membre et « Mes présences » : les passages de l'ancien titulaire d'un badge réattribué n'apparaissent plus",
+    "Passages enregistrés à la bonne heure lors des changements d'heure (fin mars et fin octobre)",
+    "Notification « Fin d'entraînement ? » envoyée une seule fois par séance",
+    "Sécurité : seul un administrateur peut modifier un rôle",
   ],
 };
 
