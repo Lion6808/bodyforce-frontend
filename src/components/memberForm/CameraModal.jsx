@@ -1,5 +1,6 @@
 // Fenêtre caméra plein écran (photo membre / document) — extraite de MemberFormPage
 
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -28,15 +29,20 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [availableCameras, setAvailableCameras] = useState([]);
   const [facingMode, setFacingMode] = useState("user");
+  // Incrémenté pour relancer la caméra (Reprendre / Réessayer)
+  const [restartKey, setRestartKey] = useState(0);
 
   /** Stop all tracks on the current video stream. */
+  // Flux gardé hors de la balise vidéo : à la fermeture, React détache la vidéo
+  // avant le nettoyage, et la caméra restait allumée ("déjà utilisée" ensuite).
+  const streamRef = useRef(null);
   const cleanupStream = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const currentStream = videoRef.current.srcObject;
-      currentStream.getTracks().forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
       setStream(null);
     }
+    if (videoRef.current) videoRef.current.srcObject = null;
   };
 
   // Initialize or tear down the camera when modal opens/closes or facing mode changes
@@ -57,11 +63,9 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       setCapturedPhoto(null);
 
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(
-          (device) => device.kind === "videoinput"
-        );
-        if (isMounted) setAvailableCameras(videoDevices);
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw Object.assign(new Error("unsupported"), { name: "NotSupportedError" });
+        }
 
         const constraints = {
           video: {
@@ -72,20 +76,52 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           audio: false,
         };
 
-        const newStream = await navigator.mediaDevices.getUserMedia(
-          constraints
-        );
-        if (isMounted && videoRef.current) {
-          videoRef.current.srcObject = newStream;
-          await videoRef.current.play();
-          setStream(newStream);
+        let newStream;
+        try {
+          newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (firstErr) {
+          if (firstErr.name === "NotAllowedError" || firstErr.name === "NotFoundError") {
+            throw firstErr;
+          }
+          // Réglages refusés par l'appareil ou caméra pas encore libérée
+          // (bascule avant/arrière sur Android) : une seule relance, réglages minimaux.
+          await new Promise((r) => setTimeout(r, 400));
+          if (!isMounted) return;
+          newStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facingMode } },
+            audio: false,
+          });
+        }
+        // Fenêtre fermée ou caméra changée pendant l'attente : couper ce flux,
+        // sinon il reste ouvert et bloque la caméra ("déjà utilisée") ensuite.
+        if (!isMounted || !videoRef.current) {
+          newStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = newStream;
+        videoRef.current.srcObject = newStream;
+        // play() peut être interrompu (iOS) alors que autoPlay prend le relais : non bloquant
+        await videoRef.current.play().catch(() => {});
+        if (!isMounted) return;
+        setStream(newStream); // active le déclencheur une fois l'image arrivée
+
+        // Liste des caméras après autorisation (avant, certains navigateurs n'en donnent qu'une)
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (isMounted) {
+          setAvailableCameras(devices.filter((d) => d.kind === "videoinput"));
         }
       } catch (err) {
         let errorMessage = "Impossible d'accéder à la caméra.";
         if (err.name === "NotReadableError") {
-          errorMessage = "La caméra est déjà utilisée.";
+          errorMessage = "La caméra est déjà utilisée par une autre application.";
         } else if (err.name === "NotAllowedError") {
-          errorMessage = "L'accès à la caméra a été refusé.";
+          errorMessage =
+            "L'accès à la caméra a été refusé. Autorise-la dans les réglages du navigateur.";
+        } else if (err.name === "NotFoundError") {
+          errorMessage = "Aucune caméra détectée. Utilise « Choisir un fichier ».";
+        } else if (err.name === "NotSupportedError") {
+          errorMessage =
+            "Caméra non disponible sur cet appareil. Utilise « Choisir un fichier ».";
         }
         if (isMounted) setError(errorMessage);
       } finally {
@@ -98,7 +134,7 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
       isMounted = false;
       cleanupStream();
     };
-  }, [isOpen, facingMode]);
+  }, [isOpen, facingMode, restartKey]);
 
   /** Toggle between front and back camera. */
   const switchCamera = () => {
@@ -113,6 +149,8 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    // Image pas encore reçue : une capture donnerait une photo vide
+    if (!video.videoWidth || !video.videoHeight) return;
     const context = canvas.getContext("2d");
     const maxSize = 256;
 
@@ -162,14 +200,19 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
   const retakePhoto = () => {
     setCapturedPhoto(null);
     setIsLoading(true);
-    const currentMode = facingMode;
-    setFacingMode("");
-    setTimeout(() => setFacingMode(currentMode), 0);
+    setRestartKey((k) => k + 1);
+  };
+
+  /** Retry after a camera error. */
+  const retryCamera = () => {
+    setError(null);
+    setRestartKey((k) => k + 1);
   };
 
   if (!isOpen) return null;
 
-  return (
+  // Portail : la page est animée (transform), un "fixed" y serait calé sur la page et non sur l'écran
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
       <div
         className={`${
@@ -205,6 +248,14 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
             <div className="mb-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-center max-w-md">
               <p className="font-medium mb-2">Erreur caméra</p>
               <p className="text-sm">{error}</p>
+              <button
+                type="button"
+                onClick={retryCamera}
+                className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Réessayer
+              </button>
             </div>
           )}
 
@@ -305,6 +356,7 @@ export function CameraModal({ isOpen, onClose, onCapture, isDarkMode }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

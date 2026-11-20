@@ -1,5 +1,6 @@
 // Petits composants de la fiche membre (badge de statut, confirmation) — extraits de MemberFormPage
 
+import { createPortal } from "react-dom";
 import { FaTrash, FaGraduationCap, FaTimes } from "react-icons/fa";
 
 /**
@@ -45,7 +46,8 @@ export function ConfirmDialog({
 }) {
   if (!isOpen) return null;
 
-  return (
+  // Portail : la page est animée (transform), un "fixed" y serait calé sur la page et non sur l'écran
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
         <div className="p-6">
@@ -94,6 +96,7 @@ export function ConfirmDialog({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

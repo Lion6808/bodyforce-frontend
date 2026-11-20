@@ -20,6 +20,7 @@
 // ===================================================================
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Camera,
@@ -107,6 +108,7 @@ function MemberFormPage() {
   });
 
   const [showCamera, setShowCamera] = useState(null);
+  const [photoZoom, setPhotoZoom] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [uploadStatus, setUploadStatus] = useState({
     loading: false,
@@ -854,15 +856,24 @@ function MemberFormPage() {
             <div className="relative flex-shrink-0 lg:mx-auto lg:mb-4">
               {form.photo ? (
                 <div className="relative">
-                  <img
-                    src={form.photo}
-                    alt="Photo du membre"
-                    className="w-20 h-20 lg:w-32 lg:h-32 object-cover rounded-full border-4 border-gray-200 dark:border-gray-600 shadow-lg mx-auto"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setPhotoZoom(true)}
+                    aria-label="Agrandir la photo"
+                    className="block rounded-full mx-auto"
+                  >
+                    <img
+                      src={form.photo}
+                      alt="Photo du membre"
+                      className="w-20 h-20 lg:w-32 lg:h-32 object-cover rounded-full border-4 border-gray-200 dark:border-gray-600 shadow-lg mx-auto"
+                    />
+                  </button>
+                  {/* Croix décalée hors de la photo pour éviter un appui par erreur ; suppression toujours confirmée */}
                   <button
                     type="button"
                     onClick={handleRemovePhoto}
-                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                    aria-label="Supprimer la photo"
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 border-2 border-white dark:border-gray-800 hover:bg-red-600 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -963,7 +974,15 @@ function MemberFormPage() {
                           });
                         }
                       };
+                      reader.onerror = () =>
+                        setUploadStatus({
+                          loading: false,
+                          error: "Erreur lors de la lecture du fichier",
+                          success: null,
+                        });
                       reader.readAsDataURL(file);
+                      // Permet de rechoisir la même image ensuite
+                      e.target.value = "";
                     } catch (err) {
                       setUploadStatus({
                         loading: false,
@@ -1168,6 +1187,23 @@ function MemberFormPage() {
       </div>
 
       {/* ============ Modals ============ */}
+      {/* Portail : un parent animé (transform) décalerait le "fixed" hors de l'écran */}
+      {photoZoom && form.photo && createPortal(
+        <div
+          role="dialog"
+          aria-label="Photo du membre en grand"
+          onClick={() => setPhotoZoom(false)}
+          className="photo-zoom-backdrop fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 cursor-zoom-out"
+        >
+          <img
+            src={form.photo}
+            alt="Photo du membre"
+            className="photo-zoom-img w-full max-w-sm aspect-square object-cover rounded-3xl shadow-lg border-4 border-white/80"
+          />
+        </div>,
+        document.body
+      )}
+
       {showCamera && (
         <CameraModal
           key={showCamera}

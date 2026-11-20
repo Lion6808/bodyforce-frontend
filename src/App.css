@@ -1210,3 +1210,17 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+/* Agrandissement de la photo membre (fiche) */
+@keyframes photoZoomIn {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes photoFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.photo-zoom-backdrop { animation: photoFadeIn 0.2s ease-out; }
+.photo-zoom-img { animation: photoZoomIn 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+@media (prefers-reduced-motion: reduce) {
+  .photo-zoom-backdrop, .photo-zoom-img { animation: none; }
+}
