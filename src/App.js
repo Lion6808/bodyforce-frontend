@@ -79,10 +79,10 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.13.1";
+const APP_VERSION = "2.14.0";
 
 const CHANGELOG = {
-  version: "2.13.1",
+  version: "2.14.0",
   date: "Octobre 2026",
   changes: [
     "Fiche membre et « Mes présences » : les passages de l'ancien titulaire d'un badge réattribué n'apparaissent plus",
