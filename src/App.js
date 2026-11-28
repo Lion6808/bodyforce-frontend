@@ -79,12 +79,14 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.14.1";
+const APP_VERSION = "2.15.0";
 
 const CHANGELOG = {
-  version: "2.14.1",
+  version: "2.15.0",
   date: "Novembre 2026",
   changes: [
+    "Application reconstruite avec Vite (remplace react-scripts, abandonné) : chargement plus rapide",
+    "Navigation mise à jour (React Router 7)",
     "Sécurité : mise à jour des bibliothèques PDF (jsPDF 4) et Excel (SheetJS 0.20.3)",
     "Sécurité : corrections des dépendances signalées par npm audit",
     "Emails : un envoi refusé par le service d'envoi est désormais compté en échec",

@@ -48,10 +48,19 @@ src/
 - **Une règle métier = un seul endroit** (`utils/`). Ne jamais recalculer « actif / expiré » ou une
   date de fin dans une page : importer `memberRules` / `subscription`.
 - **Mobile : aucun défilement horizontal** (onglets en grille, pastilles en `flex-wrap`).
-- **Le build CRA ne détecte pas les variables non définies** (pas d'`eslintConfig`) : après tout
-  déplacement de code, lancer ESLint `react-app` + `no-undef` (méthode dans la mémoire du projet).
+- **Le build Vite ne détecte pas les variables non définies** : après tout déplacement de code,
+  lancer ESLint avec `no-undef`. Depuis v2.15.0, `eslint-config-react-app` n'est plus installé
+  (il venait de react-scripts) : l'installer ponctuellement si besoin.
 - **Vérification** : `node tour-bf.mjs http://localhost:3000 <dossier> <fichier-identifiants> [mobile]`
   (build + `npx serve -s build -l 3000` d'abord).
+
+### Build Vite (depuis v2.15.0, remplace react-scripts / CRA)
+- `npm start` = serveur de dev Vite (port 3000) ; `npm run build` = `vite build` + Workbox → `build/`.
+- `index.html` est à la **racine** du dossier (plus dans `public/`).
+- Config : `vite.config.mjs`. Les variables restent `REACT_APP_*` lues via `process.env.REACT_APP_*`
+  (remplacées au build) — toute **nouvelle** variable doit être ajoutée à `KNOWN_KEYS`.
+- JSX autorisé dans les `.js`. Node ≥ 20.19 requis (`engines` dans package.json, lu par Render).
+- `overrides` (package.json) : glob 14, tmp 0.2.7, uuid 11 forcés pour npm audit = 0.
 
 ### Pages principales
 | Page | Rôle |
