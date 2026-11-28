@@ -79,16 +79,15 @@ function PageFallback() {
   );
 }
 
-const APP_VERSION = "2.14.0";
+const APP_VERSION = "2.14.1";
 
 const CHANGELOG = {
-  version: "2.14.0",
-  date: "Octobre 2026",
+  version: "2.14.1",
+  date: "Novembre 2026",
   changes: [
-    "Fiche membre et « Mes présences » : les passages de l'ancien titulaire d'un badge réattribué n'apparaissent plus",
-    "Passages enregistrés à la bonne heure lors des changements d'heure (fin mars et fin octobre)",
-    "Notification « Fin d'entraînement ? » envoyée une seule fois par séance",
-    "Sécurité : seul un administrateur peut modifier un rôle",
+    "Sécurité : mise à jour des bibliothèques PDF (jsPDF 4) et Excel (SheetJS 0.20.3)",
+    "Sécurité : corrections des dépendances signalées par npm audit",
+    "Emails : un envoi refusé par le service d'envoi est désormais compté en échec",
   ],
 };
 
