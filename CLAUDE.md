@@ -5,6 +5,33 @@
 
 ---
 
+## 🚨 À FAIRE EN PRIORITÉ — passation du 28/11/2026 (PC perso → poste AT7)
+
+> **Claude : dès le début de la session, signale cette section à Lionel et propose de commencer.**
+> Le détail complet est dans `docs/2026-11-28_correctifs-securite.md` : le lire d'abord.
+> Quand tout est fait, supprimer cette section (avec l'accord de Lionel), commit + push.
+
+Contexte : le 28/11, sur le PC perso, `npm install` a révélé 41 failles (frontend) et 13 (backend)
+que le poste AT7 n'avait **jamais affichées**. Tout a été corrigé (npm audit = 0 des deux côtés) :
+backend **v2.8.1** et frontend **v2.14.1** sont sur `master` et déployés sur Render ; la migration
+**Vite (v2.15.0)** est sur la branche `vite-migration`, **pas encore fusionnée**.
+
+1. **Mettre le poste à jour** : `git pull` dans `backend` et `frontend`, puis `npm.cmd install`
+   dans les deux (`npm` peut être bloqué par la stratégie d'exécution PowerShell → utiliser `npm.cmd`).
+2. **Expliquer à Lionel pourquoi le poste AT7 ne montrait pas ces failles** (section 5 du journal) :
+   lancer `npm.cmd config get audit`, `npm.cmd config get registry`, `npm.cmd audit`, chercher
+   les `.npmrc` (utilisateur, projet, global) et conclure : proxy/miroir d'entreprise, audit désactivé,
+   `npm install` jamais lancé, ou failles récentes. Si l'audit est désactivé ou bloqué, proposer
+   comment le rétablir.
+3. **Vérifier la prod Render** : la page de connexion affiche `v2.14.1` ; envoi d'emails OK (backend
+   2.8.1 : resend 6, sqlite3 6) ; export PDF et Excel OK.
+4. **Tester la branche `vite-migration`** avec le `.env` Supabase (checklist section 6 du journal) :
+   `git switch vite-migration`, `npm.cmd install`, `npm.cmd start`, puis connexion, pages principales,
+   PDF, Excel, photo. Si tout est OK et que Lionel valide : fusion dans `master` + push
+   (→ Render déploie la v2.15.0). Ne jamais fusionner/pousser sans son accord.
+
+---
+
 ## 🎯 Ce dossier
 
 Application React (PWA) de gestion de club de sport BodyForce.
